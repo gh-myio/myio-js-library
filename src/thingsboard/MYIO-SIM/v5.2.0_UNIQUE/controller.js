@@ -2001,6 +2001,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byShoppingTotal: buildEnergyCategoryDataByShopping(classifiedData),
             shoppingsEnergy: buildCustomersEnergyBreakdown(classifiedData),
             entityLabel: settings.goalsEntityLabel || 'Shopping',
+            loading: isConsumptionLoading(window.MyIOOrchestratorData?.classified),
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -2020,6 +2021,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byShoppingTotal: buildWaterCategoryDataByShopping(classifiedData),
             shoppingsWater: buildCustomersWaterBreakdown(classifiedData),
             entityLabel: settings.goalsEntityLabel || 'Shopping',
+            loading: isConsumptionLoading(window.MyIOOrchestratorData?.classified),
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -2442,6 +2444,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byShoppingTotal: buildEnergyCategoryDataByShopping(filteredClassified),
             shoppingsEnergy: buildCustomersEnergyBreakdown(filteredClassified),
             entityLabel: settings.goalsEntityLabel || 'Shopping',
+            loading: isConsumptionLoading(window.MyIOOrchestratorData?.classified),
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -2460,6 +2463,7 @@ body.filter-modal-open { overflow: hidden !important; }
             byShoppingTotal: buildWaterCategoryDataByShopping(filteredClassified),
             shoppingsWater: buildCustomersWaterBreakdown(filteredClassified),
             entityLabel: settings.goalsEntityLabel || 'Shopping',
+            loading: isConsumptionLoading(window.MyIOOrchestratorData?.classified),
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -2588,10 +2592,9 @@ body.filter-modal-open { overflow: hidden !important; }
       const devices =
         window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || [];
       telemetryGridInstance.updateDevices(devices);
-      // Only hide spinner after API enrichment (/totals) completes.
-      // The first myio:data-ready fires right after TB classification (no consumption data yet).
-      // apiEnriched=true is set only after enrichDevicesWithConsumption() returns.
-      if (devices.length > 0 && apiEnriched) {
+      // A 1ª myio:data-ready chega logo após a classificação do TB, ainda sem consumo: os cards
+      // já mostram o spinner no valor (dataLoading), então o busy da grade pode sair.
+      if (devices.length > 0 && (apiEnriched || isConsumptionLoading(window.MyIOOrchestratorData?.classified))) {
         hideMenuBusy();
       }
     }
@@ -2961,7 +2964,15 @@ body.filter-modal-open { overflow: hidden !important; }
     }
 
     _isReloading = true;
-    showMenuBusy('reload', 'Atualizando dados...');
+    // Spinner em cada card e nos KPIs de consumo (sem bloquear a tela) + aviso discreto
+    setConsumptionLoading(classified, true);
+    headerInstance?.setConsumptionLoading?.(true);
+    if (telemetryGridInstance) {
+      telemetryGridInstance.updateDevices(
+        window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || []
+      );
+    }
+    const reloadToast = MyIOLibrary.MyIOToast?.info?.('Atualizando consumo do período…', 0);
 
     try {
       LogHelper.log('[MAIN_UNIQUE] Re-enriching data with current date range...');
@@ -3031,11 +3042,21 @@ body.filter-modal-open { overflow: hidden !important; }
         })
       );
 
+      // Faixas por shopping junto (sem elas o chip do KPI volta para "Aguardando dados")
+      const minTempReload = Number(window.MyIOUtils?.temperatureLimits?.minTemperature ?? 18);
+      const maxTempReload = Number(window.MyIOUtils?.temperatureLimits?.maxTemperature ?? 26);
+      const tempStatusReload = buildCustomersTemperatureStatus(enriched, minTempReload, maxTempReload);
       window.dispatchEvent(
         new CustomEvent('myio:temperature-data-ready', {
           detail: {
             globalAvg: tempAvg,
+            isFiltered: false,
+            shoppingsInRange: tempStatusReload.shoppingsInRange,
+            shoppingsOutOfRange: tempStatusReload.shoppingsOutOfRange,
             totalDevices: temperatureItems.length,
+            temperatureMin: minTempReload,
+            temperatureMax: maxTempReload,
+            byStatus: buildTooltipStatusData(temperatureItems),
             lastUpdated: new Date().toISOString(),
           },
         })
@@ -3043,10 +3064,19 @@ body.filter-modal-open { overflow: hidden !important; }
 
       LogHelper.log('[MAIN_UNIQUE] Data reload complete');
       hideMenuBusy();
+      reloadToast?.hide?.();
       MyIOLibrary.MyIOToast?.success?.('Dados atualizados com sucesso');
     } catch (err) {
       LogHelper.error('[MAIN_UNIQUE] Error reloading data:', err);
       hideMenuBusy({ immediate: true });
+      reloadToast?.hide?.();
+      // Tira os spinners (o enriquecimento já limpou os devices) e mostra o estado vazio
+      headerInstance?.setConsumptionLoading?.(false);
+      if (telemetryGridInstance) {
+        telemetryGridInstance.updateDevices(
+          window.MyIOOrchestrator?.getDevices?.(currentTelemetryDomain, currentTelemetryContext) || []
+        );
+      }
       MyIOLibrary.MyIOToast?.error?.('Erro ao atualizar dados');
     } finally {
       _isReloading = false;
@@ -3327,6 +3357,18 @@ body.filter-modal-open { overflow: hidden !important; }
   // inclui medidores fora do datasource TB (ex.: trafos de entrada).
   // Retorna Map<ingestionCustomerId, total>.
   const fetchAllCustomersConsumption = async (apiDomain, startISO, endISO) => {
+    const sumByCustomer = (rows) => {
+      const byCustomer = new Map();
+      for (const d of rows) {
+        const cid = d.customerId || d.customer_id || '';
+        if (!cid) continue;
+        byCustomer.set(cid, (byCustomer.get(cid) || 0) + (Number(d.total_value ?? d.value) || 0));
+      }
+      return byCustomer;
+    };
+    const summaryRows = await fetchHoldingSummaryRows(apiDomain, startISO, endISO);
+    if (summaryRows) return sumByCustomer(summaryRows);
+
     const creds = window.MyIOUtils?.getCredentials?.();
     if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return null;
     const auth = MyIOLibrary.buildMyioIngestionAuth({
@@ -3348,14 +3390,7 @@ body.filter-modal-open { overflow: hidden !important; }
     });
     if (!res.ok) return null;
     const payload = await res.json();
-    const arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
-    const byCustomer = new Map();
-    for (const d of arr) {
-      const cid = d.customerId || d.customer_id || '';
-      if (!cid) continue;
-      byCustomer.set(cid, (byCustomer.get(cid) || 0) + (Number(d.total_value ?? d.value) || 0));
-    }
-    return byCustomer;
+    return sumByCustomer(Array.isArray(payload) ? payload : (payload?.data ?? []));
   };
 
   // ── ENERGIA: as metas são definidas contra os medidores de ENTRADA (mesma semântica
@@ -3439,30 +3474,34 @@ body.filter-modal-open { overflow: hidden !important; }
           return api ? { ...d, name: api.label || api.name || d.name } : d;
         });
       };
-      const creds = window.MyIOUtils?.getCredentials?.();
-      if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return finish(null);
-      const auth = MyIOLibrary.buildMyioIngestionAuth({
-        dataApiHost: creds.dataApiHost,
-        clientId: creds.clientId,
-        clientSecret: creds.clientSecret,
-      });
-      const token = await auth.getToken();
-      if (!token) return finish(null);
       const end = new Date();
       const start = new Date(end.getTime() - 24 * 3600 * 1000);
-      const url = new URL(
-        `${creds.dataApiHost}/telemetry/customers/${creds.customerId}/energy/devices/totals`
-      );
-      url.searchParams.set('startTime', start.toISOString());
-      url.searchParams.set('endTime', end.toISOString());
-      url.searchParams.set('deep', '1');
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(120000),
-      }).catch(() => null);
-      if (!res?.ok) return finish(null);
-      const payload = await res.json();
-      const arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
+      // /summary da holding (traz profileId por device); fallback /devices/totals
+      let arr = await fetchHoldingSummaryRows('energy', start.toISOString(), end.toISOString());
+      if (!arr) {
+        const creds = window.MyIOUtils?.getCredentials?.();
+        if (!creds?.clientId || !creds?.customerId || !MyIOLibrary?.buildMyioIngestionAuth) return finish(null);
+        const auth = MyIOLibrary.buildMyioIngestionAuth({
+          dataApiHost: creds.dataApiHost,
+          clientId: creds.clientId,
+          clientSecret: creds.clientSecret,
+        });
+        const token = await auth.getToken();
+        if (!token) return finish(null);
+        const url = new URL(
+          `${creds.dataApiHost}/telemetry/customers/${creds.customerId}/energy/devices/totals`
+        );
+        url.searchParams.set('startTime', start.toISOString());
+        url.searchParams.set('endTime', end.toISOString());
+        url.searchParams.set('deep', '1');
+        const res = await fetch(url.toString(), {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(120000),
+        }).catch(() => null);
+        if (!res?.ok) return finish(null);
+        const payload = await res.json();
+        arr = Array.isArray(payload) ? payload : (payload?.data ?? []);
+      }
       const apiById = new Map(arr.filter((d) => d?.id).map((d) => [d.id, d]));
       if (curated.length && uncovered.size === 0) return finish(apiById);
       const heuristic = arr
@@ -3769,6 +3808,39 @@ body.filter-modal-open { overflow: hidden !important; }
     const labels = dayList.map((d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }));
     const perDay = Array(days).fill(null);
 
+    // 1ª opção: /summary da holding com série diária — todos os dias numa chamada
+    const ymd = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const spDay = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const seriesRows = await fetchHoldingSummaryRows(
+      apiDomain,
+      `${ymd(dayList[0])}T00:00:00-03:00`,
+      `${ymd(dayList[days - 1])}T23:59:59-03:00`,
+      { series: true }
+    );
+    if (seriesRows) {
+      const dayIndex = new Map(dayList.map((d, i) => [ymd(d), i]));
+      for (let i = 0; i < days; i++) perDay[i] = new Map();
+      for (const dev of seriesRows) {
+        if (!dev.customerId) continue;
+        if (allowedIds?.size && !allowedIds.has(dev.id)) continue;
+        for (const p of dev.series || []) {
+          const t = Date.parse(p?.ts);
+          const idx = Number.isFinite(t) ? dayIndex.get(spDay.format(t)) : undefined;
+          if (idx === undefined) continue;
+          const m = perDay[idx];
+          const cur = m.get(dev.customerId) || { name: dev.customerName || dev.customerId, total: 0 };
+          cur.total += Number(p.value) || 0;
+          m.set(dev.customerId, cur);
+        }
+      }
+    }
+
     const fetchDay = async (d, idx) => {
       const key = `${apiDomain}|${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       if (_dailyTotalsCache.has(key)) {
@@ -3801,8 +3873,11 @@ body.filter-modal-open { overflow: hidden !important; }
       perDay[idx] = m;
       if (d.toDateString() !== today.toDateString()) _dailyTotalsCache.set(key, m); // hoje ainda cresce
     };
-    for (let b = 0; b < dayList.length; b += 4) {
-      await Promise.all(dayList.slice(b, b + 4).map((d, j) => fetchDay(d, b + j)));
+    if (!seriesRows) {
+      // fallback: 1 /devices/totals por dia
+      for (let b = 0; b < dayList.length; b += 4) {
+        await Promise.all(dayList.slice(b, b + 4).map((d, j) => fetchDay(d, b + j)));
+      }
     }
 
     const shoppingData = {};
@@ -9331,6 +9406,7 @@ function processDataAndDispatchEvents() {
         byShoppingTotal: buildEnergyCategoryDataByShopping(classified),
         shoppingsEnergy: buildCustomersEnergyBreakdown(classified),
         entityLabel: _goalsEntityLabel,
+        loading: isConsumptionLoading(classified),
         lastUpdated: new Date().toISOString(),
       },
     })
@@ -9350,6 +9426,7 @@ function processDataAndDispatchEvents() {
         byShoppingTotal: buildWaterCategoryDataByShopping(classified),
         shoppingsWater: buildCustomersWaterBreakdown(classified),
         entityLabel: _goalsEntityLabel,
+        loading: isConsumptionLoading(classified),
         lastUpdated: new Date().toISOString(),
       },
     })
@@ -10162,6 +10239,9 @@ function classifyAllDevices(data) {
   LogHelper.log(`Water items total: ${waterItems.length}`);
   LogHelper.log(`Temperature items total: ${temperatureItems.length}`);
 
+  // Consumo de energia/água chega depois (/summary): cards e KPIs com spinner até lá
+  setConsumptionLoading(classified, true);
+
   // Cache for getDevices and tooltip
   window.MyIOOrchestratorData = {
     classified,
@@ -10951,15 +11031,143 @@ window.MyIOOrchestrator.getWaterSummary = function () {
   return buildWaterPanelSummary(window.MyIOOrchestratorData?.classified);
 };
 
+// ===== Resumo da holding — Ingestion GET /telemetry/customers/{holding}/summary (deep=1) =====
+// Uma chamada por domínio traz os dispositivos de TODOS os shoppings da holding, com total do
+// período, customerId/customerName e profileId (e, opcional, série diária). Medido em produção
+// (Sá Cavalcante, 7 dias): energia 6,9 s × 31,8 s e água 4,3 s × 37,4 s do /devices/totals, com os
+// mesmos valores por device. Mesmo padrão do MAIN_VIEW v-5.2.0: cache por período, chamadas em
+// sequência (guia do Ingestion) e qualquer falha → null para o chamador cair no /devices/totals.
+const HOLDING_SUMMARY_TTL_MS = 5 * 60 * 1000;
+const _holdingSummaryCache = new Map(); // key → { at, promise }
+let _holdingSummaryQueue = Promise.resolve();
+
+function _holdingSummaryKey(domain, startISO, endISO, series) {
+  // Pelo instante, não pelo texto ("…Z" e "…-03:00" do mesmo período viram a mesma chave)
+  const ms = (iso) => {
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? t : String(iso);
+  };
+  return `${domain}|${ms(startISO)}|${ms(endISO)}|${series ? 'series' : 'totals'}`;
+}
+
+/**
+ * Linhas no formato do /devices/totals (`id`, `name`, `customerId`, `customerName`, `profileId`,
+ * `total_value`, `lastTelemetryTs`…) de todos os shoppings da holding. Com `series: true`, cada
+ * linha traz também `series` diária (`[{ ts, value, partial? }]`).
+ * @returns {Promise<Array<object>|null>} null = lib antiga, sem credenciais ou erro da rota
+ */
+function fetchHoldingSummaryRows(domain, startISO, endISO, { series = false } = {}) {
+  const lib = window.MyIOLibrary;
+  const creds = window.MyIOUtils?.getCredentials?.();
+  if (!lib?.fetchCustomerSummary || !lib?.summaryDeviceToTotalsRow || !lib?.buildMyioIngestionAuth) {
+    return Promise.resolve(null);
+  }
+  if (!creds?.clientId || !creds?.clientSecret || !creds?.customerId || !creds?.dataApiHost) {
+    return Promise.resolve(null);
+  }
+
+  const key = _holdingSummaryKey(domain, startISO, endISO, series);
+  const hit = _holdingSummaryCache.get(key);
+  if (hit && Date.now() - hit.at < HOLDING_SUMMARY_TTL_MS) return hit.promise;
+
+  const run = async () => {
+    const token = await lib
+      .buildMyioIngestionAuth({
+        dataApiHost: creds.dataApiHost,
+        clientId: creds.clientId,
+        clientSecret: creds.clientSecret,
+      })
+      .getToken();
+    if (!token) return null;
+    const t0 = Date.now();
+    const result = await lib.fetchCustomerSummary({
+      dataApiHost: creds.dataApiHost,
+      token,
+      customerId: creds.customerId,
+      readingType: domain,
+      deep: true,
+      granularity: '1d',
+      includeSeries: series,
+      startTime: startISO,
+      endTime: endISO,
+    });
+    const lookbackFrom = lib.summaryLookbackFromIso?.(result.period) ?? null;
+    const rows = (result.devices || []).map((d) => {
+      const row = lib.summaryDeviceToTotalsRow(d, lookbackFrom);
+      return series ? { ...row, series: d.series || [] } : row;
+    });
+    LogHelper?.log?.(`[MAIN_UNIQUE] 📦 /summary holding ${domain}: ${rows.length} devices em ${Date.now() - t0}ms`);
+    return rows;
+  };
+
+  const promise = _holdingSummaryQueue.then(run).catch((err) => {
+    _holdingSummaryCache.delete(key);
+    console.warn(`[MAIN_UNIQUE] /summary holding ${domain} falhou — usando /devices/totals:`, err?.message || err);
+    return null;
+  });
+  _holdingSummaryQueue = promise.then(
+    () => {},
+    () => {}
+  );
+  _holdingSummaryCache.set(key, { at: Date.now(), promise });
+  return promise;
+}
+
+// ===== Spinner de consumo (cards e KPIs) enquanto o período carrega =====
+// Mesma ideia do dashboard de shopping: a grade aparece logo com os devices do ThingsBoard e o
+// valor de consumo de cada card (e Consumo Total / Sem Consumo / KPIs do topo) mostra um spinner
+// até o /summary responder. `dataLoading` vale para energia e água; temperatura vem do TB.
+function setConsumptionLoading(classified, loading) {
+  for (const domain of ['energy', 'water']) {
+    Object.values(classified?.[domain] || {}).forEach((arr) => {
+      if (Array.isArray(arr)) arr.forEach((d) => (d.dataLoading = loading));
+    });
+  }
+}
+
+function isConsumptionLoading(classified) {
+  return ['energy', 'water'].some((domain) =>
+    Object.values(classified?.[domain] || {}).some((arr) => Array.isArray(arr) && arr.some((d) => d.dataLoading))
+  );
+}
+
+/** Enriquecimento abortado/sem sucesso: tira os spinners e re-renderiza (valores ficam vazios). */
+function finishConsumptionLoading() {
+  const classified = window.MyIOOrchestratorData?.classified;
+  if (!classified || !isConsumptionLoading(classified)) return;
+  setConsumptionLoading(classified, false);
+  window.dispatchEvent(new CustomEvent('myio:consumption-loading', { detail: { loading: false } }));
+  window.dispatchEvent(
+    new CustomEvent('myio:data-ready', {
+      detail: {
+        classified,
+        deviceCounts: calculateDeviceCounts(classified),
+        timestamp: Date.now(),
+        apiEnriched: true, // libera o busy da grade; os cards mostram o valor vazio
+      },
+    })
+  );
+}
+
+/** Enriquecimento com spinner: ao terminar (com ou sem erro) os devices saem de `dataLoading`. */
+async function enrichDevicesWithConsumption(classified) {
+  try {
+    return await _enrichDevicesWithConsumptionImpl(classified);
+  } finally {
+    setConsumptionLoading(classified, false);
+  }
+}
+
 /**
  * RFC-0111: Enrich devices with consumption data from ingestion API
+ * 1ª opção: /summary da holding (fetchHoldingSummaryRows); fallback:
  * Calls /api/v1/telemetry/customers/{customerId}/{domain}/devices/totals
  * and matches results by ingestionId
  *
  * @param {Object} classified - Classified devices object from classifyAllDevices
  * @returns {Promise<Object>} - Enriched classified devices
  */
-async function enrichDevicesWithConsumption(classified) {
+async function _enrichDevicesWithConsumptionImpl(classified) {
   // Guard: LogHelper not ready yet (onInit not complete)
   if (!LogHelper) return classified;
 
@@ -11050,24 +11258,28 @@ async function enrichDevicesWithConsumption(classified) {
   LogHelper.log(`Water devices with ingestionId: ${waterIngestionMap.size}`);
 
   // Fetch and enrich energy domain
+  // /summary da holding; sem ele, /devices/totals como antes. Retorna as linhas ou null (erro HTTP).
+  const fetchDomainRows = async (domain) => {
+    const summaryRows = await fetchHoldingSummaryRows(domain, period.startISO, period.endISO);
+    if (summaryRows) return summaryRows;
+    const url = new URL(`${dataApiBase}/api/v1/telemetry/customers/${customerId}/${domain}/devices/totals`);
+    url.searchParams.set('startTime', period.startISO);
+    url.searchParams.set('endTime', period.endISO);
+    url.searchParams.set('deep', '1');
+    LogHelper.log(`Fetching ${domain} totals from:`, url.toString());
+    const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) {
+      console.warn(`[MAIN_UNIQUE] ${domain} API error: ${res.status}`);
+      return null;
+    }
+    const json = await res.json();
+    return Array.isArray(json) ? json : (json?.data ?? []);
+  };
+
   if (energyIngestionMap.size > 0) {
     try {
-      const energyUrl = new URL(
-        `${dataApiBase}/api/v1/telemetry/customers/${customerId}/energy/devices/totals`
-      );
-      energyUrl.searchParams.set('startTime', period.startISO);
-      energyUrl.searchParams.set('endTime', period.endISO);
-      energyUrl.searchParams.set('deep', '1');
-
-      LogHelper.log('Fetching energy totals from:', energyUrl.toString());
-
-      const res = await fetch(energyUrl.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        const rows = Array.isArray(json) ? json : (json?.data ?? []);
+      const rows = await fetchDomainRows('energy');
+      if (rows) {
 
         LogHelper.log(`Energy API returned ${rows.length} rows`);
 
@@ -11087,8 +11299,6 @@ async function enrichDevicesWithConsumption(classified) {
         }
 
         LogHelper.log(`Energy enrichment: matched ${matchCount}/${rows.length} API rows`);
-      } else {
-        console.warn(`[MAIN_UNIQUE] Energy API error: ${res.status}`);
       }
     } catch (err) {
       console.error('[MAIN_UNIQUE] Energy enrichment failed:', err);
@@ -11098,23 +11308,8 @@ async function enrichDevicesWithConsumption(classified) {
   // Fetch and enrich water domain
   if (waterIngestionMap.size > 0) {
     try {
-      const waterUrl = new URL(
-        `${dataApiBase}/api/v1/telemetry/customers/${customerId}/water/devices/totals`
-      );
-
-      waterUrl.searchParams.set('startTime', period.startISO);
-      waterUrl.searchParams.set('endTime', period.endISO);
-      waterUrl.searchParams.set('deep', '1');
-
-      LogHelper.log('Fetching water totals from:', waterUrl.toString());
-
-      const res = await fetch(waterUrl.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        const rows = Array.isArray(json) ? json : (json?.data ?? []);
+      const rows = await fetchDomainRows('water');
+      if (rows) {
 
         LogHelper.log(`Water API returned ${rows.length} rows`);
 
@@ -11135,8 +11330,6 @@ async function enrichDevicesWithConsumption(classified) {
         }
 
         LogHelper.log(`Water enrichment: matched ${matchCount}/${rows.length} API rows`);
-      } else {
-        console.warn(`[MAIN_UNIQUE] Water API error: ${res.status}`);
       }
     } catch (err) {
       console.error('[MAIN_UNIQUE] Water enrichment failed:', err);
@@ -11378,6 +11571,7 @@ async function triggerApiEnrichment() {
 
     if (_credentialsRetryCount >= MAX_CREDENTIALS_RETRIES) {
       LogHelper.log('Max retries exceeded for credentials availability');
+      finishConsumptionLoading();
       window.MyIOUtils?.handleDataLoadError?.(
         'credentials',
         'Failed to load credentials after 10 attempts - widget stuck in busy state'
@@ -11401,6 +11595,7 @@ async function triggerApiEnrichment() {
 
     if (_credentialsRetryCount >= MAX_CREDENTIALS_RETRIES) {
       LogHelper.log('Max retries exceeded for credentials values');
+      finishConsumptionLoading();
 
       window.MyIOUtils?.handleDataLoadError?.(
         'credentials',
@@ -11423,6 +11618,7 @@ async function triggerApiEnrichment() {
       LogHelper.warn(
         `Classified data not available after ${MAX_CLASSIFIED_RETRIES} attempts - aborting API enrichment`
       );
+      finishConsumptionLoading();
       return;
     }
     LogHelper.log(
@@ -11677,6 +11873,7 @@ async function triggerApiEnrichment() {
     console.error('[MAIN_UNIQUE] API enrichment error:', err);
   } finally {
     _apiEnrichmentInProgress = false;
+    if (!_apiEnrichmentDone) finishConsumptionLoading();
   }
 }
 

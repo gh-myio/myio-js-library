@@ -10,17 +10,28 @@ import { resolvePercentDecimals } from '../../utils/percentDecimals';
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 interface Col {
-  key: keyof RowData;
+  key: string; // idx | nome | identificador | consumo | perc | x0..xN (extraColumns)
   label: string;
   pdfW: number; // mm in landscape A4
 }
 
-interface RowData {
-  idx: string;
-  nome: string;
-  identificador: string;
-  consumo: string;
-  perc: string;
+type RowData = Record<string, string>;
+
+/**
+ * Campos opcionais lidos de cada linha (além do TelemetryDevice) — permitem que o
+ * export reproduza a tabela da modal: colunas extras, nota no nome e linhas de grupo.
+ */
+interface ExportRowExtras {
+  /** Valores das `extraColumns` (mesma ordem), já formatados. */
+  extraCells?: string[];
+  /** Texto discreto após o nome (ex.: "offset −2,00 °C"). */
+  nameNote?: string;
+  /** Quando presente, a linha é um cabeçalho de grupo (faixa de largura total). */
+  groupHeader?: string;
+}
+
+function extras(d: TelemetryDevice): ExportRowExtras {
+  return d as unknown as ExportRowExtras;
 }
 
 export interface ExportPeriod {
@@ -34,6 +45,18 @@ export interface GridColumnsOptions {
   nameLabel?: string;
   /** Omite a coluna Identificador (redundante em relatórios single-device). */
   hideIdentifier?: boolean;
+  /** Rótulo da coluna de valor (default "Consumo (<unit>)"; ex.: 'Temperatura média (°C)'). */
+  valueLabel?: string;
+  /** Omite a coluna % (participação não tem semântica para temperatura). */
+  hidePerc?: boolean;
+  /** Colunas extras após o valor (ex.: Mín/Máx) — células vêm de `extraCells` de cada linha. */
+  extraColumns?: Array<{ label: string; pdfW?: number }>;
+  /** Texto quando o valor é nulo (default '—'; ex.: 'Sem leitura'). */
+  emptyValueText?: string;
+  /** Rótulo da contagem no header do PDF (default 'dispositivo(s)'; ex.: 'sensor(es)', 'dia(s)'). */
+  countLabel?: string;
+  /** Casas decimais FIXAS do valor (ex.: 2 → "30,00" como na tela). Default: até 3, sem mínimo. */
+  valueDecimals?: number;
 }
 
 function makeCols(unit: string, colOpts?: GridColumnsOptions | null): Col[] {
@@ -41,28 +64,62 @@ function makeCols(unit: string, colOpts?: GridColumnsOptions | null): Col[] {
     { key: 'idx',          label: '#',                                    pdfW: 10  },
     { key: 'nome',         label: colOpts?.nameLabel || 'Nome',           pdfW: 100 },
     { key: 'identificador',label: 'Identificador',                        pdfW: 60  },
-    { key: 'consumo',      label: unit ? `Consumo (${unit})` : 'Consumo', pdfW: 50  },
+    { key: 'consumo',      label: colOpts?.valueLabel || (unit ? `Consumo (${unit})` : 'Consumo'), pdfW: 50  },
+    ...(colOpts?.extraColumns || []).map((c, i) => ({ key: `x${i}`, label: c.label, pdfW: c.pdfW ?? 40 })),
     { key: 'perc',         label: '%',                                    pdfW: 20  },
   ];
-  return colOpts?.hideIdentifier ? cols.filter((c) => c.key !== 'identificador') : cols;
+  return cols.filter(
+    (c) =>
+      !(colOpts?.hideIdentifier && c.key === 'identificador') && !(colOpts?.hidePerc && c.key === 'perc'),
+  );
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function buildRow(d: TelemetryDevice, idx: number): RowData {
+function buildRow(d: TelemetryDevice, idx: number, colOpts?: GridColumnsOptions | null): RowData {
+  const x = extras(d);
   const fmtVal = (): string => {
-    if (d.val === null || d.val === undefined) return '—';
-    return Number(d.val).toLocaleString('pt-BR', { maximumFractionDigits: 3, useGrouping: false });
+    if (d.val === null || d.val === undefined) return colOpts?.emptyValueText || '—';
+    const dec = colOpts?.valueDecimals;
+    return Number(d.val).toLocaleString(
+      'pt-BR',
+      dec !== undefined
+        ? { minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: false }
+        : { maximumFractionDigits: 3, useGrouping: false },
+    );
   };
   // Percentage decimals — window.MyIOUtils.percentDecimals > 2 (resolved at run time).
   const pd = resolvePercentDecimals();
-  return {
+  const name = d.labelOrName || d.name || '—';
+  const row: RowData = {
     idx:           String(idx + 1),
-    nome:          d.labelOrName || d.name || '—',
+    nome:          x.nameNote ? `${name}  (${x.nameNote})` : name,
     identificador: d.deviceIdentifier || '—',
     consumo:       fmtVal(),
     perc:          d.perc !== undefined ? `${d.perc.toFixed(pd).replace('.', ',')}%` : '—',
   };
+  (colOpts?.extraColumns || []).forEach((_, i) => {
+    row[`x${i}`] = x.extraCells?.[i] ?? '—';
+  });
+  return row;
+}
+
+/** Itera as linhas separando cabeçalhos de grupo; `n` = índice só das linhas de dados. */
+function forEachRow(
+  devices: TelemetryDevice[],
+  onGroup: (label: string) => void,
+  onRow: (d: TelemetryDevice, n: number) => void,
+): void {
+  let n = 0;
+  devices.forEach((d) => {
+    const g = extras(d).groupHeader;
+    if (g) onGroup(g);
+    else onRow(d, n++);
+  });
+}
+
+function countDataRows(devices: TelemetryDevice[]): number {
+  return devices.filter((d) => !extras(d).groupHeader).length;
 }
 
 function fmtPeriod(period?: ExportPeriod | null): string {
@@ -119,6 +176,18 @@ function truncate(s: string, max: number): string {
   return s.length > max ? s.slice(0, max - 1) + '…' : s;
 }
 
+/**
+ * Texto seguro p/ as fontes padrão do jsPDF (WinAnsi). Caracteres fora dela — ex.: o sinal
+ * de menos tipográfico "−" (U+2212) do "offset −2,00 °C" — fazem o jsPDF trocar a célula
+ * inteira para UTF-16 e o nome sai ilegível. Mapeia para equivalentes ASCII/WinAnsi.
+ */
+function pdfSafe(s: string): string {
+  return String(s)
+    .replace(/−/g, '-')
+    .replace(/[‐‑]/g, '-')
+    .replace(/ /g, ' ');
+}
+
 // ─── CSV ──────────────────────────────────────────────────────────────────────
 
 export function exportGridCsv(
@@ -139,10 +208,15 @@ export function exportGridCsv(
 
   const cols = makeCols(unit);
   const header = cols.map(c => `"${c.label}"`).join(';');
-  const rows = devices.map((d, i) => {
-    const r = buildRow(d, i);
-    return cols.map(c => `"${String(r[c.key]).replace(/"/g, '""')}"`).join(';');
-  });
+  const rows: string[] = [];
+  forEachRow(
+    devices,
+    (g) => rows.push(`"${g.replace(/"/g, '""')}"`),
+    (d, i) => {
+      const r = buildRow(d, i);
+      rows.push(cols.map(c => `"${String(r[c.key]).replace(/"/g, '""')}"`).join(';'));
+    },
+  );
 
   const csv = '\uFEFF' + [...metaRows, header, ...rows].join('\r\n'); // BOM for Excel
   triggerDownload(
@@ -159,7 +233,7 @@ export function exportGridXls(
   unit: string,
   period?: ExportPeriod | null,
   customerName?: string | null,
-  options?: { accentColor?: string; columns?: GridColumnsOptions | null } | null,
+  options?: { accentColor?: string; columns?: GridColumnsOptions | null; kpis?: GridPdfKpi[] } | null,
 ): void {
   const periodLabel = fmtPeriod(period);
   const cols = makeCols(unit, options?.columns);
@@ -176,15 +250,27 @@ export function exportGridXls(
     c => `<Cell ss:StyleID="h"><Data ss:Type="String">${escXml(c.label)}</Data></Cell>`,
   ).join('');
 
-  const dataRows = devices
-    .map((d, i) => {
-      const r = buildRow(d, i);
+  const dataRowsArr: string[] = [];
+  forEachRow(
+    devices,
+    (g) =>
+      dataRowsArr.push(
+        `<Row><Cell ss:StyleID="g" ss:MergeAcross="${cols.length - 1}"><Data ss:Type="String">${escXml(g)}</Data></Cell></Row>`,
+      ),
+    (d, i) => {
+      const r = buildRow(d, i, options?.columns);
       const cells = cols.map(c => {
         const v = escXml(String(r[c.key]));
         return `<Cell><Data ss:Type="String">${v}</Data></Cell>`;
       }).join('');
-      return `<Row>${cells}</Row>`;
-    })
+      dataRowsArr.push(`<Row>${cells}</Row>`);
+    },
+  );
+  const dataRows = dataRowsArr.join('\n');
+
+  // KPIs (mesmos cards do summary da modal) — antes só o PDF os tinha
+  const kpiRows = (options?.kpis || [])
+    .map((k) => metaRow(k.label, k.sub ? `${k.value}  (${k.sub})` : k.value))
     .join('\n');
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -199,6 +285,10 @@ export function exportGridXls(
       <Font ss:Bold="1"/>
       <Interior ss:Color="#F0EDF9" ss:Pattern="Solid"/>
     </Style>
+    <Style ss:ID="g">
+      <Font ss:Bold="1" ss:Color="#555555"/>
+      <Interior ss:Color="#EEEEEE" ss:Pattern="Solid"/>
+    </Style>
   </Styles>
   <Worksheet ss:Name="${escXml(label.slice(0, 31))}">
     <Table>
@@ -206,6 +296,7 @@ export function exportGridXls(
       ${customerName ? metaRow('Cliente', customerName) : ''}
       ${periodLabel ? metaRow('Período', periodLabel) : ''}
       ${metaRow('Gerado em', new Date().toLocaleString('pt-BR'))}
+      ${kpiRows ? `<Row/>\n${kpiRows}` : ''}
       <Row/>
       <Row>${headerCells}</Row>
       ${dataRows}
@@ -304,15 +395,16 @@ export function exportGridPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     const titleText = customerName ? `${customerName} — ${label}` : label;
-    doc.text(titleText, MARGIN, HDR_H / 2 + 1.5);
+    doc.text(pdfSafe(titleText), MARGIN, HDR_H / 2 + 1.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     const periodLabel = fmtPeriod(period);
     const periodPart = periodLabel ? `Período: ${periodLabel}  •  ` : '';
+    const countLabel = options?.columns?.countLabel || 'dispositivo(s)';
     const info =
-      `${periodPart}Gerado em: ${generatedAt}  •  ${devices.length} dispositivo(s)  •  Unidade: ${unit}  •  Pág. ${pageNo}`;
-    doc.text(info, PW - MARGIN, HDR_H / 2 + 1.5, { align: 'right' });
+      `${periodPart}Gerado em: ${generatedAt}  •  ${countDataRows(devices)} ${countLabel}  •  Unidade: ${unit}  •  Pág. ${pageNo}`;
+    doc.text(pdfSafe(info), PW - MARGIN, HDR_H / 2 + 1.5, { align: 'right' });
   }
 
   function drawColumnHeaders(y: number): void {
@@ -325,7 +417,7 @@ export function exportGridPdf(
 
     cols.forEach((c, ci) => {
       const x = colX(ci) + 1.5;
-      doc.text(c.label, x, y + HEAD_H / 2 + 2.5);
+      doc.text(pdfSafe(c.label), x, y + HEAD_H / 2 + 2.5);
     });
 
     doc.setDrawColor(200, 195, 220);
@@ -346,13 +438,23 @@ export function exportGridPdf(
     cols.forEach((c, ci) => {
       const x  = colX(ci) + 1.5;
       const maxChars = Math.floor(colWidths[ci] / 1.8);
-      const text = truncate(String(r[c.key]), maxChars);
+      const text = truncate(pdfSafe(String(r[c.key])), maxChars);
       doc.text(text, x, y + ROW_H / 2 + 2.2);
     });
 
     doc.setDrawColor(230, 228, 240);
     doc.setLineWidth(0.1);
     doc.line(MARGIN, y + ROW_H, MARGIN + TABLE_W, y + ROW_H);
+  }
+
+  // Cabeçalho de grupo (ex.: "CLIMATIZÁVEL · 16 sensores · média 25,89 °C")
+  function drawGroupRow(text: string, y: number): void {
+    doc.setFillColor(...ACCENT_SOFT);
+    doc.rect(MARGIN, y, TABLE_W, ROW_H, 'F');
+    doc.setTextColor(...ACCENT);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.text(truncate(pdfSafe(text), 160), MARGIN + 1.5, y + ROW_H / 2 + 2.2);
   }
 
   function drawFooter(): void {
@@ -385,14 +487,14 @@ export function exportGridPdf(
       doc.setTextColor(...ACCENT);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
-      doc.text(truncate(kpi.value, 24), cx, y + 6.5, { align: 'center' });
+      doc.text(truncate(pdfSafe(kpi.value), 24), cx, y + 6.5, { align: 'center' });
       doc.setTextColor(110, 110, 120);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.5);
-      doc.text(truncate(kpi.label, 34), cx, y + 10.5, { align: 'center' });
+      doc.text(truncate(pdfSafe(kpi.label), 34), cx, y + 10.5, { align: 'center' });
       if (kpi.sub) {
         doc.setFontSize(5.5);
-        doc.text(truncate(kpi.sub, 40), cx, y + 13.5, { align: 'center' });
+        doc.text(truncate(pdfSafe(kpi.sub), 40), cx, y + 13.5, { align: 'center' });
       }
     });
   }
@@ -410,8 +512,7 @@ export function exportGridPdf(
   drawColumnHeaders(currentY);
   currentY += HEAD_H;
 
-  devices.forEach((d, i) => {
-    // New page if needed
+  const ensureSpace = () => {
     if (currentY + ROW_H > MAX_Y) {
       drawFooter();
       doc.addPage();
@@ -421,10 +522,21 @@ export function exportGridPdf(
       drawColumnHeaders(currentY);
       currentY += HEAD_H;
     }
+  };
 
-    drawDataRow(buildRow(d, i), currentY, i % 2 === 0);
-    currentY += ROW_H;
-  });
+  forEachRow(
+    devices,
+    (g) => {
+      ensureSpace();
+      drawGroupRow(g, currentY);
+      currentY += ROW_H;
+    },
+    (d, i) => {
+      ensureSpace();
+      drawDataRow(buildRow(d, i, options?.columns), currentY, i % 2 === 0);
+      currentY += ROW_H;
+    },
+  );
 
   drawFooter();
 
@@ -439,7 +551,7 @@ export function exportGridPdf(
     doc.setTextColor(...ACCENT);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
-    doc.text(chart.title || 'Participação por Dispositivo', MARGIN, titleY);
+    doc.text(pdfSafe(chart.title || 'Participação por Dispositivo'), MARGIN, titleY);
 
     const imgTop = titleY + 4;
     const availW = TABLE_W;

@@ -149,6 +149,17 @@ function initContractStatusIcon() {
   const iconEl = contractStatusEl.querySelector('.tbx-contract-icon');
   const countEl = contractStatusEl.querySelector('.tbx-contract-count');
 
+  // Validação de contrato descontinuada (MAIN enableContractValidation=false, padrão): indicador
+  // oculto — senão ficaria em "Carregando..." para sempre
+  const hideContractStatus = () => {
+    contractStatusEl.style.display = 'none';
+  };
+  window.addEventListener('myio:contract:disabled', hideContractStatus);
+  if (window.CONTRACT_STATE?.disabled || window.MyIOUtils?.enableContractValidation === false) {
+    hideContractStatus();
+    return;
+  }
+
   // Style the contract status container (always visible)
   contractStatusEl.style.cssText = `
     display: flex;

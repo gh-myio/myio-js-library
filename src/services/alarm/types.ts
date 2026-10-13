@@ -97,6 +97,16 @@ export interface AlarmApiResponse {
   deviceName?: string;
 }
 
+// GET /alarms/:id/history — { alarmId, data: AlarmHistoryEventApi[] }
+export interface AlarmHistoryEventApi {
+  timestamp: string;         // ISO 8601
+  action: string;            // ex.: STATE_CHANGED
+  previousState?: string;
+  newState?: string;
+  actor?: string;            // 'system' ou e-mail do usuário
+  note?: string;
+}
+
 export interface AlarmListSummary {
   total:       number;
   byState:     Record<string, number>;

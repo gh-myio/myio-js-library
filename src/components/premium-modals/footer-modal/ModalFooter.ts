@@ -142,7 +142,8 @@ export function createModalFooter(params: ModalFooterParams = {}): ModalFooterIn
   el.appendChild(right);
 
   const applyTheme = (): void => {
-    const t = THEME[themeMode];
+    // Valor desconhecido (ex.: tema do host fora de 'light'|'dark') → claro, em vez de quebrar
+    const t = THEME[themeMode] || THEME.light;
     el.style.cssText =
       `display:flex;align-items:center;gap:16px;padding:8px 14px;border-top:1px solid ${t.border};` +
       `background:${t.bg};font-family:inherit;`;

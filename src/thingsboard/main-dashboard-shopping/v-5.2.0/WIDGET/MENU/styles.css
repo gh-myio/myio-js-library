@@ -478,9 +478,9 @@
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  padding: 12px 16px;
+  padding: 10px 14px;
   color: var(--text);
   text-decoration: none;
   border-bottom: 1px solid var(--divider) !important; /* padroniza divisor */
@@ -492,7 +492,7 @@
 }
 
 .menu-icon {
-  font-size: 20px;
+  font-size: 17px;
   display: inline-block;
   flex-shrink: 0;
 }
@@ -500,7 +500,7 @@
 .menu-item {
   text-decoration: none;
   color: var(--text, #111827);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 /* texto/ícones herdam a cor do item */

@@ -22,6 +22,8 @@ import {
   createGranularitySelector,
   GranularitySelectorInstance
 } from '../../granularity-selector';
+import { createModalFooter } from '../footer-modal';
+import type { ModalFooterInstance } from '../footer-modal';
 
 // Verbose logs are OPT-IN: silent unless the host dashboard sets
 // window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
@@ -51,6 +53,9 @@ export class EnergyModalView {
   private granularitySelector: GranularitySelectorInstance | null = null;
   // RFC-0165: BAS Control Panel reference
   private basControlPanel: BASControlPanel | null = null;
+  // Footer premium (mesmo padrão do DeviceReport/AllReport): customer · relógio · versão |
+  // Powered by MYIO | CSV
+  private modalFooter: ModalFooterInstance | null = null;
 
   constructor(modal: any, config: EnergyViewConfig) {
     this.modal = modal;
@@ -171,6 +176,7 @@ export class EnergyModalView {
     this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
     localStorage.setItem('myio-modal-theme', this.currentTheme);
     this.applyTheme();
+    this.modalFooter?.setThemeMode(this.currentTheme === 'dark' ? 'dark' : 'light');
     dbg('[EnergyModalView] Theme toggled to:', this.currentTheme);
   }
 
@@ -379,7 +385,46 @@ export class EnergyModalView {
   private render(): void {
     const content = this.createModalContent();
     this.modal.setContent(content);
+    if (this.config.params.basMode !== true) this.mountFooter();
     this.setupEventListeners();
+  }
+
+  private resolveCustomerName(): string {
+    const win = window as unknown as {
+      MyIOOrchestrator?: { customerName?: string };
+      MyIOUtils?: { customerName?: string };
+    };
+    return (
+      this.config.params.customerName ||
+      win.MyIOOrchestrator?.customerName ||
+      win.MyIOUtils?.customerName ||
+      ''
+    );
+  }
+
+  // Footer premium no root .myio-modal (full-width, abaixo do body), como o DeviceReportModal.
+  // O botão CSV recebe o id export-csv-btn da antiga toolbar: loadData/updateExport continuam
+  // controlando disabled e o listener de exportação via getElementById.
+  private mountFooter(): void {
+    const lib = (window as unknown as { MyIOLibrary?: { version?: string } }).MyIOLibrary;
+    this.modalFooter = createModalFooter({
+      customerName: this.resolveCustomerName(),
+      libVersion: { current: lib?.version },
+      themeMode: this.currentTheme === 'dark' ? 'dark' : 'light',
+      exports: {
+        csv: {
+          onClick: () => {
+            /* exportação via listener de #export-csv-btn (setupEventListeners) */
+          },
+          disabled: true,
+          tooltipText: 'Exporta em CSV os dados do gráfico (conforme a granularidade)',
+        },
+      },
+    });
+    if (this.modalFooter.buttons.csv) this.modalFooter.buttons.csv.element.id = 'export-csv-btn';
+    const body = this.modal?.element as HTMLElement | undefined;
+    const root = (body?.closest?.('.myio-modal') as HTMLElement | null) || body;
+    root?.appendChild(this.modalFooter.element);
   }
 
   /**
@@ -414,16 +459,13 @@ export class EnergyModalView {
               <span class="myio-spinner" id="load-spinner" style="display: none;"></span>
               Carregar
             </button>
-            <button id="export-csv-btn" class="myio-btn myio-btn-secondary" disabled>
-              Exportar CSV
-            </button>
             ${this.canShowDemandButtons() ? `
             <button id="view-telemetry-demand-btn" class="myio-btn myio-btn-secondary" style="
-              background: linear-gradient(135deg, #4A148C 0%, #6A1B9A 100%);
+              background: linear-gradient(135deg, var(--myio-brand-700, #4A148C) 0%, color-mix(in srgb, var(--myio-brand-700, #4A148C) 72%, #000) 100%);
               color: white;
               border: none;
               transition: all 0.3s ease;
-              box-shadow: 0 2px 8px rgba(74, 20, 140, 0.3);
+              box-shadow: 0 2px 8px color-mix(in srgb, var(--myio-brand-700, #4A148C) 30%, transparent);
             ">
               <span style="font-size: 16px; margin-right: 4px;">⚡</span>
               Telemetrias Instantâneas e Pico de Demanda
@@ -510,9 +552,6 @@ export class EnergyModalView {
             <!-- RFC-0097: Granularity Selector (only 1h and 1d supported) —
                  mounted via createGranularitySelector in setupEventListeners -->
             <div id="granularity-selector-mount" style="margin-left: 8px;"></div>
-            <button id="close-btn" class="myio-btn myio-btn-secondary">
-              Fechar
-            </button>
           </div>
         </div>
         
@@ -1571,7 +1610,7 @@ export class EnergyModalView {
    */
   private getModalStyles(): string {
     const styles = this.config.params.styles || {};
-    const defaultPrimary = styles.primaryColor || '#4A148C';
+    const defaultPrimary = styles.primaryColor || 'var(--myio-brand-700, #4A148C)';
     const defaultFont = styles.fontFamily || 'Nunito, system-ui, sans-serif';
 
     return `
@@ -1668,7 +1707,8 @@ export class EnergyModalView {
         border-color: var(--myio-energy-border);
       }
 
-      .myio-btn-primary {
+      .myio-btn-primary,
+      .myio-energy-modal-scope .myio-btn.myio-btn-primary {
         background: var(--myio-energy-primary);
         color: white;
         border-color: var(--myio-energy-primary);
@@ -1773,6 +1813,8 @@ export class EnergyModalView {
    * Destroys the view and cleans up resources
    */
   destroy(): void {
+    this.modalFooter?.destroy();
+    this.modalFooter = null;
     // Cleanup chart instance
     if ((this as any).chartInstance && typeof (this as any).chartInstance.destroy === 'function') {
       (this as any).chartInstance.destroy();

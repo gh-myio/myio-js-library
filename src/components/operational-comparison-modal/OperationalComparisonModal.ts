@@ -3,6 +3,9 @@
  * RFC-0157: Premium comparison for operational metrics (Availability, MTBF, MTTR)
  */
 
+import { createPremiumModalChrome } from '../premium-modals/internal/PremiumModalChrome';
+import type { PremiumModalChromeInstance } from '../premium-modals/internal/PremiumModalChrome';
+
 export interface OperationalDevice {
   id: string;
   name: string;
@@ -86,11 +89,13 @@ export function openOperationalComparisonModal(
     devices: params.devices || [],
   };
 
-  render(wrapper, modalId, state);
-  bindEvents(wrapper, modalId, state, params.onClose);
+  const ref: { chrome: PremiumModalChromeInstance | null } = { chrome: null };
+  mount(wrapper, modalId, state, ref, params.onClose);
 
   return {
     destroy: () => {
+      ref.chrome?.destroy();
+      ref.chrome = null;
       wrapper.remove();
       params.onClose?.();
     },
@@ -542,39 +547,61 @@ function getThemeColors(theme: 'dark' | 'light') {
   };
 }
 
-function bindEvents(
+type ModalState = {
+  theme: 'dark' | 'light';
+  isMaximized: boolean;
+  locale: string;
+  startDate: string;
+  endDate: string;
+  devices: OperationalDevice[];
+};
+
+/**
+ * Renderiza e aplica a moldura padrão das modais premium (header no acento do tema com
+ * tema/maximizar/fechar + footer premium). Troca de tema re-renderiza (cores inline).
+ */
+function mount(
   container: HTMLElement,
   modalId: string,
-  state: { theme: 'dark' | 'light'; isMaximized: boolean; locale: string; startDate: string; endDate: string; devices: OperationalDevice[] },
+  state: ModalState,
+  ref: { chrome: PremiumModalChromeInstance | null },
   onClose?: () => void
 ): void {
-  const closeBtn = container.querySelector(`#${modalId}-close`) as HTMLButtonElement | null;
-  const themeBtn = container.querySelector(`#${modalId}-theme`) as HTMLButtonElement | null;
-  const maxBtn = container.querySelector(`#${modalId}-max`) as HTMLButtonElement | null;
+  ref.chrome?.destroy();
+  render(container, modalId, state);
+
+  const content = container.querySelector('.myio-op-compare-content') as HTMLElement;
   const overlay = container.querySelector('.myio-op-compare-overlay') as HTMLElement | null;
 
   const close = () => {
+    ref.chrome?.destroy();
+    ref.chrome = null;
     container.remove();
     onClose?.();
   };
 
-  closeBtn?.addEventListener('click', close);
-
-  if (overlay) {
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close();
-    });
-  }
-
-  themeBtn?.addEventListener('click', () => {
-    state.theme = state.theme === 'dark' ? 'light' : 'dark';
-    render(container, modalId, state);
-    bindEvents(container, modalId, state, onClose);
+  ref.chrome = createPremiumModalChrome({
+    modalId: `${modalId}-chrome`,
+    icon: '📊',
+    title: `Comparação Operacional (${state.devices.length} equipamentos)`,
+    modalEl: content,
+    headerSlot: content.querySelector('.myio-op-compare-header') as HTMLElement | null,
+    theme: state.theme,
+    showThemeToggle: true,
+    maximized: state.isMaximized,
+    maximizedClass: 'maximized',
+    headerRadius: '12px 12px 0 0',
+    onClose: close,
+    onThemeChange: (t) => {
+      state.theme = t;
+      mount(container, modalId, state, ref, onClose);
+    },
+    onMaximizeChange: (m) => {
+      state.isMaximized = m;
+    },
   });
 
-  maxBtn?.addEventListener('click', () => {
-    state.isMaximized = !state.isMaximized;
-    render(container, modalId, state);
-    bindEvents(container, modalId, state, onClose);
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
   });
 }

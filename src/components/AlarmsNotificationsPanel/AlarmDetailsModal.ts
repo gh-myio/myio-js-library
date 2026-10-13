@@ -11,6 +11,9 @@ import {
   getActiveAnnotationCount,
   type TbSaveConfig,
 } from './AlarmAnnotations';
+import { createPremiumModalChrome } from '../premium-modals/internal/PremiumModalChrome';
+import { AlarmService } from '../../services/alarm/AlarmService';
+import type { AlarmHistoryEventApi } from '../../services/alarm/types';
 
 // =====================================================================
 // Helpers
@@ -56,143 +59,216 @@ function escHtml(s: string | null | undefined): string {
 // Chart helpers
 // =====================================================================
 
-/** Deterministic pseudo-random seeded by a number */
-function seededRand(seed: number): () => number {
-  let s = (seed ^ 0xdeadbeef) >>> 0;
-  return () => {
-    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
-    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
-    s = (s ^ (s >>> 16)) >>> 0;
-    return s / 0xffffffff;
-  };
-}
-
-/** Hash a string to a stable integer */
-function hashStr(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
 interface Bucket {
   label: string;
   total: number;
   byDevice: Record<string, number>; // device → count
 }
 
-/**
- * Generate synthetic time-bucketed occurrence data.
- * Distributes occurrenceCount across buckets using seeded noise + bell curve.
- */
-function generateBuckets(alarm: Alarm, devices: string[], period: Period = 'mes'): Bucket[] {
-  const count = alarm.occurrenceCount || 1;
-  let firstMs = new Date(alarm.firstOccurrence as string).getTime();
-  let lastMs  = new Date(alarm.lastOccurrence  as string).getTime();
-  // Guard against invalid / missing dates (e.g. grouped alarms with undefined fields)
-  if (isNaN(firstMs) || isNaN(lastMs) || firstMs <= 0 || lastMs <= 0) {
-    lastMs  = Date.now();
-    firstMs = lastMs - 7 * 86_400_000;
-  }
-  const durMs = Math.max(lastMs - firstMs, 3_600_000); // at least 1h
+// ─────────────────────────────────────────────────────────────────────────────
+// Eventos reais do alarme: abertura (raisedAt) + GET /alarms/:id/history.
+// Nada é estimado/interpolado — a API não manda contador de ocorrências, então
+// ocorrência = abertura + cada reabertura (CLOSED → OPEN).
+// ─────────────────────────────────────────────────────────────────────────────
 
-  let numBuckets: number;
-  let bucketMs: number;
-  let labelFn: (ms: number) => string;
+type AlarmEventKind = 'raised' | 'reopened' | 'closed' | 'acknowledged' | 'silenced' | 'escalated' | 'other';
 
-  const nowMs = Date.now();
-  if (period === 'hora') {
-    bucketMs = 3_600_000;
-    numBuckets = Math.max(2, Math.min(24, Math.ceil(durMs / bucketMs)));
-    labelFn = (ms) => `${String(new Date(ms).getHours()).padStart(2, '0')}h`;
-  } else if (period === 'dia') {
-    bucketMs = 86_400_000;
-    numBuckets = Math.max(1, Math.min(31, Math.ceil(durMs / bucketMs)));
-    labelFn = (ms) => {
-      const d = new Date(ms);
-      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-    };
-  } else if (period === 'semana') {
-    bucketMs = 7 * 86_400_000;
-    numBuckets = Math.max(1, Math.min(26, Math.ceil(durMs / bucketMs)));
-    labelFn = (ms) => {
-      const d = new Date(ms);
-      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-    };
-  } else {
-    // 'mes'
-    bucketMs = 30 * 86_400_000;
-    numBuckets = Math.max(1, Math.min(24, Math.ceil(durMs / bucketMs)));
-    const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-    labelFn = (ms) => months[new Date(ms).getMonth()];
-  }
-  // Cap buckets so last bucket doesn't exceed today
-  while (numBuckets > 1 && firstMs + (numBuckets - 1) * bucketMs > nowMs) numBuckets--;
+interface AlarmEvent {
+  ts: number;
+  kind: AlarmEventKind;
+  alarmId: string;
+  device: string;
+  title: string;
+  actor?: string;
+  /** abertura ou reabertura */
+  occurrence: boolean;
+}
 
-  const seed = hashStr(alarm.id + period);
-  const rand = seededRand(seed);
+const EVENT_LABEL: Record<AlarmEventKind, string> = {
+  raised: 'Abertura',
+  reopened: 'Reabertura',
+  closed: 'Fechamento',
+  acknowledged: 'Reconhecido',
+  silenced: 'Adiado',
+  escalated: 'Escalado',
+  other: 'Atualização',
+};
 
-  // Generate weight per bucket (bell-curve + noise)
-  const weights = Array.from({ length: numBuckets }, (_, i) => {
-    const center = (numBuckets - 1) / 2;
-    const bell = 1 - 0.45 * Math.abs(i - center) / (center || 1);
-    return Math.max(0.1, bell * (0.6 + rand() * 0.8));
-  });
-  const wSum = weights.reduce((a, b) => a + b, 0);
+function classifyHistoryEvent(ev: AlarmHistoryEventApi): AlarmEventKind {
+  const action = String(ev.action || '').toUpperCase();
+  const next = String(ev.newState || '').toUpperCase();
+  const prev = String(ev.previousState || '').toUpperCase();
+  if (next === 'OPEN') return prev && prev !== 'OPEN' ? (prev === 'CLOSED' ? 'reopened' : 'other') : 'raised';
+  if (next === 'CLOSED' || /CLOSE/.test(action)) return 'closed';
+  if (next === 'ACK' || next === 'ACKNOWLEDGED' || /ACK/.test(action)) return 'acknowledged';
+  if (next === 'SNOOZED' || next === 'SILENCED' || /SILENC|SNOOZ/.test(action)) return 'silenced';
+  if (next === 'ESCALATED' || /ESCALAT/.test(action)) return 'escalated';
+  if (/CREAT|RAISE/.test(action)) return 'raised';
+  return 'other';
+}
 
-  // Distribute count across buckets
-  const totals: number[] = new Array(numBuckets).fill(0);
-  let remaining = count;
-  for (let i = 0; i < numBuckets - 1; i++) {
-    const v = Math.round((weights[i] / wSum) * count);
-    totals[i] = Math.min(v, remaining);
-    remaining -= totals[i];
-  }
-  totals[numBuckets - 1] = Math.max(0, remaining);
+async function loadAlarmEvents(alarm: Alarm): Promise<AlarmEvent[]> {
+  const ids = alarm._groupAlarmIds?.length ? alarm._groupAlarmIds : [alarm.id];
+  const aso: any[] = (window as any).AlarmServiceOrchestrator?.alarms || [];
+  const byId = new Map<string, any>(aso.map((a) => [a?.id, a]));
+  const single = ids.length === 1;
+  const events: AlarmEvent[] = [];
 
-  // Distribute each bucket's total across devices
-  return Array.from({ length: numBuckets }, (_, i) => {
-    const ts = firstMs + i * bucketMs;
-    const total = totals[i];
-    const byDevice: Record<string, number> = {};
-    if (devices.length === 1) {
-      byDevice[devices[0]] = total;
-    } else {
-      let rem = total;
-      for (let d = 0; d < devices.length - 1; d++) {
-        const share = Math.round(rand() * rem * (1 / (devices.length - d)));
-        byDevice[devices[d]] = share;
-        rem -= share;
+  await Promise.all(
+    ids.slice(0, 50).map(async (id) => {
+      const raw = byId.get(id);
+      const device = raw?.deviceName || alarm.source || '';
+      const title = raw?.title || alarm.title;
+      const raisedMs = new Date(raw?.raisedAt || (single ? alarm.firstOccurrence : '') || '').getTime();
+      const hasRaise = Number.isFinite(raisedMs) && raisedMs > 0;
+      if (hasRaise) events.push({ ts: raisedMs, kind: 'raised', alarmId: id, device, title, occurrence: true });
+
+      const hist = await AlarmService.getAlarmHistory(id);
+      for (const ev of hist) {
+        const ts = new Date(ev.timestamp).getTime();
+        if (!Number.isFinite(ts)) continue;
+        const kind = classifyHistoryEvent(ev);
+        // criação registrada no history = a própria abertura
+        if (kind === 'raised' && hasRaise && Math.abs(ts - raisedMs) < 60_000) continue;
+        events.push({
+          ts,
+          kind,
+          alarmId: id,
+          device,
+          title,
+          actor: ev.actor,
+          occurrence: kind === 'raised' || kind === 'reopened',
+        });
       }
-      byDevice[devices[devices.length - 1]] = Math.max(0, rem);
+    })
+  );
+
+  // Sem raisedAt resolvível (grupo fora do orquestrador): usa a primeira ocorrência do agregado
+  if (!events.some((e) => e.occurrence)) {
+    const ms = new Date(alarm.firstOccurrence).getTime();
+    if (Number.isFinite(ms) && ms > 0) {
+      events.push({ ts: ms, kind: 'raised', alarmId: alarm.id, device: alarm.source, title: alarm.title, occurrence: true });
     }
-    return { label: labelFn(ts), total, byDevice };
-  });
+  }
+  return events.sort((a, b) => a.ts - b.ts);
 }
 
-/** Generate day-of-week distribution (0=Sun…6=Sat) */
-function generateDowDistribution(alarm: Alarm): number[] {
-  const count = alarm.occurrenceCount || 1;
-  const rand = seededRand(hashStr(alarm.id + 'dow'));
-  const weights = [0.2, 1, 0.95, 0.9, 0.85, 0.8, 0.3]; // Sun–Sat bias
-  const wSum = weights.reduce((a, b) => a + b, 0);
-  const vals = weights.map((w) => Math.round((w / wSum) * count * (0.7 + rand() * 0.6)));
-  return vals;
+/** Agrupa as ocorrências reais em buckets de calendário entre fromMs e toMs. */
+function bucketEvents(occ: AlarmEvent[], devices: string[], period: Period, fromMs: number, toMs: number): Bucket[] {
+  const start = new Date(fromMs);
+  if (period === 'hora') start.setMinutes(0, 0, 0);
+  else start.setHours(0, 0, 0, 0);
+  if (period === 'semana') start.setDate(start.getDate() - start.getDay());
+  if (period === 'mes') start.setDate(1);
+
+  const keys: number[] = [];
+  const cursor = new Date(start);
+  while (cursor.getTime() <= toMs && keys.length < 5000) {
+    keys.push(cursor.getTime());
+    if (period === 'hora') cursor.setHours(cursor.getHours() + 1);
+    else if (period === 'dia') cursor.setDate(cursor.getDate() + 1);
+    else if (period === 'semana') cursor.setDate(cursor.getDate() + 7);
+    else cursor.setMonth(cursor.getMonth() + 1);
+  }
+  const maxBuckets = period === 'hora' ? 72 : period === 'dia' ? 92 : period === 'semana' ? 104 : 36;
+  const ks = keys.slice(-maxBuckets);
+
+  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const dm = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const label = (ms: number) => {
+    const d = new Date(ms);
+    if (period === 'hora') return `${dm(d)} ${String(d.getHours()).padStart(2, '0')}h`;
+    if (period === 'mes') return `${months[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
+    return dm(d);
+  };
+
+  const buckets: Bucket[] = ks.map((k) => ({ label: label(k), total: 0, byDevice: {} }));
+  for (const e of occ) {
+    let idx = -1;
+    for (let i = ks.length - 1; i >= 0; i--) {
+      if (ks[i] <= e.ts) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) continue;
+    buckets[idx].total++;
+    const dev = devices.includes(e.device) ? e.device : devices[0] ?? e.device;
+    buckets[idx].byDevice[dev] = (buckets[idx].byDevice[dev] || 0) + 1;
+  }
+  return buckets;
 }
 
-/** Generate hour-of-day distribution (0–23) */
-function generateHodDistribution(alarm: Alarm): number[] {
-  const count = alarm.occurrenceCount || 1;
-  const rand = seededRand(hashStr(alarm.id + 'hod'));
-  // Business-hours bias (peak 10-19)
-  const weights = Array.from({ length: 24 }, (_, h) => {
-    if (h < 6) return 0.05 + rand() * 0.05;
-    if (h < 10) return 0.3 + rand() * 0.3;
-    if (h <= 19) return 0.7 + rand() * 0.6;
-    if (h <= 22) return 0.3 + rand() * 0.3;
-    return 0.05 + rand() * 0.05;
-  });
-  const wSum = weights.reduce((a, b) => a + b, 0);
-  return weights.map((w) => Math.max(0, Math.round((w / wSum) * count)));
+function dowFromEvents(occ: AlarmEvent[]): number[] {
+  const v = new Array(7).fill(0);
+  occ.forEach((e) => v[new Date(e.ts).getDay()]++);
+  return v;
+}
+
+function hodFromEvents(occ: AlarmEvent[]): number[] {
+  const v = new Array(24).fill(0);
+  occ.forEach((e) => v[new Date(e.ts).getHours()]++);
+  return v;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Device label (TB) + cor do tema do dashboard
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Identidade do device no TB: label (entityLabel, o que o usuário reconhece) e name (entityName,
+ * identificador técnico). O `source` do alarme é o deviceName do GCDR — em geral já o label do TB,
+ * às vezes o name ou um nome divergente — então resolve nos dois sentidos, priorizando o deviceId.
+ */
+function resolveDeviceIdentity(alarm: Alarm, src: string): { label: string; name: string | null } {
+  const orch = (window as any).MyIOOrchestrator;
+  const nameToLabel: Map<string, string> | undefined = orch?.entityNameToLabelMap;
+  const gcdrToLabel: Map<string, string> | undefined = orch?.gcdrDeviceNameMap;
+
+  let label: string | null = null;
+  // 1) deviceId do GCDR → label do TB (só quando o alarme é de um único device)
+  if (alarm.deviceId && parseDevices(alarm.source).length <= 1) label = gcdrToLabel?.get?.(alarm.deviceId) || null;
+  // 2) src é o name do TB
+  if (!label && nameToLabel?.has?.(src)) label = nameToLabel.get(src) || null;
+  if (!label) label = src;
+
+  // name do TB: src já é name, ou busca reversa pelo label
+  let name: string | null = nameToLabel?.has?.(src) ? src : null;
+  if (!name && nameToLabel) {
+    for (const [n, l] of nameToLabel) {
+      if (l === label) {
+        name = n;
+        break;
+      }
+    }
+  }
+  return { label, name: name && name !== label ? name : null };
+}
+
+function resolveDeviceLabel(alarm: Alarm, src: string): string {
+  return resolveDeviceIdentity(alarm, src).label;
+}
+
+/** Cor primária do tema do dashboard (MyIOUtils.theme) — para o que não aceita CSS var (Chart.js). */
+function brandColor(fallback = '#7c3aed'): string {
+  const theme = (window as any).MyIOUtils?.theme;
+  const vars = typeof theme?.cssVars === 'function' ? theme.cssVars() : theme;
+  const c = vars?.['--myio-brand-700'];
+  return typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c.trim()) ? c.trim() : fallback;
+}
+
+const COPY_SVG =
+  '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+
+/** Label em destaque + name discreto com botão de copiar (o name é o identificador técnico). */
+function deviceIdentityHtml(alarm: Alarm, src: string): string {
+  const { label, name } = resolveDeviceIdentity(alarm, src);
+  const copyValue = name || src;
+  return `<span class="adm-dev-id">
+      <span class="adm-dev-label">${escHtml(label)}</span>
+      ${name ? `<span class="adm-dev-name">${escHtml(name)}</span>` : ''}
+      <button type="button" class="adm-copy-btn" data-copy="${escHtml(copyValue)}" title="Copiar nome do dispositivo">${COPY_SVG}</button>
+    </span>`;
 }
 
 // Device palette
@@ -300,8 +376,8 @@ function createDowChart(canvas: HTMLCanvasElement, vals: number[]): any {
       datasets: [{
         label: 'Ocorrências',
         data: vals,
-        backgroundColor: '#8b5cf6bb',
-        borderColor: '#7c3aed',
+        backgroundColor: brandColor('#8b5cf6') + 'bb',
+        borderColor: brandColor(),
         borderWidth: 1,
         borderRadius: 3,
       }],
@@ -344,8 +420,8 @@ function createHodChart(canvas: HTMLCanvasElement, vals: number[]): any {
       datasets: [{
         label: 'Ocorrências',
         data: vals,
-        backgroundColor: '#3b82f6bb',
-        borderColor: '#2563eb',
+        backgroundColor: brandColor('#3b82f6') + 'bb',
+        borderColor: brandColor('#2563eb'),
         borderWidth: 1,
         borderRadius: 2,
       }],
@@ -476,15 +552,18 @@ export function openAlarmDetailsModal(
   const sev = SEVERITY_CONFIG[alarm.severity];
   const st = STATE_CONFIG[alarm.state];
 
-  const count = alarm.occurrenceCount || 1;
   const firstMs = new Date(alarm.firstOccurrence).getTime();
   const lastMs  = new Date(alarm.lastOccurrence).getTime();
-  const durMs   = (isNaN(firstMs) || isNaN(lastMs)) ? 0 : Math.max(0, lastMs - firstMs);
-  const durLabel = durationLabel(durMs);
-  const avgFreq =
-    count > 1
-      ? durationLabel(durMs / (count - 1)) + ' entre ocorrências'
-      : 'Evento único';
+  // "Aberto há" (agora − abertura) para alarme ativo; "Duração" (fechamento − abertura) quando fechado.
+  // lastOccurrence é o lastUpdatedAt do GCDR — não é ocorrência, por isso não entra na conta.
+  const isClosedState = alarm.state === 'CLOSED';
+  const closedMs = alarm.closedAt ? new Date(alarm.closedAt).getTime() : NaN;
+  const ageMs = isNaN(firstMs)
+    ? NaN
+    : isClosedState
+      ? (Number.isFinite(closedMs) ? closedMs : lastMs) - firstMs
+      : Date.now() - firstMs;
+  const ageKpiLabel = isClosedState ? 'Duração' : 'Aberto há';
 
   const devices = parseDevices(alarm.source);
   const deviceCount = devices.length;
@@ -503,24 +582,28 @@ export function openAlarmDetailsModal(
       <div class="adm-device-row">
         <span class="adm-device-row-index">${i + 1}</span>
         <div class="adm-device-icon-sm">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7c3aed" stroke-width="2">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
           </svg>
         </div>
-        <span class="adm-device-row-name">${escHtml(dev)}</span>
+        <span class="adm-device-row-name">${deviceIdentityHtml(alarm, dev)}</span>
         <span class="adm-device-row-sub">${escHtml(alarm.customerName || '-')}</span>
       </div>`
     )
     .join('');
 
-  // Pre-render chart data (deterministic, seeded by alarm.id)
+  // Período inicial do gráfico pela idade do alarme
+  const spanMs = Number.isFinite(ageMs) ? ageMs : 0;
   const initialPeriod: Period =
-    durMs < 86_400_000 ? 'hora' :
-    durMs < 7 * 86_400_000 ? 'dia' :
-    durMs < 30 * 86_400_000 ? 'semana' : 'mes';
-  const dowVals = generateDowDistribution(alarm);
-  const hodVals = generateHodDistribution(alarm);
+    spanMs < 3 * 86_400_000 ? 'hora' :
+    spanMs < 45 * 86_400_000 ? 'dia' :
+    spanMs < 180 * 86_400_000 ? 'semana' : 'mes';
   const chartSingleColor = sev.text || '#7c3aed';
+
+  // Eventos reais (carregados após abrir a modal)
+  let events: AlarmEvent[] | null = null;
+  const occEvents = (): AlarmEvent[] => (events || []).filter((e) => e.occurrence);
+  const onEventsReady: Array<() => void> = [];
 
   // Annotation count (persisted across modal open/close in session)
   const annotCount = getActiveAnnotationCount(alarm.id);
@@ -529,7 +612,7 @@ export function openAlarmDetailsModal(
   const sourceDisplay =
     deviceCount > 1
       ? `${deviceCount} dispositivos`
-      : escHtml(alarm.source);
+      : escHtml(resolveDeviceLabel(alarm, alarm.source) || alarm.source);
 
   const overlay = document.createElement('div');
   overlay.className = 'adm-overlay';
@@ -538,28 +621,8 @@ export function openAlarmDetailsModal(
   overlay.innerHTML = `
     <div class="adm-drawer" role="dialog" aria-modal="true" aria-label="Detalhes do alarme">
 
-      <!-- ── Header ── -->
+      <!-- ── Header (título/maximizar/fechar vêm da moldura padrão; aqui só os badges) ── -->
       <div class="adm-header">
-        <div class="adm-header-top">
-          <div class="adm-title" title="${escHtml(alarm.title)}">${escHtml(alarm.title)}</div>
-          <div class="adm-header-actions">
-            <button class="adm-header-btn" id="admMaximize" title="Maximizar">
-              <svg class="adm-icon-expand" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
-                <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
-              </svg>
-              <svg class="adm-icon-compress" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
-                <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
-                <line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/>
-              </svg>
-            </button>
-            <button class="adm-header-btn adm-close" id="admClose" title="Fechar (Esc)">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-        </div>
         <div class="adm-badges">
           <span class="adm-badge-severity" style="background:${sev.bg};color:${sev.text}">${sev.icon} ${sev.label}</span>
           <span class="adm-badge-state" style="color:${st.color}">${st.label}</span>
@@ -575,7 +638,7 @@ export function openAlarmDetailsModal(
         </button>
         <button class="adm-tab" data-panel="timeline">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg>
-          Timeline <span class="adm-tab-badge">${count}</span>
+          Timeline <span class="adm-tab-badge" id="admTlTabBadge">…</span>
         </button>
         <button class="adm-tab" data-panel="dispositivos">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M20 3H4a1 1 0 00-1 1v12a1 1 0 001 1h8v2H8v2h8v-2h-4v-2h8a1 1 0 001-1V4a1 1 0 00-1-1zm-1 12H5V5h14v10z"/></svg>
@@ -597,17 +660,17 @@ export function openAlarmDetailsModal(
         <!-- RESUMO -->
         <div class="adm-panel is-active" data-panel="resumo">
           ${groupMode !== 'separado' ? `<div class="adm-kpi-grid">
-            <div class="adm-kpi">
-              <div class="adm-kpi-value" style="color:${sev.text}">${count}</div>
+            <div class="adm-kpi" title="Abertura + reaberturas registradas no histórico do alarme">
+              <div class="adm-kpi-value" id="admKpiOcc" style="color:${sev.text}">…</div>
               <div class="adm-kpi-label">Ocorrências</div>
             </div>
             <div class="adm-kpi">
               <div class="adm-kpi-value">${deviceCount}</div>
               <div class="adm-kpi-label">Dispositivos</div>
             </div>
-            <div class="adm-kpi">
-              <div class="adm-kpi-value">${durLabel}</div>
-              <div class="adm-kpi-label">Duração</div>
+            <div class="adm-kpi" title="${isClosedState ? 'Da abertura ao fechamento' : 'Desde a abertura do alarme até agora'}">
+              <div class="adm-kpi-value">${Number.isFinite(ageMs) ? durationLabel(ageMs) : '-'}</div>
+              <div class="adm-kpi-label">${ageKpiLabel}</div>
             </div>
           </div>` : ''}
 
@@ -624,15 +687,18 @@ export function openAlarmDetailsModal(
           <div class="adm-section">
             <div class="adm-section-title">Identificação</div>
             ${row('Shopping', alarm.customerName)}
-            ${row('Dispositivo(s)', alarm.source)}
+            ${devices.length
+              ? `<div class="adm-row"><span class="adm-row-label">Dispositivo(s)</span><span class="adm-row-value adm-row-value--devices">${devices.map((d) => deviceIdentityHtml(alarm, d)).join('')}</span></div>`
+              : ''}
             ${alarm.triggerValue != null ? row('Valor do disparo', String(alarm.triggerValue)) : ''}
             ${groupMode === 'separado' ? row('ID', alarm.id) : ''}
           </div>
 
           <div class="adm-section">
             <div class="adm-section-title">Datas</div>
-            ${row('Primeira ocorrência', fmt(alarm.firstOccurrence))}
-            ${row('Última ocorrência', fmt(alarm.lastOccurrence))}
+            ${row('Aberto em', fmt(alarm.firstOccurrence))}
+            <div id="admReopenRows"></div>
+            ${row('Última atualização', fmt(alarm.lastOccurrence))}
             ${alarm.acknowledgedAt ? row('Reconhecido em', fmt(alarm.acknowledgedAt)) : ''}
             ${alarm.acknowledgedBy ? row('Reconhecido por', alarm.acknowledgedBy) : ''}
             ${alarm.snoozedUntil ? row('Adiado até', fmt(alarm.snoozedUntil)) : ''}
@@ -661,7 +727,7 @@ export function openAlarmDetailsModal(
               ${alarm._groupAlarmIds
                 .map(
                   (rawId) =>
-                    `<span class="adm-alarm-id-chip" title="Clique para copiar" data-copy-id="${escHtml(rawId)}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid rgba(124,58,237,0.25);background:rgba(124,58,237,0.08);border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#4c1d95;cursor:pointer;user-select:all;">${escHtml(rawId)}</span>`
+                    `<span class="adm-alarm-id-chip" title="Clique para copiar" data-copy-id="${escHtml(rawId)}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid color-mix(in srgb, var(--myio-brand-700, #7c3aed) 25%, transparent);background:color-mix(in srgb, var(--myio-brand-700, #7c3aed) 8%, transparent);border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--myio-brand-700, #4c1d95);cursor:pointer;user-select:all;">${escHtml(rawId)}</span>`
                 )
                 .join('')}
             </div>
@@ -686,7 +752,7 @@ export function openAlarmDetailsModal(
         <div class="adm-panel" data-panel="timeline">
           <div class="adm-tl-header" id="admTlHeader">
             <div class="adm-tl-toolbar">
-              <span class="adm-tl-summary" id="admTlSummary">${count} ocorrência${count !== 1 ? 's' : ''}</span>
+              <span class="adm-tl-summary" id="admTlSummary">Carregando histórico…</span>
               <button class="adm-tl-batch-toggle" id="admTlBatchToggle" title="Ações em lote">
                 <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="4" height="4" rx="1"/><path d="M10 7h11"/><rect x="3" y="12" width="4" height="4" rx="1"/><path d="M10 14h11"/><rect x="3" y="19" width="4" height="4" rx="1"/><path d="M10 21h11"/></svg>
                 Ação em lote
@@ -712,7 +778,7 @@ export function openAlarmDetailsModal(
             <label class="adm-report-label">De</label>
             <input type="date" class="adm-report-date-input" id="admRptStart" value="${fmtDateInput(firstMs)}">
             <label class="adm-report-label">Até</label>
-            <input type="date" class="adm-report-date-input" id="admRptEnd" value="${fmtDateInput(lastMs)}">
+            <input type="date" class="adm-report-date-input" id="admRptEnd" value="${fmtDateInput(Date.now())}">
             <button class="adm-report-emit-btn" id="admRptEmit">
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
               Carregar
@@ -763,7 +829,8 @@ export function openAlarmDetailsModal(
           </div>
 
           <div class="adm-section">
-            <div class="adm-section-title">Tendência de ocorrências no período</div>
+            <div class="adm-section-title">Ocorrências no período</div>
+            <div class="adm-chart-note" id="admChartNote">Carregando histórico…</div>
             <div class="adm-chart-wrapper">
               <canvas id="admMainChart" class="adm-chart-canvas"></canvas>
             </div>
@@ -820,27 +887,48 @@ export function openAlarmDetailsModal(
     });
   });
 
-  // Chart.js handlers (scoped to grafico panel)
+  // Chart.js handlers (scoped to grafico panel) — só ocorrências reais
   const chartInstances: any[] = []; // [0]=main [1]=dow [2]=hod
   const graficoPanel = overlay.querySelector<HTMLElement>('.adm-panel[data-panel="grafico"]');
   if (graficoPanel) {
     let activeChartType: 'bar' | 'line' = 'bar';
     let activeVizMode: 'total' | 'separate' = 'total';
     let activePeriod: Period = initialPeriod;
+    const noteEl = graficoPanel.querySelector<HTMLElement>('#admChartNote');
+
+    const updateNote = () => {
+      if (!noteEl) return;
+      if (!events) {
+        noteEl.textContent = 'Carregando histórico…';
+        return;
+      }
+      const n = occEvents().length;
+      noteEl.textContent =
+        `${n} ocorrência${n !== 1 ? 's' : ''} registrada${n !== 1 ? 's' : ''} (abertura + reaberturas do histórico do alarme).` +
+        (n < 3 ? ' Poucos eventos para indicar tendência.' : '');
+    };
 
     const buildMain = () => {
-      const nb = generateBuckets(alarm, devices, activePeriod);
+      updateNote();
+      if (!events) return;
       const canvas = graficoPanel.querySelector<HTMLCanvasElement>('#admMainChart');
       if (!canvas) return;
+      const occ = occEvents();
+      const fromMs = occ.length ? occ[0].ts : Number.isFinite(firstMs) ? firstMs : Date.now();
+      const nb = bucketEvents(occ, devices, activePeriod, fromMs, Date.now());
       if (chartInstances[0]) { chartInstances[0].destroy(); chartInstances[0] = null; }
       chartInstances[0] = createMainChart(canvas, nb, devices, activeChartType, activeVizMode, chartSingleColor);
     };
 
-    const initSecondary = () => {
+    const buildSecondary = () => {
+      if (!events) return;
+      const occ = occEvents();
       const dowCanvas = graficoPanel.querySelector<HTMLCanvasElement>('#admDowChart');
-      if (dowCanvas && !chartInstances[1]) chartInstances[1] = createDowChart(dowCanvas, dowVals);
+      if (chartInstances[1]) { chartInstances[1].destroy(); chartInstances[1] = null; }
+      if (dowCanvas) chartInstances[1] = createDowChart(dowCanvas, dowFromEvents(occ));
       const hodCanvas = graficoPanel.querySelector<HTMLCanvasElement>('#admHodChart');
-      if (hodCanvas && !chartInstances[2]) chartInstances[2] = createHodChart(hodCanvas, hodVals);
+      if (chartInstances[2]) { chartInstances[2].destroy(); chartInstances[2] = null; }
+      if (hodCanvas) chartInstances[2] = createHodChart(hodCanvas, hodFromEvents(occ));
     };
 
     graficoPanel.querySelectorAll<HTMLButtonElement>('button[data-chart-type]').forEach((btn) => {
@@ -870,9 +958,18 @@ export function openAlarmDetailsModal(
       });
     });
 
-    // Init charts when the Gráfico tab is clicked (canvas must be visible for correct sizing)
+    const renderCharts = () => {
+      buildMain();
+      buildSecondary();
+    };
+
+    // Canvas precisa estar visível para dimensionar: desenha ao abrir a aba e quando o histórico chega
     overlay.querySelectorAll<HTMLElement>('.adm-tab[data-panel="grafico"]').forEach((tabBtn) => {
-      tabBtn.addEventListener('click', () => setTimeout(() => { buildMain(); initSecondary(); }, 30));
+      tabBtn.addEventListener('click', () => setTimeout(renderCharts, 30));
+    });
+    onEventsReady.push(() => {
+      if (graficoPanel.classList.contains('is-active')) renderCharts();
+      else updateNote();
     });
   }
 
@@ -897,141 +994,93 @@ export function openAlarmDetailsModal(
     const _svgSnooze   = `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>`;
     const _svgEscalate = `<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>`;
 
-    // ── Occurrence table builder (respects date filter, same CSS as buildTimeline) ──
-    const buildOccurrenceSection = (occFirst: number, occLast: number): { html: string; csvRows: string[][] } => {
-      const intervalMs = count > 1 ? (occLast - occFirst) / (count - 1) : 0;
-      const trigStr    = alarm.triggerValue != null ? String(alarm.triggerValue) : null;
-      const hasTrigger = trigStr != null;
+    // ── Tabela de eventos reais (respeita o filtro de datas) ──
+    const buildOccurrenceSection = (startMs: number, endMs: number): { html: string; csvRows: string[][] } => {
+      if (!events) {
+        return { html: '<div class="adm-report-empty-hint">Carregando histórico do alarme…</div>', csvRows: [] };
+      }
       const showDevice = !isSeparado && devices.length > 0;
+      const showAlarm  = groupMode === 'porDispositivo' && (alarm._groupAlarmIds?.length || 0) > 1;
       const isActive   = alarm.state === 'OPEN' || alarm.state === 'ESCALATED';
       const isClosed   = alarm.state === 'CLOSED';
 
-      const idxStyle = (isSingle: boolean, isLatest: boolean, isFirst: boolean): string => {
-        if (isSingle) return 'color:#7c3aed;font-weight:700';
-        if (isLatest) return 'color:#3b82f6;font-weight:700';
-        if (isFirst)  return 'color:#ef4444;font-weight:700';
-        return '';
+      // numeração global das ocorrências (abertura = #1)
+      const occIndex = new Map<AlarmEvent, number>();
+      occEvents().forEach((e, i) => occIndex.set(e, i + 1));
+
+      const inRange = events
+        .filter((e) => e.ts >= startMs && e.ts <= endMs)
+        .sort((a, b) => b.ts - a.ts || (occIndex.get(b) || 0) - (occIndex.get(a) || 0));
+
+      const csvHeader = ['#', 'Data/Hora', 'Evento'];
+      if (showAlarm) csvHeader.push('Alarme');
+      if (showDevice) csvHeader.push('Dispositivo', 'Name (TB)');
+      csvHeader.push('Por');
+      const rows: string[][] = [csvHeader];
+
+      const kindStyle: Record<AlarmEventKind, string> = {
+        raised: 'color:#ef4444;font-weight:700',
+        reopened: 'color:#d97706;font-weight:700',
+        closed: 'color:#16a34a;font-weight:700',
+        acknowledged: 'color:var(--myio-brand-700, #7c3aed);font-weight:600',
+        silenced: 'color:#6b7280;font-weight:600',
+        escalated: 'color:#dc2626;font-weight:600',
+        other: 'color:#6b7280',
       };
 
-      const csvHeader = ['#', 'Data/Hora'];
-      if (showDevice) csvHeader.push('Dispositivo');
-      if (hasTrigger) csvHeader.push('Trigger');
-      const rows: string[][] = [csvHeader];
-      const tableRows: string[] = [];
-
-      if (groupMode === 'porDispositivo' && alarm._alarmTypeGroups?.length) {
-        // Grouped tables per alarm type
-        const groups = alarm._alarmTypeGroups;
-        const groupHtml = groups.map((grp, gi) => {
-          const gCount    = grp.occurrenceCount || 1;
-          const gFirstMs  = new Date(grp.firstOccurrence).getTime();
-          const gLastMs   = new Date(grp.lastOccurrence).getTime();
-          const gInterval = gCount > 1 ? (gLastMs - gFirstMs) / (gCount - 1) : 0;
-          const gTrig     = grp.triggerValue != null ? String(grp.triggerValue) : trigStr;
-          const gHasTrig  = gTrig != null;
-
-          const gThead = `<thead><tr>
-            <th class="adm-rpt-th adm-rpt-th--idx">#</th>
-            <th class="adm-rpt-th">Data/Hora</th>
-            ${gHasTrig ? `<th class="adm-rpt-th adm-rpt-th--num">Trigger</th>` : ''}
-          </tr></thead>`;
-
-          const gRows: string[] = [];
-          const MAX = 10;
-          for (let i = gCount; i >= 1; i--) {
-            const tsMs = gFirstMs + gInterval * (i - 1);
-            const isSingle  = gCount === 1;
-            const isLatest  = !isSingle && i === gCount;
-            const isFirst   = !isSingle && i === 1;
-            const isEst     = !isSingle && !isLatest && !isFirst;
-            const timeStr   = (isEst ? '~' : '') + fmt(tsMs);
-            const style     = idxStyle(isSingle, isLatest, isFirst);
-            gRows.push(`<tr>
-              <td class="adm-rpt-cell adm-rpt-cell--idx"${style ? ` style="${style}"` : ''}>#${i}</td>
-              <td class="adm-rpt-cell">${timeStr}</td>
-              ${gHasTrig ? `<td class="adm-rpt-cell adm-rpt-cell--num">${escHtml(gTrig!)}</td>` : ''}
-            </tr>`);
-            const csvRow = [`#${i}`, fmt(tsMs)];
-            if (gHasTrig) csvRow.push(gTrig!);
-            rows.push(csvRow);
-            if (gRows.length >= MAX) break;
-          }
-
-          const sepStyle = gi > 0 ? ' style="margin-top:12px;padding-top:12px;border-top:1px dashed #e5e7eb"' : '';
-          return `<div${sepStyle}>
-            <div class="adm-timeline-group-header">
-              <label class="adm-tl-cb-wrap" data-cb-wrap><input type="checkbox" class="adm-tl-row-cb" data-item-id="${alarm.id}__grp${gi}"></label>
-              <span class="adm-tl-group-title">${escHtml(grp.title)}</span>
-              <span class="adm-timeline-group-count">${gCount}</span>
-              <div class="adm-tl-row-btns adm-tl-row-btns--group" data-row-btns>
-                ${isActive ? `<button class="adm-tl-row-btn adm-tl-row-btn--ack" data-action="acknowledge" data-item-id="${alarm.id}" title="Reconhecer">${_svgAck}</button>` : ''}
-                ${!isClosed ? `<button class="adm-tl-row-btn adm-tl-row-btn--snooze" data-action="snooze" data-item-id="${alarm.id}" title="Adiar">${_svgSnooze}</button>` : ''}
-                ${!isClosed ? `<button class="adm-tl-row-btn adm-tl-row-btn--escalate" data-action="escalate" data-item-id="${alarm.id}" title="Escalar">${_svgEscalate}</button>` : ''}
-              </div>
-            </div>
-            <div class="adm-rpt-table-wrap" style="margin-bottom:0">
-              <table class="adm-rpt-table">${gThead}<tbody>${gRows.join('')}</tbody></table>
-            </div>
-          </div>`;
-        }).join('');
-
-        return { html: groupHtml, csvRows: rows };
-      }
-
-      // Flat table (consolidado / separado)
-      const deviceTokens = alarm.source
-        ? alarm.source.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
-        : [];
       const thead = `<thead><tr>
         <th class="adm-rpt-th adm-rpt-th--idx">#</th>
         <th class="adm-rpt-th">Data/Hora</th>
+        <th class="adm-rpt-th">Evento</th>
+        ${showAlarm ? `<th class="adm-rpt-th">Alarme</th>` : ''}
         ${showDevice ? `<th class="adm-rpt-th">Dispositivo</th>` : ''}
-        ${hasTrigger ? `<th class="adm-rpt-th adm-rpt-th--num">Trigger</th>` : ''}
+        <th class="adm-rpt-th">Por</th>
         <th class="adm-rpt-th adm-tl-actions-th">Ações</th>
       </tr></thead>`;
 
-      const MAX_SHOWN = 30;
-      for (let i = count; i >= 1; i--) {
-        const tsMs     = occFirst + intervalMs * (i - 1);
-        const isSingle = count === 1;
-        const isLatest = !isSingle && i === count;
-        const isFirst  = !isSingle && i === 1;
-        const isEst    = !isSingle && !isLatest && !isFirst;
-        const timeStr  = (isEst ? '~' : '') + fmt(tsMs);
-        const device   = showDevice ? deviceTokens[(i - 1) % deviceTokens.length] : '';
-        const style    = idxStyle(isSingle, isLatest, isFirst);
-        tableRows.push(`<tr>
-          <td class="adm-rpt-cell adm-rpt-cell--idx"${style ? ` style="${style}"` : ''}>#${i}</td>
-          <td class="adm-rpt-cell">${timeStr}</td>
-          ${showDevice ? `<td class="adm-rpt-cell adm-rpt-cell--dev">${escHtml(device)}</td>` : ''}
-          ${hasTrigger ? `<td class="adm-rpt-cell adm-rpt-cell--num">${escHtml(trigStr!)}</td>` : ''}
-          <td class="adm-rpt-cell adm-tl-action-cell">
-            <label class="adm-tl-cb-wrap" data-cb-wrap><input type="checkbox" class="adm-tl-row-cb" data-item-id="${alarm.id}__row${i}"></label>
-            <div class="adm-tl-row-btns" data-row-btns>
-              ${isActive ? `<button class="adm-tl-row-btn adm-tl-row-btn--ack" data-action="acknowledge" data-item-id="${alarm.id}" title="Reconhecer">${_svgAck}</button>` : ''}
-              ${!isClosed ? `<button class="adm-tl-row-btn adm-tl-row-btn--snooze" data-action="snooze" data-item-id="${alarm.id}" title="Adiar">${_svgSnooze}</button>` : ''}
-              ${!isClosed ? `<button class="adm-tl-row-btn adm-tl-row-btn--escalate" data-action="escalate" data-item-id="${alarm.id}" title="Escalar">${_svgEscalate}</button>` : ''}
-            </div>
-          </td>
-        </tr>`);
-        const csvRow = [`#${i}`, fmt(tsMs)];
-        if (showDevice) csvRow.push(device);
-        if (hasTrigger) csvRow.push(trigStr!);
+      const MAX_SHOWN = 200;
+      const tableRows = inRange.slice(0, MAX_SHOWN).map((e, ri) => {
+        const n = occIndex.get(e);
+        const ident = showDevice ? resolveDeviceIdentity(alarm, e.device) : null;
+        const actor = e.kind === 'raised' ? 'regra' : e.actor === 'system' ? 'sistema' : e.actor || '-';
+        const csvRow = [n ? `#${n}` : '', fmt(e.ts), EVENT_LABEL[e.kind]];
+        if (showAlarm) csvRow.push(e.title);
+        if (showDevice) csvRow.push(ident!.label, ident!.name || e.device);
+        csvRow.push(actor);
         rows.push(csvRow);
-        if (tableRows.length >= MAX_SHOWN) break;
-      }
+        const itemId = `${e.alarmId}__ev${ri}`;
+        return `<tr>
+          <td class="adm-rpt-cell adm-rpt-cell--idx">${n ? `#${n}` : ''}</td>
+          <td class="adm-rpt-cell">${fmt(e.ts)}</td>
+          <td class="adm-rpt-cell" style="${kindStyle[e.kind]}">${EVENT_LABEL[e.kind]}</td>
+          ${showAlarm ? `<td class="adm-rpt-cell">${escHtml(e.title)}</td>` : ''}
+          ${showDevice ? `<td class="adm-rpt-cell adm-rpt-cell--dev" title="${escHtml(ident!.name || e.device)}">${escHtml(ident!.label)}</td>` : ''}
+          <td class="adm-rpt-cell">${escHtml(actor)}</td>
+          <td class="adm-rpt-cell adm-tl-action-cell">
+            ${e.occurrence ? `<label class="adm-tl-cb-wrap" data-cb-wrap><input type="checkbox" class="adm-tl-row-cb" data-item-id="${escHtml(itemId)}"></label>
+            <div class="adm-tl-row-btns" data-row-btns>
+              ${isActive ? `<button class="adm-tl-row-btn adm-tl-row-btn--ack" data-action="acknowledge" data-item-id="${escHtml(itemId)}" title="Reconhecer">${_svgAck}</button>` : ''}
+              ${!isClosed ? `<button class="adm-tl-row-btn adm-tl-row-btn--snooze" data-action="snooze" data-item-id="${escHtml(itemId)}" title="Adiar">${_svgSnooze}</button>` : ''}
+              ${!isClosed ? `<button class="adm-tl-row-btn adm-tl-row-btn--escalate" data-action="escalate" data-item-id="${escHtml(itemId)}" title="Escalar">${_svgEscalate}</button>` : ''}
+            </div>` : ''}
+          </td>
+        </tr>`;
+      });
 
-      const html = `<div class="adm-rpt-table-wrap" id="admRptTableWrap" style="max-height:340px;overflow-y:auto">
+      const occInRange = inRange.filter((e) => e.occurrence).length;
+      const colspan = 4 + (showAlarm ? 1 : 0) + (showDevice ? 1 : 0);
+      const html = inRange.length
+        ? `<div class="adm-rpt-table-wrap" id="admRptTableWrap" style="max-height:340px;overflow-y:auto">
         <table class="adm-rpt-table">
           ${thead}
           <tbody>${tableRows.join('')}</tbody>
           <tfoot><tr>
-            <td class="adm-rpt-cell adm-rpt-cell--total" colspan="${showDevice ? (hasTrigger ? 3 : 2) : (hasTrigger ? 2 : 1)}">Total</td>
-            <td class="adm-rpt-cell adm-rpt-cell--num adm-rpt-cell--total">${count} ocorrência${count !== 1 ? 's' : ''}</td>
+            <td class="adm-rpt-cell adm-rpt-cell--total" colspan="${colspan}">Total: ${occInRange} ocorrência${occInRange !== 1 ? 's' : ''} · ${inRange.length} evento${inRange.length !== 1 ? 's' : ''}</td>
             <td class="adm-rpt-cell adm-rpt-cell--total"></td>
           </tr></tfoot>
         </table>
-      </div>`;
+      </div>`
+        : '<div class="adm-report-empty-hint">Nenhum evento no período selecionado.</div>';
 
       return { html, csvRows: rows };
     };
@@ -1039,51 +1088,62 @@ export function openAlarmDetailsModal(
     const buildReportTable = () => {
       const startInput = rptPanel.querySelector<HTMLInputElement>('#admRptStart');
       const endInput   = rptPanel.querySelector<HTMLInputElement>('#admRptEnd');
-      const startMs = startInput?.value ? new Date(startInput.value).getTime() : firstMs;
-      const endMs   = endInput?.value   ? new Date(endInput.value).getTime() + 86_400_000 - 1 : lastMs;
-
-      const occFirst = Math.max(firstMs, startMs);
-      const occLast  = Math.min(lastMs, endMs);
+      // input date = meia-noite UTC; ajusta para o dia local inteiro
+      const toLocalDay = (v: string) => {
+        const [y, m, d] = v.split('-').map(Number);
+        return new Date(y, (m || 1) - 1, d || 1).getTime();
+      };
+      const startMs = startInput?.value ? toLocalDay(startInput.value) : 0;
+      const endMs   = endInput?.value ? toLocalDay(endInput.value) + 86_400_000 - 1 : Date.now();
 
       // ── Header (separado only) ──
       const headerHtml = isSeparado
         ? `<div class="adm-rpt-device-header">
-            <span class="adm-rpt-device-name">${escHtml(alarm.source)}</span>
+            <span class="adm-rpt-device-name" title="${escHtml(alarm.source)}">${escHtml(resolveDeviceLabel(alarm, alarm.source) || alarm.source)}</span>
             <span class="adm-rpt-device-sep">·</span>
             <span class="adm-rpt-alarm-type">${escHtml(alarm.title)}</span>
           </div>`
         : '';
 
-      // ── Section title ──
-      const sectionTitle = groupMode === 'porDispositivo' && alarm._alarmTypeGroups?.length
-        ? `${alarm._alarmTypeGroups.length} tipo${alarm._alarmTypeGroups.length !== 1 ? 's' : ''} · ${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela`
-        : `${count} ocorrência${count !== 1 ? 's' : ''} · ${durLabel} de janela`;
-
-      // ── Occurrence table ──
-      const { html: occHtml, csvRows } = buildOccurrenceSection(occFirst, occLast);
+      const { html: occHtml, csvRows } = buildOccurrenceSection(startMs, endMs);
       lastCsvRows = csvRows;
 
-      // ── Estatísticas de recorrência ──
-      const statsHtml = count > 1 || alarm.triggerValue != null
+      const occ = occEvents();
+      const occN = occ.length;
+      const sectionTitle = events
+        ? `${occN} ocorrência${occN !== 1 ? 's' : ''} · ${events.length} evento${events.length !== 1 ? 's' : ''} no histórico`
+        : 'Histórico do alarme';
+
+      // ── Estatísticas (só com dados reais) ──
+      const reopenN = occ.filter((e) => e.kind === 'reopened').length;
+      const statsHtml = events && (occN > 1 || alarm.triggerValue != null)
         ? `<div class="adm-section">
             <div class="adm-section-title">Estatísticas de recorrência</div>
-            ${alarm.triggerValue != null ? row('Valor do disparo', String(alarm.triggerValue)) : ''}
-            ${count > 1 ? row('Frequência média', avgFreq) : ''}
-            ${count > 1 ? row('Janela total', durLabel) : ''}
-            ${count > 1 ? row('Primeira ocorrência', fmt(alarm.firstOccurrence)) : ''}
-            ${count > 1 ? row('Última ocorrência', fmt(alarm.lastOccurrence)) : ''}
+            ${alarm.triggerValue != null ? row('Valor do último disparo', String(alarm.triggerValue)) : ''}
+            ${occN > 1 ? row('Reaberturas', String(reopenN)) : ''}
+            ${occN > 1 ? row('Intervalo médio entre ocorrências', durationLabel((occ[occN - 1].ts - occ[0].ts) / (occN - 1))) : ''}
+            ${occN > 1 ? row('Primeira ocorrência', fmt(occ[0].ts)) : ''}
+            ${occN > 1 ? row('Última ocorrência', fmt(occ[occN - 1].ts)) : ''}
           </div>`
         : '';
 
       // ── Sumário por dispositivo (consolidado / porDispositivo) ──
       let summaryHtml = '';
-      if (!isSeparado && devices.length > 0) {
-        const devRows = devices.map((dev) => `<tr>
-          <td class="adm-rpt-cell">${escHtml(dev)}</td>
-          <td class="adm-rpt-cell adm-rpt-cell--num">${count}</td>
-          <td class="adm-rpt-cell">${fmt(occFirst)}</td>
-          <td class="adm-rpt-cell">${fmt(occLast)}</td>
-        </tr>`).join('');
+      if (events && !isSeparado && devices.length > 0) {
+        const byDev = new Map<string, AlarmEvent[]>();
+        occ.forEach((e) => {
+          const k = devices.includes(e.device) ? e.device : devices[0];
+          byDev.set(k, [...(byDev.get(k) || []), e]);
+        });
+        const devRows = devices.map((dev) => {
+          const list = byDev.get(dev) || [];
+          return `<tr>
+          <td class="adm-rpt-cell" title="${escHtml(dev)}">${escHtml(resolveDeviceLabel(alarm, dev) || dev)}</td>
+          <td class="adm-rpt-cell adm-rpt-cell--num">${list.length}</td>
+          <td class="adm-rpt-cell">${list.length ? fmt(list[0].ts) : '-'}</td>
+          <td class="adm-rpt-cell">${list.length ? fmt(list[list.length - 1].ts) : '-'}</td>
+        </tr>`;
+        }).join('');
         summaryHtml = `
           <div class="adm-rpt-section-title">Sumário por dispositivo</div>
           <div class="adm-rpt-table-wrap adm-rpt-table-wrap--summary">
@@ -1109,9 +1169,10 @@ export function openAlarmDetailsModal(
         ${statsHtml}
         ${summaryHtml}`;
 
-      // Enable export buttons after first load
-      csvBtn?.removeAttribute('disabled');
-      pdfBtn?.removeAttribute('disabled');
+      if (events) {
+        csvBtn?.removeAttribute('disabled');
+        pdfBtn?.removeAttribute('disabled');
+      }
     };
 
     // ── Static export handlers (bound once, use latest lastCsvRows) ──
@@ -1143,25 +1204,27 @@ export function openAlarmDetailsModal(
           tfoot td{font-weight:700;background:#ede9fe;}
         </style></head><body>
         <h2>${escHtml(alarm.title)}</h2>
-        <p>${escHtml(alarm.id)} · ${escHtml(alarm.customerName || '')} · ${count} ocorrência${count !== 1 ? 's' : ''} · Emitido em ${new Date().toLocaleDateString('pt-BR')}</p>
-        <h3>Ocorrências</h3>${tbl}
+        <p>${escHtml(alarm.id)} · ${escHtml(alarm.customerName || '')} · ${occEvents().length} ocorrência${occEvents().length !== 1 ? 's' : ''} · Emitido em ${new Date().toLocaleDateString('pt-BR')}</p>
+        <h3>Histórico</h3>${tbl}
         ${sumTbl ? `<h3>Sumário por dispositivo</h3>${sumTbl}` : ''}
         <script>window.onload=function(){window.print();window.close();}<\/script>
         </body></html>`);
       win.document.close();
     });
 
-    emitBtn?.addEventListener('click', () => {
+    const refreshReport = () => {
       buildReportTable();
       // Re-apply batch visuals to newly rendered rows if batch mode is still active
       if (batchActive && grid) {
         grid.querySelectorAll<HTMLElement>('[data-cb-wrap]').forEach((el) => { el.style.display = 'inline-flex'; });
         grid.querySelectorAll<HTMLElement>('[data-row-btns]').forEach((el) => { el.style.display = 'none'; });
       }
-    });
+    };
+    emitBtn?.addEventListener('click', refreshReport);
 
-    // Auto-load com a data padrão ao abrir o modal
+    // Auto-load com a data padrão ao abrir o modal (e de novo quando o histórico chegar)
     buildReportTable();
+    onEventsReady.push(refreshReport);
 
     // ── Batch mode logic ──
     const batchToggleBtn = rptPanel.querySelector<HTMLButtonElement>('#admTlBatchToggle');
@@ -1291,21 +1354,50 @@ export function openAlarmDetailsModal(
     }, tbCfg);
   }
 
-  // Maximize / restore
-  const drawer = overlay.querySelector('.adm-drawer') as HTMLElement | null;
-  const maximizeBtn = overlay.querySelector('#admMaximize') as HTMLElement | null;
-  const iconExpand   = maximizeBtn?.querySelector<HTMLElement>('.adm-icon-expand');
-  const iconCompress = maximizeBtn?.querySelector<HTMLElement>('.adm-icon-compress');
+  // Histórico real → KPIs, datas de reabertura, Timeline e Gráfico
+  const applyEvents = () => {
+    const occ = occEvents();
+    const occText = events ? String(occ.length || '-') : '…';
+    const kpi = overlay.querySelector<HTMLElement>('#admKpiOcc');
+    if (kpi) kpi.textContent = occText;
+    const badge = overlay.querySelector<HTMLElement>('#admTlTabBadge');
+    if (badge) badge.textContent = occText;
+    const summary = overlay.querySelector<HTMLElement>('#admTlSummary');
+    if (summary && events) summary.textContent = `${occ.length} ocorrência${occ.length !== 1 ? 's' : ''}`;
 
-  maximizeBtn?.addEventListener('click', () => {
-    const isMax = drawer?.classList.toggle('adm-drawer--maximized');
-    if (iconExpand)   iconExpand.style.display   = isMax ? 'none'  : '';
-    if (iconCompress) iconCompress.style.display = isMax ? ''      : 'none';
-    maximizeBtn.title = isMax ? 'Restaurar (Esc)' : 'Maximizar';
+    const reopenEl = overlay.querySelector<HTMLElement>('#admReopenRows');
+    const reopens = occ.filter((e) => e.kind === 'reopened');
+    if (reopenEl) {
+      reopenEl.innerHTML = reopens.length
+        ? row('Última reabertura', fmt(reopens[reopens.length - 1].ts)) +
+          (reopens.length > 1 ? row('Reaberturas', String(reopens.length)) : '')
+        : '';
+    }
+    onEventsReady.forEach((fn) => { try { fn(); } catch (_) { /* noop */ } });
+  };
+
+  loadAlarmEvents(alarm)
+    .then((ev) => { events = ev; })
+    .catch(() => { events = []; })
+    .then(() => { if (overlay.isConnected) applyEvents(); });
+
+  // Moldura padrão: header no acento do tema (maximizar/fechar) + footer premium
+  const drawer = overlay.querySelector('.adm-drawer') as HTMLElement;
+  const chrome = createPremiumModalChrome({
+    modalId: 'adm-modal',
+    icon: '🔔',
+    title: escHtml(alarm.title),
+    modalEl: drawer,
+    theme: themeMode,
+    maximizedClass: 'adm-drawer--maximized',
+    headerRadius: '18px 18px 0 0',
+    onClose: () => closeModal(),
+    footer: alarm.customerName ? { customerName: alarm.customerName } : {},
   });
 
   // Close
   const closeModal = () => {
+    chrome.destroy();
     overlay.classList.remove('adm-overlay--visible');
     setTimeout(() => {
       overlay.remove();
@@ -1319,7 +1411,31 @@ export function openAlarmDetailsModal(
   };
 
   document.addEventListener('keydown', onKey);
-  overlay.querySelector('#admClose')?.addEventListener('click', closeModal);
+
+  // Copiar o name técnico do device
+  overlay.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('.adm-copy-btn');
+    if (!btn) return;
+    e.stopPropagation();
+    const text = btn.getAttribute('data-copy') || '';
+    const done = () => {
+      btn.classList.add('is-copied');
+      btn.title = 'Copiado!';
+      setTimeout(() => {
+        btn.classList.remove('is-copied');
+        btn.title = 'Copiar nome do dispositivo';
+      }, 1200);
+    };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => {});
+    else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); } catch (_) { /* noop */ }
+      ta.remove();
+    }
+  });
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closeModal();
   });
@@ -1352,7 +1468,7 @@ function buildOccurrenceMatrix(alarm: Alarm, devices: string[]): string {
   const deviceChip = (dev: string) =>
     `<span class="adm-device-chip">
        <svg viewBox="0 0 24 24" width="8" height="8" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
-       ${escHtml(dev)}
+       ${escHtml(resolveDeviceLabel(alarm, dev) || dev)}
      </span>`;
 
   return show

@@ -67,6 +67,8 @@ export interface ShoppingEnergy {
  * Energy KPI data
  */
 export interface EnergyKPI {
+  /** Consumo do período ainda carregando → spinner no KPI */
+  loading?: boolean;
   /** Total consumption for selected customers */
   customerTotal: number;
   /** Total consumption before filtering */
@@ -141,6 +143,8 @@ export interface ShoppingWater {
  * Water KPI data
  */
 export interface WaterKPI {
+  /** Consumo do período ainda carregando → spinner no KPI */
+  loading?: boolean;
   /** Total consumption for selected customers */
   filteredTotal: number;
   /** Total consumption before filtering */
@@ -432,6 +436,8 @@ export interface HeaderComponentInstance {
   updateTemperatureKPI: (data: TemperatureKPI) => void;
   /** Update water KPI */
   updateWaterKPI: (data: WaterKPI) => void;
+  /** Spinner nos KPIs de consumo (energia/água) enquanto o período carrega */
+  setConsumptionLoading: (loading: boolean) => void;
 
   // Tooltip data updates
   /** Update tooltip data for a specific card */

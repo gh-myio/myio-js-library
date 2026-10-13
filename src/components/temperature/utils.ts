@@ -302,7 +302,37 @@ export function interpolateTemperature(
 }
 
 /**
- * Aggregates temperature data by day, calculating daily statistics
+ * Consolida a série em HORA FECHADA: um ponto por hora (início da hora) com a média
+ * das leituras daquela hora (ex.: 13:00 = média de 13:00–13:59). Horas sem leitura
+ * ficam sem ponto (não são preenchidas).
+ * @param data - Temperature telemetry data (any sub-hour resolution)
+ * @param clampRange - Clamp range for outliers
+ * @param offset - Temperature offset to apply to all values
+ */
+export function aggregateByHour(
+  data: TemperatureTelemetry[],
+  clampRange: ClampRange = DEFAULT_CLAMP_RANGE,
+  offset: number = DEFAULT_TEMPERATURE_OFFSET
+): TemperatureTelemetry[] {
+  const HOUR = 60 * 60 * 1000;
+  const buckets = new Map<number, { sum: number; n: number }>();
+  for (const item of data) {
+    const ts = Number(item.ts);
+    if (!Number.isFinite(ts)) continue;
+    const hour = Math.floor(ts / HOUR) * HOUR; // fusos inteiros → alinhado também em SP
+    const b = buckets.get(hour) || { sum: 0, n: 0 };
+    b.sum += clampTemperature(item.value, clampRange, offset);
+    b.n += 1;
+    buckets.set(hour, b);
+  }
+  return [...buckets.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([ts, b]) => ({ ts, value: b.sum / b.n }));
+}
+
+/**
+ * Aggregates temperature data by day (calendar day in America/Sao_Paulo, UTC-3),
+ * calculating daily statistics
  * @param data - Temperature telemetry data
  * @param clampRange - Clamp range for outliers
  * @param offset - Temperature offset to apply to all values
@@ -320,8 +350,8 @@ export function aggregateByDay(
   const dayMap = new Map<string, TemperatureTelemetry[]>();
 
   data.forEach(item => {
-    const date = new Date(item.ts);
-    const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    // Dia civil de São Paulo (UTC-3) — antes era o dia UTC, que "virava" às 21:00
+    const dateKey = new Date(Number(item.ts) - 3 * 60 * 60 * 1000).toISOString().split('T')[0]; // YYYY-MM-DD
 
     if (!dayMap.has(dateKey)) {
       dayMap.set(dateKey, []);
@@ -338,7 +368,7 @@ export function aggregateByDay(
 
     result.push({
       date: dateKey,
-      dateTs: new Date(dateKey).getTime(),
+      dateTs: new Date(`${dateKey}T00:00:00-03:00`).getTime(),
       avg: sum / values.length,
       min: Math.min(...values),
       max: Math.max(...values),

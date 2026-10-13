@@ -1,0 +1,41 @@
+Generation mode: built-in image_gen.imagegen
+Transparent background: false
+
+Use case: ui-mockup.
+Create a single exceptionally polished, high-fidelity flat desktop web dashboard screenshot for RFC-0238 "Head Office Portfolio Command Center", a MYIO executive management workspace for a holding of Brazilian shopping centers. This is an illustrative premium product concept, with synthetic but coherent data. Entire UI in accurate readable Brazilian Portuguese. Wide landscape, preferably 1920x1280 or similarly spacious high resolution; crisp typography and meticulous alignment. No laptop, phone, photograph, perspective, browser chrome, watermarks, or surrounding margins: the entire bitmap is the application screen.
+
+Visual direction: sophisticated enterprise analytics, light neutral canvas #F5F7FB, white cards with subtle slate borders/shadows, 12px radii, dark navy text, purple #6D28D9 brand, minimal refined line icons, restrained green/amber/red semantic badges. Modern Nunito-like sans serif, tabular numbers, beautiful spacing and information hierarchy. Dark navy navigation sidebar about 215px wide with white MYIO wordmark, small "HEAD OFFICE", holding name "Sá Cavalcante". Selected "Visão geral" in purple. Sidebar items: Visão geral, Energia, Demanda, Água, Metas e orçamento, Alarmes e ações, Benchmarking, Relatórios, Administração. Bottom user avatar and "Gestão corporativa".
+
+Main content:
+Top header title "Visão geral do portfólio", subtitle "Performance, riscos e prioridades da holding". Top right slim buttons "Salvar visão" and purple "Exportar". Small badge "Prévia · dados ilustrativos".
+Context bar: "6 shoppings" selector, "01–10 out. 2026", "Comparar com meta", subtle green dot "Atualizado há 2 min".
+Four elegant equal KPI cards:
+1 "Consumo de energia", large "1.481 MWh", amber "↑ 4,2% vs. meta", purple sparkline; footer "Entradas · 6 de 6 shoppings".
+2 "Consumo de água", large "15.790 m³", green "↓ 2,1% vs. meta", teal sparkline; footer "Entradas · 6 de 6 shoppings".
+3 "Risco de demanda", large "2 pontos", amber badge "Atenção", miniature horizontal bullet meter at 96%; footer "Maior utilização: 96% · 8 pontos monitorados".
+4 "Custo projetado", large "R$ 1,24 mi", label "Estimativa do mês", small neutral badge "Cobertura parcial"; footer "Tarifas válidas em 5 de 6 shoppings". Do not show definitive budget verdict with partial cost coverage.
+
+Below the KPI row, 2/3 width chart panel "Trajetória de consumo", subtitle "Acumulado no mês · energia (MWh)", toggle "Energia | Água", compact legend "Realizado" purple solid, "Meta" gray dashed, "Projeção" thin purple dotted. Elegant clean cumulative line chart, x ticks 01 out, 05 out, 10 out, 15 out, 20 out, 25 out, 31 out. Actual and goal only to 10 October, projection from now to month end with faint uncertainty shading. Vertical today marker "Hoje". Actual endpoint around 1481 MWh, month-end forecast around 4300 MWh, sensible y scale 0 to 4500.
+Right 1/3 panel "Prioridades de ação", small "Ver todas". Three distinct rows:
+amber "Demanda próxima do limite" / "Rio Poty · 96% da contratada" / "Ana Costa · Hoje" and right arrow;
+red "Consumo noturno de água" / "Shopping da Ilha · investigar" / "Carlos Lima · Hoje";
+purple "HVAC acima da meta" / "Mestre Álvaro · +8,4%" / "Marina Alves · Amanhã".
+Readable short content, no cramped paragraph walls.
+
+Next large panel full main content width: "Desempenho dos shoppings", subtitle "Mesmo período e fronteira de medição", search/filter icons, "Ver matriz completa".
+Clean 6-row comparison table with columns "Shopping", "Energia", "vs. meta", "Água", "Demanda", "Alarmes", "Dados".
+Rows:
+Rio Poty | 320 MWh | +6,2% amber | 3.180 m³ | 96% amber bullet | 3 | 99% green
+Shopping da Ilha | 295 MWh | +3,8% amber | 3.620 m³ | 91% amber bullet | 2 | 98% green
+Mestre Álvaro | 278 MWh | +8,4% amber | 2.750 m³ | 84% green bullet | 1 | 99% green
+Metrópole Pará | 242 MWh | −2,3% green | 2.480 m³ | 78% green bullet | 0 | 100% green
+Moxuara | 196 MWh | −1,6% green | 2.150 m³ | 72% green bullet | 1 | 97% green
+Mont Serrat | 150 MWh | −0,8% green | 1.610 m³ | 68% green bullet | 0 | 99% green
+Names left aligned with tiny building icons; subtle row dividers, no huge cells. Electricity figures sum to 1481, water to15790. Purple selection/hover accent on first row.
+
+At bottom, two medium panels:
+Left 2/3 "Consumo por categoria" with chips "Categorias da holding" selected and "Categorias locais"; horizontal purple-tone bars "Climatização 48%", "Lojas 27%", "Iluminação 13%", "Transporte vertical 8%", "Outros 4%". Small note "Distribuição da submedição · categorias locais preservadas".
+Right 1/3 "Qualidade e conforto", 3 simple metric rows with line icons "363 / 377 equipamentos online", "98,7% dos intervalos recebidos", amber "1 ambiente fora da faixa", secondary link "Ver cobertura e exceções".
+Tiny footer "MYIO · Portfolio Command Center" and "RFC-0238 · Conceito visual".
+
+Composition and constraints: clear hierarchy, readable labels, coherent charts, generous room without empty wasted areas. All panels fit fully within the image. Keep four KPI cards, cumulative chart, action queue, comparison table, and category analysis plainly visible. Text accuracy and professional realistic UI matter more than embellishment. No random floating graphics, neon gradients, 3D charts, enormous gauges, nonsense labels, duplicated navigation or fake map. Show a visually stunning yet credible executive product.

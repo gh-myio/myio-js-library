@@ -22,6 +22,9 @@ import {
 
 import { ModalHeader } from '../../utils/ModalHeader';
 import type { ModalHeaderController } from '../../utils/ModalHeader';
+import { MYIO_ACCENT, resolveDashboardCustomerName } from '../premium-modals/internal/PremiumModalChrome';
+import { createModalFooter } from '../premium-modals/footer-modal';
+import type { ModalFooterInstance } from '../premium-modals/footer-modal';
 
 /**
  * Menu View - Handles rendering and DOM interactions
@@ -43,6 +46,10 @@ export class MenuView {
 
   // Filter Modal (RFC-0121 ModalHeader controller pattern)
   private filterModalHeaderController: ModalHeaderController | null = null;
+  /** Footer premium (holding · hora · versão) da modal Filtro de Shoppings — criado a cada abertura */
+  private filterModalFooter: ModalFooterInstance | null = null;
+  /** Idem para a modal "Selecione a visualização" */
+  private unifiedModalFooter: ModalFooterInstance | null = null;
 
   // Unified Navigation Modal (RFC-0121 ModalHeader controller pattern)
   private unifiedModalHeaderController: ModalHeaderController | null = null;
@@ -310,14 +317,14 @@ export class MenuView {
    ========================================== */
 
 .myio-toolbar-item--nav {
-  background: var(--menu-nav-bg, #3e1a7d);
+  background: var(--menu-nav-bg, var(--myio-brand-700, #3e1a7d));
   color: var(--menu-nav-color, #ffffff);
   font-weight: 600;
   padding: 8px 16px;
 }
 
 .myio-toolbar-item--nav:hover {
-  background: var(--menu-nav-hover-bg, #4c2391);
+  background: var(--menu-nav-hover-bg, color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 85%, #fff));
 }
 
 .myio-toolbar-item--nav .nav-label {
@@ -331,7 +338,7 @@ export class MenuView {
    ========================================== */
 
 .myio-toolbar-item--filter {
-  color: var(--menu-filter-color, #6366f1);
+  color: var(--menu-filter-color, var(--myio-brand-700, #6366f1));
 }
 
 .myio-toolbar-item--filter:hover {
@@ -354,7 +361,7 @@ export class MenuView {
   min-width: 340px;
   padding: 0;
   background: transparent;
-  border: 2px solid var(--menu-date-border, #3e1a7d);
+  border: 2px solid var(--menu-date-border, var(--myio-brand-700, #3e1a7d));
   border-radius: 8px;
   overflow: hidden;
   transition: all 0.2s ease;
@@ -362,17 +369,17 @@ export class MenuView {
 }
 
 .myio-toolbar-item--date:hover {
-  border-color: var(--menu-date-hover-border, #5a2d9e);
-  box-shadow: 0 0 0 3px rgba(62, 26, 125, 0.15);
+  border-color: var(--menu-date-hover-border, color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 80%, #fff));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 15%, transparent);
 }
 
 .myio-toolbar-item--date:focus-within {
-  border-color: var(--menu-date-focus-border, #3e1a7d);
-  box-shadow: 0 0 0 3px rgba(62, 26, 125, 0.25);
+  border-color: var(--menu-date-focus-border, var(--myio-brand-700, #3e1a7d));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 25%, transparent);
 }
 
 .myio-toolbar-item--date .ico {
-  background: var(--menu-date-icon-bg, #3e1a7d);
+  background: var(--menu-date-icon-bg, var(--myio-brand-700, #3e1a7d));
   color: white;
   padding: 0 12px;
   margin: 0;
@@ -1685,7 +1692,8 @@ export class MenuView {
       modalId: 'menuUnified',
       theme: 'dark',
       isMaximized: false,
-      showThemeToggle: true,
+      primaryColor: MYIO_ACCENT, // padrão das modais premium: acento do tema do dashboard
+      showThemeToggle: false, // corpo é sempre claro — o toggle só trocava a cor do header
       showMaximize: true,
       showClose: true,
       borderRadius: '16px 16px 0 0',
@@ -2020,7 +2028,8 @@ export class MenuView {
       modalId: 'menuFilter',
       theme: this.getFilterModalDefaultTheme(),
       isMaximized: false,
-      showThemeToggle: true,
+      primaryColor: MYIO_ACCENT, // padrão das modais premium: acento do tema do dashboard
+      showThemeToggle: false, // a modal não tem estilos escuros — o toggle só trocava a cor do header
       showMaximize: true,
       showClose: true,
       borderRadius: '12px 12px 0 0',
@@ -2483,6 +2492,10 @@ export class MenuView {
       // Update active states in the modal
       this.updateUnifiedModalActiveStates();
 
+      const content = modal.querySelector('.myio-unified-modal-content') as HTMLElement | null;
+      this.unifiedModalFooter?.destroy();
+      this.unifiedModalFooter = content ? this.createPremiumFooter(content) : null;
+
       // RFC-0126: Bind fallback buttons (same pattern as filter modal)
       this.bindUnifiedModalButtonsFallback();
 
@@ -2502,6 +2515,8 @@ export class MenuView {
     if (modal) {
       modal.classList.remove('is-open');
       btn?.setAttribute('aria-expanded', 'false');
+      this.unifiedModalFooter?.destroy();
+      this.unifiedModalFooter = null;
 
       // Reset header controller state
       this.unifiedModalHeaderController?.reset();
@@ -2869,6 +2884,7 @@ export class MenuView {
     if (modal) {
       modal.classList.add('is-open');
       this.renderFilterList();
+      this.mountFilterModalFooter();
 
       // RFC-0126: Initialize controller AFTER modal is visible in DOM
       // Use requestAnimationFrame to ensure DOM is ready before binding buttons
@@ -2894,6 +2910,8 @@ export class MenuView {
     if (modal) {
       modal.classList.remove('is-open');
     }
+    this.filterModalFooter?.destroy();
+    this.filterModalFooter = null;
 
     // RFC-0121: reset modal header state when closing
     this.filterModalHeaderController?.reset();
@@ -2901,6 +2919,26 @@ export class MenuView {
       this.applyFilterModalTheme(this.filterModalHeaderController.getTheme());
       this.applyFilterModalMaximize(this.filterModalHeaderController.isMaximized());
     }
+  }
+
+  /** Footer premium padrão (holding · hora · versão | Powered by MYIO) anexado ao fim do card. */
+  private createPremiumFooter(card: HTMLElement): ModalFooterInstance {
+    const footer = createModalFooter({
+      customerName: resolveDashboardCustomerName(),
+      libVersion: { current: (window as any).MyIOLibrary?.version },
+      themeMode: 'light',
+    });
+    footer.element.style.flexShrink = '0';
+    card.appendChild(footer.element);
+    return footer;
+  }
+
+  /** Footer premium no fim do card (abaixo dos botões Cancelar/Aplicar). */
+  private mountFilterModalFooter(): void {
+    const card = this.root.querySelector('.myio-menu-filter-modal-card') as HTMLElement | null;
+    if (!card) return;
+    this.filterModalFooter?.destroy();
+    this.filterModalFooter = this.createPremiumFooter(card);
   }
 
   private getFilterModalDefaultTheme(): 'dark' | 'light' {

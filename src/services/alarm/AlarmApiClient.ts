@@ -10,6 +10,7 @@ import type {
   TopOffenderApiItem,
   DeviceAlarmStatApiItem,
   AlarmBatchResult,
+  AlarmHistoryEventApi,
 } from './types';
 
 export class AlarmApiClient {
@@ -72,6 +73,16 @@ export class AlarmApiClient {
     );
     // API wraps response in { data: { ... } } — unwrap safely
     return ((raw as any)?.data ?? raw) as AvailabilityResponse;
+  }
+
+  // -----------------------------------------------------------------------
+  // Rule name (GCDR GET /rules/:id) — usado p/ alarmes cujo title veio como o UUID da regra
+  // -----------------------------------------------------------------------
+
+  async getRuleName(rulesApiBase: string, ruleId: string): Promise<string | null> {
+    const raw = await this.request<any>(`${rulesApiBase}/rules/${encodeURIComponent(ruleId)}`);
+    const name = raw?.data?.name ?? raw?.name;
+    return typeof name === 'string' && name.trim() ? name.trim() : null;
   }
 
   // -----------------------------------------------------------------------
@@ -148,6 +159,15 @@ export class AlarmApiClient {
       `${this.baseUrl}/alarms/stats/by-device?${query.toString()}`
     );
     return this.unwrapArray<DeviceAlarmStatApiItem>(raw);
+  }
+
+  // -----------------------------------------------------------------------
+  // Alarm history (GET /alarms/:id/history)
+  // -----------------------------------------------------------------------
+
+  async getAlarmHistory(id: string): Promise<AlarmHistoryEventApi[]> {
+    const raw = await this.request<unknown>(`${this.baseUrl}/alarms/${encodeURIComponent(id)}/history`);
+    return this.unwrapArray<AlarmHistoryEventApi>(raw);
   }
 
   // -----------------------------------------------------------------------

@@ -300,6 +300,25 @@ export class HeaderView {
   transition: color 0.2s ease;
 }
 
+/* Consumo ainda carregando */
+.${HEADER_CSS_PREFIX}-kpi-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.${HEADER_CSS_PREFIX}-kpi-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: myio-consumption-spin 0.8s linear infinite;
+}
+@keyframes myio-consumption-spin { to { transform: rotate(360deg); } }
+
 .${HEADER_CSS_PREFIX}-card__subrow {
   display: flex;
   align-items: center;
@@ -777,7 +796,30 @@ export class HeaderView {
   /**
    * Update energy card
    */
+  /** Spinner nos KPIs de consumo (energia e água) enquanto o período carrega */
+  public setConsumptionLoading(loading: boolean): void {
+    if (!loading) {
+      // Sem dado (erro): troca o spinner por "-"; o valor real chega pelo próximo update*Card
+      [this.energyKpiEl, this.waterKpiEl].forEach((el) => {
+        if (el?.querySelector(`.${HEADER_CSS_PREFIX}-kpi-loading`)) el.textContent = '-';
+      });
+      return;
+    }
+    const html = `<span class="${HEADER_CSS_PREFIX}-kpi-loading" aria-busy="true"><span class="${HEADER_CSS_PREFIX}-kpi-spinner" aria-hidden="true"></span>Carregando…</span>`;
+    if (this.energyKpiEl) this.energyKpiEl.innerHTML = html;
+    if (this.waterKpiEl) this.waterKpiEl.innerHTML = html;
+    if (this.energyTrendEl) this.energyTrendEl.textContent = '';
+    if (this.waterTrendEl) this.waterTrendEl.textContent = '';
+  }
+
   public updateEnergyCard(data: EnergyKPI): void {
+    if (data.loading) {
+      if (this.energyKpiEl) {
+        this.energyKpiEl.innerHTML = `<span class="${HEADER_CSS_PREFIX}-kpi-loading" aria-busy="true"><span class="${HEADER_CSS_PREFIX}-kpi-spinner" aria-hidden="true"></span>Carregando…</span>`;
+      }
+      if (this.energyTrendEl) this.energyTrendEl.textContent = '';
+      return;
+    }
     if (this.energyKpiEl) {
       if (data.isFiltered && data.unfilteredTotal > 0) {
         // Show filtered / total comparison with smaller font to prevent line breaks
@@ -834,6 +876,13 @@ export class HeaderView {
    * Update water card
    */
   public updateWaterCard(data: WaterKPI): void {
+    if (data.loading) {
+      if (this.waterKpiEl) {
+        this.waterKpiEl.innerHTML = `<span class="${HEADER_CSS_PREFIX}-kpi-loading" aria-busy="true"><span class="${HEADER_CSS_PREFIX}-kpi-spinner" aria-hidden="true"></span>Carregando…</span>`;
+      }
+      if (this.waterTrendEl) this.waterTrendEl.textContent = '';
+      return;
+    }
     if (this.waterKpiEl) {
       if (data.isFiltered && data.unfilteredTotal > 0) {
         // Show filtered / total comparison with smaller font to prevent line breaks

@@ -63,7 +63,7 @@
   gap: 16px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 10px 0;
+  padding: 4px 0;
   margin: 0 -8px;
   padding-left: 8px;
   padding-right: 8px;
@@ -100,17 +100,16 @@
 .myio-chip {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
-  height: 64px;
+  gap: 6px;
+  padding: 2px 8px;
+  height: 28px;
+  box-sizing: border-box;
   flex-shrink: 0;
 
-  background: linear-gradient(135deg, rgba(0, 224, 158, 0.12) 0%, rgba(0, 224, 158, 0.06) 100%);
-  border: 1px solid rgba(0, 224, 158, 0.3);
-  border-radius: var(--radius-lg);
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
 
   white-space: nowrap;
   cursor: default;
@@ -131,6 +130,7 @@
   background: radial-gradient(circle, rgba(0, 224, 158, 0.15) 0%, transparent 70%);
   opacity: 0;
   transition: opacity 0.3s;
+  display: none; /* sem brilho: o chip fica plano sobre o fundo do footer */
 }
 
 @keyframes chipSlideIn {
@@ -145,12 +145,10 @@
 }
 
 .myio-chip:hover {
-  background: linear-gradient(135deg, rgba(0, 224, 158, 0.18) 0%, rgba(0, 224, 158, 0.1) 100%);
-  border-color: rgba(0, 224, 158, 0.5);
-  box-shadow:
-    0 6px 16px rgba(0, 224, 158, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: none;
+  transform: translateY(-2px);
 }
 
 .myio-chip:hover::before {
@@ -161,28 +159,30 @@
 .myio-chip-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
+  line-height: 1.15;
   min-width: 0;
   flex-shrink: 0;
 }
 
 .myio-chip-name {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
   color: var(--color-text-primary);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
 }
 
 .myio-chip-value {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 10.5px;
+  font-weight: 600;
   color: var(--color-primary);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  text-shadow: 0 0 8px rgba(0, 224, 158, 0.4);
+  letter-spacing: -0.01em;
+  text-shadow: none;
 }
 
 /* Remove Button - Premium Style */
@@ -191,15 +191,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 16px;
+  height: 16px;
   padding: 0;
-  margin-left: 8px;
+  margin-left: 3px;
   flex-shrink: 0;
 
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -223,11 +223,10 @@
 }
 
 .myio-chip-remove:hover {
-  background: linear-gradient(135deg, rgba(255, 68, 68, 0.25) 0%, rgba(255, 68, 68, 0.15) 100%);
-  border-color: rgba(255, 68, 68, 0.5);
-  color: #ff4444;
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+  background: rgba(255, 107, 107, 0.22);
+  color: #ffffff;
+  transform: scale(1.1);
+  box-shadow: none;
 }
 
 .myio-chip-remove:active {
@@ -238,8 +237,8 @@
 .myio-chip-remove svg {
   position: relative;
   z-index: 1;
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   stroke-width: 2.5;
   stroke-linecap: round;
 }
@@ -281,7 +280,7 @@
 .myio-right {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
   flex-shrink: 0;
 }
 
@@ -289,17 +288,20 @@
 .myio-meta {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  padding: 8px 16px;
-  min-width: 160px;
-  background: linear-gradient(135deg, rgba(0, 224, 158, 0.08) 0%, rgba(0, 224, 158, 0.04) 100%);
-  border: 1px solid rgba(0, 224, 158, 0.2);
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 3px 12px;
+  min-width: 120px;
+  line-height: 1.2;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-md);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .myio-meta::before {
+  display: none; /* o título vem do .myio-meta-title */
   content: attr(data-label);
   font-size: 10px;
   font-weight: 700;
@@ -311,10 +313,10 @@
 
 /* Stats value styling */
 #myioTotals {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-text-primary);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: none;
 }
 
 /* Compare Button - Premium Style */
@@ -323,13 +325,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 48px;
-  min-width: 140px;
-  padding: 0 24px;
+  gap: 6px;
+  height: 34px;
+  min-width: 120px;
+  padding: 0 18px;
 
   font-family: var(--font-family);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: -0.01em;
   text-transform: uppercase;
@@ -403,8 +405,8 @@
 /* Button Icon (Optional) */
 .myio-compare::after {
   content: '→';
-  font-size: 18px;
-  margin-left: 4px;
+  font-size: 15px;
+  margin-left: 2px;
   transition: transform 0.2s;
 }
 
@@ -482,8 +484,9 @@
   align-items: center;
   justify-content: center;
 
-  background: linear-gradient(135deg, #3e1a7d 0%, #2d1359 100%);
-  border: 2px solid #3e1a7d;
+  /* Paleta do dashboard (createMyIOTheme: --myio-brand-700 acento / -600 escuro) */
+  background: linear-gradient(135deg, var(--myio-brand-700, #3e1a7d) 0%, var(--myio-brand-600, #2d1359) 100%);
+  border: 2px solid var(--myio-brand-700, #3e1a7d);
   border-radius: 50%;
 
   color: #ffffff;
@@ -519,19 +522,19 @@
   font-weight: 700;
   text-transform: uppercase;
 
-  background: linear-gradient(135deg, #3e1a7d 0%, #2d1359 100%);
+  background: linear-gradient(135deg, var(--myio-brand-700, #3e1a7d) 0%, var(--myio-brand-600, #2d1359) 100%);
   border: none;
   border-radius: 12px;
   color: #ffffff;
   cursor: pointer;
 
-  box-shadow: 0 4px 16px rgba(62, 26, 125, 0.4);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 40%, transparent);
   transition: var(--transition);
 }
 
 .myio-alert-button:hover {
-  background: linear-gradient(135deg, #4e2a9d 0%, #3e1a7d 100%);
-  box-shadow: 0 6px 24px rgba(62, 26, 125, 0.5);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 85%, #fff) 0%, var(--myio-brand-700, #3e1a7d) 100%);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 50%, transparent);
   transform: translateY(-2px);
 }
 
@@ -551,15 +554,15 @@
   }
 
   .myio-chip {
-    height: 52px;
-    padding: 10px 14px;
+    height: 28px;
+    padding: 2px 8px;
   }
 
   .myio-compare {
-    height: 44px;
-    min-width: 120px;
-    padding: 0 20px;
-    font-size: 14px;
+    height: 34px;
+    min-width: 110px;
+    padding: 0 16px;
+    font-size: 13px;
   }
 }
 

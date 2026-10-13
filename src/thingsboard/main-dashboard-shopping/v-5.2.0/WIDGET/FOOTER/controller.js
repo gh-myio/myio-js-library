@@ -26,6 +26,62 @@ const LogHelper = window.MyIOUtils?.LogHelper || {
   error: (...args) => console.error('[FOOTER]', ...args),
 };
 
+// --- Zoom do chip no hover ---
+// O dock tem overflow (rolagem horizontal) e cortaria um scale() no próprio chip, então a versão
+// ampliada é um elemento flutuante no <body> (position: fixed), logo acima do chip.
+const CHIP_ZOOM_ID = 'myio-footer-chip-zoom';
+function ensureChipZoomEl() {
+  if (!document.getElementById('myio-footer-chip-zoom-styles')) {
+    const st = document.createElement('style');
+    st.id = 'myio-footer-chip-zoom-styles';
+    st.textContent = `
+      #${CHIP_ZOOM_ID} {
+        position: fixed; z-index: 2147483000; pointer-events: none;
+        display: flex; flex-direction: column; gap: 2px;
+        min-width: 140px; max-width: 360px; padding: 10px 14px;
+        background: var(--myio-brand-700, #3e1a7d); color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.28); border-radius: 10px;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.35);
+        font-family: 'Nunito', system-ui, sans-serif;
+        transform: translate(-50%, 6px) scale(0.92); transform-origin: 50% 100%;
+        opacity: 0; transition: opacity 0.12s ease, transform 0.12s ease;
+      }
+      #${CHIP_ZOOM_ID}.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+      #${CHIP_ZOOM_ID} .zoom-name {
+        font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.01em;
+        white-space: normal; word-break: break-word; line-height: 1.2;
+      }
+      #${CHIP_ZOOM_ID} .zoom-value {
+        font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15;
+      }
+    `;
+    document.head.appendChild(st);
+  }
+  let el = document.getElementById(CHIP_ZOOM_ID);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = CHIP_ZOOM_ID;
+    el.setAttribute('role', 'tooltip');
+    el.innerHTML = '<span class="zoom-name"></span><span class="zoom-value"></span>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function showChipZoom(chipEl, name, value) {
+  const el = ensureChipZoomEl();
+  el.querySelector('.zoom-name').textContent = name || '';
+  el.querySelector('.zoom-value').textContent = value || '';
+  const r = chipEl.getBoundingClientRect();
+  const half = 75; // metade do min-width — mantém dentro da tela nas pontas
+  const left = Math.min(Math.max(r.left + r.width / 2, half + 8), window.innerWidth - half - 8);
+  el.style.left = `${left}px`;
+  el.style.bottom = `${window.innerHeight - r.top + 8}px`;
+  el.classList.add('show');
+}
+function hideChipZoom() {
+  document.getElementById(CHIP_ZOOM_ID)?.classList.remove('show');
+}
+
 // --- 2. Injeção de CSS (executada uma vez) ---
 let cssInjected = false;
 function injectCSS() {
@@ -107,7 +163,7 @@ function injectCSS() {
   gap: 16px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 10px 0;
+  padding: 4px 0;
   margin: 0 -8px;
   padding-left: 8px;
   padding-right: 8px;
@@ -649,6 +705,17 @@ const footerController = {
     this.$dockScrollLeft = this.$footerEl.querySelector('#myioDockScrollLeft');
     this.$dockScrollRight = this.$footerEl.querySelector('#myioDockScrollRight');
 
+    // Card de seleção: mesma versão ampliada no hover dos chips (lê o total na hora)
+    const meta = this.$footerEl.querySelector('.myio-meta');
+    if (meta && !meta.dataset.zoomBound) {
+      meta.dataset.zoomBound = '1';
+      meta.addEventListener('mouseenter', () => {
+        const title = meta.querySelector('.myio-meta-title')?.textContent?.trim() || 'Seleção';
+        showChipZoom(meta, title, this.$totals?.textContent?.trim() || '');
+      });
+      meta.addEventListener('mouseleave', hideChipZoom);
+    }
+
     LogHelper.log('[MyIO Footer] Found elements from ThingsBoard template:', {
       $footerEl: this.$footerEl,
       $dock: this.$dock,
@@ -869,6 +936,10 @@ const footerController = {
           `;
 
           chip.append(content, removeBtn);
+          // Hover: versão ampliada flutuante (mais fácil de ler que o chip compacto)
+          chip.addEventListener('mouseenter', () => showChipZoom(chip, ent.name, formattedValue));
+          chip.addEventListener('mouseleave', hideChipZoom);
+          removeBtn.addEventListener('click', hideChipZoom);
           LogHelper.log(`[MyIO Footer]   Chip ${idx} created successfully`);
           return chip;
         })
@@ -877,6 +948,7 @@ const footerController = {
       LogHelper.log(`[MyIO Footer] Total chips created: ${chips.length}`);
       LogHelper.log('[MyIO Footer] About to call replaceChildren with chips:', chips);
 
+      hideChipZoom(); // chip sob o mouse pode ter sido re-renderizado/removido
       this.$dock.replaceChildren(...chips); // Renderiza todos de uma vez
 
       LogHelper.log('[MyIO Footer] replaceChildren completed');
@@ -1513,21 +1585,73 @@ const footerController = {
 
     // Map entities to the expected device format with per-device temperature ranges
     // Each device can have its own ideal range from its customer's SERVER_SCOPE attributes
+    // Item do orquestrador (ingestionId + offSetTemperature) — a seleção só guarda id/nome
+    const tempItems = window.MyIOOrchestratorData?.temperature?.items || window.STATE?.temperature?.items || [];
+    const findTempItem = (id) => tempItems.find((i) => i.tbId === id || i.id === id || i.ingestionId === id);
+
     const devices = selectedEntities.map((entity) => {
       // Get temperature range for this specific device/customer
       // Standard: temperatureMin/temperatureMax (fallback: minTemperature/maxTemperature for TB attributes)
       const min = entity.temperatureMin ?? entity.minTemperature ?? entity.tempMin;
       const max = entity.temperatureMax ?? entity.maxTemperature ?? entity.tempMax;
+      const tbId = entity.tbId || entity.entityId || entity.id;
+      const item = findTempItem(tbId) || findTempItem(entity.ingestionId);
 
       return {
         id: entity.id || entity.entityId,
         label: entity.name || entity.label || entity.id,
-        tbId: entity.tbId || entity.entityId,
+        tbId,
         customerName: entity.customerTitle || entity.customerName || entity.customer || null,
         temperatureMin: min !== undefined && min !== null ? Number(min) : undefined,
         temperatureMax: max !== undefined && max !== null ? Number(max) : undefined,
+        // Série vem do Ingestion (a chave `temperature` no TB pode estar parada) + offset do sensor
+        ingestionId: item?.ingestionId || null,
+        temperatureOffset: Number(item?.offSetTemperature ?? 0) || 0,
       };
     });
+
+    // Fonte: Ingestion por device (série 1h, valores BRUTOS — o modal aplica o offset).
+    // Sensores sem ingestionId caem no TB (fetch padrão do modal) com o mesmo token.
+    let ingestionFetcher = null;
+    try {
+      const creds = window.MyIOOrchestrator?.getCredentials?.();
+      const dataApiHost = window.MyIOUtils?.getDataApiHost?.();
+      if (creds?.CLIENT_ID && creds?.CLIENT_SECRET && dataApiHost && window.MyIOUtils?.buildMyioIngestionAuth) {
+        const auth = window.MyIOUtils.buildMyioIngestionAuth({
+          dataApiHost,
+          clientId: creds.CLIENT_ID,
+          clientSecret: creds.CLIENT_SECRET,
+        });
+        ingestionFetcher = async (device, startTs, endTs) => {
+          if (!device.ingestionId) {
+            const tbTok = (await window.MyIOUtils?.getFreshTbToken?.()) || localStorage.getItem('jwt_token');
+            const r = await fetch(
+              `/api/plugins/telemetry/DEVICE/${device.tbId || device.id}/values/timeseries?keys=temperature` +
+                `&startTs=${startTs}&endTs=${endTs}&limit=50000&agg=NONE`,
+              { headers: { 'X-Authorization': `Bearer ${tbTok}` } }
+            );
+            const j = r.ok ? await r.json() : {};
+            return (j.temperature || []).map((p) => ({ ts: Number(p.ts), value: Number(p.value) }));
+          }
+          const token = await auth.getToken();
+          const url =
+            `${dataApiHost}/telemetry/devices/${device.ingestionId}/temperature` +
+            `?startTime=${encodeURIComponent(new Date(startTs).toISOString())}` +
+            `&endTime=${encodeURIComponent(new Date(endTs).toISOString())}&granularity=1h&deep=0`;
+          const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          if (!res.ok) throw new Error(`Ingestion API error: ${res.status}`);
+          const body = await res.json();
+          const rows = Array.isArray(body) ? body : [body];
+          const row = rows.find((r) => r && r.id === device.ingestionId) || rows[0] || null;
+          return ((row && row.consumption) || [])
+            .filter((e) => e && e.timestamp !== undefined && e.value !== undefined && e.value !== null)
+            .map((e) => ({ ts: new Date(e.timestamp).getTime(), value: Number(e.value) }))
+            .filter((p) => Number.isFinite(p.ts) && Number.isFinite(p.value));
+        };
+      }
+    } catch (err) {
+      LogHelper.warn('[MyIO Footer] Ingestion fetcher unavailable — comparison falls back to TB:', err?.message);
+    }
 
     // Check if devices have different temperature ranges (different customers)
     const uniqueRanges = new Set(
@@ -1587,6 +1711,11 @@ const footerController = {
         // Global fallback range (used only if devices don't have individual ranges)
         temperatureMin: globalTemperatureMin,
         temperatureMax: globalTemperatureMax,
+        // Ingestion por device (+ offset por sensor em devices[].temperatureOffset)
+        ...(ingestionFetcher ? { dataFetcher: ingestionFetcher } : {}),
+        // Padrão dos relatórios: cor do dashboard no header + footer premium com o customer
+        customerName: window.MyIOOrchestrator?.customerName || '',
+        palette: window.MyIOUtils?.theme || undefined,
       });
 
       LogHelper.log('[MyIO Footer] Temperature comparison modal opened');

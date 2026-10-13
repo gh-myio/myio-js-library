@@ -1208,7 +1208,21 @@ function paint(root, state) {
   const numSpan = root.querySelector('.myio-ho-card__value .num');
   const unitSpan = root.querySelector('.myio-ho-card__value .unit');
 
-  numSpan.textContent = primaryValue;
+  // Consumo ainda chegando (HO: /summary em andamento) → spinner no lugar do valor
+  const valueBox = root.querySelector('.myio-ho-card__value');
+  const dataLoading = !!entityObject.dataLoading && entityObject.domain !== 'temperature';
+  if (valueBox) {
+    valueBox.classList.toggle('is-loading', dataLoading);
+    if (dataLoading) valueBox.setAttribute('aria-busy', 'true');
+    else valueBox.removeAttribute('aria-busy');
+  }
+  if (dataLoading) {
+    numSpan.innerHTML = '<span class="myio-ho-card__value-spinner" aria-hidden="true"></span>Carregando…';
+    numSpan.title = 'Carregando consumo do período';
+  } else {
+    numSpan.textContent = primaryValue;
+    numSpan.removeAttribute('title');
+  }
   //unitSpan.textContent = primaryValue.unit;
 
   // Seleciona o contêiner principal da barra ANTES de qualquer lógica

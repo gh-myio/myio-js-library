@@ -215,6 +215,20 @@ export const HEADER_DEVICES_GRID_STYLES = `
   body.light-mode .telemetry-grid-wrap.maximized .telemetry-grid-header {
     background: #f8fafc;
   }
+
+/* Consumo ainda carregando */
+.hdg-value-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  border: 2px solid rgba(124, 58, 237, 0.2);
+  border-top-color: var(--myio-brand-700, #7c3aed);
+  border-radius: 50%;
+  animation: myio-consumption-spin 0.8s linear infinite;
+}
+@keyframes myio-consumption-spin { to { transform: rotate(360deg); } }
 `;
 
 export function injectHeaderDevicesGridStyles(): void {
