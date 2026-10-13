@@ -693,6 +693,32 @@ export type {
 } from './components/demand-panel-v2';
 export * as demandReport from './utils/reports/demand';
 
+// RFC-0239 — Reports Hub: the MENU "Relatórios" picker as a reusable component + TB adapter.
+export {
+  openReportsHub,
+  createDashboardReportsHubContext,
+  buildReportItemsList,
+  resolveReportItemStates,
+  DEFAULT_REPORTS_CATALOG,
+  DEFAULT_ENABLED_REPORT_ITEMS,
+} from './components/premium-modals/reports-hub';
+export type {
+  ReportDomain,
+  GroupReportDomain,
+  ReportItemKey,
+  ReportItemState,
+  ReportsCatalog,
+  ReportsCatalogDomain,
+  ReportsCatalogItem,
+  ReportsHubDevice,
+  ReportsHubContext,
+  ReportsHubHandlerDef,
+  ReportsHubHandle,
+  OpenReportsHubParams,
+  ReportsHubOrchestrator,
+  DashboardAdapterOptions,
+} from './components/premium-modals/reports-hub';
+
 // Goals Panel Component (RFC-0075)
 export { openGoalsPanel } from './components/GoalsPanel.js';
 

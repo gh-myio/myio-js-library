@@ -2,7 +2,7 @@
  * RFC-0238 — telemetry catalogue: the same 14 keys/labels/units that EnergyModalView passes
  * to RealTimeTelemetryModal (ED-1251). Bump CATALOG_VERSION when keys or units change.
  */
-import type { DemandResolution, EnvelopeTelemetry } from './types';
+import type { DemandResolution, EnvelopeTelemetry, ReportJobsConfig } from './types';
 
 export const CATALOG_VERSION = 1;
 
@@ -65,20 +65,21 @@ export interface ResolutionDef {
   id: DemandResolution;
   label: string;
   ms: number;
-  /** Max period length (days) for this resolution — RFC-0075 §4.2.4 (GCDR enforces). */
-  maxDays: number;
 }
 
 /**
- * Bucket sizes accepted by GCDR (RFC-0075 §4.5). Each row has avg / max / min / samples of every
- * key, so there is no aggregation choice. `1d` requires `start` at local midnight (L-9).
+ * Bucket sizes known to the panel (RFC-0075 §4.5): id, label and length only. Each row has avg /
+ * max / min / samples of every key. `1d` requires `start` at local midnight (L-9). The LIMITS of
+ * each resolution (max period) are NOT here — they come from `GET …/report-jobs/config`
+ * (`limits.maxDaysByResolution`, see `limitsFromConfig`), so GCDR can change them without a lib
+ * release.
  */
 export const RESOLUTIONS: readonly ResolutionDef[] = [
-  { id: '1m', label: '1 min', ms: 60_000, maxDays: 1 },
-  { id: '5m', label: '5 min', ms: 300_000, maxDays: 7 },
-  { id: '15m', label: '15 min', ms: 900_000, maxDays: 31 },
-  { id: '1h', label: '1 hora', ms: 3_600_000, maxDays: 92 },
-  { id: '1d', label: '1 dia', ms: 86_400_000, maxDays: 92 },
+  { id: '1m', label: '1 min', ms: 60_000 },
+  { id: '5m', label: '5 min', ms: 300_000 },
+  { id: '15m', label: '15 min', ms: 900_000 },
+  { id: '1h', label: '1 hora', ms: 3_600_000 },
+  { id: '1d', label: '1 dia', ms: 86_400_000 },
 ];
 export const DEFAULT_RESOLUTION: DemandResolution = '1h';
 
@@ -93,10 +94,48 @@ export const BUCKET_STATS_LABEL = 'média, máximo, mínimo e nº de amostras';
 export const DEFAULT_DEMAND_LABEL = 'Potência média em 15 min (demanda estimada)';
 
 /**
- * UI anticipation only — GCDR enforces and `GET …/config` / `validate` give the real values
- * (L-13, never hard-coded as truth). Quotas are GCDR's defaults (user 10 · customer 30 · day 20).
+ * Limits in force, read from `GET …/report-jobs/config` (`limits`). Nothing is hard-coded: while
+ * the config is not available the panel applies no client-side limit and GCDR's `validate` /
+ * submit decide (they enforce the same values server-side anyway).
  */
-export const DEMAND_LIMITS = { devices: 50, telemetries: 15, points: 2_000_000, activeJobsPerUser: 10 } as const;
+export interface DemandLimits {
+  /** Max period (days) per resolution; only resolutions listed here are offered. */
+  maxDaysByResolution: Partial<Record<DemandResolution, number>>;
+  maxDevices?: number;
+  maxTelemetries?: number;
+  maxPoints?: number;
+  maxActivePerUser?: number;
+}
+
+const posInt = (v: unknown): number | undefined => {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v;
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : undefined;
+};
+
+/** Parses `config.limits`; null when the config has no usable `maxDaysByResolution`. */
+export function limitsFromConfig(config: ReportJobsConfig | null | undefined): DemandLimits | null {
+  const l = (config?.limits || null) as Record<string, unknown> | null;
+  const raw = (l?.maxDaysByResolution || null) as Record<string, unknown> | null;
+  if (!raw || typeof raw !== 'object') return null;
+  const maxDaysByResolution: Partial<Record<DemandResolution, number>> = {};
+  RESOLUTIONS.forEach((r) => {
+    const d = posInt(raw[r.id]);
+    if (d) maxDaysByResolution[r.id] = d;
+  });
+  if (!Object.keys(maxDaysByResolution).length) return null;
+  return {
+    maxDaysByResolution,
+    maxDevices: posInt(l?.maxDevices),
+    maxTelemetries: posInt(l?.maxTelemetries),
+    maxPoints: posInt(l?.maxPoints),
+    maxActivePerUser: posInt(l?.maxActivePerUser),
+  };
+}
+
+/** Resolutions to offer: the ones GCDR lists in the config, or every known one while unknown. */
+export function availableResolutions(limits: DemandLimits | null): ResolutionDef[] {
+  return limits ? RESOLUTIONS.filter((r) => limits.maxDaysByResolution[r.id] != null) : [...RESOLUTIONS];
+}
 
 /** Picks catalogue entries in catalogue order. */
 export function telemetriesInCatalogOrder(keys: Iterable<string>): EnvelopeTelemetry[] {

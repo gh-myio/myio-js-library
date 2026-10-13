@@ -9,6 +9,8 @@ import {
   spEpoch,
   periodErrors,
   finestFittingResolution,
+  limitsFromConfig,
+  availableResolutions,
   isLocalMidnight,
   localMidnightOf,
   parseLocalDateTime,
@@ -92,21 +94,48 @@ describe('RFC-0238 period and buckets (RFC-0075 §4.5)', () => {
     expect(parseLocalDateTime('bad')).toBeNaN();
   });
 
-  it('validates the per-resolution limits of GCDR and suggests the finest fitting one', () => {
+  // Shape of GET …/report-jobs/config (gcdr ReportJobService.config → limits).
+  const CONFIG = {
+    demandLabel: 'x',
+    limits: { maxDevices: 50, maxTelemetries: 15, maxPoints: 2000000, maxActivePerUser: 10,
+      maxDaysByResolution: { '1m': 1, '5m': 7, '15m': 31, '1h': 92, '1d': 92 } },
+  };
+  const LIMITS = limitsFromConfig(CONFIG)!;
+
+  it('reads the limits in force from the GCDR config (nothing hard-coded)', () => {
+    expect(LIMITS).toEqual({ maxDaysByResolution: { '1m': 1, '5m': 7, '15m': 31, '1h': 92, '1d': 92 }, maxDevices: 50, maxTelemetries: 15, maxPoints: 2000000, maxActivePerUser: 10 });
+    // GCDR changes 1h to 100 days → the lib follows without a release
+    const changed = limitsFromConfig({ limits: { maxDaysByResolution: { '1h': 100, '1d': '120' } } })!;
+    expect(changed.maxDaysByResolution).toEqual({ '1h': 100, '1d': 120 });
+    expect(availableResolutions(changed).map((r) => r.id)).toEqual(['1h', '1d']);
+    expect(limitsFromConfig(null)).toBeNull();
+    expect(limitsFromConfig({ demandLabel: 'x' })).toBeNull();
+    expect(limitsFromConfig({ limits: { maxDaysByResolution: { '1h': -1, x: 5 } } })).toBeNull();
+    expect(availableResolutions(null).map((r) => r.id)).toEqual(['1m', '5m', '15m', '1h', '1d']);
+  });
+
+  it('validates the per-resolution limits from the config and suggests the finest fitting one', () => {
     const now = spEpoch(2026, 9, 8);
     const month = presetRange('lastMonth', now)!;
-    expect(periodErrors(month, '15m', now)).toEqual([]);
-    expect(finestFittingResolution(month)).toBe('15m');
+    expect(periodErrors(month, '15m', now, LIMITS)).toEqual([]);
+    expect(finestFittingResolution(month, LIMITS)).toBe('15m');
     const fortyDays = { start: spEpoch(2026, 7, 20), end: spEpoch(2026, 8, 29) };
-    expect(periodErrors(fortyDays, '15m', now)[0]).toMatch(/intervalos de 15 min, o período máximo é 31 dia/);
-    expect(periodErrors(fortyDays, '1h', now)).toEqual([]);
-    expect(finestFittingResolution(fortyDays)).toBe('1h');
+    expect(periodErrors(fortyDays, '15m', now, LIMITS)[0]).toMatch(/intervalos de 15 min, o período máximo é 31 dia/);
+    expect(periodErrors(fortyDays, '1h', now, LIMITS)).toEqual([]);
+    expect(finestFittingResolution(fortyDays, LIMITS)).toBe('1h');
     const twoDays = { start: spEpoch(2026, 9, 5), end: spEpoch(2026, 9, 7) };
-    expect(periodErrors(twoDays, '1m', now)[0]).toMatch(/1 min, o período máximo é 1 dia/);
-    expect(finestFittingResolution(twoDays)).toBe('5m');
-    expect(periodErrors({ start: spEpoch(2019, 0, 1), end: spEpoch(2019, 0, 2) }, '1h', now)[0]).toMatch(/2019/);
-    expect(periodErrors({ start: now, end: now - 1 }, '1h', now)).toEqual(['O fim precisa ser depois do início.']);
-    expect(periodErrors({ start: now - 3_600_000, end: now + 10 * 60_000 }, '1h', now)).toEqual(['O fim não pode estar no futuro.']);
+    expect(periodErrors(twoDays, '1m', now, LIMITS)[0]).toMatch(/1 min, o período máximo é 1 dia/);
+    expect(finestFittingResolution(twoDays, LIMITS)).toBe('5m');
+    expect(periodErrors({ start: spEpoch(2019, 0, 1), end: spEpoch(2019, 0, 2) }, '1h', now, LIMITS)[0]).toMatch(/2019/);
+    expect(periodErrors({ start: now, end: now - 1 }, '1h', now, LIMITS)).toEqual(['O fim precisa ser depois do início.']);
+    expect(periodErrors({ start: now - 3_600_000, end: now + 10 * 60_000 }, '1h', now, LIMITS)).toEqual(['O fim não pode estar no futuro.']);
+  });
+
+  it('without the config no max-period limit is applied client-side (GCDR decides)', () => {
+    const now = spEpoch(2026, 9, 8);
+    const fortyDays = { start: spEpoch(2026, 7, 20), end: spEpoch(2026, 8, 29) };
+    expect(periodErrors(fortyDays, '1m', now)).toEqual([]);
+    expect(finestFittingResolution(fortyDays, null)).toBeNull();
   });
 
   it('1d requires start at local midnight (L-9)', () => {

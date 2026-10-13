@@ -28,7 +28,7 @@ const classifier: TaxonomyClassifier = {
   describe: (k) => ({ entrada: { label: 'Entrada', order: 0 }, climatizacao: { label: 'Climatização', order: 1 }, elevadores: { label: 'Elevadores', order: 2 } } as Record<string, { label: string; order: number }>)[k],
 };
 
-function fakes(opts: { submitFails?: number; validate?: Partial<ValidateResult> } = {}) {
+function fakes(opts: { submitFails?: number; validate?: Partial<ValidateResult>; config?: Record<string, unknown> | 'fail' } = {}) {
   const attrs = new Map<string, DemandReportEnvelope>();
   const jobs = new Map<string, GcdrJobView>();
   const submits: SubmitCommand[] = [];
@@ -50,7 +50,10 @@ function fakes(opts: { submitFails?: number; validate?: Partial<ValidateResult> 
       return job;
     },
     validate: async () => { validations++; return { ok: true, errors: [], warnings: [], ...opts.validate }; },
-    config: async () => ({ demandLabel: 'Potência média em 15 min (demanda estimada)' }),
+    config: async () => {
+      if (opts.config === 'fail') throw { status: 503, code: 'UNAVAILABLE' };
+      return { demandLabel: 'Potência média em 15 min (demanda estimada)', ...(opts.config || {}) };
+    },
     batchGet: async (ids) => ids.map((id) => (jobs.has(id) ? { jobId: id, found: true as const, job: jobs.get(id)! } : { jobId: id, found: false as const })),
     active: async () => [...jobs.values()].filter((j) => j.status === 'queued' || j.status === 'running'),
     cancel: async (id) => { const j = { ...jobs.get(id)!, status: 'cancelled' as const }; jobs.set(id, j); return j; },
@@ -106,6 +109,26 @@ describe('RFC-0238 openDemandPanelV2', () => {
     const res = [...document.querySelectorAll('[data-action="resolution"]')].map((b) => (b as HTMLElement).dataset.res);
     expect(res).toEqual(['1m', '5m', '15m', '1h', '1d']);
     expect(document.querySelector('[data-action="aggregation"]')).toBeNull();
+  });
+
+  it('step 2 limits come from GET …/config (GCDR changes 1h to 100 days → panel follows)', async () => {
+    const f = fakes({ config: { limits: { maxDevices: 2, maxDaysByResolution: { '15m': 31, '1h': 100 } } } });
+    open(f, { preselect: ['tb-1'] });
+    await flush();
+    expect(document.body.textContent).toContain('Selecionados · 1 de 2');
+    click('[data-action="next"]');
+    const chips = [...document.querySelectorAll('[data-action="resolution"]')].map((b) => b.textContent!.replace(/\s+/g, ' ').trim());
+    expect(chips).toEqual(['15 min (até 31 d)', '1 hora (até 100 d)']);
+  });
+
+  it('without the config no limit is hard-coded: no "(até N d)", no max-period block, server validates', async () => {
+    const f = fakes({ config: 'fail' });
+    open(f, { preselect: ['tb-1'] });
+    await flush();
+    expect(document.body.textContent).not.toMatch(/Selecionados · 1 de/);
+    click('[data-action="next"]');
+    expect(document.querySelector('[data-action="resolution"]')!.textContent).not.toContain('até');
+    expect(document.body.textContent).toContain('Não foi possível carregar os limites vigentes');
   });
 
   it('full flow: validate on step 4, envelope written before the GCDR call, then accepted', async () => {

@@ -22,10 +22,10 @@ import {
   DEFAULT_DEMAND_LABEL,
   DEFAULT_RESOLUTION,
   maxPeriodDays,
-  DEMAND_LIMITS,
+  limitsFromConfig,
+  availableResolutions,
   JOB_KEY_PREFIX,
   JOB_STATE_LABEL,
-  RESOLUTIONS,
   RESOLUTION_BY_ID,
   TELEMETRY_CATALOG,
   TELEMETRY_GROUPS,
@@ -69,6 +69,7 @@ import {
   type PortError,
   type ReportJobsApi,
   type ReportJobsConfig,
+  type DemandLimits,
   type Sha256,
   type ValidateResult,
   type TaxonomyChip,
@@ -207,6 +208,8 @@ class DemandPanelV2 {
     /** Validação no servidor (dry-run) do pedido do passo 4 — antes de gravar o envelope (L-10). */
     validation: { state: 'idle' as 'idle' | 'loading' | 'ok' | 'error', result: null as ValidateResult | null, error: '', seq: 0 },
     config: null as ReportJobsConfig | null,
+    /** GET …/config status: limits are only applied client-side once 'ok'. */
+    configState: 'loading' as 'loading' | 'ok' | 'error',
     telemetries: new Set<string>(['consumption']),
     snapshot: null as null | { takenAt: number; request: DemandRequest },
     submitting: false,
@@ -370,15 +373,20 @@ class DemandPanelV2 {
     const l = this.s.config?.demandLabel;
     return typeof l === 'string' && l ? l : DEFAULT_DEMAND_LABEL;
   }
+  /** Limits in force from GCDR (`GET …/config`); null while loading or when unavailable. */
+  private limits(): DemandLimits | null {
+    return limitsFromConfig(this.s.config);
+  }
   private stepErrors(step: number): string[] {
     if (step === 1) return this.s.selected.length ? [] : ['Adicione ao menos 1 medidor.'];
-    if (step === 2) return periodErrors(this.s.period, this.s.resolution, this.now());
+    if (step === 2) return periodErrors(this.s.period, this.s.resolution, this.now(), this.limits());
     if (step === 3) return this.s.telemetries.size ? [] : ['Escolha ao menos 1 telemetria.'];
     const errs: string[] = [];
     [1, 2, 3].forEach((n) => { if (this.stepErrors(n).length) errs.push(`Etapa ${n} incompleta.`); });
     const pts = this.s.snapshot?.request.estimate?.points;
-    if (pts != null && pts > DEMAND_LIMITS.points) {
-      errs.push(`O relatório passa do tamanho máximo (${fmtN(DEMAND_LIMITS.points)} pontos).`);
+    const maxPoints = this.limits()?.maxPoints;
+    if (pts != null && maxPoints != null && pts > maxPoints) {
+      errs.push(`O relatório passa do tamanho máximo (${fmtN(maxPoints)} pontos).`);
     }
     const v = this.s.validation;
     if (v.state === 'ok' && v.result && !v.result.ok) {
@@ -525,6 +533,7 @@ class DemandPanelV2 {
     const visible = this.p.devices.filter((d) => this.categoryOf.get(d.tbDeviceId) !== null).length;
     const addable = results.filter((d) => !this.s.selected.includes(d.tbDeviceId) && this.eligibility(d).ok).length;
     const sel = this.selectedDevices();
+    const maxDevices = this.limits()?.maxDevices;
     const active = document.activeElement as HTMLInputElement | null;
     const hadFocus = active?.dataset?.role === 'search';
     const caret = hadFocus ? active!.selectionStart : null;
@@ -540,9 +549,9 @@ class DemandPanelV2 {
         <div class="dp2-list" data-role="results">${results.length ? results.map((d) => this.deviceRow(d, 'result')).join('') : `<div class="dp2-empty">${this.p.devices.length ? 'Nenhum medidor encontrado para essa busca.' : 'Nenhum medidor de energia neste cliente.'}</div>`}</div>
       </section>
       <section class="dp2-col" aria-label="Medidores selecionados">
-        <div class="dp2-col-head"><h3><span>Selecionados · ${sel.length} de ${DEMAND_LIMITS.devices}</span>
+        <div class="dp2-col-head"><h3><span>Selecionados · ${sel.length}${maxDevices != null ? ` de ${maxDevices}` : ''}</span>
           <button class="dp2-btn link" type="button" data-action="clear" ${sel.length ? '' : 'disabled'}>Limpar lista</button></h3>
-          <div class="dp2-meter"><span style="width:${Math.min(100, (sel.length / DEMAND_LIMITS.devices) * 100)}%"></span></div></div>
+          ${maxDevices != null ? `<div class="dp2-meter"><span style="width:${Math.min(100, (sel.length / maxDevices) * 100)}%"></span></div>` : ''}</div>
         <div class="dp2-list" data-role="selected">${sel.length ? sel.map((d) => this.deviceRow(d, 'selected')).join('') : '<div class="dp2-empty">Nenhum medidor na lista.<br>Busque à esquerda e clique em <b>+ Adicionar</b>.</div>'}</div>
       </section>
     </div>`;
@@ -556,13 +565,19 @@ class DemandPanelV2 {
   private renderStep2(): void {
     const { start, end, preset } = this.s.period;
     const r = RESOLUTION_BY_ID[this.s.resolution];
-    const maxDays = maxPeriodDays(this.s.resolution);
+    const limits = this.limits();
+    const maxDays = maxPeriodDays(this.s.resolution, limits);
     const errs = this.stepErrors(2);
     const valid = Number.isFinite(start) && Number.isFinite(end) && end > start;
-    const tooLong = valid && end - start > maxDays * 86_400_000;
-    const fit = tooLong ? finestFittingResolution(this.s.period) : null;
+    const tooLong = valid && maxDays != null && end - start > maxDays * 86_400_000;
+    const fit = tooLong ? finestFittingResolution(this.s.period, limits) : null;
     const misaligned = valid && this.s.resolution === '1d' && !isLocalMidnight(start);
-    const presetTooLong = (id: PeriodPreset) => { const x = presetRange(id, this.now()); return !!x && x.end - x.start > maxDays * 86_400_000; };
+    const presetTooLong = (id: PeriodPreset) => { const x = presetRange(id, this.now()); return maxDays != null && !!x && x.end - x.start > maxDays * 86_400_000; };
+    const limitsNote = limits
+      ? ''
+      : this.s.configState === 'loading'
+        ? '<p class="dp2-info" style="margin:0 0 8px">⏳ Carregando os limites vigentes do servidor…</p>'
+        : '<p class="dp2-info" style="margin:0 0 8px">Não foi possível carregar os limites vigentes — o período será conferido pelo servidor no resumo.</p>';
     const otherErrs = errs.filter((e) => !/período máximo|meia-noite/.test(e));
     this.el.body.innerHTML = `
       <div class="dp2-card"><h3 tabindex="-1" data-role="step-title">Período</h3>
@@ -576,7 +591,11 @@ class DemandPanelV2 {
           <div class="dp2-info">${valid ? `Duração: <b>${fmtDuration(end - start)}</b> · horário de Brasília` : ''}</div>
         </div></div>
       <div class="dp2-card"><h3>Resolução</h3>
-        <div class="dp2-chips" role="group" aria-label="Resolução">${RESOLUTIONS.map((x) => `<button class="dp2-chip" type="button" data-action="resolution" data-res="${x.id}" aria-pressed="${this.s.resolution === x.id}">${x.label} <small>(até ${x.maxDays} d)</small></button>`).join('')}</div>
+        ${limitsNote}
+        <div class="dp2-chips" role="group" aria-label="Resolução">${availableResolutions(limits).map((x) => {
+          const d = limits?.maxDaysByResolution[x.id];
+          return `<button class="dp2-chip" type="button" data-action="resolution" data-res="${x.id}" aria-pressed="${this.s.resolution === x.id}">${x.label}${d != null ? ` <small>(até ${d} d)</small>` : ''}</button>`;
+        }).join('')}</div>
         <p class="dp2-info" style="margin:10px 0 0">Cada linha do relatório é um intervalo com <b>${esc(BUCKET_STATS_LABEL)}</b> de cada telemetria. Os intervalos contam a partir do início do período${this.s.resolution === '1d' ? ' (com 1 dia, cada linha é um dia do calendário)' : ''}.
           ${this.s.telemetries.has('consumption') ? `Com <b>Potência Total</b>, o arquivo traz também a <b>${esc(this.demandLabel())}</b>, em janelas de 15 min alinhadas ao relógio.` : ''}</p>
         ${valid && !tooLong ? `<p class="dp2-info" style="margin:6px 0 0">${fmtN(bucketCount(start, end, this.s.resolution))} intervalo(s) por medidor.</p>` : ''}
@@ -641,7 +660,7 @@ class DemandPanelV2 {
           <dt>Telemetrias (${req.telemetries.length})</dt><dd><div class="dp2-pills">${req.telemetries.map((t) => `<span class="dp2-pill">${esc(t.label)} · ${esc(t.unit)}</span>`).join('')}</div>
             ${req.telemetries.some((t) => t.key === 'consumption') ? `<div class="dp2-info" style="margin-top:4px">Inclui a ${esc(this.demandLabel())}.</div>` : ''}</dd>
           <dt>Tamanho</dt><dd><span class="dp2-size ${cls}">${txt}</span> <span class="dp2-info">≈ ${fmtN(pts)} pontos</span>
-            <details class="dp2-details"><summary>Detalhes</summary><span class="dp2-info">${fmtN(est.buckets)} intervalos × ${req.devices.length} medidores × ${req.telemetries.length} telemetrias · limite ${fmtN(DEMAND_LIMITS.points)}</span></details></dd>
+            <details class="dp2-details"><summary>Detalhes</summary><span class="dp2-info">${fmtN(est.buckets)} intervalos × ${req.devices.length} medidores × ${req.telemetries.length} telemetrias${this.limits()?.maxPoints != null ? ` · limite ${fmtN(this.limits()!.maxPoints!)}` : ''}</span></details></dd>
           <dt>Entrega</dt><dd>Arquivos XLSX, CSV e JSON <span class="dp2-info">(disponíveis por 3 dias; o resumo fica por 1 ano)</span></dd>
         </dl>
         <div style="margin-top:12px">${validation}</div>
@@ -738,8 +757,17 @@ class DemandPanelV2 {
   private async loadConfig(): Promise<void> {
     try {
       this.s.config = await this.p.api.config(this.opts());
-      if (!this.destroyed) this.render();
-    } catch { /* defaults (DEFAULT_DEMAND_LABEL, DEMAND_LIMITS) */ }
+      this.s.configState = 'ok';
+      // a resolution GCDR no longer offers falls back to the default (or the first offered)
+      const offered = availableResolutions(this.limits()).map((r) => r.id);
+      if (offered.length && !offered.includes(this.s.resolution)) {
+        this.s.resolution = offered.includes(DEFAULT_RESOLUTION) ? DEFAULT_RESOLUTION : offered[0];
+      }
+    } catch {
+      // no client-side limits; GCDR validate/submit still enforce them
+      this.s.configState = 'error';
+    }
+    if (!this.destroyed) this.render();
   }
 
   private async refreshActive(): Promise<void> {
@@ -1031,16 +1059,17 @@ class DemandPanelV2 {
   /* ------------------------------------------------------------------ wizard actions */
   private async addDevices(ids: string[]): Promise<void> {
     const fresh = ids.filter((id) => !this.s.selected.includes(id) && this.deviceById.has(id) && this.eligibility(this.deviceById.get(id)!).ok);
-    const room = DEMAND_LIMITS.devices - this.s.selected.length;
+    const maxDevices = this.limits()?.maxDevices;
+    const room = maxDevices != null ? maxDevices - this.s.selected.length : Infinity;
     if (fresh.length > room) {
-      if (room <= 0) { this.toast('warning', `A lista já tem ${DEMAND_LIMITS.devices} medidores.`); return; }
+      if (room <= 0) { this.toast('warning', `A lista já tem ${maxDevices} medidores.`); return; }
       if (!(await this.confirmDialog('Limite de medidores', `Cabem ${room} de ${fresh.length}. Adicionar os ${room} primeiros?`, `Adicionar ${room}`))) return;
     }
     const added = fresh.slice(0, Math.max(0, room));
     this.s.selected.push(...added);
     if (added.length) {
       const first = this.deviceById.get(added[0])!;
-      this.announce(`${added.length === 1 ? first.label + ' adicionado' : added.length + ' medidores adicionados'} · ${this.s.selected.length} de ${DEMAND_LIMITS.devices}`);
+      this.announce(`${added.length === 1 ? first.label + ' adicionado' : added.length + ' medidores adicionados'} · ${this.s.selected.length}${maxDevices != null ? ` de ${maxDevices}` : ''}`);
     }
   }
 
@@ -1115,7 +1144,7 @@ class DemandPanelV2 {
         else {
           const d = this.deviceById.get(t.dataset.id!);
           this.s.selected = this.s.selected.filter((id) => id !== t.dataset.id);
-          if (d) this.announce(`${d.label} removido · ${this.s.selected.length} de ${DEMAND_LIMITS.devices}`);
+          if (d) this.announce(`${d.label} removido · ${this.s.selected.length}`);
         }
         this.render();
         const next = Array.from(this.el.body.querySelectorAll<HTMLElement>(sel));
@@ -1148,7 +1177,8 @@ class DemandPanelV2 {
         void this.validateSnapshot();
         return;
       case 'shorten': {
-        const maxDays = maxPeriodDays(this.s.resolution);
+        const maxDays = maxPeriodDays(this.s.resolution, this.limits());
+        if (maxDays == null) break;
         this.s.period = { preset: 'custom', start: this.s.period.end - maxDays * 86_400_000, end: this.s.period.end };
         break;
       }

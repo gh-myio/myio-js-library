@@ -45,7 +45,20 @@ export interface PremiumModalChromeOptions {
   footer?: false | Omit<ModalFooterParams, 'themeMode'>;
   /** Onde anexar o footer (default modalEl). */
   footerHost?: HTMLElement;
+  /**
+   * RFC-0239: paleta a aplicar no modalEl. undefined = comportamento atual (paleta global
+   * window.MyIOUtils.theme); null = não aplicar paleta.
+   */
+  palette?: PaletteSource | null;
+  /**
+   * RFC-0239: false = nunca consultar globais (paleta, nome do customer, versão da lib),
+   * mesmo sem `palette`. Default true.
+   */
+  useGlobals?: boolean;
 }
+
+/** Paleta createMyIOTheme ou mapa plano de CSS vars (--myio-*). */
+export type PaletteSource = { cssVars(): Record<string, string> } | Record<string, string>;
 
 export interface PremiumModalChromeInstance {
   header: HTMLElement;
@@ -71,10 +84,22 @@ function win(): WinLike {
   return (typeof window !== 'undefined' ? window : {}) as WinLike;
 }
 
-/** Copia a paleta do dashboard (createMyIOTheme / mapa de --myio-*) para o elemento. */
-export function applyDashboardPalette(el: HTMLElement | null | undefined): void {
+/**
+ * Copia a paleta do dashboard (createMyIOTheme / mapa de --myio-*) para o elemento.
+ * Sem `opts`: lê window.MyIOUtils.theme (comportamento atual). Com `opts.palette`: usa a
+ * paleta dada (null = nenhuma). `opts.useGlobals === false`: nunca lê globais.
+ */
+export function applyDashboardPalette(
+  el: HTMLElement | null | undefined,
+  opts?: { palette?: PaletteSource | null; useGlobals?: boolean },
+): void {
   if (!el) return;
-  const theme = win().MyIOUtils?.theme;
+  const theme =
+    opts && opts.palette !== undefined
+      ? opts.palette
+      : opts?.useGlobals === false
+        ? null
+        : win().MyIOUtils?.theme;
   if (!theme) return;
   const vars =
     typeof (theme as { cssVars?: () => Record<string, string> }).cssVars === 'function'
@@ -100,7 +125,8 @@ export function createPremiumModalChrome(opts: PremiumModalChromeOptions): Premi
   let maximized = opts.maximized === true;
   let title = opts.title;
 
-  applyDashboardPalette(opts.modalEl);
+  const useGlobals = opts.useGlobals !== false;
+  applyDashboardPalette(opts.modalEl, { palette: opts.palette, useGlobals });
   themeTarget.setAttribute('data-theme', theme);
   opts.modalEl.classList.toggle(maximizedClass, maximized);
 
@@ -141,8 +167,8 @@ export function createPremiumModalChrome(opts: PremiumModalChromeOptions): Premi
     const f = opts.footer || {};
     footer = createModalFooter({
       ...f,
-      customerName: f.customerName ?? resolveDashboardCustomerName(),
-      libVersion: f.libVersion ?? { current: win().MyIOLibrary?.version },
+      customerName: f.customerName ?? (useGlobals ? resolveDashboardCustomerName() : ''),
+      libVersion: f.libVersion ?? (useGlobals ? { current: win().MyIOLibrary?.version } : false),
       themeMode: theme,
     });
     footer.element.style.flexShrink = '0';
