@@ -251,6 +251,9 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
     'createGcdrReportJobsApi',
     'demandDevicesFromItems',
     'tbUserFromJwt',
+    // RFC-0239 — Reports Hub (Relatórios do MENU)
+    'openReportsHub',
+    'createDashboardReportsHubContext',
     // tickets (RFC-0198)
     'createNewTicketWizard',
     'createTicketDetailModal',
@@ -2343,28 +2346,9 @@ Object.assign(window.MyIOUtils, {
     window.MyIOUtils.enableReportButton = widgetSettings.enableReportButton;
     LogHelper.log('[Orchestrator] enableReportButton:', widgetSettings.enableReportButton);
 
-    // RFC-0182: Load enabledReportItems and expose for MENU widget
-    const rawItems = self.ctx.settings?.enabledReportItems || {};
-    const REPORT_ITEM_DEFAULTS = {
-      energy_lojas: true,
-      energy_entrada: false,
-      energy_area_comum: false,
-      energy_todos: false,
-      energy_demand_telemetry: false, // RFC-0238 — Demandas e Telemetrias (openDemandPanelV2)
-      water_lojas: false,
-      water_entrada: false,
-      water_area_comum: false,
-      water_todos: false,
-      temperature_climatizavel: false,
-      temperature_nao_climatizavel: false,
-      temperature_todos: false,
-      alarms_por_dispositivo: false,
-      alarms_dispositivo_x_alarme: false,
-      alarms_por_tipo: false,
-    };
-    window.MyIOUtils.enabledReportItems = Object.fromEntries(
-      Object.entries(REPORT_ITEM_DEFAULTS).map(([k, def]) => [k, rawItems[k] ?? def])
-    );
+    // RFC-0182/0239: enabledReportItems goes to the MENU as the raw setting — the Reports Hub
+    // (lib) resolves the defaults (only energy_lojas on) and ignores non-boolean values.
+    window.MyIOUtils.enabledReportItems = self.ctx.settings?.enabledReportItems || {};
     LogHelper.log('[Orchestrator] RFC-0182: enabledReportItems:', window.MyIOUtils.enabledReportItems);
 
     // Theme palette (dark/light) — padrão MYIO-SIM UNIQUE trazido para o shopping:
