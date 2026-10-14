@@ -44,8 +44,6 @@ export class EnergyDataFetcher {
    */
   async fetchEnergyData(params: EnergyDataParams): Promise<EnergyData> {
     try {
-      const token = await this.getAuthToken();
-      
       const url = this.buildEnergyApiUrl(params);
       
       dbg('[EnergyDataFetcher] Fetching energy data:', { 
@@ -54,13 +52,21 @@ export class EnergyDataFetcher {
         granularity: params.granularity
       });
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // RFC-0224: with client credentials an expired token is renewed once and the request
+      // repeated; without them, the ingestionToken as before
+      const response = this.authClient
+        ? await this.authClient.fetch(
+            url,
+            { method: 'GET', headers: { 'Content-Type': 'application/json' } },
+            { context: 'EnergyModal', fallbackToken: this.config.ingestionToken },
+          )
+        : await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${await this.getAuthToken()}`,
+              'Content-Type': 'application/json'
+            }
+          });
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => '');

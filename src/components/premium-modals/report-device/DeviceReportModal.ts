@@ -83,26 +83,23 @@ export type DeviceReportModalParams = OpenDeviceReportParams & {
 
 // Default energy fetcher implementation
 // getGranularity is a callback so the fetcher always reads the live value at call time
-const createDefaultEnergyFetcher = (params: OpenDeviceReportParams, getGranularity: () => string): EnergyFetcher => {
+const createDefaultEnergyFetcher = (
+  params: OpenDeviceReportParams,
+  getGranularity: () => string,
+  authClient: AuthClient,
+): EnergyFetcher => {
   return async ({ baseUrl, ingestionId, startISO, endISO }) => {
     const domain = params.domain || 'energy';
     const endpoint = DOMAIN_CONFIG[domain].endpoint;
     const url = `${baseUrl}/telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=${getGranularity()}&page=1&pageSize=1000&deep=0`;
 
-    // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
-    // This token provides access to telemetry data from the ingestion system
-    const token = params.api.ingestionToken;
-    if (!token) {
-      throw new Error('ingestionToken is required for Data API calls to data.apps.myio-bas.com');
-    }
-
-    const response = await fetch(url, {
-      headers: {
-        // Using ingestionToken for Data API endpoints (data.apps.myio-bas.com)
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    // RFC-0224: with client credentials an expired token is renewed once and the request
+    // repeated; without them the given ingestionToken is used, as before
+    const response = await authClient.fetch(
+      url,
+      { headers: { 'Content-Type': 'application/json' } },
+      { context: 'DeviceReport', fallbackToken: params.api.ingestionToken },
+    );
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -149,7 +146,7 @@ export class DeviceReportModal {
     this.granularity = params.granularity === '1h' ? '1h' : '1d';
 
     // Use injected fetcher or create default with params; getter ensures live granularity
-    this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params, () => this.granularity);
+    this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params, () => this.granularity, this.authClient);
   }
 
   // Header: "Relatório - <identifier> - <label>" + nome do device (sutil, com copiar).

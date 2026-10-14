@@ -89,7 +89,11 @@ describe('AllReportModal temperatura — estatística por sensor', () => {
 
 describe('AllReportModal temperatura — enriquecimento por sensor', () => {
   it('com itemsList, enriquece mesmo sensor cadastrado no Ingestion como deviceType "energy"', async () => {
-    const m = make({ itemsList: [{ id: 'a', identifier: 'Temperatura', label: 'Área externa', temperatureOffset: -2 }] });
+    // only the given token (no client credentials): the Data API is called directly with it
+    const m = make({
+      itemsList: [{ id: 'a', identifier: 'Temperatura', label: 'Área externa', temperatureOffset: -2 }],
+      api: { dataApiBaseUrl: 'https://api', ingestionToken: 'tok' },
+    });
     const data = { data: [{ id: 'a', deviceType: 'energy', total_value: 32.68 }, { id: 'z', deviceType: 'temperature', total_value: 20 }] };
     const calls: string[] = [];
     const realFetch = globalThis.fetch;
@@ -101,7 +105,7 @@ describe('AllReportModal temperatura — enriquecimento por sensor', () => {
       };
     }) as any;
     try {
-      await m.enrichTemperatureAverages(data, '2026-10-02T00:00:00-03:00', '2026-10-08T23:59:59-03:00', 'tok', 'https://api');
+      await m.enrichTemperatureAverages(data, '2026-10-02T00:00:00-03:00', '2026-10-08T23:59:59-03:00', 'https://api');
     } finally {
       globalThis.fetch = realFetch;
     }

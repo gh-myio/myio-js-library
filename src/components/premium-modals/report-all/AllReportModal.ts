@@ -224,6 +224,24 @@ export class AllReportModal {
     });
   }
 
+  /**
+   * RFC-0224: Data API request with the bearer. With client credentials an expired/revoked
+   * token is renewed once and the request repeated; without them the given ingestionToken is
+   * used, as before.
+   */
+  private dataApiFetch(url: string, context: string): Promise<Response> {
+    return this.authClient.fetch(
+      url,
+      { headers: { 'Content-Type': 'application/json' } },
+      { context: `AllReport.${context}`, fallbackToken: this.params.api.ingestionToken },
+    );
+  }
+
+  /** True when the Data API can be called (token or client credentials). */
+  private hasDataApiAuth(): boolean {
+    return !!this.params.api.ingestionToken || this.authClient.hasCredentials();
+  }
+
   // Debug logging helper
   private debugLog(message: string, data?: any): void {
     if (this.debugEnabled) {
@@ -1244,14 +1262,11 @@ export class AllReportModal {
 
     const startISO = this.exportPeriod?.startISO;
     const endISO = this.exportPeriod?.endISO;
-    const token = this.params.api.ingestionToken;
     const baseUrl = this.params.api.dataApiBaseUrl;
-    if (!startISO || !endISO || !token || !baseUrl) throw new Error('API/período indisponível');
+    if (!startISO || !endISO || !this.hasDataApiAuth() || !baseUrl) throw new Error('API/período indisponível');
 
     const url = `${baseUrl}/telemetry/devices/${id}/${this.domainConfig.endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=${gran}&deep=0`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    });
+    const res = await this.dataApiFetch(url, 'deviceSeries');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const body = await res.json();
     const parsed = this.parseSeries(body);
@@ -1750,9 +1765,8 @@ export class AllReportModal {
     const cacheKey = `${startISO}|${endISO}|${idsKey}`;
     if (this.hourlySeriesCache?.key === cacheKey) return this.hourlySeriesCache.series;
 
-    const token = this.params.api.ingestionToken;
     const baseUrl = this.params.api.dataApiBaseUrl;
-    if (!token || !baseUrl) throw new Error('API não configurada para busca por device');
+    if (!this.hasDataApiAuth() || !baseUrl) throw new Error('API não configurada para busca por device');
 
     const endpoint = this.domainConfig.endpoint;
     const startTime = encodeURIComponent(startISO);
@@ -1766,9 +1780,7 @@ export class AllReportModal {
         targets.slice(i, i + BATCH).map(async (row) => {
           try {
             const url = `${baseUrl}/telemetry/devices/${row.id}/${endpoint}?startTime=${startTime}&endTime=${endTime}&granularity=1h&deep=0`;
-            const res = await fetch(url, {
-              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            });
+            const res = await this.dataApiFetch(url, 'hourlySeries');
             if (!res.ok) return;
             const body = await res.json();
             const ent = Array.isArray(body) ? body[0] : body;
@@ -1947,10 +1959,8 @@ export class AllReportModal {
       });
     }
 
-    // Real Customer Totals API implementation
-    // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
-    const token = this.params.api.ingestionToken;
-    if (!token) {
+    // Real Customer Totals API implementation (RFC-0224: token renewed on a 401)
+    if (!this.hasDataApiAuth()) {
       throw new Error('ingestionToken is required for Data API calls to data.apps.myio-bas.com');
     }
 
@@ -1972,14 +1982,7 @@ export class AllReportModal {
       domain: this.params.domain || 'energy',
     });
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        // Using ingestionToken for Data API endpoints (data.apps.myio-bas.com)
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await this.dataApiFetch(url, 'customerTotals');
 
     if (!response.ok) {
       throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
@@ -1993,7 +1996,7 @@ export class AllReportModal {
     // MÉDIO do período de cada sensor, via o mesmo endpoint por device usado no
     // modal de histórico do card (que funciona).
     if ((this.params.domain || 'energy') === 'temperature') {
-      await this.enrichTemperatureAverages(data, startISO, endISO, token, baseUrl);
+      await this.enrichTemperatureAverages(data, startISO, endISO, baseUrl);
     }
 
     return data;
@@ -2005,7 +2008,6 @@ export class AllReportModal {
     data: any,
     startISO: string,
     endISO: string,
-    token: string,
     baseUrl: string
   ): Promise<void> {
     const rows: any[] = Array.isArray(data?.data) ? data.data : [];
@@ -2034,9 +2036,7 @@ export class AllReportModal {
           const offset = this.temperatureOffsetFor(id);
           try {
             const url = `${baseUrl}/telemetry/devices/${id}/temperature?startTime=${startTime}&endTime=${endTime}&granularity=1h&deep=0`;
-            const res = await fetch(url, {
-              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            });
+            const res = await this.dataApiFetch(url, 'temperatureSeries');
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const stats = this.computeTemperatureStats(this.parseSeries(await res.json()), offset, valid);
             this.temperatureStats.set(id, stats);
