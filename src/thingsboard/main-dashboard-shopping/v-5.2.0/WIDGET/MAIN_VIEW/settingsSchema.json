@@ -148,6 +148,12 @@
         "default": false,
         "description": "RFC-0152: When true, logs a JSON array to the console with TB↔GCDR mapping fields (tbId, deviceName, label, deviceType, deviceProfile, slaveId, centralId, gcdrCustomerId, gcdrAssetId, gcdrDeviceId, gcdrSyncAt) after each card render. Disable in production to avoid console noise."
       },
+      "ingestionAuthRecovery": {
+        "title": "Recuperar token expirado da Data API",
+        "type": "boolean",
+        "default": true,
+        "description": "RFC-0224: num 401 da Data API (Ingestion), renova o token uma vez por cliente e repete a chamada, sem recarregar a página. Desligado: sem renovação automática (só o aviso)."
+      },
       "enableReportButton": {
         "title": "Enable Report Button",
         "type": "boolean",
@@ -354,6 +360,7 @@
     "alarmsApiBaseUrl",
     "gcdrApiBaseUrl",
     "dataApiHost",
+    "ingestionAuthRecovery",
     "chartsBaseUrl",
     "freshdeskApiKey",
     "freshdeskDomain",

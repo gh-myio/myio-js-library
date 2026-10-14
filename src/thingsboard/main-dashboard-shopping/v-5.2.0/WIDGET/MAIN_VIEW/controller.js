@@ -150,6 +150,99 @@ if (!window.__myioTbTokenKeepAlive) {
   }, 5 * 60 * 1000);
 }
 
+// ── RFC-0224: Data API (Ingestion) com recuperação de token expirado ────────────────
+// Toda chamada autenticada à Data API passa por ingestionRequest(): num 401, a lib renova o
+// token uma vez por cliente (um /auth para todas as chamadas) e repete a chamada uma vez; se
+// ainda falhar, relê client_id/client_secret do SERVER_SCOPE do customer (rotação). Toasts e
+// eventos myio:* vêm de um único adaptador; a página nunca é recarregada automaticamente.
+let _ingestionCredsSource = null; // { customerTB_ID, tbBase } — definido no onInit
+
+function _ingestionLib() {
+  return (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary || null;
+}
+
+/** Auth das credenciais atuais do orquestrador (o cache de token é compartilhado). */
+function _currentIngestionAuth() {
+  const lib = _ingestionLib();
+  const creds = window.MyIOOrchestrator?.getCredentials?.();
+  if (!lib?.buildMyioIngestionAuth || !creds?.CLIENT_ID || !creds?.CLIENT_SECRET) return null;
+  return lib.buildMyioIngestionAuth({
+    dataApiHost: getDataApiHost(),
+    clientId: creds.CLIENT_ID,
+    clientSecret: creds.CLIENT_SECRET,
+  });
+}
+
+/**
+ * RFC-0224 §7.5: relê as credenciais do SERVER_SCOPE do customer. Só devolve um auth novo quando
+ * elas mudaram — sem mudança, a recuperação termina sem uma 3ª chamada.
+ */
+async function _rereadIngestionCredentials() {
+  const lib = _ingestionLib();
+  const src = _ingestionCredsSource;
+  const jwt = localStorage.getItem('jwt_token');
+  if (!lib?.fetchThingsboardCustomerAttrsFromStorage || !src?.customerTB_ID || !jwt) return null;
+  const attrs = await lib.fetchThingsboardCustomerAttrsFromStorage(src.customerTB_ID, jwt, src.tbBase);
+  const clientId = attrs?.client_id || '';
+  const clientSecret = attrs?.client_secret || '';
+  if (!clientId || !clientSecret) return null;
+  const current = window.MyIOOrchestrator?.getCredentials?.() || {};
+  if (clientId === current.CLIENT_ID && clientSecret === current.CLIENT_SECRET) return null;
+  window.MyIOOrchestrator?.setCredentials?.(attrs?.ingestionId || current.CUSTOMER_ING_ID, clientId, clientSecret);
+  LogHelper.warn('[MAIN_VIEW] RFC-0224: credenciais da Ingestion mudaram no ThingsBoard — usando as novas');
+  return _currentIngestionAuth();
+}
+
+/**
+ * fetch() de uma URL da Data API com o bearer do cliente e recuperação de token expirado
+ * (RFC-0224). `context` identifica a chamada nos eventos e nos logs.
+ */
+async function ingestionRequest(url, init, context) {
+  const lib = _ingestionLib();
+  const auth = _currentIngestionAuth();
+  if (!auth) throw new Error('Ingestion credentials not available');
+  if (typeof lib.ingestionFetch !== 'function') {
+    // biblioteca anterior ao RFC-0224: a mesma chamada de antes, sem recuperação
+    const token = await auth.getToken();
+    return fetch(url, { ...(init || {}), headers: { ...((init && init.headers) || {}), Authorization: `Bearer ${token}` } });
+  }
+  const { CLIENT_ID } = window.MyIOOrchestrator.getCredentials();
+  return lib.ingestionFetch(url, init || {}, {
+    authScopeId: lib.ingestionAuthScopeId(getDataApiHost(), CLIENT_ID),
+    getAuth: () => _currentIngestionAuth() || auth,
+    refreshCredentials: _rereadIngestionCredentials,
+    context,
+  });
+}
+
+/**
+ * Liga a recuperação à UI do dashboard: toasts (um conjunto por cliente a cada minuto), eventos
+ * myio:* e, quando o acesso é renovado, o token novo no tokenManager pelo caminho de rotação
+ * (myio:token-rotated). Vale também para as modais da lib (AllReport, energia, …).
+ */
+function wireIngestionAuthLifecycle() {
+  const lib = _ingestionLib();
+  if (!lib?.onIngestionAuthLifecycle || !lib?.createIngestionAuthUiAdapter) return;
+  // re-init do widget: troca o listener anterior (sem toasts duplicados)
+  if (typeof window.__myioIngestionAuthUnsub === 'function') window.__myioIngestionAuthUnsub();
+  const ui = lib.createIngestionAuthUiAdapter({
+    toast: lib.MyIOToast,
+    dispatchEvent: (event) => window.dispatchEvent(event),
+  });
+  window.__myioIngestionAuthUnsub = lib.onIngestionAuthLifecycle((event) => {
+    ui(event);
+    if (event.type !== 'refreshed') return;
+    const auth = _currentIngestionAuth();
+    if (!auth?.getTokenInfo) return;
+    auth
+      .getTokenInfo()
+      .then(({ token, generation }) =>
+        window.MyIOOrchestrator?.tokenManager?.updateTokens?.({ ingestionToken: token }, { generation })
+      )
+      .catch(() => {});
+  });
+}
+
 // RFC-0233: per-user feature visibility resolver (`restrict_view`). Reads
 // the tree detectSuperAdmin() parses from the USER SERVER_SCOPE
 // `restrict_view` attribute into window.MyIOUtils.featureVisibility. An
@@ -698,25 +791,13 @@ Object.assign(window.MyIOUtils, {
   },
 
   /**
-   * Handle 401 Unauthorized errors globally
-   * Shows toast message and reloads the page
-   * @param {string} context - Context description for logging (e.g., 'TemperatureSettingsModal')
+   * 401/403 that the token recovery could not fix (RFC-0224). Logs only: the toast and the
+   * myio:* events come from the ingestion lifecycle adapter, and the page is never reloaded
+   * automatically — the data already on screen stays.
+   * @param {string} context - Context description for logging (e.g., 'fetchGoalsDayTotals')
    */
   handleUnauthorizedError: (context = 'API') => {
-    LogHelper.error(`[MyIOUtils] 401 Unauthorized in ${context} - session expired`);
-
-    // Get MyIOToast from library
-    const MyIOToast = window.MyIOLibrary?.MyIOToast;
-    if (MyIOToast) {
-      MyIOToast.error('Sessão expirada. Recarregando página...', 6000);
-    } else {
-      console.error('[MyIOUtils] Sessão expirada. Recarregando página...');
-    }
-
-    // Reload page after toast displays
-    setTimeout(() => {
-      window.location.reload();
-    }, 6000);
+    LogHelper.error(`[MyIOUtils] Unauthorized in ${context} — token recovery did not succeed`);
   },
 
   /**
@@ -846,28 +927,6 @@ Object.assign(window.MyIOUtils, {
         return [];
       }
 
-      // Build auth client - use MyIOLibrary.buildMyioIngestionAuth directly
-      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
-      if (!MyIOLib || !MyIOLib.buildMyioIngestionAuth) {
-        LogHelper.error(
-          '[MyIOUtils] fetchEnergyDayConsumption: MyIOLibrary.buildMyioIngestionAuth not available'
-        );
-        return [];
-      }
-
-      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
-        dataApiHost: getDataApiHost(),
-        clientId: creds.CLIENT_ID,
-        clientSecret: creds.CLIENT_SECRET,
-      });
-
-      // Get token
-      const token = await myIOAuth.getToken();
-      if (!token) {
-        LogHelper.error('[MyIOUtils] fetchEnergyDayConsumption: Failed to get token');
-        return [];
-      }
-
       // Format timestamps to ISO
       const startISO = new Date(startTs).toISOString();
       const endISO = new Date(endTs).toISOString();
@@ -883,9 +942,8 @@ Object.assign(window.MyIOUtils, {
 
       LogHelper.log(`[MyIOUtils] fetchEnergyDayConsumption: ${url.toString()}`);
 
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // RFC-0224: bearer + recuperação de token expirado
+      const res = await ingestionRequest(url.toString(), {}, 'fetchEnergyDayConsumption');
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
@@ -921,21 +979,6 @@ Object.assign(window.MyIOUtils, {
         LogHelper.error('[MyIOUtils] fetchGoalsDayTotals: No credentials available');
         return [];
       }
-      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
-      if (!MyIOLib?.buildMyioIngestionAuth) {
-        LogHelper.error('[MyIOUtils] fetchGoalsDayTotals: MyIOLibrary.buildMyioIngestionAuth not available');
-        return [];
-      }
-      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
-        dataApiHost: getDataApiHost(),
-        clientId: creds.CLIENT_ID,
-        clientSecret: creds.CLIENT_SECRET,
-      });
-      const token = await myIOAuth.getToken();
-      if (!token) {
-        LogHelper.error('[MyIOUtils] fetchGoalsDayTotals: Failed to get token');
-        return [];
-      }
       const url = new URL(`${getDataApiHost()}/telemetry/customers/${custId}/${domain}/devices/totals`);
       url.searchParams.set('startTime', new Date(startTs).toISOString());
       url.searchParams.set('endTime', new Date(endTs).toISOString());
@@ -943,9 +986,7 @@ Object.assign(window.MyIOUtils, {
       if (granularity) url.searchParams.set('granularity', granularity);
       if (profileId) url.searchParams.set('groupIds', profileId);
       LogHelper.log(`[MyIOUtils] fetchGoalsDayTotals (${domain}): ${url.toString()}`);
-      const res = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await ingestionRequest(url.toString(), {}, 'fetchGoalsDayTotals');
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
           window.MyIOUtils?.handleUnauthorizedError?.('fetchGoalsDayTotals');
@@ -1002,15 +1043,6 @@ Object.assign(window.MyIOUtils, {
         LogHelper.error('[MyIOUtils] fetchGoalsConsumptionSeries: No credentials available');
         return [];
       }
-      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
-      if (!MyIOLib?.buildMyioIngestionAuth) return [];
-      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
-        dataApiHost: getDataApiHost(),
-        clientId: creds.CLIENT_ID,
-        clientSecret: creds.CLIENT_SECRET,
-      });
-      const token = await myIOAuth.getToken();
-      if (!token) return [];
       const url = new URL(`${getDataApiHost()}/telemetry/customers/${custId}/${domain}/`);
       url.searchParams.set('startTime', new Date(startTs).toISOString());
       url.searchParams.set('endTime', new Date(endTs).toISOString());
@@ -1018,7 +1050,7 @@ Object.assign(window.MyIOUtils, {
       if (granularity) url.searchParams.set('granularity', granularity);
       if (profileId) url.searchParams.set('groupIds', profileId);
       LogHelper.log(`[MyIOUtils] fetchGoalsConsumptionSeries (${domain}): ${url.toString()}`);
-      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+      const res = await ingestionRequest(url.toString(), {}, 'fetchGoalsConsumptionSeries');
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
           window.MyIOUtils?.handleUnauthorizedError?.('fetchGoalsConsumptionSeries');
@@ -1047,15 +1079,6 @@ Object.assign(window.MyIOUtils, {
     try {
       const creds = window.MyIOOrchestrator?.getCredentials?.();
       if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) return [];
-      const MyIOLib = (typeof MyIOLibrary !== 'undefined' && MyIOLibrary) || window.MyIOLibrary;
-      if (!MyIOLib?.buildMyioIngestionAuth) return [];
-      const myIOAuth = MyIOLib.buildMyioIngestionAuth({
-        dataApiHost: getDataApiHost(),
-        clientId: creds.CLIENT_ID,
-        clientSecret: creds.CLIENT_SECRET,
-      });
-      const token = await myIOAuth.getToken();
-      if (!token) return [];
       let tempItems =
         window.MyIOOrchestratorData?.temperature?.items ||
         window.STATE?.temperature?.items || [];
@@ -1089,9 +1112,11 @@ Object.assign(window.MyIOUtils, {
               `${host}/api/v1/telemetry/devices/${ingestionId}/temperature` +
               `?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}` +
               `&granularity=${granularity}&deep=0`;
-            const resp = await fetch(url, {
-              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            });
+            const resp = await ingestionRequest(
+              url,
+              { headers: { 'Content-Type': 'application/json' } },
+              'fetchGoalsTemperature'
+            );
             if (!resp.ok) return null;
             const data = await resp.json();
             const deviceData = Array.isArray(data) ? data[0] : data;
@@ -2351,6 +2376,11 @@ Object.assign(window.MyIOUtils, {
     window.MyIOUtils.enabledReportItems = self.ctx.settings?.enabledReportItems || {};
     LogHelper.log('[Orchestrator] RFC-0182: enabledReportItems:', window.MyIOUtils.enabledReportItems);
 
+    // RFC-0224: recuperação de token expirado da Data API — flag por dashboard (default ligada),
+    // toasts/eventos e rotação do token no tokenManager
+    window.MyIOLibrary?.setIngestionAuthRecoveryEnabled?.(self.ctx.settings?.ingestionAuthRecovery !== false);
+    wireIngestionAuthLifecycle();
+
     // Theme palette (dark/light) — padrão MYIO-SIM UNIQUE trazido para o shopping:
     // settings (defaultThemeMode/darkMode/lightMode) → createMyIOTheme → CSS vars
     // --myio-* + window.MyIOUtils.theme. Filhos (MENU/HEADER) repassam a paleta às
@@ -2675,6 +2705,8 @@ Object.assign(window.MyIOUtils, {
             // Fetch customer attributes
             const tbBase = self.ctx?.settings?.tbBaseUrl || '';
             const attrs = await MyIO.fetchThingsboardCustomerAttrsFromStorage(customerTB_ID, jwt, tbBase);
+            // RFC-0224: de onde reler as credenciais da Ingestion se o token não se recuperar
+            _ingestionCredsSource = { customerTB_ID, tbBase };
 
             LogHelper.log('[MAIN_VIEW] 📦 Received attrs:', attrs);
 
@@ -7369,27 +7401,24 @@ const MyIOOrchestrator = (() => {
 
     const nowMs = Date.now();
     const isTemp = domain === 'temperature';
-    try {
-      const t0 = Date.now();
-      const result = await MyIO.fetchCustomerSummary({
-        dataApiHost: getDataApiHost(),
-        token,
-        customerId: creds.CUSTOMER_ING_ID,
-        readingType: domain,
-        deep: true,
-        granularity: isTemp ? '1h' : '1d',
-        includeSeries: isTemp, // temperatura: série horária das últimas 24 h
-        startTime: isTemp ? toSaoPauloIso(nowMs - TEMPERATURE_LOOKBACK_MS) : period.startISO,
-        endTime: isTemp ? toSaoPauloIso(nowMs) : period.endISO,
-      });
-      LogHelper.log(
-        `[Orchestrator] 📦 /summary ${domain}: ${result.devices.length} devices em ${Date.now() - t0}ms`
-      );
-      return result;
-    } catch (err) {
-      if (err?.status === 401 || err?.status === 403) emitTokenExpired();
-      throw err;
-    }
+    const t0 = Date.now();
+    const result = await MyIO.fetchCustomerSummary({
+      dataApiHost: getDataApiHost(),
+      token,
+      customerId: creds.CUSTOMER_ING_ID,
+      readingType: domain,
+      deep: true,
+      granularity: isTemp ? '1h' : '1d',
+      includeSeries: isTemp, // temperatura: série horária das últimas 24 h
+      startTime: isTemp ? toSaoPauloIso(nowMs - TEMPERATURE_LOOKBACK_MS) : period.startISO,
+      endTime: isTemp ? toSaoPauloIso(nowMs) : period.endISO,
+      // RFC-0224: bearer + recuperação de token expirado (um 401 não é mais só repassado)
+      fetchImpl: (url, init) => ingestionRequest(url, init, `customerSummary:${domain}`),
+    });
+    LogHelper.log(
+      `[Orchestrator] 📦 /summary ${domain}: ${result.devices.length} devices em ${Date.now() - t0}ms`
+    );
+    return result;
   }
 
   function loadCustomerSummary(domain, period) {
@@ -7584,12 +7613,6 @@ const MyIOOrchestrator = (() => {
               (typeof window !== 'undefined' && window.MyIOLibrary) ||
               null;
             if (!MyIO) throw new Error('MyIOLibrary not available');
-            const myIOAuth = MyIO.buildMyioIngestionAuth({
-              dataApiHost: getDataApiHost(),
-              clientId: latestCreds.CLIENT_ID,
-              clientSecret: latestCreds.CLIENT_SECRET,
-            });
-            const token = await myIOAuth.getToken();
 
             const nowMs = Date.now();
             const startIso = toSaoPauloIso(nowMs - TEMPERATURE_LOOKBACK_MS);
@@ -7628,7 +7651,6 @@ const MyIOOrchestrator = (() => {
             if (!fromSummary) {
               LogHelper.log(`[Orchestrator] 🌡️ Fetching last 24h (hourly) for ${devices.length} sensors`);
 
-              let authFailed = false;
               const BATCH = 6;
               for (let i = 0; i < devices.length; i += BATCH) {
                 await Promise.all(
@@ -7639,11 +7661,9 @@ const MyIOOrchestrator = (() => {
                       url.searchParams.set('endTime', endIso);
                       url.searchParams.set('granularity', '1h');
                       url.searchParams.set('deep', '0');
-                      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
-                      if (!res.ok) {
-                        if (res.status === 401 || res.status === 403) authFailed = true;
-                        return;
-                      }
+                      // RFC-0224: bearer + recuperação de token expirado
+                      const res = await ingestionRequest(url.toString(), {}, 'temperatureSeries');
+                      if (!res.ok) return;
                       const body = await res.json();
                       const rows = Array.isArray(body) ? body : [body];
                       const row = rows.find((r) => r && r.id === meta.ingestionId) || rows[0] || null;
@@ -7673,7 +7693,6 @@ const MyIOOrchestrator = (() => {
                   })
                 );
               }
-              if (authFailed) emitTokenExpired();
               apiFetchedAt = nowMs;
             }
 
@@ -8297,18 +8316,6 @@ const MyIOOrchestrator = (() => {
         throw new Error('MyIOLibrary not available');
       }
 
-      const myIOAuth = MyIO.buildMyioIngestionAuth({
-        dataApiHost: getDataApiHost(),
-        clientId: clientId,
-        clientSecret: clientSecret,
-      });
-
-      // Get fresh token
-      const token = await myIOAuth.getToken();
-      if (!token) {
-        throw new Error('Failed to get ingestion token');
-      }
-
       // Validate customer ID exists
       if (!latestCreds.CUSTOMER_ING_ID) {
         throw new Error('Missing CUSTOMER_ING_ID - customer not configured');
@@ -8339,14 +8346,10 @@ const MyIOOrchestrator = (() => {
 
         LogHelper.log(`[Orchestrator] Fetching from: ${url.toString()}`);
 
-        const res = await fetch(url.toString(), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        // RFC-0224: bearer + recuperação de token expirado
+        const res = await ingestionRequest(url.toString(), {}, `devicesTotals:${domain}`);
 
         if (!res.ok) {
-          if (res.status === 401 || res.status === 403) {
-            emitTokenExpired();
-          }
           throw new Error(`API error: ${res.status}`);
         }
 
@@ -8687,26 +8690,27 @@ const MyIOOrchestrator = (() => {
     );
   }
 
-  let tokenExpiredDebounce = 0;
-  function emitTokenExpired() {
-    const now = Date.now();
-    if (now - tokenExpiredDebounce < 60_000) return;
-
-    tokenExpiredDebounce = now;
-    window.dispatchEvent(new CustomEvent('myio:token-expired', { detail: {} }));
-  }
-
   // Token manager
   const tokenManager = {
     tokens: {},
 
-    updateTokens(newTokens) {
+    updateTokens(newTokens, meta = {}) {
       this.tokens = { ...this.tokens, ...newTokens };
 
       // Abort in-flight requests when tokens are rotated
       abortAllInflight();
 
-      window.dispatchEvent(new CustomEvent('myio:token-rotated', { detail: {} }));
+      // RFC-0224 §8: versioned detail — never the token itself
+      window.dispatchEvent(
+        new CustomEvent('myio:token-rotated', {
+          detail: {
+            version: 1,
+            type: Object.keys(newTokens || {}).join(','),
+            at: Date.now(),
+            generation: meta.generation ?? null,
+          },
+        })
+      );
 
       if (config?.debugMode) LogHelper.log('[Orchestrator] Tokens rotated');
     },
