@@ -85,6 +85,7 @@
       <div class="sc-actions">
         <button id="sc-run">▶ Montar dashboard (onInit)</button>
         <button id="sc-data">⟳ Recarregar dados (onDataUpdated)</button>
+        <button id="sc-expire-token" title="RFC-0224: a próxima chamada à Data API recebe 401, como com um token vencido">⏱ Simular token expirado</button>
         <button id="sc-destroy">✖ Desmontar (onDestroy)</button>
       </div>
     </div>
@@ -132,9 +133,52 @@
   }
   ['myio:data-ready', 'myio:dashboard-state', 'myio:update-date', 'myio:orchestrator:ready', 'myio:telemetry:request-data',
    'myio:telemetry:provide-data', 'myio:energy-summary-ready', 'myio:water-summary-ready', 'myio:temperature-data-ready',
-   'myio:customers-ready', 'myio:theme-changed', 'myio:feature-visibility-ready', 'myio:alarm-content-activated', 'myio:token-expired']
+   'myio:customers-ready', 'myio:theme-changed', 'myio:feature-visibility-ready', 'myio:alarm-content-activated', 'myio:token-expired',
+   'myio:session-refresh-started', 'myio:session-refreshed', 'myio:session-refresh-failed', 'myio:token-rotated']
     .forEach((ev) => window.addEventListener(ev, (e) => log('info', `event ${ev} ${e.detail ? JSON.stringify(e.detail).slice(0, 110) : ''}`)));
   window.addEventListener('error', (e) => log('err', `window error: ${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`));
+
+  /* ---------- RFC-0224: simular token de ingestion expirado ----------
+   * Marca como expirado o bearer da Data API em uso: toda chamada à Data API com ele recebe 401
+   * com o mesmo corpo do servidor real. A recuperação da lib pede um token novo no /auth real e
+   * repete a chamada contra a API real — valida o fluxo sem esperar a expiração. */
+  const revokedBearers = new Set();
+  let revokeNextBearer = false;
+  let fetchPatched = false;
+  function patchFetchForTokenExpiry() {
+    if (fetchPatched) return;
+    fetchPatched = true;
+    const realFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input && input.url) || '';
+      const host = (window.MyIOUtils && window.MyIOUtils.getDataApiHost && window.MyIOUtils.getDataApiHost()) || '';
+      if (host && url.startsWith(host) && !/\/auth(\?|$)/.test(url)) {
+        const headers = new Headers((init && init.headers) || (input instanceof Request ? input.headers : undefined));
+        const bearer = (headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+        if (bearer && revokeNextBearer) {
+          revokedBearers.add(bearer);
+          revokeNextBearer = false;
+          log('warn', 'RFC-0224: token atual da Data API marcado como expirado');
+        }
+        if (bearer && revokedBearers.has(bearer)) {
+          log('warn', `RFC-0224: 401 simulado → ${url.replace(host, '').split('?')[0]}`);
+          return new Response(JSON.stringify({ error: 'Invalid token', message: 'Token verification failed' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      }
+      return realFetch(input, init);
+    };
+  }
+  function simulateExpiredToken() {
+    patchFetchForTokenExpiry();
+    revokeNextBearer = true;
+    // o token guardado no tokenManager (o que o MENU repassa aos Relatórios) também "vence"
+    const stored = window.MyIOOrchestrator && window.MyIOOrchestrator.tokenManager && window.MyIOOrchestrator.tokenManager.getToken('ingestionToken');
+    if (stored) revokedBearers.add(stored);
+    log('warn', 'RFC-0224: a próxima chamada à Data API usa um token expirado — abra um relatório, troque de aba ou abra Metas');
+  }
   window.addEventListener('unhandledrejection', (e) => log('err', `unhandled rejection: ${e.reason && (e.reason.message || e.reason)}`));
 
   /* ---------- config (gitignored config.json, falls back to the example) ---------- */
@@ -582,6 +626,7 @@
   /* ---------- wiring ---------- */
   document.getElementById('sc-run').onclick = () => mountDashboard().catch((e) => log('err', 'montagem: ' + e.message));
   document.getElementById('sc-data').onclick = () => dataUpdated(true);
+  document.getElementById('sc-expire-token').onclick = simulateExpiredToken;
   document.getElementById('sc-destroy').onclick = destroyDashboard;
   document.getElementById('sc-toggle').onclick = () => { const c = document.body.classList.toggle('console-collapsed'); document.getElementById('sc-toggle').textContent = c ? '⟨' : '⟩'; setTimeout(onResize, 250); };
   document.getElementById('sc-log-toggle').onclick = () => { const l = document.getElementById('sc-log'); l.hidden = !l.hidden; };
