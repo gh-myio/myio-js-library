@@ -2,9 +2,11 @@
 
 - Feature Name: `graceful_ingestion_token_expiry_recovery`
 - Start Date: 2026-07-17
-- RFC PR: (leave this empty)
+- RFC PR: #149 (implementação no Shopping 5.2.0, junto com o RFC-0239)
 - Tracking Issue: ED-1028
-- Status: **Approved with mandatory changes — consolidated (incorporates Revisão v1, 2026-07-17)**
+- Status: **Implementado no Shopping 5.2.0 — fases 1, 2 e 4 parcial (2026-10-14, §20).** Fase 3 (HO,
+  v-5.4.0, MYIO-SIM, BAS) e as demais modais seguem pendentes.
+- Status anterior: Approved with mandatory changes — consolidated (incorporates Revisão v1, 2026-07-17)
 
 > **Nota de consolidação.** Este documento é a versão canônica. Ele mantém a
 > investigação/evidências do rascunho inicial (§1–§5) e **substitui o sketch
@@ -459,3 +461,51 @@ duplicados antes de validar concorrência, rotação e classificação de erros.
   single-flight por escopo, invalidação por geração, validação no endpoint de
   dados, atualização atômica de credenciais, sem reload automático, eventos
   versionados sem segredos. **Consolidada neste documento.**
+- **Implementação (2026-10-14):** fases 1, 2 e 4 parcial no Shopping 5.2.0 (§20). Motivo
+  imediato: o AllReport aberto pelos Relatórios dava `401 Token verification failed` depois que
+  o token do carregamento do dashboard expirava.
+
+## 20. Implementação no Shopping 5.2.0 (2026-10-14, PR #149)
+
+### Entregue
+
+| Fase | O quê | Onde |
+|---|---|---|
+| 1 | Primitiva: geração por entrada de cache, `invalidate()`, `forceRefresh(staleGeneration?)` (um `/auth` por escopo), `getTokenInfo()`, `getGeneration()`; `IngestionAuthError` com `category`/`status`/`retryable` (só rede e 408/429/5xx repetem; o corpo do `/auth` não vai para a mensagem); chave de cache e estatísticas sem o segredo | `src/services/ingestion/buildMyioIngestionAuth.ts` |
+| 1 | Executor `ingestionFetch` (§7.3): 401 → um `forceRefresh` por escopo e 1 repetição; ainda 401 / `invalid_client` → releitura de credenciais 1× por escopo, 3ª chamada só com rotação comprovada; 403 só com `isIngestionAuthError`; circuit breaker de 30 s após falha final não-retryable; eventos versionados sem segredos; flag `setIngestionAuthRecoveryEnabled` | `src/services/ingestion/ingestionFetch.ts` |
+| 1 | Adaptador de UI: `myio:token-expired` (versionado), `myio:session-refresh-started`, `myio:session-refreshed`, `myio:session-refresh-failed`; um conjunto de toasts por escopo a cada 60 s | `src/services/ingestion/ingestionAuthUi.ts` |
+| 2 | MAIN_VIEW: `ingestionRequest()` em todas as chamadas autenticadas à Data API (Energy/Goals/Temperature, `/summary`, hidratação); releitura do `SERVER_SCOPE` como `refreshCredentials`; sem reload automático (`handleUnauthorizedError` só registra); adaptador registrado uma vez; flag `ingestionAuthRecovery` (default ligada) | `v-5.2.0/WIDGET/MAIN_VIEW/controller.js`, `settingsSchema.json` |
+| 4 (parcial) | `AuthClient.fetch()`; AllReport (totais, séries por device, CSV horário, temperatura), relatório por dispositivo e modal de energia | `src/components/premium-modals/…` |
+| — | Showcase: botão "⏱ Simular token expirado" no cockpit v-5.2.0 | `showcase/main-view-shopping/` |
+
+### Decisões tomadas na implementação
+
+- **Twin `.js` (§10 Fase 1):** removido. A build (tsup → rollup) usa só o `.ts`; o twin divergia na
+  URL do `/auth` (`/api/v1/auth` vs `/auth`) e só servia ao teste antigo, portado para
+  `tests/services/ingestion/buildMyioIngestionAuth.test.ts` contra o `.ts`.
+- **Cópia dos toasts (§6.6):** a técnica aprovada (default). A cópia de produto alternativa segue
+  pendente com o Rodrigo; o adaptador aceita `messages` para trocá-la sem mudar código.
+- **`tokenManager` (§7.6):** a alternativa — o adaptador chama `updateTokens({ ingestionToken },
+  { generation })` no `myio:session-refreshed`; `myio:token-rotated` passa a ter o detail
+  versionado `{ version, type, at, generation }`. O `setToken` do `onInit` fica (valor inicial,
+  não rotação). Hoje `abortAllInflight` só limpa o mapa de coalescência da hidratação.
+- **403:** sem código documentado do backend, um 403 nunca inicia recuperação; o gancho
+  `isIngestionAuthError` fica disponível para quando houver.
+- **Modais:** com `clientId`/`clientSecret` usam a instância de auth (cache compartilhado com a
+  MAIN_VIEW, mesmo host + cliente) e se recuperam; sem credenciais — ou se elas não conseguem
+  token — usam o `ingestionToken` recebido, como antes. Só o modo (a) (mesmas credenciais); a
+  releitura do `SERVER_SCOPE` (modo b) fica na MAIN_VIEW.
+- **Observabilidade (§13):** não há *sink* de métricas na lib; só logs (`context`, categoria),
+  sem URL, bearer ou segredo.
+
+### Testes
+
+`tests/services/ingestion/buildMyioIngestionAuth.test.ts` (23), `ingestionFetch.test.ts` (19 —
+matriz do §12 e AC-01…AC-14), `ingestionAuthUi.test.ts` (6) e
+`tests/components/premium-modals-auth-recovery.test.ts` (7).
+
+### Pendente
+
+Fase 3 (HO `v5.2.0_UNIQUE`/`v5.4.0_UNIQUE`, `v-5.4.0`, MYIO-SIM, BAS), as demais modais
+(Upsell, DeviceProfileTab, PresetupGateway), botão de ação no `MyIOToast` e a cópia de produto
+dos toasts.
