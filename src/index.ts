@@ -375,6 +375,13 @@ export {
   type IngestionRecoveryFailureCategory,
 } from './services/ingestion/ingestionFetch';
 export {
+  createIngestionAuthUiAdapter,
+  ingestionAuthEventDetail,
+  INGESTION_AUTH_MESSAGES,
+  INGESTION_AUTH_EVENT_NAMES,
+  type IngestionAuthUiOptions,
+} from './services/ingestion/ingestionAuthUi';
+export {
   fetchCustomerSummary,
   summaryDeviceToTotalsRow,
   summaryLastReadingTs,
