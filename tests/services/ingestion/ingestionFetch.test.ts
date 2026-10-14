@@ -324,3 +324,33 @@ describe('ingestionFetch — RFC-0224 safety', () => {
     }
   });
 });
+
+describe('ingestionFetch — robustness', () => {
+  it('works when Promise#finally is missing (pages with an old Promise polyfill)', async () => {
+    const original = Promise.prototype.finally;
+    // @ts-expect-error — simulate a polyfilled Promise without finally
+    delete Promise.prototype.finally;
+    try {
+      await call();
+      server.expireAll();
+      const res = await Promise.all([call(), call()]);
+      expect(res.map((r) => r.status)).toEqual([200, 200]);
+      server.state.dataMode = 'always401';
+      expect((await call({ refreshCredentials: async () => null })).status).toBe(401);
+    } finally {
+      Promise.prototype.finally = original;
+    }
+  });
+
+  it('a refreshCredentials that throws synchronously ends as a controlled failure', async () => {
+    await call();
+    server.state.dataMode = 'always401';
+    const res = await call({
+      refreshCredentials: (() => {
+        throw new Error('sync bug');
+      }) as never,
+    });
+    expect(res.status).toBe(401);
+    expect(events.at(-1)).toMatchObject({ type: 'failed', category: 'unauthorized' });
+  });
+});

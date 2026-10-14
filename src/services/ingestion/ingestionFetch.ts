@@ -146,12 +146,15 @@ function refreshScope(scope: ScopeState, auth: MyIOAuthInstance, staleGeneration
   scope.recoveryFrom = staleGeneration;
   scope.epoch += 1;
   onStart();
-  const recovery: Promise<void> = auth
-    .forceRefresh(staleGeneration)
-    .then(() => undefined)
-    .finally(() => {
+  // try/finally instead of Promise#finally: some pages replace Promise with a polyfill without it
+  const recovery: Promise<void> = (async () => {
+    try {
+      await null; // `recovery` is assigned before the finally can run, even on a synchronous throw
+      await auth.forceRefresh(staleGeneration);
+    } finally {
       if (scope.recovery === recovery) scope.recovery = null;
-    });
+    }
+  })();
   scope.recovery = recovery;
   return recovery;
 }
@@ -162,18 +165,18 @@ function rotateScope(
   refreshCredentials: NonNullable<IngestionFetchOptions['refreshCredentials']>,
 ): Promise<MyIOAuthInstance | null> {
   if (!scope.rotation) {
-    const rotation: Promise<MyIOAuthInstance | null> = Promise.resolve()
-      .then(refreshCredentials)
-      .then(
-        (next) => {
-          if (next) scope.epoch += 1;
-          return next || null;
-        },
-        () => null,
-      )
-      .finally(() => {
+    const rotation: Promise<MyIOAuthInstance | null> = (async () => {
+      try {
+        await null; // `rotation` is assigned before the finally can run, even on a synchronous throw
+        const next = (await refreshCredentials()) || null;
+        if (next) scope.epoch += 1;
+        return next;
+      } catch {
+        return null;
+      } finally {
         if (scope.rotation === rotation) scope.rotation = null;
-      });
+      }
+    })();
     scope.rotation = rotation;
   }
   return scope.rotation;

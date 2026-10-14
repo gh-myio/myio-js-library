@@ -261,9 +261,14 @@ export function buildMyioIngestionAuth(config: MyIOAuthConfig): MyIOAuthInstance
 
   function startRequest(cache: CacheEntry): Promise<MyIOAuthTokenInfo> {
     const generation = cache.generation;
-    const flight: Promise<MyIOAuthTokenInfo> = requestNewToken(cache, generation).finally(() => {
-      if (cache.inFlight === flight) cache.inFlight = null;
-    });
+    // try/finally instead of Promise#finally: some pages replace Promise with a polyfill without it
+    const flight: Promise<MyIOAuthTokenInfo> = (async () => {
+      try {
+        return await requestNewToken(cache, generation);
+      } finally {
+        if (cache.inFlight === flight) cache.inFlight = null;
+      }
+    })();
     cache.inFlight = flight;
     cache.inFlightGeneration = generation;
     return flight;
