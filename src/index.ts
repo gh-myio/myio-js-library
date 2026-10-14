@@ -354,8 +354,11 @@ export {
   buildMyioIngestionAuth,
   clearAllAuthCaches,
   getAuthCacheStats,
+  IngestionAuthError,
   type MyIOAuthConfig,
   type MyIOAuthInstance,
+  type MyIOAuthTokenInfo,
+  type IngestionAuthErrorCategory,
 } from './services/ingestion/buildMyioIngestionAuth';
 export {
   fetchCustomerSummary,

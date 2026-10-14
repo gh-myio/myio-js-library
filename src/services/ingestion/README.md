@@ -22,7 +22,7 @@ const token = await auth.getToken();
 
 #### ES Module Import
 ```javascript
-import { buildMyioIngestionAuth } from './auth/buildMyioIngestionAuth.js';
+import { buildMyioIngestionAuth } from 'myio-js-library';
 
 const auth = buildMyioIngestionAuth({
   dataApiHost: 'https://api.data.apps.myio-bas.com',
@@ -57,15 +57,19 @@ interface MyIOAuthConfig {
 
 interface MyIOAuthInstance {
   getToken(): Promise<string>;
+  getTokenInfo(): Promise<{ token: string; generation: number }>; // RFC-0224
+  forceRefresh(staleGeneration?: number): Promise<string>;       // RFC-0224
+  invalidate(reason?: string): void;                              // RFC-0224
+  getGeneration(): number;                                        // RFC-0224
   getExpiryInfo(): { expiresAt: number; expiresInSeconds: number };
-  clearCache(): void;
+  clearCache(): void; // deprecated alias of invalidate()
   isTokenValid(): boolean;
 }
 ```
 
 ### Parameters
 
-- **dataApiHost**: MyIO Data API base URL (e.g., 'https://api.data.apps.myio-bas.com')
+- **dataApiHost**: MyIO Data API base URL **with** `/api/v1` (e.g., 'https://api.data.apps.myio-bas.com/api/v1'); the token is requested at `{dataApiHost}/auth`
 - **clientId**: OAuth2 client ID for authentication
 - **clientSecret**: OAuth2 client secret for authentication
 - **renewSkewSeconds** *(optional)*: Seconds before expiry to renew token (default: 60)
@@ -78,15 +82,20 @@ An authentication instance with the following methods:
 
 - **getToken()**: Returns a valid access token (fetches new one if needed)
 - **getExpiryInfo()**: Returns token expiration information
-- **clearCache()**: Clears the cached token for this instance
+- **getTokenInfo()**: The token plus the cache generation it belongs to
+- **forceRefresh(staleGeneration?)**: Invalidates and gets a new token — one `/auth` per cache entry; with `staleGeneration`, only if the token is still of that generation
+- **invalidate(reason?)**: Drops the token and bumps the generation; an `/auth` already running will not publish its answer
+- **clearCache()**: Deprecated alias of `invalidate()`
 - **isTokenValid()**: Checks if the current token is valid
+
+`/auth` failures are `IngestionAuthError`s with `category` (`invalid_client`, `network`, `server`, `malformed_response`), `status` and `retryable`; only retryable ones (network, 408/429/5xx) are retried. The response body is never kept.
 
 ### Example
 
 ```javascript
 // In a ThingsBoard widget
 const auth = MyIOLibrary.buildMyioIngestionAuth({
-  dataApiHost: 'https://api.data.apps.myio-bas.com',
+  dataApiHost: 'https://api.data.apps.myio-bas.com/api/v1',
   clientId: 'demo-client-id',
   clientSecret: 'demo-client-secret'
 });
@@ -112,7 +121,7 @@ console.log('Expires in:', auth.getExpiryInfo().expiresInSeconds, 'seconds');
 ### **Shared Token Caching**
 - Multiple instances with the same credentials share the same token cache
 - Reduces API calls and improves performance
-- Automatic cache key generation based on credentials
+- Cache key from host, client id and a fingerprint of the secret (never the secret in clear)
 
 ### **Automatic Token Renewal**
 - Tokens are automatically renewed before expiration
@@ -131,7 +140,7 @@ console.log('Expires in:', auth.getExpiryInfo().expiresInSeconds, 'seconds');
 
 ### **Production Ready**
 - Full TypeScript support with proper type definitions
-- Comprehensive unit test coverage (16 test cases)
+- Unit tests in `tests/services/ingestion/`
 - Browser and Node.js compatibility
 
 ## Cache Behavior
@@ -169,7 +178,7 @@ MyIOLibrary.clearAllAuthCaches();
 // Get cache statistics
 const stats = MyIOLibrary.getAuthCacheStats();
 console.log(`Total caches: ${stats.totalCaches}`);
-console.log(`Cache keys: ${stats.cacheKeys}`);
+console.log(`Cache ids: ${stats.cacheKeys}`); // opaque ids, no credentials
 ```
 
 ## Migration from Inline Auth
