@@ -186,7 +186,14 @@
     const DATA_HOST = 'https://data.mock.local/api/v1';
     const realFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
-      const url = typeof input === 'string' ? input : input.url;
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      // RFC-0224: the report modals take their token from the client credentials (/auth)
+      if (url === `${DATA_HOST}/auth`) {
+        return new Response(JSON.stringify({ access_token: 'mock-ingestion-token', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       if (url.startsWith('https://data.mock.local')) {
         const domain = /\/water\//.test(url) ? 'water' : /\/temperature\//.test(url) ? 'temperature' : 'energy';
         log(`DATA GET ${url.replace(DATA_HOST, '…').split('?')[0]}`);
