@@ -271,3 +271,31 @@ const modal = MyIOLibrary.openDashboardPopupAllReport({
 ```
 
 This authentication component provides a robust, efficient, and reusable solution for MyIO Data API authentication across all ThingsBoard widgets and modal components.
+
+## Token-expiry recovery — `ingestionFetch` (RFC-0224)
+
+`getToken()` renews by clock only. When the Data API rejects a token anyway (expired, revoked),
+use `ingestionFetch` for the request: it puts the bearer, and on a `401` it renews the token
+**once per auth scope** (one `/auth` shared by every request of the scope) and repeats the request
+**exactly once**. With `refreshCredentials`, a request that still fails re-reads the credentials;
+only a proven rotation earns a third call. A final, non-retryable failure opens a 30 s circuit
+breaker. A `403` is a permission error unless `isIngestionAuthError` says otherwise. Nothing
+reloads the page.
+
+```javascript
+const lib = MyIOLibrary;
+const auth = lib.buildMyioIngestionAuth({ dataApiHost, clientId, clientSecret });
+const res = await lib.ingestionFetch(url, { headers: { 'Content-Type': 'application/json' } }, {
+  authScopeId: lib.ingestionAuthScopeId(dataApiHost, clientId),
+  getAuth: () => auth,
+  refreshCredentials: async () => null, // or a NEW instance when the credentials changed
+  context: 'myWidget.totals',
+});
+```
+
+Lifecycle events (`expired`, `refresh-started`, `refreshed` — only after the repeated data call
+succeeds —, `failed`) go to `onLifecycleEvent` and to `onIngestionAuthLifecycle(listener)`. They
+are versioned and never carry the bearer, the URL or credentials. A dashboard turns them into
+toasts and `myio:*` CustomEvents with `createIngestionAuthUiAdapter({ toast, dispatchEvent })`
+(one set of toasts per scope per minute). `setIngestionAuthRecoveryEnabled(false)` turns the
+recovery off (events only).

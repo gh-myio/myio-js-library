@@ -360,6 +360,20 @@ export {
   type MyIOAuthTokenInfo,
   type IngestionAuthErrorCategory,
 } from './services/ingestion/buildMyioIngestionAuth';
+// RFC-0224 — Data API requests with token-expiry recovery + dashboard UI adapter
+export {
+  ingestionFetch,
+  ingestionAuthScopeId,
+  onIngestionAuthLifecycle,
+  setIngestionAuthRecoveryEnabled,
+  isIngestionAuthRecoveryEnabled,
+  resetIngestionAuthRecoveryState,
+  INGESTION_AUTH_BREAKER_MS,
+  type IngestionFetchOptions,
+  type IngestionAuthLifecycleEvent,
+  type IngestionAuthLifecycleType,
+  type IngestionRecoveryFailureCategory,
+} from './services/ingestion/ingestionFetch';
 export {
   fetchCustomerSummary,
   summaryDeviceToTotalsRow,
