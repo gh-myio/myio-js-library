@@ -152,10 +152,13 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Central Pre-Setup | `204:12fb:5518:d04:d9e1:360d:4ab0:125b` | `a77ac87c-addd-4172-a65f-0f6f6038e98e` | `54.17.161.225` | `83`       |
 | Central Teste AL2 ITO | `201:9aa:c29c:b25e:3f50:8d54:d4bd:998b` | `d2031a0c-1997-4a0a-8c25-fc971ad38e5a` | `54.17.161.225` | `83`       |
 | Guilherme Ito Prod | `206:e562:457e:287c:5ca2:b043:68c3:305e` | `34e55153-c2b2-4c07-9949-2fc5ee809617` | `187.164.48.227` | `4`        |
+| Central Fábrica MYIO | `200:2235:c16a:707a:e0be:c1d9:29a4:fd65` | `9065a118-90be-49fc-8998-45f46c205381` | `69.24.63.252` | `34`       |
 
 > Referência canônica do Pre-Setup Constructor — ver `src/NODE-RED/CENTRAL_PRE_SETUP/README.md`.
 >
 > **Guilherme Ito Prod** — MAC `02:42:ba:a3:2f:e2` (`central_uuid` = Gateway ID; IPv6 = interface `ygg0`).
+>
+> **Central Fábrica MYIO** (adicionada 2026-10-14) — `central_uuid` = `9065a118-90be-49fc-8998-45f46c205381`; central id `[69,24,63,252]` (`69.24.63.252`), frequência `34`.
 >
 > **Central Pre-Setup e Central Teste AL2 ITO** (atualizado 2026-10-06) — compartilham o mesmo central id `54.17.161.225` e a frequência `83`. Valores anteriores da Pre-Setup: `161.158.107.69` / `121`.
 >
