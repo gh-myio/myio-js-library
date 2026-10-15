@@ -34,6 +34,11 @@ export interface ModalFooterParams {
    * false oculta o bloco.
    */
   libVersion?: { current?: string; preferHomolog?: boolean } | false;
+  /**
+   * RFC-0239: 'checker' (default) liga o createLibraryVersionChecker; 'static' só mostra
+   * `v{current}` como texto — sem checker (nenhuma leitura de globais nem trabalho assíncrono).
+   */
+  libVersionMode?: 'checker' | 'static';
   /** Texto central (default 'Powered by MYIO Platform'). */
   poweredByText?: string;
   themeMode?: ExportButtonThemeMode;
@@ -98,16 +103,23 @@ export function createModalFooter(params: ModalFooterParams = {}): ModalFooterIn
   if (params.libVersion !== false) {
     left.appendChild(versionHost);
     const current = params.libVersion?.current;
-    try {
-      versionChecker = createLibraryVersionChecker(versionHost, {
-        packageName: 'myio-js-library',
-        currentVersion: current || 'unknown',
-        preferHomolog: params.libVersion?.preferHomolog === true,
-        theme: themeMode,
-      });
-    } catch {
+    const showStatic = (): void => {
       versionHost.textContent = current ? `v${current}` : '';
       versionHost.style.cssText = 'font-size:11px;opacity:.7;';
+    };
+    if (params.libVersionMode === 'static') {
+      showStatic();
+    } else {
+      try {
+        versionChecker = createLibraryVersionChecker(versionHost, {
+          packageName: 'myio-js-library',
+          currentVersion: current || 'unknown',
+          preferHomolog: params.libVersion?.preferHomolog === true,
+          theme: themeMode,
+        });
+      } catch {
+        showStatic();
+      }
     }
   }
 

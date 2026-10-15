@@ -9,13 +9,14 @@ export {
   TELEMETRY_CATALOG,
   RESOLUTIONS,
   RESOLUTION_BY_ID,
-  DEMAND_LIMITS,
+  limitsFromConfig,
+  availableResolutions,
   DEFAULT_RESOLUTION,
   BUCKET_STATS_LABEL,
   DEFAULT_DEMAND_LABEL,
   telemetriesInCatalogOrder,
 } from './catalog';
-export type { TelemetryGroup, ResolutionDef } from './catalog';
+export type { TelemetryGroup, ResolutionDef, DemandLimits } from './catalog';
 export {
   MIN_PERIOD_START,
   MIN_PERIOD_START_MS,

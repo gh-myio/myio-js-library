@@ -127,7 +127,8 @@
     const CONFIG = {
       catalogVersion: 1, calcVersion: 2, diPowerBuckets: false, demandLabel: 'Potência média em 15 min (demanda estimada)',
       resultTtlDays: 3, summaryRetentionDays: 365,
-      limits: { maxDevices: 50, maxTelemetries: 15, maxPoints: 2000000, maxActivePerUser: 10, maxActivePerCustomer: 30, maxExecutionsPerCustomerPerDay: 20 },
+      limits: { maxDevices: 50, maxTelemetries: 15, maxPoints: 2000000, maxActivePerUser: 10, maxActivePerCustomer: 30, maxExecutionsPerCustomerPerDay: 20,
+        maxDaysByResolution: { '1m': 1, '5m': 7, '15m': 31, '1h': 92, '1d': 92 } },
     };
     const QUEUE_MS = 3000, RUN_MS = 12000;
 

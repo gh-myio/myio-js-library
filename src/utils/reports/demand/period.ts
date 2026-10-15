@@ -8,6 +8,7 @@
  * requires `start` at local midnight (L-9).
  */
 import { RESOLUTIONS, RESOLUTION_BY_ID } from './catalog';
+import type { DemandLimits } from './catalog';
 import type { DemandResolution, PeriodPreset } from './types';
 
 const SP_OFFSET_MS = -3 * 3_600_000;
@@ -107,26 +108,34 @@ export function bucketCount(start: number, end: number, resolution: DemandResolu
   return Math.ceil((end - start) / RESOLUTION_BY_ID[resolution].ms);
 }
 
-/** Finest resolution whose max period fits the range, or null. */
-export function finestFittingResolution(range: Range): DemandResolution | null {
+/** Finest resolution whose max period (from the GCDR config) fits the range; null when unknown. */
+export function finestFittingResolution(range: Range, limits: DemandLimits | null): DemandResolution | null {
+  if (!limits) return null;
   const len = range.end - range.start;
-  return RESOLUTIONS.find((r) => len <= r.maxDays * DAY_MS)?.id ?? null;
+  return RESOLUTIONS.find((r) => {
+    const d = limits.maxDaysByResolution[r.id];
+    return d != null && len <= d * DAY_MS;
+  })?.id ?? null;
 }
 
-export function maxPeriodDays(resolution: DemandResolution): number {
-  return RESOLUTION_BY_ID[resolution].maxDays;
+/** Max period (days) of a resolution from the GCDR config; null when the config is not available. */
+export function maxPeriodDays(resolution: DemandResolution, limits: DemandLimits | null): number | null {
+  return limits?.maxDaysByResolution[resolution] ?? null;
 }
 
-/** Validation messages (pt-BR) for a range with a resolution; empty when valid. GCDR re-checks. */
-export function periodErrors(range: Range, resolution: DemandResolution, now: number): string[] {
+/**
+ * Validation messages (pt-BR) for a range with a resolution; empty when valid. The max-period
+ * check uses the GCDR config limits and is skipped while they are unknown — GCDR re-checks.
+ */
+export function periodErrors(range: Range, resolution: DemandResolution, now: number, limits: DemandLimits | null = null): string[] {
   if (!Number.isFinite(range.start) || !Number.isFinite(range.end)) return ['Informe início e fim.'];
   if (range.end <= range.start) return ['O fim precisa ser depois do início.'];
   const errs: string[] = [];
   if (range.start < MIN_PERIOD_START_MS) errs.push('Períodos antes de 01/03/2019 não são suportados.');
   if (range.start > now) errs.push('O início está no futuro.');
   if (range.end > now + END_TOLERANCE_MS) errs.push('O fim não pode estar no futuro.');
-  const maxDays = maxPeriodDays(resolution);
-  if (range.end - range.start > maxDays * DAY_MS) {
+  const maxDays = maxPeriodDays(resolution, limits);
+  if (maxDays != null && range.end - range.start > maxDays * DAY_MS) {
     errs.push(`Com intervalos de ${RESOLUTION_BY_ID[resolution].label}, o período máximo é ${maxDays} dia(s).`);
   }
   if (resolution === '1d' && !isLocalMidnight(range.start)) {

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reports Hub — RFC-0239</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root { --bg: #f4f2f8; --card: #fff; --text: #1e293b; --muted: #64748b; --border: #e2e8f0; --ac: #3e1a7d; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0b1020; --card: #111827; --text: #e5e7eb; --muted: #94a3b8; --border: #334155; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Nunito, system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    header { padding: 18px 16px 6px; max-width: 1200px; margin: 0 auto; }
+    header h1 { margin: 0; font-size: 20px; }
+    header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; padding: 12px 16px 24px; max-width: 1200px; margin: 0 auto; }
+    @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+    .card h2 { margin: 0 0 10px; font-size: 14px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 10px; }
+    label { font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+    select, input[type="text"] { font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); }
+    .keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 10px; }
+    .keys label { font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
+    button.primary { font: inherit; font-weight: 800; padding: 9px 16px; border-radius: 10px; border: none; background: var(--ac); color: #fff; cursor: pointer; }
+    button.ghost { font: inherit; font-weight: 700; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; }
+    #log { font: 12px/1.5 ui-monospace, Consolas, monospace; max-height: 420px; overflow: auto; margin: 0; white-space: pre-wrap; }
+    #log .ok { color: #16a34a; } #log .err { color: #dc2626; } #log .info { color: #2563eb; }
+    .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📊 Reports Hub — RFC-0239</h1>
+    <p>Componente real <code>openReportsHub</code> + adaptador real <code>createDashboardReportsHubContext</code> e handlers padrão (AllReport e Demand Panel v2), com orquestrador, Data API e GCDR simulados.</p>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Cenário</h2>
+      <div class="row">
+        <button class="primary" id="open" type="button">📊 Relatórios</button>
+        <span class="hint">Segundo clique fecha (toggle), como no MENU.</span>
+      </div>
+      <div class="row">
+        <label>Orquestrador
+          <select id="orch">
+            <option value="full">Completo (energia, água, temperatura)</option>
+            <option value="water">Só água</option>
+            <option value="stub">Stub (isReady: false, sem getters)</option>
+          </select>
+        </label>
+        <label>Água/Temperatura
+          <select id="hydration">
+            <option value="loaded">Já carregadas</option>
+            <option value="lazy">Não carregadas (hidrata em 1,5 s)</option>
+            <option value="reject">Hidratação falha</option>
+            <option value="hang">Hidratação trava</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="noPeriod" /> Sem período no dashboard</label>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="dark" /> Dashboard escuro</label>
+        <label>Acento <input type="color" id="accent" value="#3e1a7d" /></label>
+        <label>Cliente <input type="text" id="customer" value="Shopping Showcase" /></label>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="gcdr" checked /> GCDR configurado (Demandas)</label>
+        <label><input type="checkbox" id="alarmHandler" /> Handler de alarmes do host</label>
+        <label><input type="checkbox" id="customItem" /> Item customizado no catálogo</label>
+      </div>
+      <h2 style="margin-top:14px">enabledReportItems (settings)</h2>
+      <div class="keys" id="keys"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="ghost" id="allOn" type="button">Marcar todos</button>
+        <button class="ghost" id="defaults" type="button">Defaults (só energy_lojas)</button>
+        <label><input type="checkbox" id="stringFlag" /> Simular <code>"false"</code> em string em energy_entrada (C-9)</label>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Chamadas</h2>
+      <pre id="log"></pre>
+    </section>
+  </main>
+
+  <script>document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>
+  (() => {
+    const L = window.MyIOLibrary;
+    const $ = (id) => document.getElementById(id);
+    const logEl = $('log');
+    const log = (msg, cls = '') => {
+      const line = document.createElement('div');
+      line.className = cls;
+      line.textContent = `${new Date().toLocaleTimeString('pt-BR')}  ${msg}`;
+      logEl.prepend(line);
+    };
+
+    // ------------------------------------------------------------ enabled items
+    const KEYS = Object.keys(L.DEFAULT_ENABLED_REPORT_ITEMS);
+    KEYS.forEach((k) => {
+      const lab = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.dataset.key = k; cb.checked = L.DEFAULT_ENABLED_REPORT_ITEMS[k];
+      lab.append(cb, document.createTextNode(k));
+      $('keys').appendChild(lab);
+    });
+    $('keys').insertAdjacentHTML('beforeend', '<label><input type="checkbox" data-key="water_relatorio_extra"> water_relatorio_extra (custom)</label>');
+    const setAll = (fn) => document.querySelectorAll('#keys input').forEach((cb) => { cb.checked = fn(cb.dataset.key); });
+    $('allOn').onclick = () => setAll(() => true);
+    $('defaults').onclick = () => setAll((k) => !!L.DEFAULT_ENABLED_REPORT_ITEMS[k]);
+    const enabledItems = () => {
+      const o = {};
+      document.querySelectorAll('#keys input').forEach((cb) => { o[cb.dataset.key] = cb.checked; });
+      if ($('stringFlag').checked) o.energy_entrada = 'false';
+      return o;
+    };
+
+    // ------------------------------------------------------------ devices (mock)
+    const dev = (n, label, profile, extra = {}) => ({
+      id: `tb-${n}`, tbId: `tb-${n}`, ingestionId: `ing-${n}`, gcdrDeviceId: `7a1e0000-0000-4000-8000-${String(n).padStart(12, '0')}`,
+      label, name: `3F MED ${n}`, identifier: `MED-${String(n).padStart(2, '0')}`, deviceProfile: profile, ...extra,
+    });
+    const GROUPS = {
+      energy: {
+        entrada: [dev(1, 'Rede Geral Entrada', 'ENTRADA')],
+        lojas: [dev(2, 'Loja Renner', '3F_MEDIDOR'), dev(3, 'Loja C&A', '3F_MEDIDOR', { excludeGroupsTotals: '{"lojas":true}' }), dev(4, 'Loja Riachuelo', '3F_MEDIDOR')],
+        areacomum: [dev(5, 'Chiller 1', 'CHILLER'), dev(6, 'Elevador 1', 'ELEVADOR')],
+        transformadores: [dev(7, 'Trafo 1', 'TRANSFORMADOR')],
+        ocultos: [dev(8, 'Medidor oculto', '3F_MEDIDOR')],
+      },
+      water: {
+        entrada: [dev(20, 'Hidrômetro Entrada', 'HIDROMETRO')],
+        lojas: [dev(21, 'Hidro Loja Renner', 'HIDROMETRO'), dev(22, 'Hidro Praça de Alimentação', 'HIDROMETRO')],
+        areacomum: [dev(23, 'Hidro Banheiros L1', 'HIDROMETRO')],
+      },
+      temperature: {
+        climatizavel: [dev(30, 'Mall Piso 1', 'TERMOSTATO', { offSetTemperature: 1.5 }), dev(31, 'Mall Piso 2', 'TERMOSTATO', { offSetTemperature: 'abc' })],
+        nao_climatizavel: [dev(32, 'Doca', 'TERMOSTATO')],
+      },
+    };
+
+    // ------------------------------------------------------------ orchestrator (mock)
+    const DATA = {};            // window.MyIOOrchestratorData equivalent
+    function resetData() {
+      Object.keys(DATA).forEach((k) => delete DATA[k]);
+      DATA.energy = { items: Object.values(GROUPS.energy).flat(), state: 'ready' };
+      if ($('hydration').value === 'loaded') {
+        DATA.water = { items: Object.values(GROUPS.water).flat(), state: 'ready' };
+        DATA.temperature = { items: Object.values(GROUPS.temperature).flat(), state: 'ready' };
+      }
+    }
+    const isDomainSettled = (d) => !!d && d.state === 'ready' && !!d.items?.length;
+    const groupsOf = (domain) => (DATA[domain]?.state === 'ready' ? GROUPS[domain] : {});
+
+    function makeOrchestrator() {
+      const mode = $('orch').value;
+      if (mode === 'stub') return { isReady: false };
+      const o = {
+        getCredentials: () => ({ CUSTOMER_ING_ID: 'ing-customer-showcase', CLIENT_ID: 'mock-client', CLIENT_SECRET: 'mock-secret' }),
+        tokenManager: { getToken: () => 'mock-ingestion-token' },
+        getCurrentPeriod: () => ($('noPeriod').checked ? null : { startISO: '2026-10-01T00:00:00-03:00', endISO: '2026-10-13T23:59:59-03:00' }),
+        hydrateDomain: (domain) => {
+          const mode = $('hydration').value;
+          log(`orch.hydrateDomain(${domain}) — ${mode}`, 'info');
+          if (mode === 'hang') return new Promise(() => {});
+          return new Promise((res, rej) => setTimeout(() => {
+            if (mode === 'reject') { log(`orch.hydrateDomain(${domain}) falhou (503)`, 'err'); return rej(new Error('Ingestion 503')); }
+            DATA[domain] = { items: Object.values(GROUPS[domain]).flat(), state: 'ready' };
+            log(`orch.hydrateDomain(${domain}) ok — ${DATA[domain].items.length} itens`, 'ok');
+            res();
+          }, 1500));
+        },
+        customerName: 'ignored by the hub (G-3)',
+      };
+      if (mode === 'full') {
+        o.getEnergyGroups = () => groupsOf('energy');
+        o.getTemperatureGroups = () => groupsOf('temperature');
+      }
+      o.getWaterGroups = () => groupsOf('water');
+      if ($('gcdr').checked) Object.assign(o, { gcdrCustomerId: '7a1e0000-0000-4000-8000-000000000999', gcdrApiBaseUrl: 'https://gcdr.mock.local', gcdrApiKey: 'mock-key', gcdrTenantId: '' });
+      return o;
+    }
+
+    // ------------------------------------------------------------ Data API (AllReport) mock via fetch
+    const DATA_HOST = 'https://data.mock.local/api/v1';
+    const realFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.startsWith('https://data.mock.local')) {
+        const domain = /\/water\//.test(url) ? 'water' : /\/temperature\//.test(url) ? 'temperature' : 'energy';
+        log(`DATA GET ${url.replace(DATA_HOST, '…').split('?')[0]}`);
+        const items = Object.values(GROUPS[domain]).flat();
+        const data = /\/devices\/totals/.test(url)
+          ? items.map((d, i) => ({ id: d.ingestionId, name: d.name, total_value: domain === 'temperature' ? 22 + i : Math.round(1000 + Math.random() * 9000) / 10, deviceType: domain }))
+          : [];
+        return new Response(JSON.stringify({ data, summary: { totalDevices: data.length } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return realFetch(input, init);
+    };
+
+    // ------------------------------------------------------------ Demand Panel: in-memory TB store + minimal GCDR
+    const envelopes = {};
+    const jobs = {};
+    const memStore = {
+      async keys() { return Object.keys(envelopes); },
+      async get(keys) { return keys.filter((k) => k in envelopes).map((k) => ({ key: k, value: envelopes[k] })); },
+      async put(k, e) { envelopes[k] = JSON.parse(JSON.stringify(e)); log(`TB  envelope ${k.slice(-8)}`, 'info'); },
+      async appendAudit(k, ev) { envelopes[k].audit.push(ev); return JSON.parse(JSON.stringify(envelopes[k])); },
+    };
+    const step = (j) => {
+      const age = Date.now() - Date.parse(j.createdAt);
+      if (j.status === 'cancelled') return j;
+      if (age < 2000) return { ...j, status: 'queued', progress: 0 };
+      if (age < 6000) return { ...j, status: 'running', progress: Math.round(((age - 2000) / 4000) * 100) };
+      return { ...j, status: 'succeeded', progress: 100, resultAvailability: 'available', expiresAt: new Date(Date.now() + 3 * 864e5).toISOString(), result: { files: [{ kind: 'csv' }] } };
+    };
+    const memApi = {
+      // same shape as GCDR GET …/report-jobs/config — the panel takes its limits from here
+      async config() { return { demandLabel: 'Potência média em 15 min (demanda estimada)', limits: { maxDevices: 50, maxTelemetries: 15, maxPoints: 2000000, maxActivePerUser: 10, maxDaysByResolution: { '1m': 1, '5m': 7, '15m': 31, '1h': 92, '1d': 92 } } }; },
+      async validate(cmd) { log(`GCDR validate (${cmd.request.devices.length} medidor(es))`); return { ok: true, errors: [], warnings: [], estimate: cmd.request.estimate }; },
+      async submit(cmd) { log(`GCDR submit ${cmd.jobId.slice(-8)}`, 'ok'); jobs[cmd.jobId] = { jobId: cmd.jobId, status: 'queued', progress: 0, createdAt: new Date().toISOString() }; return jobs[cmd.jobId]; },
+      async batchGet(ids) { return ids.map((id) => (jobs[id] ? { jobId: id, found: true, job: (jobs[id] = step(jobs[id])) } : { jobId: id, found: false })); },
+      async active() { return Object.values(jobs).map(step).filter((j) => j.status === 'queued' || j.status === 'running'); },
+      async cancel(id) { jobs[id] = { ...jobs[id], status: 'cancelled' }; return jobs[id]; },
+      async download(id) { const url = URL.createObjectURL(new Blob(['device,avg\nmock,1\n'], { type: 'text/csv' })); return { jobId: id, files: [{ kind: 'csv', filename: 'mock.csv', url }] }; },
+    };
+
+    // ------------------------------------------------------------ theme
+    function theme() {
+      const accent = $('accent').value;
+      const mode = $('dark').checked ? 'dark' : 'light';
+      return {
+        mode, accent, accentDark: accent, accentText: '#fff', text: '', mutedText: '', background: '', logoUrl: null,
+        tint: (p) => `color-mix(in srgb, ${accent} ${p}%, transparent)`,
+        lighten: (p) => `color-mix(in srgb, ${accent} ${100 - p}%, #fff)`,
+        tones: () => null,
+        cssVars: () => ({ '--myio-brand-700': accent, '--myio-brand-600': accent }),
+        applyTo: () => {},
+      };
+    }
+
+    // ------------------------------------------------------------ open (what the MENU will do)
+    const fakeJwt = `x.${btoa(JSON.stringify({ userId: 'tb-user-showcase', firstName: 'Rodrigo', lastName: 'Lago', sub: 'rodrigo@myio.com.br' }))}.y`;
+    let handle = null;
+
+    $('open').addEventListener('click', () => {
+      if (handle?.isOpen) { handle.close(); handle = null; log('hub fechado (segundo clique)'); return; }
+      resetData();
+      const ctx = L.createDashboardReportsHubContext({
+        orchestrator: makeOrchestrator(),
+        tbCustomerId: 'tb-customer-showcase',
+        tbBaseUrl: '',
+        getJwt: () => fakeJwt,
+        getDataApiHost: () => DATA_HOST,
+        isDomainLoaded: (d) => isDomainSettled(DATA[d]),
+        temperatureClampRange: { min: 15, max: 40 },
+        temperatureLimits: { minTemperature: 20, maxTemperature: 24 },
+      });
+      // Showcase only: the Demand Panel talks to in-memory TB/GCDR instead of the network.
+      if (ctx.getDemandPanelParams) {
+        const real = ctx.getDemandPanelParams;
+        ctx.getDemandPanelParams = () => { const p = real(); return p ? { ...p, store: memStore, api: memApi } : p; };
+      }
+      const handlers = {};
+      if ($('alarmHandler').checked) {
+        handlers['alarm-report'] = {
+          domains: ['alarms'],
+          prepare: ({ item }) => () => { log(`host alarm-report → ${item.id}`, 'ok'); alert(`Relatório de alarmes (host): ${item.label}`); },
+        };
+      }
+      const catalog = $('customItem').checked
+        ? L.DEFAULT_REPORTS_CATALOG.map((d) => (d.id !== 'water' ? d : { ...d, items: [...d.items, { id: 'relatorio_extra', label: 'Relatório extra (custom)', description: 'Item fora das 15 chaves', icon: '🧪', tint: { bg: '#ecfeff', fg: '#0e7490' }, kind: 'group-report' }] }))
+        : undefined;
+
+      log(`openReportsHub — domains: [${ctx.domains.join(', ')}]${ctx.getDemandPanelParams ? ' · demandas ok' : ''}`, 'info');
+      handle = L.openReportsHub({
+        context: ctx,
+        enabledItems: enabledItems(),
+        catalog,
+        handlers,
+        theme: theme(),
+        customerName: $('customer').value,
+        onOpenReport: (e) => log(`abrindo ${e.domain}/${e.item}`, 'ok'),
+        onError: (e) => log(`erro (${e.phase}) ${e.domain}/${e.item}: ${e.message}`, 'err'),
+      });
+    });
+    log(`lib ${L.version} carregada`, 'info');
+  })();
+  </script>
+</body>
+</html>
