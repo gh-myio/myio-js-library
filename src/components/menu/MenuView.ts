@@ -18,6 +18,7 @@ import {
   DEFAULT_DARK_THEME,
   DEFAULT_TABS,
   OPERATIONAL_INDICATORS_TAB,
+  DASHBOARD_SECTION_TAB,
 } from './types';
 
 import { ModalHeader } from '../../utils/ModalHeader';
@@ -69,6 +70,10 @@ export class MenuView {
     this.themeMode = 'light'; // Default, can be changed via setThemeMode
     this.themeConfig = this.getThemeConfig();
     this.tabs = params.tabs ?? DEFAULT_TABS;
+    // RFC-0238: seção Dashboard (Portfólio) entra como primeira coluna, sem alterar as demais
+    if (params.enableDashboardSection && !this.tabs.some((t) => t.id === DASHBOARD_SECTION_TAB.id)) {
+      this.tabs = [DASHBOARD_SECTION_TAB, ...this.tabs];
+    }
     this.activeTabId = params.initialTab ?? this.tabs[0]?.id ?? 'energy';
 
     // Initialize contexts with defaults
@@ -1456,6 +1461,30 @@ export class MenuView {
   color: #8b5cf6;
 }
 
+/* RFC-0238: Dashboard (Portfólio) column — paleta do tema */
+.myio-unified-option.dashboard:hover {
+  background: color-mix(in srgb, var(--myio-brand-700, #6D28D9) 8%, transparent);
+  border-color: color-mix(in srgb, var(--myio-brand-700, #6D28D9) 25%, transparent);
+}
+
+.myio-unified-option.dashboard.is-active {
+  background: color-mix(in srgb, var(--myio-brand-700, #6D28D9) 12%, transparent);
+  border-color: var(--myio-brand-700, #6D28D9);
+}
+
+.myio-unified-option.dashboard .option-check {
+  color: var(--myio-brand-700, #6D28D9);
+}
+
+/* RFC-0238: 5 colunas (Dashboard + domínios + Indicadores) */
+.myio-unified-modal-body.four-columns.five-columns {
+  min-width: 0;
+}
+
+.myio-unified-modal-body.four-columns.five-columns .myio-unified-column {
+  min-width: 200px;
+}
+
 /* RFC-0152: 4-column layout when operational tab is enabled */
 .myio-unified-modal-body.four-columns {
   min-width: 1120px;
@@ -1704,6 +1733,10 @@ export class MenuView {
     if (this.tabs.length >= 4 || this.operationalTabEnabled) {
       bodyClasses.push('four-columns');
     }
+    // RFC-0238: seção Dashboard + 3 domínios + Indicadores = 5 colunas
+    if (this.tabs.length >= 5) {
+      bodyClasses.push('five-columns');
+    }
 
     return `
       <div
@@ -1737,6 +1770,9 @@ export class MenuView {
       water: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)', // Blue tone
       temperature: 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)', // Reddish tone
       operational: 'linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%)', // Purple tone
+      // RFC-0238: Dashboard segue a paleta do tema (createMyIOTheme → --myio-brand-700)
+      dashboard:
+        'linear-gradient(135deg, color-mix(in srgb, var(--myio-brand-700, #6D28D9) 8%, white) 0%, color-mix(in srgb, var(--myio-brand-700, #6D28D9) 22%, white) 100%)',
     };
 
     return `
@@ -3720,6 +3756,8 @@ export class MenuView {
 
     // Update all tab labels (active shows context, others show only domain)
     this.updateAllTabLabels();
+    // Troca programática (ex.: navegação do Portfólio) também atualiza o botão unificado
+    this.updateUnifiedNavButton();
   }
 
   /**
@@ -3742,6 +3780,7 @@ export class MenuView {
       if (tabLabel) {
         tabLabel.textContent = this.getTabLabel(tabId, true);
       }
+      this.updateUnifiedNavButton();
     }
   }
 

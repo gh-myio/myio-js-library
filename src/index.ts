@@ -1454,7 +1454,27 @@ export type {
   MenuState,
 } from './components/menu';
 
-export { DEFAULT_MENU_CONFIG, DEFAULT_TABS } from './components/menu';
+export { DEFAULT_MENU_CONFIG, DEFAULT_TABS, DASHBOARD_SECTION_TAB } from './components/menu';
+
+// RFC-0238: Head Office Portfolio Command Center (overview executivo)
+export { createPortfolioCommandCenter, createPortfolioUpcomingPage } from './components/head-office/portfolio';
+export type {
+  PortfolioCommandCenterParams,
+  PortfolioCommandCenterInstance,
+  PortfolioDestination,
+  TrajectoryDomain,
+  TrajectoryPoint,
+  TrajectoryState,
+  PortfolioUpcomingPage,
+} from './components/head-office/portfolio';
+export { buildPortfolioSnapshot, resolveHoldingEnergyCategory } from './utils/portfolio';
+export type {
+  PortfolioSnapshot,
+  PortfolioSnapshotInput,
+  PortfolioMetric,
+  ShoppingRow as PortfolioShoppingRow,
+  PriorityItem as PortfolioPriorityItem,
+} from './utils/portfolio';
 
 // RFC-0121: TelemetryGrid Component
 export { createTelemetryGridComponent } from './components/telemetry-grid';
