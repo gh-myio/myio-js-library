@@ -178,6 +178,13 @@
           if (flag('sc-fail-customers')) throw { status: 500, message: 'mock: /customers falhou' };
           return { data: fx.customers.map((c) => ({ id: { entityType: 'CUSTOMER', id: c.id }, title: c.title })), hasNext: false, totalElements: fx.customers.length };
         }
+        // Relatórios do cliente (📊): atributos SERVER_SCOPE do customer (mock)
+        const attrMatch = url.match(/^\/api\/plugins\/telemetry\/CUSTOMER\/([^/]+)\/values\/attributes\/SERVER_SCOPE/);
+        if (attrMatch) {
+          const cid = decodeURIComponent(attrMatch[1]);
+          const attrs = MOCK_CUSTOMER_ATTRS[cid] || {};
+          return Object.entries(attrs).map(([key, value]) => ({ key, value, lastUpdateTs: Date.now() }));
+        }
         if (method === 'POST' && url === '/api/entitiesQuery/find') {
           const { page, pageSize } = body.pageLink;
           if (page === 0 && flag('sc-fail-first')) throw { status: 503, message: 'mock: 1ª página falhou' };
@@ -227,8 +234,53 @@
         const r = await fetch('./config.json?v=' + Date.now());
         if (r.ok) overrides = (await r.json()).settings || {};
       } catch { /* config.json is optional */ }
-      return { ...defaults, ...overrides, pageSize: Number(document.getElementById('sc-pagesize').value) || defaults.pageSize, debug: true };
+      const mockHosts = mode() === 'mock' ? { dataApiHost: MOCK_DATA_HOST, gcdrApiBaseUrl: MOCK_GCDR_HOST } : {};
+      return { ...defaults, ...overrides, ...mockHosts, pageSize: Number(document.getElementById('sc-pagesize').value) || defaults.pageSize, debug: true };
     }
+
+    // ---------- Relatórios do cliente (📊) — backends simulados (só no modo mock) ----------
+    // Customer attrs (TB SERVER_SCOPE), Data API (Ingestion: /auth + /devices/totals) e GCDR (report-jobs).
+    const MOCK_DATA_HOST = 'https://data.mock.local/api/v1';
+    const MOCK_GCDR_HOST = 'https://gcdr.mock.local';
+    const MOCK_CUSTOMER_ATTRS = {
+      '00000000-0000-4000-8000-000000000001': { ingestionId: 'ing-cust-alfa', client_id: 'mock-alfa', client_secret: 'mock-secret', gcdrCustomerId: 'gcdr-cust-alfa', gcdrApiKey: 'mock-key' },
+      // Beta: GCDR só no integration_setup (sem atributos soltos) — Demandas deve abrir mesmo assim
+      '00000000-0000-4000-8000-000000000002': { ingestionId: 'ing-cust-beta', client_id: 'mock-beta', client_secret: 'mock-secret',
+        integration_setup: JSON.stringify({ gcdr: { gcdrCustomerId: 'gcdr-cust-beta', gcdrApiKey: 'mock-key-beta', gcdrTenantId: '' } }) },
+      // 'Loja Sem Integração' (…0003) sem atributos → aviso "sem integração"
+    };
+    const realFetch = window.fetch.bind(window);
+    const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+    window.fetch = async (input, init) => {
+      const url = typeof input === 'string' ? input : input.url || String(input);
+      if (mode() !== 'mock') return realFetch(input, init);
+      if (url.startsWith(MOCK_DATA_HOST)) {
+        const path = url.slice(MOCK_DATA_HOST.length).split('?')[0];
+        log('info', `DATA ${init && init.method || 'GET'} ${path}`);
+        if (path === '/auth') return json({ access_token: 'mock-ingestion-token', expires_in: 1800 });
+        if (/\/devices\/totals$/.test(path)) {
+          const fx = await loadFixtures();
+          const data = fx.devices
+            .filter((d) => d.attrs.ingestionId)
+            .map((d, i) => ({ id: d.attrs.ingestionId, name: d.fields.name, total_value: 100 + (i * 37) % 900, deviceType: 'energy' }));
+          return json({ data, summary: { totalDevices: data.length } });
+        }
+        return json({ data: [] });
+      }
+      if (url.startsWith(MOCK_GCDR_HOST)) {
+        const path = url.slice(MOCK_GCDR_HOST.length).split('?')[0];
+        log('info', `GCDR ${init && init.method || 'GET'} ${path}`);
+        if (path.endsWith('/report-jobs/config')) {
+          return json({ success: true, data: { demandLabel: 'Potência média em 15 min (demanda estimada)', limits: { maxDevices: 50, maxTelemetries: 15, maxPoints: 2000000, maxDaysByResolution: { '1m': 1, '5m': 7, '15m': 31, '1h': 92, '1d': 92 } } } });
+        }
+        if (path.endsWith('/report-jobs/validate')) return json({ success: true, data: { ok: true, errors: [], warnings: [] } });
+        if (path.endsWith('/report-jobs/batch-get')) return json({ success: true, data: { items: [], notFound: [] } });
+        return json({ success: true, data: [] });
+      }
+      // TB envelope store do Demand Panel (atributos SERVER_SCOPE do customer) — mock vazio
+      if (/^\/api\/plugins\/telemetry\/CUSTOMER\//.test(url)) return json([]);
+      return realFetch(input, init);
+    };
 
     // ---------- widget instances (one controller closure each, like TB) ----------
     let controllerSrc = null;

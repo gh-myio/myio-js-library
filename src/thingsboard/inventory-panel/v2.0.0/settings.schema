@@ -61,6 +61,21 @@
         "title": "URL do SheetJS para XLSX (vazio = cdnjs xlsx 0.18.5)",
         "default": ""
       },
+      "enableCustomerReports": {
+        "type": "boolean",
+        "title": "Mostrar o ícone de relatórios (📊) no cabeçalho de cada cliente",
+        "default": true
+      },
+      "dataApiHost": {
+        "type": "string",
+        "title": "Data API (Ingestion) — host com /api/v1",
+        "default": "https://api.data.apps.myio-bas.com/api/v1"
+      },
+      "gcdrApiBaseUrl": {
+        "type": "string",
+        "title": "GCDR API — URL base (relatório de demanda)",
+        "default": "https://gcdr-api.a.myio-bas.com"
+      },
       "debug": {
         "type": "boolean",
         "title": "Log de depuração no console",
@@ -100,6 +115,9 @@
     { "key": "integrationOverrides", "type": "textarea", "placeholder": "{\"Shopping X\": true}" },
     "enableNavigation",
     { "key": "xlsxScriptUrl", "type": "text", "placeholder": "https://…/xlsx.full.min.js" },
+    "enableCustomerReports",
+    { "key": "dataApiHost", "type": "text" },
+    { "key": "gcdrApiBaseUrl", "type": "text" },
     "debug"
   ]
 }

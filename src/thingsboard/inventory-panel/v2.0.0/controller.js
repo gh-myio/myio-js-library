@@ -23,6 +23,10 @@ var IPV2_DEFAULTS = {
   defaultSort: 'gravity',
   enableNavigation: true,
   xlsxScriptUrl: '', // empty = pinned SheetJS from cdnjs (IPV2_XLSX_JS)
+  // Relatórios do cliente (RFC-0239 Reports Hub) — ícone 📊 no cabeçalho do grupo do cliente
+  enableCustomerReports: true,
+  dataApiHost: 'https://api.data.apps.myio-bas.com/api/v1',
+  gcdrApiBaseUrl: 'https://gcdr-api.a.myio-bas.com',
   debug: false,
 };
 
@@ -73,6 +77,11 @@ var IPV2_CSS = [
   '.ipv2-group-head{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:none;background:transparent;font:inherit;font-weight:700;cursor:pointer;text-align:left;color:var(--ip-text)}',
   '.ipv2-group-head:hover{background:var(--ip-accent-soft);border-radius:6px}',
   '.ipv2-group-count{color:var(--ip-muted);font-weight:600}',
+  '.ipv2-group-bar{display:flex;align-items:center;gap:4px}',
+  '.ipv2-group-bar .ipv2-group-head{width:auto;flex:0 1 auto;min-width:0}',
+  '.ipv2-report-btn{border:1px solid var(--ip-border);background:var(--ip-panel);border-radius:6px;width:26px;height:24px;padding:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;line-height:1}',
+  '.ipv2-report-btn:hover,.ipv2-report-btn:focus-visible{border-color:var(--ip-accent);background:var(--ip-accent-soft);outline:none}',
+  '.ipv2-report-btn[aria-busy="true"]{cursor:progress;opacity:.6}',
   '.ipv2-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px;border:1px solid var(--ip-border);border-radius:10px;background:var(--ip-panel);margin-top:6px;cursor:pointer}',
   '.ipv2-row:hover{border-color:var(--ip-accent)}',
   '.ipv2-row img{width:28px;height:28px;object-fit:contain}',
@@ -242,6 +251,7 @@ function createInventoryApp(ctx) {
   var timers = [];
   var charts = [];
   var els = {};
+  var reportBusy = {}; // customer key → report hub being prepared
 
   // Toolbar dropdowns (the Cadastro / Atividade axes are filtered by the KPI chips).
   var DIMENSIONS = [
@@ -1290,9 +1300,10 @@ function createInventoryApp(ctx) {
       var collapsed = grouped && isCollapsed(g);
       if (grouped) {
         html +=
-          '<section class="ipv2-group"><button class="ipv2-group-head" type="button" data-action="toggle-group" data-key="' + esc(g.key) + '"' +
+          '<section class="ipv2-group"><div class="ipv2-group-bar"><button class="ipv2-group-head" type="button" data-action="toggle-group" data-key="' + esc(g.key) + '"' +
           ' aria-expanded="' + !collapsed + '">' + (collapsed ? '▶' : '▼') + ' ' + esc(groupTitle(g.key)) +
-          ' <span class="ipv2-group-count">(' + g.rows.length.toLocaleString('pt-BR') + ')</span></button>';
+          ' <span class="ipv2-group-count">(' + g.rows.length.toLocaleString('pt-BR') + ')</span></button>' +
+          reportButtonHtml(g) + '</div>';
       }
       if (!collapsed) {
         for (var i = 0; i < g.rows.length && budget > 0; i++, budget--) html += rowHtml(g.rows[i]);
@@ -1303,6 +1314,159 @@ function createInventoryApp(ctx) {
       html += '<button class="ipv2-btn ipv2-more" type="button" data-action="load-more">Mostrar mais</button>';
     }
     els.list.innerHTML = html;
+  }
+
+  // ---------- Relatórios do cliente (RFC-0239 Reports Hub) ----------
+  function canOpenCustomerReports() {
+    return settings.enableCustomerReports !== false && !!lib && typeof lib.openReportsHub === 'function' &&
+      typeof lib.createDashboardReportsHubContext === 'function';
+  }
+
+  function reportButtonHtml(group) {
+    if (state.groupBy !== 'customer' || group.key === inv.NO_CUSTOMER_KEY || !canOpenCustomerReports()) return '';
+    var title = 'Relatórios de ' + groupTitle(group.key);
+    var busy = reportBusy[group.key] ? ' aria-busy="true"' : '';
+    return '<button class="ipv2-report-btn" type="button" data-action="customer-report" data-key="' + esc(group.key) + '"' +
+      busy + ' title="' + esc(title) + '" aria-label="' + esc(title) + '">📊</button>';
+  }
+
+  /** Devices of the customer grouped by domain/group, in the shape the Reports Hub expects. */
+  function customerReportGroups(rows) {
+    var groups = { energy: {}, water: {}, temperature: {} };
+    rows.forEach(function (row) {
+      var d = row.device;
+      var domain = row.domain;
+      if (!groups[domain]) return;
+      var res = lib.resolveGroup ? lib.resolveGroup({ deviceProfile: d.deviceProfile, identifier: d.identifier }, undefined, domain) : null;
+      var key = (res && res.group) || 'outros';
+      (groups[domain][key] = groups[domain][key] || []).push({
+        id: d.id,
+        tbId: d.id,
+        ingestionId: d.ingestionId,
+        gcdrDeviceId: d.gcdrDeviceId,
+        identifier: d.identifier,
+        label: d.label,
+        name: d.name,
+        deviceProfile: d.deviceProfile,
+      });
+    });
+    return groups;
+  }
+
+  function attrsToMap(res) {
+    var out = {};
+    (Array.isArray(res) ? res : []).forEach(function (a) {
+      if (a && a.key) out[a.key] = a.value;
+    });
+    return out;
+  }
+
+  /** `integration_setup.gcdr` (JSON string or object) → { gcdrCustomerId, gcdrApiKey, gcdrTenantId }. */
+  function integrationGcdr(attrs) {
+    var setup = attrs.integration_setup;
+    if (typeof setup === 'string') {
+      try {
+        setup = JSON.parse(setup);
+      } catch {
+        setup = null;
+      }
+    }
+    return (setup && typeof setup === 'object' && setup.gcdr) || {};
+  }
+
+  function openCustomerReports(key, button) {
+    if (reportBusy[key]) return;
+    var rows = state.rows.filter(function (r) {
+      return r.customerKey === key && r.evaluation.lifecycle.status === 'active';
+    });
+    var customerId = rows.length ? rows[0].device.customerId : null;
+    if (!customerId) {
+      notify('warning', 'Não foi possível identificar o cliente "' + key + '".');
+      return;
+    }
+    reportBusy[key] = true;
+    if (button) button.setAttribute('aria-busy', 'true');
+    var done = function () {
+      delete reportBusy[key];
+      if (button) button.removeAttribute('aria-busy');
+    };
+
+    httpGet('/api/plugins/telemetry/CUSTOMER/' + encodeURIComponent(customerId) + '/values/attributes/SERVER_SCOPE')
+      .then(attrsToMap, function (err) {
+        log('customer attrs failed', err);
+        return {};
+      })
+      .then(function (attrs) {
+        if (destroyed) return null;
+        var hasIngestion = !!(attrs.ingestionId && attrs.client_id && attrs.client_secret);
+        var tokenPromise = hasIngestion && lib.buildMyioIngestionAuth
+          ? Promise.resolve()
+              .then(function () {
+                return lib.buildMyioIngestionAuth({
+                  dataApiHost: settings.dataApiHost,
+                  clientId: attrs.client_id,
+                  clientSecret: attrs.client_secret,
+                }).getToken();
+              })
+              .catch(function (err) {
+                log('ingestion token failed', err);
+                return '';
+              })
+          : Promise.resolve('');
+        return tokenPromise.then(function (token) {
+          return { attrs: attrs, token: token || '', hasIngestion: hasIngestion };
+        });
+      })
+      .then(function (r) {
+        if (!r || destroyed) return;
+        var groups = customerReportGroups(rows);
+        var attrs = r.attrs;
+        // GCDR ids: atributos soltos (gcdrCustomerId/gcdrApiKey/gcdrTenantId) ou, na falta
+        // deles, o bloco integration_setup.gcdr — assim Demandas e Telemetrias fica
+        // disponível para todo cliente que tenha a integração GCDR cadastrada em um dos dois.
+        var gcdr = integrationGcdr(attrs);
+        // Minimal orchestrator for the library adapter (only the capabilities it reads).
+        var orchestrator = {
+          getCredentials: function () {
+            return { CUSTOMER_ING_ID: attrs.ingestionId || '', CLIENT_ID: attrs.client_id || '', CLIENT_SECRET: attrs.client_secret || '' };
+          },
+          tokenManager: { getToken: function () { return r.token; } },
+          gcdrCustomerId: attrs.gcdrCustomerId || gcdr.gcdrCustomerId || '',
+          gcdrApiBaseUrl: settings.gcdrApiBaseUrl || '',
+          gcdrApiKey: attrs.gcdrApiKey || gcdr.gcdrApiKey || '',
+          gcdrTenantId: attrs.gcdrTenantId || gcdr.gcdrTenantId || '',
+        };
+        ['energy', 'water', 'temperature'].forEach(function (domain) {
+          if (!Object.keys(groups[domain]).length) return;
+          var getter = { energy: 'getEnergyGroups', water: 'getWaterGroups', temperature: 'getTemperatureGroups' }[domain];
+          orchestrator[getter] = function () { return groups[domain]; };
+        });
+        if (!r.hasIngestion && lib.MyIOToast && lib.MyIOToast.warning) {
+          lib.MyIOToast.warning('Cliente sem integração com o Ingestion — os relatórios de consumo podem vir vazios.');
+        }
+        lib.openReportsHub({
+          context: lib.createDashboardReportsHubContext({
+            orchestrator: orchestrator,
+            tbCustomerId: customerId,
+            tbBaseUrl: '',
+            getJwt: function () {
+              try { return window.localStorage.getItem('jwt_token') || ''; } catch { return ''; }
+            },
+            getDataApiHost: function () { return settings.dataApiHost; },
+          }),
+          // Painel administrativo: todos os relatórios do catálogo ficam habilitados.
+          enabledItems: lib.DEFAULT_ENABLED_REPORT_ITEMS
+            ? Object.keys(lib.DEFAULT_ENABLED_REPORT_ITEMS).reduce(function (o, k) { o[k] = true; return o; }, {})
+            : null,
+          customerName: key,
+          onError: function (e) { log('report error', e); },
+        });
+      })
+      .catch(function (err) {
+        log('customer reports failed', err);
+        notify('error', 'Não foi possível abrir os relatórios do cliente.');
+      })
+      .then(done);
   }
 
   function isCollapsed(group) {
@@ -1614,6 +1778,10 @@ function createInventoryApp(ctx) {
       else set.add(value);
       state.renderLimit = IPV2_RENDER_BATCH;
       return renderFiltered();
+    }
+    if (action === 'customer-report') {
+      ev.stopPropagation();
+      return openCustomerReports(el.getAttribute('data-key'), el);
     }
     if (action === 'toggle-group') {
       var key = el.getAttribute('data-key');
