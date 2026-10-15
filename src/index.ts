@@ -362,6 +362,20 @@ export {
   type MyIOAuthInstance,
 } from './services/ingestion/buildMyioIngestionAuth';
 export {
+  fetchCustomerSummary,
+  summaryDeviceToTotalsRow,
+  summaryLastReadingTs,
+  summaryLookbackFromIso,
+  latestHourlyTemperature,
+  CustomerSummaryError,
+  type SummaryReadingType,
+  type SummaryDevice,
+  type SummaryPeriod,
+  type CustomerSummaryResult,
+  type FetchCustomerSummaryOptions,
+  type LatestHourlyTemperature,
+} from './services/ingestion/customerSummary';
+export {
   fetchThingsboardCustomerServerScopeAttrs,
   fetchThingsboardCustomerAttrsFromStorage,
   extractMyIOCredentials,
@@ -664,6 +678,50 @@ export {
   type DemandModalInstance,
   type TelemetryFetcher,
 } from './components/DemandModal';
+
+// RFC-0238 — Demand Panel v2: multi-device report wizard (audit envelope in TB, job in GCDR).
+// Pure logic as a namespace (`MyIOLibrary.demandReport`) to avoid name clashes.
+export {
+  openDemandPanelV2,
+  createProfileClassifier,
+  createTbEnvelopeStore,
+  createGcdrReportJobsApi,
+  demandDevicesFromItems,
+  tbUserFromJwt,
+} from './components/demand-panel-v2';
+export type {
+  DemandPanelV2Params,
+  DemandPanelV2Instance,
+  TbEnvelopeStoreOptions,
+  GcdrReportJobsApiOptions,
+} from './components/demand-panel-v2';
+export * as demandReport from './utils/reports/demand';
+
+// RFC-0239 — Reports Hub: the MENU "Relatórios" picker as a reusable component + TB adapter.
+export {
+  openReportsHub,
+  createDashboardReportsHubContext,
+  buildReportItemsList,
+  resolveReportItemStates,
+  DEFAULT_REPORTS_CATALOG,
+  DEFAULT_ENABLED_REPORT_ITEMS,
+} from './components/premium-modals/reports-hub';
+export type {
+  ReportDomain,
+  GroupReportDomain,
+  ReportItemKey,
+  ReportItemState,
+  ReportsCatalog,
+  ReportsCatalogDomain,
+  ReportsCatalogItem,
+  ReportsHubDevice,
+  ReportsHubContext,
+  ReportsHubHandlerDef,
+  ReportsHubHandle,
+  OpenReportsHubParams,
+  ReportsHubOrchestrator,
+  DashboardAdapterOptions,
+} from './components/premium-modals/reports-hub';
 
 // Goals Panel Component (RFC-0075)
 export { openGoalsPanel } from './components/GoalsPanel.js';
@@ -2139,6 +2197,13 @@ export type {
 
 // Premium modal footer — Customer · relógio · versão | Powered by MYIO | PDF/CSV/XLSX
 export { createModalFooter } from './components/premium-modals/footer-modal';
+export {
+  createPremiumModalChrome,
+  applyDashboardPalette,
+  MYIO_ACCENT,
+  type PremiumModalChromeOptions,
+  type PremiumModalChromeInstance,
+} from './components/premium-modals/internal/PremiumModalChrome';
 export type {
   ModalFooterParams,
   ModalFooterExportConfig,

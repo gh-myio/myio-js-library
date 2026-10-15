@@ -20,6 +20,8 @@ import { injectAlarmsNotificationsPanelStyles } from './styles';
 import { createAlarmCardElement } from './AlarmCard';
 import { renderDashboard, updateDashboard } from './AlarmDashboard';
 import { openAlarmDetailsModal } from './AlarmDetailsModal';
+import { createPremiumModalChrome } from '../premium-modals/internal/PremiumModalChrome';
+import type { PremiumModalChromeInstance } from '../premium-modals/internal/PremiumModalChrome';
 
 export class AlarmsNotificationsPanelView {
   private params: AlarmsNotificationsPanelParams;
@@ -29,7 +31,9 @@ export class AlarmsNotificationsPanelView {
   private debug: boolean;
 
   // Bulk-selection state
-  private selectedTitles = new Set<string>();
+  // Chave = id do card (único por card em todo modo de agrupamento). Por título, cards
+  // distintos com o mesmo tipo de alarme eram selecionados juntos.
+  private selectedIds = new Set<string>();
   private groupedAlarms: import('../../types/alarm').Alarm[] = [];
 
   // View mode: 'card' (default) or 'list' (table)
@@ -193,7 +197,7 @@ export class AlarmsNotificationsPanelView {
    * Build compact inline list header (filters + bulk actions button)
    */
   private buildListHeaderTemplate(state: AlarmsNotificationsPanelState): string {
-    const sel = this.selectedTitles.size;
+    const sel = this.selectedIds.size;
     const isCard = this.viewMode === 'card';
     const isList = this.viewMode === 'list';
     const isConsol = this.groupMode === 'consolidado';
@@ -326,7 +330,7 @@ export class AlarmsNotificationsPanelView {
       const mode = btn.getAttribute('data-group-mode') as 'consolidado' | 'separado' | 'porDispositivo';
       if (mode === this.groupMode) return;
       this.groupMode = mode;
-      this.selectedTitles.clear();
+      this.selectedIds.clear();
       this.root?.querySelectorAll('.alarms-group-btn').forEach((b) => {
         b.classList.toggle('is-active', b.getAttribute('data-group-mode') === mode);
       });
@@ -341,7 +345,7 @@ export class AlarmsNotificationsPanelView {
       const mode = btn.getAttribute('data-hierarchy-mode') as 'groupFirst' | 'ruleFirst';
       if (mode === this.hierarchyMode) return;
       this.hierarchyMode = mode;
-      this.selectedTitles.clear();
+      this.selectedIds.clear();
       this.root?.querySelectorAll('.alarms-hierarchy-btn').forEach((b) => {
         b.classList.toggle('is-active', b.getAttribute('data-hierarchy-mode') === mode);
       });
@@ -404,10 +408,10 @@ export class AlarmsNotificationsPanelView {
     this.root.addEventListener('change', (e) => {
       const input = e.target as HTMLInputElement;
       if (input.type !== 'checkbox' || !input.classList.contains('alarm-card-select')) return;
-      const title = input.dataset.alarmTitle;
-      if (!title) return;
-      if (input.checked) this.selectedTitles.add(title);
-      else this.selectedTitles.delete(title);
+      const id = input.dataset.alarmId;
+      if (!id) return;
+      if (input.checked) this.selectedIds.add(id);
+      else this.selectedIds.delete(id);
       // Visual: card highlight
       const card = input.closest('.alarm-card');
       if (card) card.classList.toggle('alarm-card--selected', input.checked);
@@ -422,9 +426,9 @@ export class AlarmsNotificationsPanelView {
       const input = e.target as HTMLInputElement;
       if (input.id !== 'tblSelectAll') return;
       if (input.checked) {
-        this.groupedAlarms.forEach((a) => this.selectedTitles.add(a.title));
+        this.groupedAlarms.forEach((a) => this.selectedIds.add(a.id));
       } else {
-        this.groupedAlarms.forEach((a) => this.selectedTitles.delete(a.title));
+        this.groupedAlarms.forEach((a) => this.selectedIds.delete(a.id));
       }
       // Sync all row checkboxes
       this.root?.querySelectorAll<HTMLInputElement>('.alarm-card-select').forEach((cb) => {
@@ -692,7 +696,7 @@ export class AlarmsNotificationsPanelView {
           onMore: (id, e) => this.handleMore(id, e),
           themeMode: state.themeMode,
           showCustomerName: this.params.showCustomerName ?? true,
-          selected: this.selectedTitles.has(alarm.title),
+          selected: this.selectedIds.has(alarm.id),
           showDeviceBadge: isSeparado,             // separado: show device badge in header
           alarmTypes: isPorDispositivo ? (alarm._alarmTypes ?? []) : undefined,
           hideActions: this.closedHistoryMode || !isSeparado, // no actions on closed alarms or grouped modes
@@ -714,19 +718,44 @@ export class AlarmsNotificationsPanelView {
    * Render dashboard tab content.
    * Trend data is fetched asynchronously on first open and injected when ready.
    */
+  /** KPIs do Dashboard calculados sobre uma lista de alarmes (a mesma exibida na Lista). */
+  private statsFromAlarms(alarms: Alarm[]): import('../../types/alarm').AlarmStats {
+    const bySeverity: Record<AlarmSeverity, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+    const byState: Record<AlarmState, number> = { OPEN: 0, ACK: 0, SNOOZED: 0, ESCALATED: 0, CLOSED: 0 };
+    let openCritical = 0;
+    let openHigh = 0;
+    let last24Hours = 0;
+    const since = Date.now() - 24 * 60 * 60 * 1000;
+    for (const a of alarms) {
+      if (a.severity in bySeverity) bySeverity[a.severity]++;
+      if (a.state in byState) byState[a.state]++;
+      const open = a.state !== 'CLOSED';
+      if (open && a.severity === 'CRITICAL') openCritical++;
+      if (open && a.severity === 'HIGH') openHigh++;
+      const first = new Date(a.firstOccurrence || a.lastOccurrence || 0).getTime();
+      if (first >= since) last24Hours++;
+    }
+    return { total: alarms.length, bySeverity, byState, openCritical, openHigh, last24Hours };
+  }
+
   private renderDashboardContent(state: AlarmsNotificationsPanelState): void {
     if (!this.root) return;
 
     const container = this.root.querySelector('#dashboardContent');
     if (!container) return;
 
+    // KPIs/gráficos sobre os MESMOS alarmes da Lista (filteredAlarms — já sem os tipos
+    // excluídos por padrão, ex.: "Dispositivo Offline" sem showOfflineAlarms). Antes usava os
+    // totais crus do widget e a aba mostrava 37 enquanto a Lista mostrava 23.
+    const stats = state.allAlarms.length > 0 ? this.statsFromAlarms(state.filteredAlarms) : state.stats;
+
     if (container.children.length > 0) {
-      updateDashboard(container as HTMLElement, state.stats, this.trendData);
+      updateDashboard(container as HTMLElement, stats, this.trendData);
     } else {
-      container.innerHTML = renderDashboard(state.stats, this.trendData);
+      container.innerHTML = renderDashboard(stats, this.trendData);
     }
 
-    this.emit('stats-updated', state.stats);
+    this.emit('stats-updated', stats);
 
     // Fetch trend data once (async) — inject into chart area when resolved
     if (!this.trendFetched && this.params.tenantId) {
@@ -750,11 +779,11 @@ export class AlarmsNotificationsPanelView {
   // Bulk Selection
   // =====================================================================
 
-  private handleAlarmSelect(title: string, selected: boolean): void {
+  private handleAlarmSelect(id: string, selected: boolean): void {
     if (selected) {
-      this.selectedTitles.add(title);
+      this.selectedIds.add(id);
     } else {
-      this.selectedTitles.delete(title);
+      this.selectedIds.delete(id);
     }
     this.updateBulkButton();
   }
@@ -764,7 +793,7 @@ export class AlarmsNotificationsPanelView {
     const btn = this.root.querySelector('#bulkActionsBtn') as HTMLButtonElement | null;
     const count = this.root.querySelector('#bulkCount') as HTMLElement | null;
     if (!btn || !count) return;
-    const sel = this.selectedTitles.size;
+    const sel = this.selectedIds.size;
     btn.disabled = sel === 0;
     count.textContent = String(sel);
     count.style.display = sel === 0 ? 'none' : '';
@@ -811,6 +840,28 @@ export class AlarmsNotificationsPanelView {
     names.forEach((n) => {
       const v = cs.getPropertyValue(n).trim();
       if (v) el.style.setProperty(n, v);
+    });
+  }
+
+  /**
+   * Moldura padrão das modais premium: troca o header próprio pelo header no acento
+   * do tema (maximizar opcional + fechar) e anexa o footer premium (holding · hora · versão).
+   */
+  private mountModalChrome(
+    modal: HTMLElement,
+    opts: { id: string; icon: string; title: string; radius: string; onClose: () => void; maximizedClass?: string }
+  ): PremiumModalChromeInstance {
+    return createPremiumModalChrome({
+      modalId: opts.id,
+      icon: opts.icon,
+      title: opts.title,
+      modalEl: modal,
+      headerSlot: modal.firstElementChild as HTMLElement | null,
+      theme: this.controller.getState().themeMode === 'dark' ? 'dark' : 'light',
+      showMaximize: !!opts.maximizedClass,
+      maximizedClass: opts.maximizedClass,
+      headerRadius: `${opts.radius} ${opts.radius} 0 0`,
+      onClose: opts.onClose,
     });
   }
 
@@ -947,7 +998,11 @@ export class AlarmsNotificationsPanelView {
       </div>
     `;
 
-    const close = () => overlay.remove();
+    let chrome: PremiumModalChromeInstance | null = null;
+    const close = () => {
+      chrome?.destroy();
+      overlay.remove();
+    };
 
     // Tab switching
     overlay.addEventListener('click', (e) => {
@@ -988,7 +1043,6 @@ export class AlarmsNotificationsPanelView {
       });
     });
 
-    overlay.querySelector('.afm-close')!.addEventListener('click', close);
     overlay.querySelector('#afmCancelBtn')!.addEventListener('click', close);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
@@ -1021,6 +1075,14 @@ export class AlarmsNotificationsPanelView {
     });
 
     this._applyCssVars(overlay);
+    chrome = this.mountModalChrome(overlay.querySelector('.afm-modal') as HTMLElement, {
+      id: 'afmChrome',
+      icon: '🔍',
+      title: 'Filtrar Alarmes',
+      radius: '14px',
+      maximizedClass: 'afm-modal--max',
+      onClose: close,
+    });
     document.body.appendChild(overlay);
   }
 
@@ -1076,7 +1138,7 @@ export class AlarmsNotificationsPanelView {
       const sev = SEVERITY_CONFIG[alarm.severity];
       const st = STATE_CONFIG[alarm.state];
       const isActive = alarm.state !== 'CLOSED';
-      const sel = this.selectedTitles.has(alarm.title);
+      const sel = this.selectedIds.has(alarm.id);
       const escTitle = this.esc(alarm.title);
       const escCustomer = this.esc(alarm.customerName || '-');
       const escSource = this.esc(alarm.source || '-');
@@ -1123,7 +1185,7 @@ export class AlarmsNotificationsPanelView {
         </tr>`;
     }).join('');
 
-    const allSelected = alarms.length > 0 && alarms.every((a) => this.selectedTitles.has(a.title));
+    const allSelected = alarms.length > 0 && alarms.every((a) => this.selectedIds.has(a.id));
 
     return `
       <table class="alarms-table" aria-label="Lista de alarmes">
@@ -1192,10 +1254,18 @@ export class AlarmsNotificationsPanelView {
     `;
 
     this._applyCssVars(overlay);
+    const chrome = this.mountModalChrome(overlay.querySelector('.aex-modal') as HTMLElement, {
+      id: 'aexChrome',
+      icon: '📤',
+      title: 'Exportar Alarmes',
+      radius: '14px',
+      onClose: () => close(),
+    });
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('aex-overlay--visible'));
 
     const close = () => {
+      chrome.destroy();
       overlay.classList.remove('aex-overlay--visible');
       setTimeout(() => overlay.remove(), 220);
       document.removeEventListener('keydown', onKey);
@@ -1580,9 +1650,9 @@ export class AlarmsNotificationsPanelView {
   }
 
   private openBulkActionPicker(): void {
-    if (this.selectedTitles.size === 0) return;
+    if (this.selectedIds.size === 0) return;
 
-    const selected = this.groupedAlarms.filter((a) => this.selectedTitles.has(a.title));
+    const selected = this.groupedAlarms.filter((a) => this.selectedIds.has(a.id));
     const count = selected.length;
 
     const listHtml = selected
@@ -1626,10 +1696,18 @@ export class AlarmsNotificationsPanelView {
     `;
 
     this._applyCssVars(overlay);
+    const chrome = this.mountModalChrome(overlay.querySelector('.abm-modal') as HTMLElement, {
+      id: 'abmChrome',
+      icon: '⚡',
+      title: 'Ações em Lote',
+      radius: '14px',
+      onClose: () => close(),
+    });
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('abm-overlay--visible'));
 
     const close = () => {
+      chrome.destroy();
       overlay.classList.remove('abm-overlay--visible');
       setTimeout(() => overlay.remove(), 220);
       document.removeEventListener('keydown', onKey);
@@ -1751,6 +1829,13 @@ export class AlarmsNotificationsPanelView {
     `;
 
     this._applyCssVars(overlay);
+    const chrome = this.mountModalChrome(overlay.querySelector('.alarm-action-modal') as HTMLElement, {
+      id: 'aamBulkChrome',
+      icon: cfg.icon,
+      title: cfg.title,
+      radius: '16px',
+      onClose: () => close(),
+    });
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('alarm-action-modal-overlay--visible'));
 
@@ -1767,6 +1852,7 @@ export class AlarmsNotificationsPanelView {
     });
 
     const close = () => {
+      chrome.destroy();
       overlay.classList.remove('alarm-action-modal-overlay--visible');
       setTimeout(() => overlay.remove(), 220);
       document.removeEventListener('keydown', onKey);
@@ -1796,7 +1882,7 @@ export class AlarmsNotificationsPanelView {
       }
 
       // Clear selection after bulk action
-      this.selectedTitles.clear();
+      this.selectedIds.clear();
       this.updateBulkButton();
 
       close();
@@ -2387,6 +2473,13 @@ export class AlarmsNotificationsPanelView {
     `;
 
     this._applyCssVars(overlay);
+    const chrome = this.mountModalChrome(overlay.querySelector('.alarm-action-modal') as HTMLElement, {
+      id: 'aamChrome',
+      icon: cfg.icon,
+      title: cfg.title,
+      radius: '16px',
+      onClose: () => closeModal(),
+    });
     document.body.appendChild(overlay);
 
     // Animate in
@@ -2406,6 +2499,7 @@ export class AlarmsNotificationsPanelView {
     });
 
     const closeModal = () => {
+      chrome.destroy();
       overlay.classList.remove('alarm-action-modal-overlay--visible');
       setTimeout(() => overlay.remove(), 220);
       document.removeEventListener('keydown', onKeyDown);

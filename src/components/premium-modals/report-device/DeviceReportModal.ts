@@ -13,6 +13,7 @@ import type { ParticipationChartInstance } from '../../graphs';
 import { createGranularitySelector } from '../../granularity-selector';
 import type { GranularitySelectorInstance } from '../../granularity-selector';
 import { createModalFooter } from '../footer-modal';
+import { renderTemperatureBarsPng } from '../internal/temperatureBarsPng';
 import type { ModalFooterInstance } from '../footer-modal';
 
 // Domain configuration
@@ -57,6 +58,8 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
 interface DailyReading {
   date: string; // YYYY-MM-DD (1d) or full ISO timestamp (1h)
   consumption: number;
+  // Temperatura: dia sem leitura → "—" na tabela e fora das médias (0 °C não é leitura)
+  noData?: boolean;
 }
 
 /**
@@ -68,6 +71,12 @@ interface DailyReading {
 export type DeviceReportModalParams = OpenDeviceReportParams & {
   /** Nome do customer/shopping exibido no footer premium da modal. */
   customerName?: string;
+  /** Nome do device no ThingsBoard (entity name) — header, fonte sutil + botão copiar. */
+  deviceName?: string;
+  /** Temperatura: faixa ideal do cliente — sombreada no ranking de dias/horas mais quentes. */
+  temperatureIdealRange?: { min: number; max: number } | null;
+  /** Temperatura: offset do sensor JÁ aplicado pelo fetcher — só exibido (sutil) no header. */
+  temperatureOffset?: number;
   /** Paleta do dashboard (createMyIOTheme) OU mapa plano de CSS vars (--myio-*). */
   theme?: { cssVars(): Record<string, string> } | Record<string, string>;
 };
@@ -143,13 +152,73 @@ export class DeviceReportModal {
     this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params, () => this.granularity);
   }
 
+  // Header: "Relatório - <identifier> - <label>" + nome do device (sutil, com copiar).
+  // O customer já aparece no footer premium. Texto escapado — o shell usa innerHTML no título.
+  private buildHeaderTitleHTML(): string {
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const base = esc(
+      `Relatório - ${this.params.identifier || 'SEM IDENTIFICADOR'} - ${this.params.label || 'SEM ETIQUETA'}`
+    );
+    const deviceName = String(this.params.deviceName || '').trim();
+
+    const deviceHTML = deviceName
+      ? `<span class="myio-dr-devname" style="margin-left:10px;font-size:0.72em;font-weight:400;opacity:.75;display:inline-flex;align-items:center;gap:4px;vertical-align:middle;">
+           ${esc(deviceName)}
+           <button type="button" class="myio-dr-copy" data-copy="${esc(deviceName)}" title="Copiar nome do dispositivo"
+             aria-label="Copiar nome do dispositivo"
+             style="border:none;background:transparent;color:inherit;cursor:pointer;padding:0 2px;line-height:1;opacity:.9;display:inline-flex;">
+             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+           </button>
+         </span>`
+      : '';
+    // Offset efetivamente aplicado (só temperatura, só ≠ 0) — informativo e discreto
+    const off = Number(this.params.temperatureOffset) || 0;
+    const offsetHTML =
+      this.domainConfig.summaryType === 'average' && off !== 0
+        ? `<span class="myio-dr-offset" title="Offset do sensor aplicado a todas as leituras" style="margin-left:10px;font-size:0.68em;font-weight:400;opacity:.7;vertical-align:middle;">offset ${off > 0 ? '+' : '−'}${Math.abs(off).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} °C</span>`
+        : '';
+    return `${base}${deviceHTML}${offsetHTML}`;
+  }
+
+  private bindCopyDeviceName(): void {
+    const root: HTMLElement | undefined = this.modal?.element;
+    const btn = root?.querySelector<HTMLButtonElement>('.myio-dr-copy');
+    if (!btn) return;
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const text = btn.dataset.copy || '';
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // Fallback p/ contextos sem Clipboard API (iframe sem permissão)
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      const prev = btn.innerHTML;
+      btn.textContent = '✓';
+      btn.title = 'Copiado!';
+      setTimeout(() => {
+        btn.innerHTML = prev;
+        btn.title = 'Copiar nome do dispositivo';
+      }, 1200);
+    });
+  }
+
   public show(): ModalHandle {
     this.modal = createModal({
-      title: `Relatório - ${this.params.identifier || 'SEM IDENTIFICADOR'} - ${this.params.label || 'SEM ETIQUETA'}`,
+      title: this.buildHeaderTitleHTML(),
       width: '80vw',
       height: '90vh',
       theme: this.params.ui?.theme || 'light'
     });
+    this.bindCopyDeviceName();
 
     this.renderContent();
     this.mountFooter();
@@ -363,12 +432,17 @@ export class DeviceReportModal {
           // Rebuild DateRangePicker so the time input appears only when 1h
           await this.rebuildDateRangePicker(dateRangeInput);
           this.resetAfterGranularityChange();
+          // Recarrega na hora com a nova granularidade (mesmo período)
+          if (this.dateRangePicker) void this.loadData();
         },
       });
     }
 
     // Initialize DateRangePicker with default current month range
     await this.rebuildDateRangePicker(dateRangeInput);
+
+    // Abre já carregado com o período padrão do campo (sem exigir o clique em "Carregar")
+    if (this.dateRangePicker) void this.loadData();
   }
 
   // Limpa dados/KPIs/gráfico após troca de granularidade — o usuário precisa
@@ -506,7 +580,8 @@ export class DeviceReportModal {
         baseUrl: this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com',
         ingestionId: this.params.ingestionId,
         startISO,
-        endISO
+        endISO,
+        granularity: this.granularity,
       });
 
       // Process API response
@@ -543,19 +618,52 @@ export class DeviceReportModal {
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
       console.warn("[DeviceReportModal] API returned empty or invalid response, zero-filling date range");
       if (isHourly) return [];
-      return dateRange.map(date => ({ date, consumption: 0 }));
+      // Temperatura: sem leitura ≠ 0 °C
+      const noData = this.domainConfig.summaryType === 'average';
+      return dateRange.map(date => ({ date, consumption: 0, ...(noData ? { noData: true } : {}) }));
     }
 
     const deviceData = dataArray[0]; // First (and likely only) device
     const consumption = deviceData.consumption || [];
 
+    // Temperatura: dia = MÉDIA das leituras do dia (não soma); dia sem leitura = noData
+    if (!isHourly && this.domainConfig.summaryType === 'average') {
+      const acc: { [key: string]: { sum: number; n: number } } = {};
+      consumption.forEach((item: any) => {
+        if (item.timestamp && item.value != null && Number.isFinite(Number(item.value))) {
+          const date = String(item.timestamp).slice(0, 10);
+          const a = acc[date] || (acc[date] = { sum: 0, n: 0 });
+          a.sum += Number(item.value);
+          a.n += 1;
+        }
+      });
+      return dateRange.map((date) =>
+        acc[date] ? { date, consumption: acc[date].sum / acc[date].n } : { date, consumption: 0, noData: true }
+      );
+    }
+
     if (isHourly) {
-      // Hourly: keep full timestamp, no zero-fill
-      return consumption
-        .filter((item: any) => item.timestamp && item.value != null)
-        .map((item: any) => ({
-          date: item.timestamp,
-          consumption: Number(item.value),
+      // Hourly: HORA FECHADA — a API devolve blocos sub-horários (15/30 min) mesmo pedindo
+      // 1h; consolida por hora: média (temperatura) ou soma (consumo). Sem zero-fill.
+      const isAvg = this.domainConfig.summaryType === 'average';
+      const HOUR = 3600 * 1000;
+      const byHour = new Map<number, { sum: number; n: number }>();
+      consumption.forEach((item: any) => {
+        if (!item.timestamp || item.value == null) return;
+        const ts = new Date(item.timestamp).getTime();
+        const v = Number(item.value);
+        if (!Number.isFinite(ts) || !Number.isFinite(v)) return;
+        const h = Math.floor(ts / HOUR) * HOUR;
+        const acc = byHour.get(h) || { sum: 0, n: 0 };
+        acc.sum += v;
+        acc.n += 1;
+        byHour.set(h, acc);
+      });
+      return [...byHour.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([h, { sum, n }]) => ({
+          date: new Date(h).toISOString(),
+          consumption: isAvg ? sum / n : sum,
         }));
     }
 
@@ -623,22 +731,23 @@ export class DeviceReportModal {
     const isTemperature = this.domainConfig.summaryType === 'average';
 
     const total = this.calculateTotal();
+    const rows = this.validRows;
     const summaryValue = isTemperature
-      ? (this.data.length > 0 ? total / this.data.length : 0)
+      ? (rows.length > 0 ? total / rows.length : 0)
       : total;
 
     // Dias distintos (no 1h várias linhas caem no mesmo dia)
-    const dayKeys = new Set(this.data.map((r) => r.date.slice(0, 10)));
+    const dayKeys = new Set(rows.map((r) => r.date.slice(0, 10)));
     const dayCount = Math.max(1, dayKeys.size);
 
     // Máximo/Mínimo por linha (dia no 1d, hora no 1h). Mínimo considera apenas
     // leituras > 0 (as zeradas já aparecem no KPI "sem consumo") — exceto
     // temperatura, onde 0 é leitura válida.
-    const maxRow = this.data.reduce(
+    const maxRow = rows.reduce(
       (best: DailyReading | null, r) => (!best || r.consumption > best.consumption ? r : best),
       null
     );
-    const minPool = isTemperature ? this.data : this.data.filter((r) => r.consumption > 0);
+    const minPool = isTemperature ? rows : rows.filter((r) => r.consumption > 0);
     const minRow = minPool.reduce(
       (best: DailyReading | null, r) => (!best || r.consumption < best.consumption ? r : best),
       null
@@ -647,12 +756,31 @@ export class DeviceReportModal {
 
     const rowLabel = isHourly ? 'Hora' : 'Dia';
 
+    // Média por Dia: consumo = total ÷ dias; temperatura = média das médias diárias
+    // (antes era soma de todas as horas ÷ dias → ex.: 537 °C em 1h)
+    let perDay: number;
+    if (isTemperature) {
+      const byDay = new Map<string, { sum: number; n: number }>();
+      for (const r of rows) {
+        const k = r.date.slice(0, 10);
+        const acc = byDay.get(k) || { sum: 0, n: 0 };
+        acc.sum += r.consumption;
+        acc.n += 1;
+        byDay.set(k, acc);
+      }
+      const dayAvgs = [...byDay.values()].map((d) => d.sum / d.n);
+      perDay = dayAvgs.length ? dayAvgs.reduce((x, y) => x + y, 0) / dayAvgs.length : 0;
+    } else {
+      perDay = total / dayCount;
+    }
+
     const kpis: Array<{ value: string; label: string; sub?: string }> = [
       { value: `${fmt(summaryValue)} ${unit}`, label: `${this.domainConfig.summaryLabel} (${unit})` },
-      { value: fmt(total / dayCount), label: `Média por Dia (${unit})` },
+      { value: fmt(perDay), label: `Média por Dia (${unit})` },
     ];
-    if (isHourly) {
-      kpis.push({ value: fmt(total / this.data.length), label: `Média por Hora (${unit})` });
+    // Média por Hora só p/ consumo (em temperatura seria igual à Média)
+    if (isHourly && !isTemperature) {
+      kpis.push({ value: fmt(rows.length ? total / rows.length : 0), label: `Média por Hora (${unit})` });
     }
     kpis.push(
       {
@@ -668,6 +796,9 @@ export class DeviceReportModal {
     );
     if (!isTemperature) {
       kpis.push({ value: String(zeroCount), label: isHourly ? 'Horas sem Consumo' : 'Dias sem Consumo' });
+    } else {
+      const noData = this.data.length - rows.length;
+      if (noData > 0) kpis.push({ value: String(noData), label: isHourly ? 'Horas sem Leitura' : 'Dias sem Leitura' });
     }
     return kpis;
   }
@@ -688,13 +819,69 @@ export class DeviceReportModal {
   // No 1h as horas são agregadas por dia. Default em BARRAS — com até 31 dias a
   // pizza fica ilegível; o seletor Pizza|Barras do componente segue disponível.
   // Temperatura fica de fora: "participação no total" não tem semântica de média °C.
+  // Temperatura (painel direito): ranking em barras — 1d = dias mais quentes (média do dia);
+  // 1h = horas mais quentes (top 24). Escala comum + faixa ideal sombreada (padrão AllReport).
+  private renderTemperatureRanking(container: HTMLElement): void {
+    const isHourly = this.granularity === '1h';
+    const valid = this.validRows;
+    if (!valid.length) {
+      container.innerHTML = `<div style="border:1px dashed var(--myio-border,#e5e7eb);border-radius:10px;padding:32px 16px;text-align:center;font-size:13px;color:var(--myio-text-muted,#6b7280);">Sem leituras no período</div>`;
+      return;
+    }
+    const TOP_HOURS = 24;
+    const ranked = [...valid].sort((a, b) => b.consumption - a.consumption);
+    const shown = isHourly ? ranked.slice(0, TOP_HOURS) : ranked;
+    const noData = isHourly ? [] : this.data.filter((r) => r.noData);
+    const ideal = this.params.temperatureIdealRange;
+    const hasIdeal = !!ideal && Number.isFinite(Number(ideal.min)) && Number.isFinite(Number(ideal.max));
+
+    const values = shown.map((r) => r.consumption);
+    const lo = Math.floor(Math.min(...values, hasIdeal ? Number(ideal!.min) : Infinity) - 1);
+    const hi = Math.ceil(Math.max(...values, hasIdeal ? Number(ideal!.max) : -Infinity) + 1);
+    const span = Math.max(1, hi - lo);
+    const pos = (v: number) => `${(((v - lo) / span) * 100).toFixed(2)}%`;
+    const band = hasIdeal
+      ? `<div style="position:absolute;top:0;bottom:0;left:${pos(Number(ideal!.min))};width:calc(${pos(Number(ideal!.max))} - ${pos(Number(ideal!.min))});background:rgba(34,197,94,.15);border-left:1px dashed #22c55e;border-right:1px dashed #22c55e;"></div>`
+      : '';
+    const color = (v: number) =>
+      hasIdeal && v > Number(ideal!.max) ? '#ef4444' : hasIdeal && v < Number(ideal!.min) ? '#3b82f6' : 'var(--myio-brand-700, #3e1a7d)';
+
+    const line = (label: string, r: DailyReading | null) => `
+      <div style="display:grid;grid-template-columns:minmax(0,40%) 1fr 48px;gap:8px;align-items:center;margin-bottom:6px;font-size:12px;">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${label}">${label}</span>
+        ${
+          r
+            ? `<div style="position:relative;height:12px;background:var(--myio-border,#e5e7eb);border-radius:6px;overflow:hidden;">${band}
+                 <div style="position:absolute;top:2px;bottom:2px;left:0;width:${pos(r.consumption)};background:${color(r.consumption)};border-radius:4px;opacity:.85;"></div></div>`
+            : `<span style="font-size:11px;color:var(--myio-text-muted,#9ca3af);">Sem leitura</span>`
+        }
+        <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${r ? this.domainConfig.formatter(r.consumption) : '—'}</span>
+      </div>`;
+
+    const title = isHourly
+      ? `Horas mais quentes${ranked.length > TOP_HOURS ? ` (top ${TOP_HOURS})` : ''}`
+      : 'Dias mais quentes (média do dia)';
+    container.innerHTML = `
+      <div style="border:1px solid var(--myio-border,#e5e7eb);border-radius:10px;padding:12px 14px;max-height:620px;overflow-y:auto;">
+        <div style="font-weight:700;font-size:14px;margin-bottom:2px;">${title}</div>
+        <div style="font-size:11px;color:var(--myio-text-muted,#6b7280);margin-bottom:10px;">
+          Escala ${this.domainConfig.formatter(lo)}–${this.domainConfig.formatter(hi)} °C${
+            hasIdeal
+              ? ` · <span style="color:#16a34a;">faixa ideal ${this.domainConfig.formatter(Number(ideal!.min))}–${this.domainConfig.formatter(Number(ideal!.max))} °C</span>`
+              : ''
+          }
+        </div>
+        ${shown.map((r) => line(this.formatDate(r.date), r)).join('')}
+        ${noData.map((r) => line(this.formatDate(r.date), null)).join('')}
+      </div>`;
+  }
+
   private updateDayChart(): void {
     const container = document.getElementById('participation-chart-container');
     if (!container) return;
 
     if (this.domainConfig.summaryType === 'average') {
-      const placeholder = document.getElementById('participation-chart-placeholder');
-      if (placeholder) placeholder.textContent = 'Participação por dia não se aplica a temperatura';
+      this.renderTemperatureRanking(container);
       return;
     }
 
@@ -767,7 +954,7 @@ export class DeviceReportModal {
             ${this.data.map(row => `
               <tr>
                 <td>${this.formatDate(row.date)}</td>
-                <td style="text-align: right;">${this.domainConfig.formatter(row.consumption)}</td>
+                <td style="text-align: right;${row.noData ? ' color: var(--myio-text-muted);' : ''}">${row.noData ? 'Sem leitura' : this.domainConfig.formatter(row.consumption)}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -807,6 +994,8 @@ export class DeviceReportModal {
       if (key === 'date') {
         comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
       } else {
+        // Sem leitura sempre no fim, independente da direção
+        if (!!a.noData !== !!b.noData) return a.noData ? 1 : -1;
         comparison = a.consumption - b.consumption;
       }
 
@@ -815,8 +1004,13 @@ export class DeviceReportModal {
     });
   }
 
+  // Linhas com leitura (temperatura: dia sem leitura fica fora de totais/médias/KPIs)
+  private get validRows(): DailyReading[] {
+    return this.data.filter((r) => !r.noData);
+  }
+
   private calculateTotal(): number {
-    return this.data.reduce((sum, row) => sum + row.consumption, 0);
+    return this.validRows.reduce((sum, row) => sum + row.consumption, 0);
   }
 
   private formatDate(dateStr: string): string {
@@ -836,18 +1030,31 @@ export class DeviceReportModal {
 
   private exportCSV(): void {
     const total = this.calculateTotal();
+    const valid = this.validRows.length;
     const summaryValue = this.domainConfig.summaryType === 'average'
-      ? (this.data.length > 0 ? total / this.data.length : 0)
+      ? (valid > 0 ? total / valid : 0)
       : total;
     const now = new Date();
     const timestamp = now.toLocaleDateString('pt-BR') + ' - ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+    const p = this.exportPeriod;
+    const fmtD = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '');
+    const off = Number(this.params.temperatureOffset) || 0;
+    const isTemp = this.domainConfig.summaryType === 'average';
+    void summaryValue; // KPIs completos abaixo (mesmos da tela)
     const csvData = [
       ['Dispositivo/Loja', this.params.identifier || 'N/A', this.params.label || ''],
+      ...(this.params.deviceName ? [['Dispositivo (TB)', this.params.deviceName, '']] : []),
+      ...(isTemp && off !== 0 ? [['Offset aplicado (°C)', this.domainConfig.formatter(off), '']] : []),
+      ...(this.resolveCustomerName() ? [['Cliente', this.resolveCustomerName(), '']] : []),
+      ...(p?.startISO ? [['Período', `${fmtD(p.startISO)} — ${fmtD(p.endISO)}`, '']] : []),
+      ['Granularidade', this.granularity === '1h' ? 'Hora' : 'Dia', ''],
       ['DATA EMISSÃO', timestamp, ''],
-      [this.domainConfig.summaryLabel, this.domainConfig.formatter(summaryValue), this.domainConfig.unit],
+      [],
+      ...this.computeKpis().map((k) => [k.label, k.value, k.sub || '']),
+      [],
       [this.granularity === '1h' ? 'Data/Hora' : 'Data', this.domainConfig.label, ''],
-      ...this.data.map(row => [this.formatDate(row.date), this.domainConfig.formatter(row.consumption)])
+      ...this.data.map(row => [this.formatDate(row.date), row.noData ? 'Sem leitura' : this.domainConfig.formatter(row.consumption)])
     ];
 
     const csvContent = toCsv(csvData);
@@ -875,7 +1082,14 @@ export class DeviceReportModal {
 
   // Título dos exports — mesmo da modal (identificador + etiqueta do device).
   private resolveExportTitle(): string {
-    return `Relatório - ${this.params.identifier || 'SEM IDENTIFICADOR'} - ${this.params.label || 'SEM ETIQUETA'}`;
+    const base = `Relatório - ${this.params.identifier || 'SEM IDENTIFICADOR'} - ${this.params.label || 'SEM ETIQUETA'}`;
+    const dev = this.params.deviceName ? ` (${this.params.deviceName})` : '';
+    const off = Number(this.params.temperatureOffset) || 0;
+    const offTxt =
+      this.domainConfig.summaryType === 'average' && off !== 0
+        ? ` · offset ${off > 0 ? '+' : '−'}${Math.abs(off).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} °C`
+        : '';
+    return `${base}${dev}${offTxt}`;
   }
 
   // Mapeia as linhas do relatório (dia/hora × consumo) para o shape TelemetryDevice
@@ -888,26 +1102,53 @@ export class DeviceReportModal {
     return this.data.map((row) => ({
       labelOrName: this.formatDate(row.date),
       name: this.formatDate(row.date),
-      val: row.consumption,
+      val: row.noData ? null : row.consumption,
       ...(isTemperature || total <= 0 ? {} : { perc: (row.consumption / total) * 100 }),
     })) as unknown as TelemetryDevice[];
   }
 
   // Opções de coluna dos exporters: relatório single-device → Data | Consumo | %
   // (Identificador redundante — o device já está no título/filename).
-  private exportColumnOptions(): { nameLabel: string; hideIdentifier: boolean } {
+  private exportColumnOptions() {
+    const isTemp = this.domainConfig.summaryType === 'average';
     return {
       nameLabel: this.granularity === '1h' ? 'Data/Hora' : 'Data',
       hideIdentifier: true,
+      // Mesmo rótulo da coluna da tela (antes saía "Consumo (°C)" em temperatura)
+      valueLabel: this.domainConfig.label,
+      countLabel: this.granularity === '1h' ? 'hora(s)' : 'dia(s)',
+      ...(isTemp ? { hidePerc: true, emptyValueText: 'Sem leitura', valueDecimals: 2 } : {}),
     };
+  }
+
+  // Gráfico da página final do PDF = painel da direita da tela
+  private async buildExportChart(): Promise<{ dataUrl: string; width?: number; height?: number; title?: string } | null> {
+    if (this.domainConfig.summaryType === 'average') {
+      const isHourly = this.granularity === '1h';
+      const ranked = [...this.validRows].sort((a, b) => b.consumption - a.consumption);
+      const shown = isHourly ? ranked.slice(0, 24) : ranked;
+      const noData = isHourly ? [] : this.data.filter((r) => r.noData);
+      const png = renderTemperatureBarsPng({
+        items: [
+          ...shown.map((r) => ({ label: this.formatDate(r.date), value: r.consumption })),
+          ...noData.map((r) => ({ label: this.formatDate(r.date), value: null })),
+        ],
+        ideal: this.params.temperatureIdealRange ?? null,
+        accent: this.resolveAccentHex(),
+      });
+      const title = isHourly
+        ? `Horas mais quentes${ranked.length > 24 ? ' (top 24)' : ''}`
+        : 'Dias mais quentes (média do dia)';
+      return png ? { ...png, title } : null;
+    }
+    const chartPng = await this.participationChart?.toPngDataUrl?.().catch(() => null);
+    return chartPng ? { ...chartPng, title: 'Participação por Dia' } : null;
   }
 
   // PDF export — layout premium do grid + paleta do dashboard + faixa de KPIs +
   // página dedicada com o gráfico "Participação por Dia" da modal.
   private async exportPDF(): Promise<void> {
     if (!this.data.length) return;
-
-    const chartPng = await this.participationChart?.toPngDataUrl?.().catch(() => null);
 
     exportGridPdf(
       this.buildExportDevices(),
@@ -918,7 +1159,7 @@ export class DeviceReportModal {
       {
         accentColor: this.resolveAccentHex(),
         kpis: this.computeKpis(),
-        chartImage: chartPng ? { ...chartPng, title: 'Participação por Dia' } : null,
+        chartImage: await this.buildExportChart(),
         columns: this.exportColumnOptions(),
       },
     );
@@ -936,6 +1177,7 @@ export class DeviceReportModal {
       {
         accentColor: this.resolveAccentHex(),
         columns: this.exportColumnOptions(),
+        kpis: this.computeKpis(),
       },
     );
   }

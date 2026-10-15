@@ -225,6 +225,16 @@ export function generateFilterModalStyles(containerId: string, modalClass: strin
       opacity: 0.5;
     }
     #${containerId} .filter-tab:hover { opacity: 0.8; transform: translateY(-1px); }
+    /* Categorias (deviceProfile): rótulos longos são encurtados (nome completo no title) */
+    #${containerId} .filter-tab--category {
+      max-width: 100%;
+      background: color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 8%, #fff);
+      color: var(--myio-brand-700, #3e1a7d);
+    }
+    #${containerId}[data-theme="dark"] .filter-tab--category {
+      background: color-mix(in srgb, var(--myio-brand-700, #3e1a7d) 30%, #1e293b);
+      color: #e2e8f0;
+    }
     #${containerId} .filter-tab.active { opacity: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
     #${containerId} .filter-tab[data-filter="all"] { background: #e2e8f0; color: #475569; }
     #${containerId} .filter-tab[data-filter="online"],

@@ -547,6 +547,10 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
     view.updateTemperatureCard(data);
   }
 
+  function setConsumptionLoading(loading: boolean): void {
+    view.setConsumptionLoading(loading);
+  }
+
   function updateWaterKPI(data: WaterKPI): void {
     tooltipData.water = data;
     view.updateWaterCard(data);
@@ -640,6 +644,7 @@ export function createHeaderComponent(params: HeaderComponentParams): HeaderComp
     updateEnergyKPI,
     updateTemperatureKPI,
     updateWaterKPI,
+    setConsumptionLoading,
     updateTooltipData,
 
     // Shopping/Filter

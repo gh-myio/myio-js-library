@@ -12,7 +12,39 @@ import type {
   AppliedFilters,
 } from './types.js';
 import { FILTER_GROUPS, FILTER_TAB_ICONS, STATUS_TO_CONNECTIVITY } from './types.js';
+import type { FilterGroup } from './types.js';
+
+// Categorias por deviceProfile (autoridade da classificação): rótulo amigável + ícone.
+const CATEGORY_META: Record<string, { label: string; icon: string }> = {
+  ELEVADOR: { label: 'Elevadores', icon: '🛗' },
+  ESCADA_ROLANTE: { label: 'Escadas Rolantes', icon: '📶' },
+  CHILLER: { label: 'Chillers', icon: '❄️' },
+  FANCOIL: { label: 'Fancoils', icon: '🌀' },
+  BOMBA_CAG: { label: 'Bombas CAG', icon: '💧' },
+  BOMBA_HIDRAULICA: { label: 'Bombas Hidráulicas', icon: '💧' },
+  BOMBA_INCENDIO: { label: 'Bombas de Incêndio', icon: '🧯' },
+  MOTOR: { label: 'Motores', icon: '⚙️' },
+  '3F_MEDIDOR': { label: 'Lojas', icon: '🏪' },
+  ENTRADA: { label: 'Entrada', icon: '🔌' },
+  HIDROMETRO: { label: 'Hidrômetros', icon: '💧' },
+  HIDROMETRO_AREA_COMUM: { label: 'Hidrômetros Área Comum', icon: '💧' },
+  HIDROMETRO_SHOPPING: { label: 'Hidrômetros Entrada', icon: '💧' },
+  TERMOSTATO: { label: 'Termostatos', icon: '🌡️' },
+};
+
+function categoryMeta(profile: string): { label: string; icon: string } {
+  const key = String(profile || '').toUpperCase();
+  if (CATEGORY_META[key]) return CATEGORY_META[key];
+  const label = key
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+    .join(' ');
+  return { label: label || key, icon: '🏷️' };
+}
 import { generateFilterModalStyles } from './styles.js';
+import { createPremiumModalChrome } from '../premium-modals/internal/PremiumModalChrome';
+import type { PremiumModalChromeInstance } from '../premium-modals/internal/PremiumModalChrome';
 
 export class FilterModalView {
   private containerId: string;
@@ -31,6 +63,13 @@ export class FilterModalView {
   private onClose: () => void;
 
   private globalContainer: HTMLElement | null = null;
+  /** Abas de categoria (uma por deviceProfile presente nos itens) — recriadas a cada open() */
+  private dynamicTabs: FilterTab[] = [];
+  private dynamicIcons: Record<string, string> = {};
+  private dynamicTitles: Record<string, string> = {};
+  private groups: FilterGroup[] = FILTER_GROUPS;
+  /** Moldura padrão (header no acento do tema + maximizar/fechar + footer premium) */
+  private chrome: PremiumModalChromeInstance | null = null;
   private escHandler: ((e: KeyboardEvent) => void) | null = null;
   private currentItems: FilterableDevice[] = [];
 
@@ -52,7 +91,7 @@ export class FilterModalView {
   }
 
   private generateFilterTabsHTML(counts: Record<string, number>): string {
-    const allTab = this.filterTabs.find((t) => t.id === 'all');
+    const allTab = this.allTabs().find((t) => t.id === 'all');
     let html = '';
     if (allTab) {
       const icon = FILTER_TAB_ICONS['all'] || '';
@@ -65,8 +104,8 @@ export class FilterModalView {
       `;
     }
 
-    FILTER_GROUPS.forEach((group) => {
-      const groupTabs = this.filterTabs.filter((t) => group.filters.includes(t.id));
+    this.groups.forEach((group) => {
+      const groupTabs = this.allTabs().filter((t) => group.filters.includes(t.id));
       if (groupTabs.length === 0) return;
       html += `
         <div class="filter-group">
@@ -74,14 +113,14 @@ export class FilterModalView {
           <div class="filter-group-tabs">
             ${groupTabs
               .map((tab) => {
-                const icon = FILTER_TAB_ICONS[tab.id] || '';
+                const icon = FILTER_TAB_ICONS[tab.id] || this.dynamicIcons[tab.id] || '';
                 const count = counts[tab.id] || 0;
                 const expandBtn =
                   count > 0
                     ? `<button class="filter-tab-expand" data-expand-filter="${tab.id}" title="Ver dispositivos">+</button>`
                     : '';
                 return `
-              <button class="filter-tab active" data-filter="${tab.id}">
+              <button class="filter-tab active${tab.id.startsWith('cat_') ? ' filter-tab--category' : ''}" data-filter="${tab.id}" title="${this.dynamicTitles[tab.id] || tab.label}">
                 ${icon} ${tab.label} (<span id="count${
                   tab.id.charAt(0).toUpperCase() + tab.id.slice(1)
                 }">${count}</span>)${expandBtn}
@@ -156,9 +195,34 @@ export class FilterModalView {
     `;
   }
 
+  private allTabs(): FilterTab[] {
+    return [...this.filterTabs, ...this.dynamicTabs];
+  }
+
+  /** Grupo "Categoria": uma aba por deviceProfile presente nos itens (ex.: Elevadores, Escadas Rolantes). */
+  private buildCategoryTabs(items: FilterableDevice[]): void {
+    const profileOf = (item: FilterableDevice) => String(item.deviceProfile || '').trim().toUpperCase();
+    const profiles = Array.from(new Set(items.map(profileOf).filter(Boolean)));
+    profiles.sort((a, b) => categoryMeta(a).label.localeCompare(categoryMeta(b).label, 'pt-BR'));
+    this.dynamicIcons = {};
+    this.dynamicTitles = {};
+    this.dynamicTabs = profiles.map((profile) => {
+      const id = `cat_${profile.replace(/[^A-Za-z0-9]/g, '_')}`;
+      const meta = categoryMeta(profile);
+      this.dynamicIcons[id] = meta.icon;
+      this.dynamicTitles[id] = meta.label;
+      // cabe na coluna lateral numa linha só; o nome completo fica no title da aba
+      const label = meta.label.length > 22 ? `${meta.label.slice(0, 21).trimEnd()}…` : meta.label;
+      return { id, label, filter: (item: FilterableDevice) => profileOf(item) === profile };
+    });
+    this.groups = this.dynamicTabs.length
+      ? [...FILTER_GROUPS, { id: 'category', label: 'Categoria', filters: this.dynamicTabs.map((t) => t.id) }]
+      : FILTER_GROUPS;
+  }
+
   private calculateCounts(items: FilterableDevice[]): Record<string, number> {
     const counts: Record<string, number> = {};
-    this.filterTabs.forEach((tab) => {
+    this.allTabs().forEach((tab) => {
       counts[tab.id] = items.filter(tab.filter).length;
     });
     return counts;
@@ -346,7 +410,7 @@ export class FilterModalView {
     const filterTabsEl = modal.querySelectorAll('.filter-tab');
 
     const getFilterFn = (filterId: string) => {
-      const tabConfig = this.filterTabs.find((t) => t.id === filterId);
+      const tabConfig = this.allTabs().find((t) => t.id === filterId);
       return tabConfig ? tabConfig.filter : () => false;
     };
 
@@ -357,8 +421,8 @@ export class FilterModalView {
       };
 
       let filteredItems = [...items];
-      for (let i = 0; i < FILTER_GROUPS.length; i++) {
-        const group = FILTER_GROUPS[i];
+      for (let i = 0; i < this.groups.length; i++) {
+        const group = this.groups[i];
         const activeInGroup = Array.from(filterTabsEl)
           .filter(
             (t) => group.filters.includes(t.getAttribute('data-filter') || '') && t.classList.contains('active')
@@ -367,8 +431,8 @@ export class FilterModalView {
         if (activeInGroup.length > 0) {
           filteredItems = filteredItems.filter((item) => itemPassesGroup(item, activeInGroup));
         }
-        for (let j = i + 1; j < FILTER_GROUPS.length; j++) {
-          const nextGroup = FILTER_GROUPS[j];
+        for (let j = i + 1; j < this.groups.length; j++) {
+          const nextGroup = this.groups[j];
           nextGroup.filters.forEach((filterId) => {
             const tab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === filterId);
             if (!tab) return;
@@ -384,7 +448,7 @@ export class FilterModalView {
         .map((t) => t.getAttribute('data-filter') || '');
 
       const activeByGroup: Record<string, string[]> = {};
-      FILTER_GROUPS.forEach((group) => {
+      this.groups.forEach((group) => {
         const activeInGroup = activeFilters.filter((id) => group.filters.includes(id));
         if (activeInGroup.length > 0) activeByGroup[group.id] = activeInGroup;
       });
@@ -406,7 +470,7 @@ export class FilterModalView {
 
     const getFilteredItems = () => {
       let filteredItems = [...items];
-      FILTER_GROUPS.forEach((group) => {
+      this.groups.forEach((group) => {
         const activeInGroup = Array.from(filterTabsEl)
           .filter(
             (t) => group.filters.includes(t.getAttribute('data-filter') || '') && t.classList.contains('active')
@@ -422,7 +486,7 @@ export class FilterModalView {
     };
 
     const updateFilterCounts = (filteredItems: FilterableDevice[]) => {
-      this.filterTabs.forEach((tabConfig) => {
+      this.allTabs().forEach((tabConfig) => {
         if (tabConfig.id === 'all') {
           const countEl = modal.querySelector('#countAll');
           if (countEl) countEl.textContent = String(filteredItems.length);
@@ -480,7 +544,7 @@ export class FilterModalView {
               connectivityTab.classList.add('active');
           }
           const filteredItems = getFilteredItems();
-          const typeIds = ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores'];
+          const typeIds = ['elevators', 'escalators', 'hvac', 'others', 'commonArea', 'stores', ...this.dynamicTabs.map((t) => t.id)];
           typeIds.forEach((typeId) => {
             const typeTab = Array.from(filterTabsEl).find((t) => t.getAttribute('data-filter') === typeId);
             if (!typeTab) return;
@@ -515,7 +579,7 @@ export class FilterModalView {
       const filterId = btn.getAttribute('data-expand-filter');
       if (!filterId) return;
 
-      const filterTabConfig = this.filterTabs.find((t) => t.id === filterId);
+      const filterTabConfig = this.allTabs().find((t) => t.id === filterId);
       const filterFn = filterTabConfig?.filter || (() => false);
 
       btn.addEventListener('mouseenter', (e) => {
@@ -542,9 +606,9 @@ export class FilterModalView {
 
     if (!InfoTooltip?.InfoTooltip) return;
 
-    const filterTabConfig = this.filterTabs.find((t) => t.id === filterId);
+    const filterTabConfig = this.allTabs().find((t) => t.id === filterId);
     const label = filterTabConfig?.label || filterId;
-    const icon = FILTER_TAB_ICONS[filterId] || '📋';
+    const icon = FILTER_TAB_ICONS[filterId] || this.dynamicIcons[filterId] || '📋';
 
     let devicesHtml = '';
     if (devices.length === 0) {
@@ -638,15 +702,20 @@ export class FilterModalView {
         this.globalContainer.innerHTML = `<style>${generateFilterModalStyles(this.containerId, this.modalClass, this.primaryColor)}</style>${this.generateModalHTML()}`;
         document.body.appendChild(this.globalContainer);
         const modal = this.globalContainer.querySelector('#filterModal') as HTMLElement;
-        if (modal) this.setupHandlers(modal, items);
+        if (modal) {
+          this.setupHandlers(modal, items);
+          this.mountChrome(modal);
+        }
       }
     }
 
     this.globalContainer.setAttribute('data-theme', this.themeMode);
+    if (this.chrome && this.chrome.getTheme() !== this.themeMode) this.chrome.setTheme(this.themeMode);
 
     const modal = this.globalContainer.querySelector('#filterModal') as HTMLElement;
     if (!modal) return;
 
+    this.buildCategoryTabs(items);
     const counts = this.calculateCounts(items);
     const tabsContainer = modal.querySelector('#filterTabsContainer');
     if (tabsContainer) {
@@ -665,6 +734,28 @@ export class FilterModalView {
     document.body.classList.add('filter-modal-open');
   }
 
+  /** Troca o header próprio pela moldura padrão das modais premium e adiciona o footer premium. */
+  private mountChrome(modal: HTMLElement): void {
+    const card = modal.querySelector(`.${this.modalClass}-card`) as HTMLElement | null;
+    if (!card || !this.globalContainer) return;
+    this.chrome = createPremiumModalChrome({
+      modalId: `${this.containerId}Chrome`,
+      icon: '🔍',
+      title: 'Filtrar e Ordenar',
+      modalEl: card,
+      headerSlot: modal.querySelector(`#${this.containerId}Header`) as HTMLElement | null,
+      themeTarget: this.globalContainer, // estilos escuros da modal são por #container[data-theme]
+      theme: this.themeMode === 'dark' ? 'dark' : 'light',
+      showThemeToggle: true,
+      maximizedClass: 'maximized',
+      headerRadius: '16px 16px 0 0',
+      onClose: () => this.close(),
+      onThemeChange: (t) => {
+        this.themeMode = t;
+      },
+    });
+  }
+
   public close(): void {
     if (this.globalContainer) {
       const modal = this.globalContainer.querySelector('#filterModal');
@@ -680,6 +771,7 @@ export class FilterModalView {
     if (this.globalContainer) {
       this.globalContainer.setAttribute('data-theme', mode);
     }
+    this.chrome?.setTheme(mode === 'dark' ? 'dark' : 'light');
   }
 
   public destroy(): void {
@@ -687,6 +779,8 @@ export class FilterModalView {
       document.removeEventListener('keydown', this.escHandler);
       this.escHandler = null;
     }
+    this.chrome?.destroy();
+    this.chrome = null;
     if (this.globalContainer) {
       this.globalContainer.remove();
       this.globalContainer = null;

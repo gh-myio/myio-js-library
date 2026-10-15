@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Showcase — Main View Shopping v-5.2.0 (widgets reais)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" />
+  <style>
+    /* ---- harness chrome only: every widget brings its own styles.css from src/ ---- */
+    html, body { height: 100%; }
+    body { margin: 0; font-family: 'Nunito', system-ui, sans-serif; background: #eeeeee; display: flex; height: 100vh; overflow: hidden; }
+    #sc-stage { flex: 1 1 auto; min-width: 0; min-height: 0; position: relative; }
+    #sc-stage > .sc-widget { position: absolute; inset: 0; }
+    /* a ThingsBoard dashboard state hosted inside MAIN_VIEW's template (replaces <tb-dashboard-state>) */
+    .sc-state { height: 100%; width: 100%; box-sizing: border-box; display: grid; min-height: 0; }
+    .sc-widget { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+    .sc-widget > .sc-wc { position: absolute; inset: 0; }
+    .sc-widget.sc-failed { outline: 2px dashed #dc2626; }
+    .sc-widget.sc-failed::after { content: attr(data-error); position: absolute; left: 6px; top: 6px; right: 6px; font: 12px/1.4 ui-monospace, Consolas, monospace; color: #991b1b; background: #fef2f2; padding: 6px; border-radius: 6px; }
+
+    #sc-cockpit { flex: 0 0 330px; display: flex; flex-direction: column; background: #1f1147; color: #fff; font-size: 12px; overflow: hidden; transition: flex-basis .2s ease; z-index: 50; }
+    #sc-cockpit .sc-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.15); }
+    #sc-cockpit .sc-title { white-space: nowrap; }
+    #sc-cockpit .sc-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    #sc-cockpit .sc-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; }
+    #sc-cockpit label { opacity: .8; margin-top: 4px; }
+    #sc-cockpit input, #sc-cockpit select { font-size: 12px; padding: 6px; border-radius: 6px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; color: #111; }
+    #sc-cockpit .sc-checkbox { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+    #sc-cockpit .sc-checkbox input { width: auto; }
+    #sc-cockpit fieldset { border: 1px solid rgba(255,255,255,.22); border-radius: 8px; padding: 4px 10px 10px; margin-top: 10px; }
+    #sc-cockpit fieldset > legend { font-weight: 600; font-size: 11px; cursor: pointer; user-select: none; }
+    #sc-cockpit fieldset.collapsed > .sc-fs-body { display: none; }
+    #sc-cockpit .sc-envtab { display: flex; margin: 6px 0 2px; border: 1px solid rgba(255,255,255,.3); border-radius: 8px; overflow: hidden; }
+    #sc-cockpit .sc-envtab button { flex: 1; background: transparent; color: #fff; border: none; border-radius: 0; padding: 7px 0; font-weight: 600; cursor: pointer; opacity: .7; }
+    #sc-cockpit .sc-envtab button.active { background: #6c5ce7; opacity: 1; }
+    #sc-cockpit .sc-actions { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-top: 1px solid rgba(255,255,255,.15); }
+    #sc-cockpit button { font-size: 12px; padding: 8px 12px; border: none; border-radius: 6px; background: #6c5ce7; color: #fff; cursor: pointer; }
+    #sc-cockpit button:hover { background: #5a4bd6; }
+    #sc-cockpit button.sc-ghost { background: transparent; border: 1px solid rgba(255,255,255,.4); padding: 4px 9px; }
+    #sc-cockpit button[disabled] { opacity: .5; cursor: not-allowed; }
+    body.console-collapsed #sc-cockpit { flex-basis: 46px; }
+    body.console-collapsed #sc-cockpit .sc-body, body.console-collapsed #sc-cockpit .sc-title { display: none; }
+    #sc-auth { font-size: 11.5px; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,.08); }
+    #sc-auth.ok { color: #9ef1c0; } #sc-auth.no { color: #ffd479; }
+    #sc-widgets { font-size: 11px; line-height: 1.6; }
+    #sc-widgets .ok { color: #9ef1c0; } #sc-widgets .err { color: #ff8080; } #sc-widgets .wait { color: #ffd479; }
+    #sc-log { max-height: 190px; overflow: auto; margin: 0 12px 10px; font: 11px ui-monospace, Consolas, monospace; background: #0b0b14; color: #9ef1c0; padding: 8px; border-radius: 6px; }
+    #sc-log .err { color: #ff8080; } #sc-log .warn { color: #ffd479; } #sc-log .info { color: #9ecbff; }
+
+    .sc-modal-overlay { position: fixed; inset: 0; background: rgba(15,17,30,.6); display: none; align-items: center; justify-content: center; z-index: 100000; }
+    .sc-modal-overlay.open { display: flex; }
+    .sc-login { width: 360px; max-width: 92vw; background: #fff; color: #1e293b; border-radius: 14px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+    .sc-login .sc-close { float: right; background: none; border: none; font-size: 20px; color: #94a3b8; cursor: pointer; }
+    .sc-login h2 { margin: 6px 0 2px; text-align: center; font-size: 18px; }
+    .sc-login p.sub { margin: 0 0 8px; text-align: center; color: #64748b; font-size: 12.5px; }
+    .sc-login label { display: block; font-size: 12px; font-weight: 600; color: #334155; margin: 12px 0 4px; }
+    .sc-login input { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; }
+    .sc-login .sc-err { margin-top: 12px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; }
+    .sc-login .sc-submit { width: 100%; margin-top: 18px; padding: 10px; border: none; border-radius: 8px; background: #6c5ce7; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="sc-stage"></div>
+
+  <aside id="sc-cockpit">
+    <div class="sc-head">
+      <button id="sc-toggle" class="sc-ghost" title="Recolher/expandir cockpit">⟩</button>
+      <strong class="sc-title">v-5.2.0 cockpit</strong>
+      <button id="sc-login" class="sc-ghost sc-title">🔑 Login TB</button>
+    </div>
+    <div class="sc-body">
+      <div class="sc-scroll">
+        <div id="sc-auth" class="no">🔒 sem JWT</div>
+        <div id="sc-envtab" class="sc-envtab"></div>
+        <div id="sc-fields"><span style="opacity:.7">carregando settingsSchema.json do MAIN_VIEW…</span></div>
+        <fieldset id="sc-widgets-fs"><legend>Widgets montados</legend><div class="sc-fs-body" id="sc-widgets">—</div></fieldset>
+        <div style="opacity:.6;margin-top:8px">
+          Widgets, templates, CSS e schemas são lidos de <code>src/…/v-5.2.0/WIDGET/</code>; o layout vem de <code>v-5.2.0.layout.json</code>.
+          A versão v-5.4.0 está em <a href="./v-5.4.0.html" style="color:#9ecbff">v-5.4.0.html</a>.
+        </div>
+      </div>
+      <div><div style="padding:4px 12px"><button type="button" id="sc-log-toggle" class="sc-ghost">▾ console</button></div><div id="sc-log"></div></div>
+      <div class="sc-actions">
+        <button id="sc-run">▶ Montar dashboard (onInit)</button>
+        <button id="sc-data">⟳ Recarregar dados (onDataUpdated)</button>
+        <button id="sc-destroy">✖ Desmontar (onDestroy)</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="sc-modal-overlay" id="sc-login-modal">
+    <form class="sc-login" id="sc-login-form">
+      <button type="button" class="sc-close" id="sc-login-close">×</button>
+      <h2>Login ThingsBoard</h2>
+      <p class="sub">Salva o JWT em <code>localStorage.jwt_token</code>, como no dashboard real</p>
+      <div id="sc-login-err" class="sc-err" style="display:none"></div>
+      <label for="sc-login-user">Usuário ou e-mail</label>
+      <input id="sc-login-user" type="text" autocomplete="username" />
+      <label for="sc-login-pass">Senha</label>
+      <input id="sc-login-pass" type="password" autocomplete="current-password" />
+      <button type="submit" class="sc-submit" id="sc-login-submit">Entrar</button>
+    </form>
+  </div>
+
+  <!-- Resources the v-5.2.0 widget types declare in ThingsBoard (jQuery for $container, Chart.js, moment) + the local library build -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script>document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');</script>
+
+  <script>
+  'use strict';
+  /* ===================================================================================
+   * v-5.2.0 harness — runs the REAL ThingsBoard widgets outside ThingsBoard.
+   * Nothing from the widgets is copied: controller.js / template.html / styles.css /
+   * settingsSchema.json are fetched from src/ at mount time. This file only emulates the
+   * ThingsBoard runtime: widget ctx, dashboard states, entity aliases and datasources.
+   * =================================================================================== */
+  const LAYOUT_URL = './v-5.2.0.layout.json';
+  let LAYOUT = null;
+  const bust = () => 'v=' + Date.now();
+
+  /* ---------- log ---------- */
+  const logEl = document.getElementById('sc-log');
+  function log(kind, msg) {
+    const d = document.createElement('div');
+    d.className = kind;
+    d.textContent = `[${new Date().toISOString().slice(11, 19)}] ${msg}`;
+    logEl.prepend(d);
+  }
+  ['myio:data-ready', 'myio:dashboard-state', 'myio:update-date', 'myio:orchestrator:ready', 'myio:telemetry:request-data',
+   'myio:telemetry:provide-data', 'myio:energy-summary-ready', 'myio:water-summary-ready', 'myio:temperature-data-ready',
+   'myio:customers-ready', 'myio:theme-changed', 'myio:feature-visibility-ready', 'myio:alarm-content-activated', 'myio:token-expired']
+    .forEach((ev) => window.addEventListener(ev, (e) => log('info', `event ${ev} ${e.detail ? JSON.stringify(e.detail).slice(0, 110) : ''}`)));
+  window.addEventListener('error', (e) => log('err', `window error: ${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`));
+  window.addEventListener('unhandledrejection', (e) => log('err', `unhandled rejection: ${e.reason && (e.reason.message || e.reason)}`));
+
+  /* ---------- config (gitignored config.json, falls back to the example) ---------- */
+  let CONFIG = null, ENV = '';
+  async function loadConfig() {
+    for (const url of ['./config.json', './config.example.json']) {
+      try { const r = await fetch(`${url}?${bust()}`); if (r.ok) { CONFIG = await r.json(); log('info', `config: ${url}`); break; } } catch {}
+    }
+    CONFIG = CONFIG || {};
+  }
+  /** v-5.2.0 environments: `config["v-5.2.0"].environments`, or derived from the v-5.4.0 block (thingsboardUrl → tbBaseUrl). */
+  function environments() {
+    const own = CONFIG['v-5.2.0'] && CONFIG['v-5.2.0'].environments;
+    if (own) return own;
+    const out = {};
+    Object.entries(CONFIG.environments || {}).forEach(([name, e]) => {
+      const s = e.settings || {};
+      out[name] = { settings: { customerTB_ID: s.customerTB_ID || '', tbBaseUrl: s.thingsboardUrl || s.tbBaseUrl || '', dataApiHost: s.dataApiHost || '',
+        gcdrApiBaseUrl: s.gcdrApiBaseUrl || '', alarmsApiBaseUrl: s.alarmsApiBaseUrl || '', debugMode: !!s.debugMode, domainsEnabled: s.domainsEnabled } };
+    });
+    return out;
+  }
+
+  /* ---------- MAIN_VIEW settingsSchema → cockpit form (same rendering as ThingsBoard "Settings") ---------- */
+  let MAIN_SCHEMA = null, OVERRIDES = {};
+  const flatten = (o, p = '', out = {}) => { Object.entries(o || {}).forEach(([k, v]) => { const key = p ? `${p}.${k}` : k; if (v && typeof v === 'object' && !Array.isArray(v)) flatten(v, key, out); else out[key] = v; }); return out; };
+  const assignPath = (obj, path, val) => { const parts = path.split('.'); let n = obj; for (let i = 0; i < parts.length - 1; i++) n = (n[parts[i]] ||= {}); n[parts[parts.length - 1]] = val; };
+  function schemaProp(schema, path) { const parts = path.split('.'); let n = schema.schema.properties[parts[0]]; for (let i = 1; i < parts.length && n; i++) n = n.properties && n.properties[parts[i]]; return n || {}; }
+  /** Defaults declared in a settingsSchema (json-schema `default`, nested objects included). */
+  function schemaDefaults(schema) {
+    const walk = (props) => { const out = {}; Object.entries(props || {}).forEach(([k, p]) => { if (p && p.default !== undefined) out[k] = JSON.parse(JSON.stringify(p.default)); else if (p && p.type === 'object' && p.properties) out[k] = walk(p.properties); }); return out; };
+    return schema && schema.schema ? walk(schema.schema.properties) : {};
+  }
+  function renderField(key) {
+    const p = schemaProp(MAIN_SCHEMA, key);
+    const def = key in OVERRIDES ? OVERRIDES[key] : (p.default ?? '');
+    const wrap = document.createElement('div');
+    if (p.type === 'boolean') {
+      wrap.className = 'sc-checkbox';
+      wrap.innerHTML = `<input type="checkbox" id="f_${key}" data-setkey="${key}" data-kind="boolean" ${def ? 'checked' : ''}/><label for="f_${key}" style="margin:0">${p.title || key}</label>`;
+      return wrap;
+    }
+    const kind = p.type === 'number' ? 'number' : p.type === 'array' ? 'array' : 'string';
+    const val = kind === 'array' ? (Array.isArray(def) ? def.join(', ') : '') : def;
+    wrap.innerHTML = `<label for="f_${key}">${p.title || key}</label>` + (Array.isArray(p.enum)
+      ? `<select id="f_${key}" data-setkey="${key}" data-kind="string">${p.enum.map((o) => `<option ${String(o) === String(def) ? 'selected' : ''}>${o}</option>`).join('')}</select>`
+      : `<input id="f_${key}" data-setkey="${key}" data-kind="${kind}" type="${kind === 'number' ? 'number' : 'text'}" value="${String(val ?? '').replace(/"/g, '&quot;')}"/>`);
+    return wrap;
+  }
+  function renderForm() {
+    const root = document.getElementById('sc-fields');
+    root.innerHTML = '';
+    if (!MAIN_SCHEMA) return;
+    const keys = new Set();
+    const add = (item, parent) => {
+      if (typeof item === 'string') { keys.add(item); parent.appendChild(renderField(item)); return; }
+      if (item.type === 'fieldset' || Array.isArray(item.items)) {
+        const fs = document.createElement('fieldset'); fs.className = 'collapsed';
+        fs.innerHTML = `<legend>▸ ${item.title || ''}</legend><div class="sc-fs-body"></div>`;
+        fs.querySelector('legend').onclick = () => { const c = fs.classList.toggle('collapsed'); fs.querySelector('legend').textContent = `${c ? '▸' : '▾'} ${item.title || ''}`; };
+        (item.items || []).forEach((s) => add(s, fs.querySelector('.sc-fs-body')));
+        parent.appendChild(fs); return;
+      }
+      if (item.key) { keys.add(item.key); parent.appendChild(renderField(item.key)); }
+    };
+    (MAIN_SCHEMA.form || Object.keys(MAIN_SCHEMA.schema.properties)).forEach((it) => add(it, root));
+    if (!keys.has('tbBaseUrl')) { OVERRIDES.tbBaseUrl = OVERRIDES.tbBaseUrl || ''; const w = document.createElement('div');
+      w.innerHTML = `<label for="f_tbBaseUrl">tbBaseUrl (harness)</label><input id="f_tbBaseUrl" data-setkey="tbBaseUrl" data-kind="string" value="${OVERRIDES.tbBaseUrl}"/>`; root.prepend(w); }
+  }
+  function readMainSettings() {
+    const env = environments()[ENV] || {};
+    const s = Object.assign(schemaDefaults(MAIN_SCHEMA), JSON.parse(JSON.stringify(env.settings || {})));
+    document.querySelectorAll('#sc-fields [data-setkey]').forEach((el) => {
+      const k = el.dataset.kind;
+      const v = k === 'boolean' ? el.checked : k === 'number' ? Number(el.value) : k === 'array' ? el.value.split(',').map((x) => x.trim()).filter(Boolean) : el.value.trim();
+      assignPath(s, el.dataset.setkey, v);
+    });
+    return s;
+  }
+  function applyEnv(name) {
+    ENV = name; try { localStorage.setItem('sc-env-v520', name); } catch {}
+    OVERRIDES = flatten((environments()[name] || {}).settings || {});
+    const tab = document.getElementById('sc-envtab');
+    tab.innerHTML = '';
+    Object.keys(environments()).forEach((n) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = n; if (n === ENV) b.className = 'active'; b.onclick = () => applyEnv(n); tab.appendChild(b); });
+    renderForm();
+  }
+  const tbBase = () => ((document.getElementById('f_tbBaseUrl') || {}).value || OVERRIDES.tbBaseUrl || 'https://dashboard.myio-bas.com').trim().replace(/\/$/, '');
+
+  /* ---------- ThingsBoard runtime emulation: same-origin "/api/…" calls go to tbBaseUrl ---------- */
+  const _fetch = window.fetch.bind(window);
+  window.fetch = (input, init) => (typeof input === 'string' && input.startsWith('/api/') ? _fetch(tbBase() + input, init) : _fetch(input, init));
+  const _xhrOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url, ...rest) { return _xhrOpen.call(this, method, typeof url === 'string' && url.startsWith('/api/') ? tbBase() + url : url, ...rest); };
+
+  const jwt = () => localStorage.getItem('jwt_token') || '';
+  async function tbApi(path, body) {
+    const r = await _fetch(tbBase() + path, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', 'X-Authorization': 'Bearer ' + jwt() }, body: body ? JSON.stringify(body) : undefined });
+    if (!r.ok) throw new Error(`${path} → HTTP ${r.status}`);
+    return r.json();
+  }
+
+  /* ---------- entity aliases → datasource rows (ctx.data shape) ---------- */
+  const domainOfType = (t) => { const u = String(t || '').toUpperCase(); return u.includes('HIDROMETRO') ? 'water' : u.includes('TERMOSTATO') ? 'temperature' : 'energy'; };
+  let DEVICE_TYPES = null;
+  async function deviceTypes() {
+    if (!DEVICE_TYPES) DEVICE_TYPES = (await tbApi('/api/device/types')).map((x) => x.type || x);
+    return DEVICE_TYPES;
+  }
+  function keyList(keys) {
+    const seen = new Map();
+    (keys || []).forEach((k) => (typeof k === 'string' ? LAYOUT.keySets[k] || [] : k).forEach(([name, type]) => seen.set(name, type)));
+    return [...seen].map(([name, type]) => ({ name, type }));
+  }
+  /** One entitiesQuery per alias (all pages); returns rows {datasource, dataKey, data:[[ts,value]]}. */
+  async function resolveAlias(aliasName, keys, customerId) {
+    const spec = LAYOUT.aliases[aliasName];
+    if (!spec) throw new Error(`alias desconhecido: ${aliasName}`);
+    let entityFilter;
+    if (spec.kind === 'customer') entityFilter = { type: 'singleEntity', singleEntity: { entityType: 'CUSTOMER', id: customerId } };
+    else {
+      const types = spec.kind === 'devicesByTypes' ? spec.deviceTypes : (await deviceTypes()).filter((t) => domainOfType(t) === spec.domain);
+      if (!types.length) return [];
+      entityFilter = { type: 'deviceSearchQuery', rootEntity: { entityType: 'CUSTOMER', id: customerId }, direction: 'FROM', maxLevel: 8, fetchLastLevelOnly: false, relationType: null, deviceTypes: types };
+    }
+    const ks = keyList(keys);
+    const entityFields = [{ type: 'ENTITY_FIELD', key: 'name' }, { type: 'ENTITY_FIELD', key: 'label' }, ...ks.filter((k) => k.type === 'ENTITY_FIELD').map((k) => ({ type: 'ENTITY_FIELD', key: k.name }))];
+    const latestValues = ks.filter((k) => k.type !== 'ENTITY_FIELD').map((k) => ({ type: k.type, key: k.name }));
+    const rows = [];
+    for (let page = 0; ; page++) {
+      const res = await tbApi('/api/entitiesQuery/find', { entityFilter, entityFields, latestValues, pageLink: { page, pageSize: 1000, sortOrder: { key: { type: 'ENTITY_FIELD', key: 'name' }, direction: 'ASC' } } });
+      for (const e of res.data || []) {
+        const ef = e.latest.ENTITY_FIELD || {};
+        const ds = { type: 'entity', aliasName, name: aliasName, entityId: e.entityId.id, entityType: e.entityId.entityType, entityName: ef.name && ef.name.value, entityLabel: (ef.label && ef.label.value) || (ef.name && ef.name.value) };
+        for (const k of ks) {
+          const bucket = k.type === 'ENTITY_FIELD' ? ef : (e.latest[k.type] || {});
+          const v = bucket[k.name];
+          if (!v || v.value === undefined || v.value === null || v.value === '') continue;
+          rows.push({ datasource: ds, dataKey: { name: k.name, type: k.type === 'TIME_SERIES' ? 'timeseries' : k.type === 'ATTRIBUTE' ? 'attribute' : 'entityField', label: k.name }, data: [[Number(v.ts) || Date.now(), v.value]] });
+        }
+      }
+      if (!res.hasNext) break;
+    }
+    return rows;
+  }
+  async function buildDatasources(def, customerId) {
+    const rows = [];
+    const datasources = [];
+    for (const ds of def.datasources || []) {
+      const r = await resolveAlias(ds.alias, ds.keys, customerId);
+      rows.push(...r);
+      datasources.push({ type: 'entity', aliasName: ds.alias, name: ds.alias, dataKeys: keyList(ds.keys).map((k) => ({ name: k.name, type: k.type.toLowerCase(), label: k.name })) });
+    }
+    return { rows, datasources };
+  }
+
+  /* ---------- Angular-lite: the subset of TB/Angular template syntax used by widget templates ----------
+   * *ngFor="let x of list; let i = index", {{ expr }}, (event)="handler($event, …)", [class.c]="expr", [attr.a]="expr".
+   * Expressions are evaluated against ctx.$scope (as Angular does for TB widgets). ngFor blocks re-render on ctx.detectChanges(). */
+  const evalIn = (expr, scope, locals) => { try { return new Function('scope', 'locals', `with(scope){with(locals){return (${expr});}}`)(scope, locals); } catch (e) { return undefined; } };
+  const interp = (text, scope, locals) => text.replace(/\{\{([^}]+)\}\}/g, (_, ex) => { const v = evalIn(ex.trim(), scope, locals); return v == null ? '' : String(v); });
+  function bindElement(el, scope, locals) {
+    [...el.attributes].forEach((a) => {
+      if (a.name.startsWith('(') && a.name.endsWith(')')) {
+        const evName = a.name.slice(1, -1), ex = a.value;
+        el.addEventListener(evName, ($event) => evalIn(ex, scope, Object.assign({ $event }, locals)));
+        el.removeAttribute(a.name);
+      } else if (a.name.startsWith('[class.')) {
+        el.classList.toggle(a.name.slice(7, -1), !!evalIn(a.value, scope, locals)); el.removeAttribute(a.name);
+      } else if (a.name.startsWith('[attr.')) {
+        const v = evalIn(a.value, scope, locals); if (v != null) el.setAttribute(a.name.slice(6, -1), v); el.removeAttribute(a.name);
+      } else if (a.name.startsWith('[') || a.name.startsWith('*')) {
+        el.removeAttribute(a.name);
+      } else if (a.value.includes('{{')) {
+        el.setAttribute(a.name, interp(a.value, scope, locals));
+      }
+    });
+  }
+  function bindTree(root, scope, locals) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+    const els = [], texts = [];
+    for (let n = walker.currentNode; n; n = walker.nextNode()) (n.nodeType === 1 ? els : texts).push(n);
+    texts.forEach((t) => { if (t.nodeValue.includes('{{')) t.nodeValue = interp(t.nodeValue, scope, locals); });
+    els.forEach((el) => bindElement(el, scope, locals));
+  }
+  /** Prepares a template: ngFor elements become re-renderable blocks; the rest is bound once. */
+  function compileTemplate(container, scope) {
+    const blocks = [];
+    container.querySelectorAll('[\\*ngFor]').forEach((el) => {
+      const m = /let\s+(\w+)\s+of\s+([^;]+)(?:;\s*let\s+(\w+)\s*=\s*index)?/.exec(el.getAttribute('*ngFor'));
+      const anchor = document.createComment('ngFor');
+      el.replaceWith(anchor);
+      el.removeAttribute('*ngFor');
+      blocks.push({ anchor, tpl: el, item: m[1], listExpr: m[2].trim(), index: m[3], nodes: [] });
+    });
+    bindTree(container, scope, {});
+    const render = () => blocks.forEach((b) => {
+      b.nodes.forEach((n) => n.remove());
+      const list = evalIn(b.listExpr, scope, {}) || [];
+      b.nodes = Array.from(list, (item, i) => {
+        const node = b.tpl.cloneNode(true);
+        bindTree(node, scope, { [b.item]: item, ...(b.index ? { [b.index]: i } : {}) });
+        return node;
+      });
+      b.anchor.after(...b.nodes);
+    });
+    render();
+    return render;
+  }
+
+  /* ---------- widget mounting ---------- */
+  const SOURCES = {};   // widget → {js, html, css, schema}
+  const INSTANCES = []; // {name, self, ctx, host, error}
+  async function widgetSources(name) {
+    if (SOURCES[name]) return SOURCES[name];
+    const base = LAYOUT.widgetRoot + name + '/';
+    const text = (f) => _fetch(`${base}${f}?${bust()}`).then((r) => (r.ok ? r.text() : ''));
+    const [js, html, css, schemaText] = await Promise.all([text('controller.js'), text('template.html'), text('styles.css'), text('settingsSchema.json')]);
+    let schema = null; try { schema = schemaText.trim() ? JSON.parse(schemaText) : null; } catch {}
+    if (css && !document.querySelector(`style[data-widget="${name}"]`)) {
+      const st = document.createElement('style'); st.dataset.widget = name; st.textContent = scopeCss(css, `.sc-css-${name}`); document.head.appendChild(st);
+    }
+    return (SOURCES[name] = { js, html, css, schema });
+  }
+
+  /* ThingsBoard namespaces every widget's CSS under a widget-specific class, so a rule only matches inside
+   * that widget (an element the controller moves to <body> is no longer styled by it). Same here. */
+  function splitSelectors(sel) {
+    const out = []; let depth = 0, cur = '';
+    for (const ch of sel) { if (ch === '(' || ch === '[') depth++; if (ch === ')' || ch === ']') depth--; if (ch === ',' && depth === 0) { out.push(cur); cur = ''; } else cur += ch; }
+    out.push(cur);
+    return out.map((s) => s.trim()).filter(Boolean);
+  }
+  function scopeSelector(sel, scope) {
+    if (/^(:root|html|body)\b/.test(sel)) return sel.replace(/^(:root|html|body)/, scope);
+    return `${scope} ${sel}`;
+  }
+  function scopeRules(rules, scope) {
+    return Array.from(rules, (r) => {
+      if (r.type === CSSRule.STYLE_RULE) return `${splitSelectors(r.selectorText).map((s) => scopeSelector(s, scope)).join(', ')} { ${r.style.cssText} }`;
+      if (r.type === CSSRule.MEDIA_RULE) return `@media ${r.conditionText} { ${scopeRules(r.cssRules, scope)} }`;
+      if (r.type === CSSRule.SUPPORTS_RULE) return `@supports ${r.conditionText} { ${scopeRules(r.cssRules, scope)} }`;
+      return r.cssText;   // @keyframes, @font-face, @import…
+    }).join('\n');
+  }
+  function scopeCss(css, scope) {
+    try { const sheet = new CSSStyleSheet(); sheet.replaceSync(css.replace(/@import[^;]+;/g, '')); return scopeRules(sheet.cssRules, scope); }
+    catch (e) { log('warn', `CSS sem escopo (${e.message})`); return css; }
+  }
+  function timeWindow() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const end = now.getTime();
+    return { start, end };
+  }
+  /** Builds the TB widget context for one instance. */
+  function buildCtx(name, container, settings, data, scope) {
+    const tw = timeWindow();
+    const ctx = {
+      $container: window.jQuery(container),
+      $scope: scope,
+      settings,
+      data: data.rows,
+      datasources: data.datasources,
+      widget: { id: `sc-${name}-${INSTANCES.length}` },
+      dashboard: { title: 'Showcase v-5.2.0' },   // no openDashboardState → MENU uses its show/hide fallback (RFC-0053)
+      timeWindow: { timezone: 'America/Sao_Paulo', minTime: tw.start, maxTime: tw.end },
+      defaultSubscription: { data: data.rows, datasources: data.datasources, subscriptionTimewindow: { startTs: tw.start, endTs: tw.end, fixedWindow: { startTimeMs: tw.start, endTimeMs: tw.end } } },
+      detectChanges: () => {},
+      get width() { return container.clientWidth; },
+      get height() { return container.clientHeight; },
+    };
+    scope.startTs = tw.start; scope.endTs = tw.end;
+    return ctx;
+  }
+  async function mountWidget(name, host, def, sharedSettings, customerId) {
+    const inst = { name, label: (def.settings && def.settings.labelWidget) || name, host, self: {}, ctx: null, error: null };
+    INSTANCES.push(inst);
+    renderWidgetList();
+    try {
+      const src = await widgetSources(name);
+      const wc = document.createElement('div'); wc.className = `sc-wc tb-widget-container sc-css-${name}`;
+      host.appendChild(wc);
+      const scope = {};
+      wc.innerHTML = src.html || '';
+      const settings = Object.assign(schemaDefaults(src.schema), def.settings || {}, sharedSettings, name === 'MAIN_VIEW' ? readMainSettings() : {});
+      if (name === 'MENU' && !(settings.links && settings.links.length)) settings.links = JSON.parse(JSON.stringify(LAYOUT.menuLinks));
+      const data = await buildDatasources(def, customerId);
+      inst.ctx = buildCtx(name, wc, settings, data, scope);
+      inst.self.ctx = inst.ctx;
+      if (name === 'MAIN_VIEW') replaceDashboardStates(wc);
+      // ThingsBoard runs a widget controller as a function body with `self` (and `ctx`) in scope
+      new Function('self', 'ctx', `${src.js}\n//# sourceURL=v-5.2.0/${name}/controller.js#${INSTANCES.length}`).call(inst.self, inst.self, inst.ctx);
+      if (/\*ngFor|\(\w+\)=|\{\{/.test(src.html)) {
+        const rerender = compileTemplate(wc, scope);
+        inst.ctx.detectChanges = rerender;
+      }
+      if (typeof inst.self.onInit === 'function') {
+        const r = inst.self.onInit();
+        if (r && typeof r.then === 'function') r.catch((e) => fail(inst, e));
+        if (inst.ctx.detectChanges) setTimeout(() => inst.ctx.detectChanges(), 0);
+      }
+      log('info', `${name}${def.settings && def.settings.labelWidget ? ' · ' + def.settings.labelWidget : ''}: onInit (${data.rows.length} linhas de datasource)`);
+    } catch (e) { fail(inst, e); }
+    renderWidgetList();
+    return inst;
+  }
+  function fail(inst, e) {
+    inst.error = (e && (e.message || e)) || 'erro';
+    inst.host.classList.add('sc-failed');
+    inst.host.dataset.error = `${inst.name}: ${inst.error}`;
+    log('err', `${inst.name}: ${inst.error}`);
+    renderWidgetList();
+  }
+  function renderWidgetList() {
+    document.getElementById('sc-widgets').innerHTML = INSTANCES.length
+      ? INSTANCES.map((i) => `<div class="${i.error ? 'err' : i.ctx ? 'ok' : 'wait'}">${i.error ? '✖' : i.ctx ? '●' : '…'} ${i.name}${i.label !== i.name ? ' · ' + i.label : ''}${i.error ? ' — ' + i.error : ''}</div>`).join('')
+      : '—';
+  }
+
+  /** MAIN_VIEW's template hosts the other dashboard states as <tb-dashboard-state stateId="…">: give them real hosts. */
+  const STATE_HOSTS = {};
+  function replaceDashboardStates(root) {
+    root.querySelectorAll('tb-dashboard-state').forEach((el) => {
+      const id = el.getAttribute('stateid') || el.getAttribute('stateId');
+      // keep the element MAIN_VIEW's CSS styles (.tb-child) and put the state's widget grid inside it,
+      // like <tb-dashboard-state> renders its own dashboard layout
+      const host = document.createElement('div');
+      host.className = el.getAttribute('class') || 'tb-child';
+      host.dataset.scState = id;
+      const grid = document.createElement('div');
+      grid.className = 'sc-state';
+      grid.style.flex = '1 1 auto';
+      host.appendChild(grid);
+      el.replaceWith(host);
+      STATE_HOSTS[id] = grid;
+    });
+  }
+  /** Lays out a state like the TB grid layout (columns, row/col/sizeX/sizeY). */
+  function layoutState(host, state) {
+    const rows = Math.max(1, ...state.widgets.map((w) => w.pos[0] + w.pos[3]));
+    host.style.gridTemplateColumns = `repeat(${state.columns}, minmax(0, 1fr))`;
+    host.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
+    host.style.gap = state.widgets.length > 1 ? '10px' : '0';
+    return state.widgets.map((w) => {
+      const cell = document.createElement('div');
+      cell.className = 'sc-widget';
+      cell.style.gridColumn = `${w.pos[1] + 1} / span ${w.pos[2]}`;
+      cell.style.gridRow = `${w.pos[0] + 1} / span ${w.pos[3]}`;
+      host.appendChild(cell);
+      return { cell, def: w };
+    });
+  }
+
+  /* ---------- mount / reload / destroy ---------- */
+  let MOUNTED = false;
+  async function mountDashboard() {
+    if (MOUNTED) { log('warn', 'já montado — use Desmontar antes'); return; }
+    if (typeof MyIOLibrary === 'undefined') { log('err', 'MyIOLibrary (UMD) não carregou — rode npm run build'); return; }
+    if (!jwt()) { log('err', 'faça o login no ThingsBoard primeiro'); return; }
+    const main = readMainSettings();
+    if (!main.customerTB_ID) { log('err', 'informe customerTB_ID'); return; }
+    MOUNTED = true;
+    document.getElementById('sc-run').disabled = true;
+    const shared = {};
+    (LAYOUT.sharedSettings || []).forEach((k) => { shared[k] = k === 'tbBaseUrl' ? tbBase() : main[k]; });
+    const stage = document.getElementById('sc-stage');
+    stage.innerHTML = '';
+    // 1) MAIN_VIEW first: its evaluation creates MyIOUtils / MyIOOrchestrator that every other widget reads
+    const [home] = layoutState(stage, Object.assign({}, LAYOUT.states[LAYOUT.rootState], { columns: 24 }));
+    stage.style.display = 'grid';
+    stage.style.gridTemplateColumns = '1fr'; stage.style.gridTemplateRows = '1fr';
+    home.cell.style.gridColumn = '1'; home.cell.style.gridRow = '1';
+    await mountWidget(home.def.widget, home.cell, home.def, shared, main.customerTB_ID);
+    // 2) the states hosted inside MAIN_VIEW's template
+    for (const [id, host] of Object.entries(STATE_HOSTS)) {
+      const state = LAYOUT.states[id];
+      if (!state) { log('warn', `estado ${id} sem definição no layout`); continue; }
+      for (const { cell, def } of layoutState(host, state)) await mountWidget(def.widget, cell, def, shared, main.customerTB_ID);
+    }
+    // 3) first data delivery, as the TB subscription does after init
+    setTimeout(() => dataUpdated(false), 300);
+    window.addEventListener('resize', onResize);
+  }
+  function onResize() { INSTANCES.forEach((i) => { try { i.self.onResize && i.self.onResize(); } catch (e) { log('err', `${i.name} onResize: ${e.message}`); } }); }
+  async function dataUpdated(refetch) {
+    const main = readMainSettings();
+    for (const i of INSTANCES) {
+      if (!i.ctx || i.error) continue;
+      try {
+        if (refetch) {
+          const def = findDef(i);
+          if (def) { const d = await buildDatasources(def, main.customerTB_ID); i.ctx.data = d.rows; i.ctx.defaultSubscription.data = d.rows; }
+        }
+        if (typeof i.self.onDataUpdated === 'function') i.self.onDataUpdated();
+      } catch (e) { log('err', `${i.name} onDataUpdated: ${e.message}`); }
+    }
+    log('info', `onDataUpdated${refetch ? ' (dados recarregados)' : ''}`);
+  }
+  function findDef(inst) {
+    for (const st of Object.values(LAYOUT.states)) for (const w of st.widgets) if (inst.host.style.gridColumn && w.widget === inst.name && `${w.pos[1] + 1} / span ${w.pos[2]}` === inst.host.style.gridColumn && `${w.pos[0] + 1} / span ${w.pos[3]}` === inst.host.style.gridRow) return w;
+    return LAYOUT.states[LAYOUT.rootState].widgets.find((w) => w.widget === inst.name);
+  }
+  function destroyDashboard() {
+    INSTANCES.slice().reverse().forEach((i) => { try { i.self.onDestroy && i.self.onDestroy(); } catch (e) { log('err', `${i.name} onDestroy: ${e.message}`); } });
+    window.removeEventListener('resize', onResize);
+    INSTANCES.length = 0;
+    Object.keys(STATE_HOSTS).forEach((k) => delete STATE_HOSTS[k]);
+    document.getElementById('sc-stage').innerHTML = '';
+    document.getElementById('sc-run').disabled = false;
+    MOUNTED = false;
+    renderWidgetList();
+    log('info', 'onDestroy chamado em todos os widgets (recarregue a página para limpar os globals window.*)');
+  }
+
+  /* ---------- login ---------- */
+  const decodeJwt = (t) => { try { return JSON.parse(atob(t.split('.')[1])); } catch { return null; } };
+  function updateAuth() {
+    const el = document.getElementById('sc-auth');
+    const p = decodeJwt(jwt());
+    if (p && p.exp > Date.now() / 1000) {
+      el.className = 'ok';
+      el.innerHTML = `✅ ${p.sub} (${(p.scopes || [])[0] || ''}) · <a href="#" id="sc-logout" style="color:#9ecbff">sair</a>`;
+      document.getElementById('sc-logout').onclick = (e) => { e.preventDefault(); localStorage.removeItem('jwt_token'); updateAuth(); };
+    } else { el.className = 'no'; el.textContent = jwt() ? '⚠️ JWT expirado — refaça o login' : '🔒 sem JWT — faça o login'; }
+  }
+  const modal = document.getElementById('sc-login-modal');
+  document.getElementById('sc-login').onclick = () => { modal.classList.add('open'); document.getElementById('sc-login-user').focus(); };
+  document.getElementById('sc-login-close').onclick = () => modal.classList.remove('open');
+  document.getElementById('sc-login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('sc-login-err');
+    err.style.display = 'none';
+    try {
+      const r = await _fetch(`${tbBase()}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: document.getElementById('sc-login-user').value.trim(), password: document.getElementById('sc-login-pass').value }) });
+      if (!r.ok) throw new Error(r.status === 401 ? 'Usuário ou senha inválidos' : `HTTP ${r.status}`);
+      const d = await r.json();
+      localStorage.setItem('jwt_token', d.token);
+      if (d.refreshToken) localStorage.setItem('refresh_token', d.refreshToken);
+      modal.classList.remove('open'); updateAuth(); log('info', `login OK (${tbBase()})`);
+    } catch (ex) { err.textContent = ex.message; err.style.display = 'block'; }
+  });
+
+  /* ---------- wiring ---------- */
+  document.getElementById('sc-run').onclick = () => mountDashboard().catch((e) => log('err', 'montagem: ' + e.message));
+  document.getElementById('sc-data').onclick = () => dataUpdated(true);
+  document.getElementById('sc-destroy').onclick = destroyDashboard;
+  document.getElementById('sc-toggle').onclick = () => { const c = document.body.classList.toggle('console-collapsed'); document.getElementById('sc-toggle').textContent = c ? '⟨' : '⟩'; setTimeout(onResize, 250); };
+  document.getElementById('sc-log-toggle').onclick = () => { const l = document.getElementById('sc-log'); l.hidden = !l.hidden; };
+  document.querySelector('#sc-widgets-fs legend').onclick = () => document.getElementById('sc-widgets-fs').classList.toggle('collapsed');
+
+  window.addEventListener('load', async () => {
+    try { LAYOUT = await (await _fetch(`${LAYOUT_URL}?${bust()}`)).json(); } catch (e) { log('err', 'layout: ' + e.message); return; }
+    await loadConfig();
+    try { const r = await _fetch(`${LAYOUT.widgetRoot}MAIN_VIEW/settingsSchema.json?${bust()}`); MAIN_SCHEMA = await r.json(); } catch (e) { log('err', 'settingsSchema MAIN_VIEW: ' + e.message); }
+    const envs = Object.keys(environments());
+    let saved = ''; try { saved = localStorage.getItem('sc-env-v520') || ''; } catch {}
+    applyEnv(envs.includes(saved) ? saved : (CONFIG['v-5.2.0'] && CONFIG['v-5.2.0'].defaultEnv) || CONFIG.defaultEnv || envs[0] || '');
+    updateAuth();
+    log('info', typeof MyIOLibrary !== 'undefined' ? `MyIOLibrary ${MyIOLibrary.version || ''} carregada` : 'MyIOLibrary NÃO carregada — rode npm run build');
+  });
+  </script>
+</body>
+</html>

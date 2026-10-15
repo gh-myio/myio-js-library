@@ -22,6 +22,122 @@ const baseParams: DeviceReportModalParams = {
   theme: { '--myio-brand-700': '#123456' },
 };
 
+describe('DeviceReportModal — temperatura', () => {
+  const tempParams: DeviceReportModalParams = { ...baseParams, domain: 'temperature' };
+
+  it('1d: média das leituras do dia (não soma) e dia sem leitura = noData (não 0 °C)', () => {
+    const modal = new DeviceReportModal(tempParams) as any;
+    const api = [
+      {
+        deviceId: 'dev-1',
+        consumption: [
+          { timestamp: '2026-10-02T00:00:00-03:00', value: 24 },
+          { timestamp: '2026-10-02T00:00:00-03:00', value: 26 },
+          { timestamp: '2026-10-04T00:00:00-03:00', value: 22 },
+        ],
+      },
+    ];
+    const rows = modal.processApiResponse(api, ['2026-10-02', '2026-10-03', '2026-10-04']);
+    expect(rows).toEqual([
+      { date: '2026-10-02', consumption: 25 },
+      { date: '2026-10-03', consumption: 0, noData: true },
+      { date: '2026-10-04', consumption: 22 },
+    ]);
+
+    modal.data = rows;
+    const kpis = modal.computeKpis();
+    const byLabel = Object.fromEntries(kpis.map((k: any) => [k.label, k]));
+    expect(byLabel['Média (°C)'].value).toBe('23,50 °C'); // (25 + 22) / 2 — o dia vazio não entra
+    expect(byLabel['Dia com Menor Temperatura (°C)'].value).toBe('22,00');
+    expect(byLabel['Dias sem Leitura'].value).toBe('1');
+  });
+
+  it('painel direito: ranking dos dias mais quentes (1d) com dias sem leitura no fim', () => {
+    const modal = new DeviceReportModal({ ...tempParams, temperatureIdealRange: { min: 23, max: 25.5 } }) as any;
+    modal.data = [
+      { date: '2026-10-01', consumption: 24.49 },
+      { date: '2026-10-02', consumption: 26.1 },
+      { date: '2026-10-03', consumption: 0, noData: true },
+      { date: '2026-10-04', consumption: 22.5 },
+    ];
+    const el = document.createElement('div');
+    modal.renderTemperatureRanking(el);
+    expect(el.textContent).toContain('Dias mais quentes (média do dia)');
+    expect(el.textContent).toContain('faixa ideal 23,00–25,50 °C');
+    const labels = [...el.querySelectorAll('span[title]')].map((s) => s.getAttribute('title'));
+    expect(labels).toEqual(['02/10/2026', '01/10/2026', '04/10/2026', '03/10/2026']);
+    expect(el.textContent).toContain('Sem leitura');
+  });
+
+  it('painel direito em 1h: top 24 horas mais quentes', () => {
+    const modal = new DeviceReportModal({ ...tempParams, granularity: '1h' }) as any;
+    modal.data = Array.from({ length: 30 }, (_, i) => ({
+      date: new Date(Date.UTC(2026, 9, 1, i)).toISOString(),
+      consumption: 20 + i * 0.1,
+    }));
+    const el = document.createElement('div');
+    modal.renderTemperatureRanking(el);
+    expect(el.textContent).toContain('Horas mais quentes (top 24)');
+    expect(el.querySelectorAll('span[title]').length).toBe(24);
+  });
+
+  it('1h: "Média por Dia" = média das médias diárias (não soma ÷ dias) e sem "Média por Hora"', () => {
+    const modal = new DeviceReportModal({ ...tempParams, granularity: '1h' }) as any;
+    // dia 1: 24 e 26 (média 25); dia 2: 20, 22, 24 (média 22)
+    modal.data = [
+      { date: '2026-10-01T12:00:00.000Z', consumption: 24 },
+      { date: '2026-10-01T13:00:00.000Z', consumption: 26 },
+      { date: '2026-10-02T12:00:00.000Z', consumption: 20 },
+      { date: '2026-10-02T13:00:00.000Z', consumption: 22 },
+      { date: '2026-10-02T14:00:00.000Z', consumption: 24 },
+    ];
+    const byLabel = Object.fromEntries(modal.computeKpis().map((k: any) => [k.label, k]));
+    expect(byLabel['Média (°C)'].value).toBe('23,20 °C'); // 116 / 5
+    expect(byLabel['Média por Dia (°C)'].value).toBe('23,50'); // (25 + 22) / 2 — antes: 116 / 2 = 58
+    expect(byLabel['Média por Hora (°C)']).toBeUndefined();
+  });
+
+  it('o fetcher customizado recebe a granularidade selecionada', async () => {
+    const calls: any[] = [];
+    const modal = new DeviceReportModal({
+      ...tempParams,
+      granularity: '1h',
+      fetcher: async (args: any) => {
+        calls.push(args);
+        return [];
+      },
+    }) as any;
+    await modal.energyFetcher({ baseUrl: 'x', ingestionId: 'dev-1', startISO: 'a', endISO: 'b', granularity: modal.granularity });
+    expect(calls[0].granularity).toBe('1h');
+  });
+});
+
+describe('DeviceReportModal — header', () => {
+  it('mostra o nome do device (sutil) com botão copiar, sem customer (já está no footer)', () => {
+    const modal = new DeviceReportModal({ ...baseParams, deviceName: 'Temperatura <Loteria> L2' });
+    const html: string = (modal as any).buildHeaderTitleHTML();
+    expect(html.startsWith('Relatório - SCM123 - Loja Teste')).toBe(true);
+    expect(html).toContain('class="myio-dr-devname"');
+    expect(html).toContain('Temperatura &lt;Loteria&gt; L2'); // escapado (título vai por innerHTML)
+    expect(html).toContain('class="myio-dr-copy" data-copy="Temperatura &lt;Loteria&gt; L2"');
+    expect(html).not.toContain('Shopping Teste');
+  });
+
+  it('temperatura com offset ≠ 0 mostra o offset sutil no header; offset 0 não mostra', () => {
+    const withOff = new DeviceReportModal({ ...baseParams, domain: 'temperature', temperatureOffset: -2 }) as any;
+    expect(withOff.buildHeaderTitleHTML()).toContain('offset −2 °C');
+    const noOff = new DeviceReportModal({ ...baseParams, domain: 'temperature', temperatureOffset: 0 }) as any;
+    expect(noOff.buildHeaderTitleHTML()).not.toContain('offset');
+    const energy = new DeviceReportModal({ ...baseParams, temperatureOffset: -2 }) as any;
+    expect(energy.buildHeaderTitleHTML()).not.toContain('offset');
+  });
+
+  it('sem deviceName: só o título base', () => {
+    const modal = new DeviceReportModal(baseParams);
+    expect((modal as any).buildHeaderTitleHTML()).toBe('Relatório - SCM123 - Loja Teste');
+  });
+});
+
 describe('DeviceReportModal', () => {
   it('defaults granularity to 1d', () => {
     const modal = new DeviceReportModal(baseParams);
@@ -77,7 +193,30 @@ describe('DeviceReportModal', () => {
       },
     ];
     const rows = (modal as any).processApiResponse(api, ['2026-07-01']);
-    expect(rows).toEqual([{ date: '2026-07-01T10:00:00Z', consumption: 1.5 }]);
+    expect(rows).toEqual([{ date: '2026-07-01T10:00:00.000Z', consumption: 1.5 }]);
+  });
+
+  it('1h consolida em HORA FECHADA: soma (consumo) e média (temperatura) dos blocos sub-horários', () => {
+    const api = [
+      {
+        consumption: [
+          { timestamp: '2026-07-01T10:00:00Z', value: 1 },
+          { timestamp: '2026-07-01T10:15:00Z', value: 2 },
+          { timestamp: '2026-07-01T10:45:00Z', value: 3 },
+          { timestamp: '2026-07-01T11:30:00Z', value: 4 },
+        ],
+      },
+    ];
+    const energy = new DeviceReportModal({ ...baseParams, granularity: '1h' }) as any;
+    expect(energy.processApiResponse(api, ['2026-07-01'])).toEqual([
+      { date: '2026-07-01T10:00:00.000Z', consumption: 6 },
+      { date: '2026-07-01T11:00:00.000Z', consumption: 4 },
+    ]);
+    const temp = new DeviceReportModal({ ...baseParams, domain: 'temperature', granularity: '1h' }) as any;
+    expect(temp.processApiResponse(api, ['2026-07-01'])).toEqual([
+      { date: '2026-07-01T10:00:00.000Z', consumption: 2 },
+      { date: '2026-07-01T11:00:00.000Z', consumption: 4 },
+    ]);
   });
 
   it('processApiResponse returns [] for empty hourly response (no zero-fill in 1h)', () => {
@@ -171,9 +310,42 @@ describe('DeviceReportModal', () => {
 
   it('exportColumnOptions: nameLabel segue a granularidade e oculta Identificador', () => {
     const m1 = new DeviceReportModal(baseParams);
-    expect((m1 as any).exportColumnOptions()).toEqual({ nameLabel: 'Data', hideIdentifier: true });
+    expect((m1 as any).exportColumnOptions()).toEqual({
+      nameLabel: 'Data',
+      hideIdentifier: true,
+      valueLabel: 'Consumo (kWh)',
+      countLabel: 'dia(s)',
+    });
     const m2 = new DeviceReportModal({ ...baseParams, granularity: '1h' });
-    expect((m2 as any).exportColumnOptions()).toEqual({ nameLabel: 'Data/Hora', hideIdentifier: true });
+    expect((m2 as any).exportColumnOptions()).toEqual({
+      nameLabel: 'Data/Hora',
+      hideIdentifier: true,
+      valueLabel: 'Consumo (kWh)',
+      countLabel: 'hora(s)',
+    });
+  });
+
+  it('exportColumnOptions (temperatura): rótulo da tela, sem %, "Sem leitura" — não mais "Consumo (°C)"', () => {
+    const m = new DeviceReportModal({ ...baseParams, domain: 'temperature' }) as any;
+    expect(m.exportColumnOptions()).toEqual({
+      nameLabel: 'Data',
+      hideIdentifier: true,
+      valueLabel: 'Temperatura (°C)',
+      countLabel: 'dia(s)',
+      hidePerc: true,
+      emptyValueText: 'Sem leitura',
+      valueDecimals: 2,
+    });
+  });
+
+  it('título do export inclui nome do device e offset (temperatura)', () => {
+    const m = new DeviceReportModal({
+      ...baseParams,
+      domain: 'temperature',
+      deviceName: 'TEMP. SCSDITEMST8',
+      temperatureOffset: -2,
+    }) as any;
+    expect(m.resolveExportTitle()).toBe('Relatório - SCM123 - Loja Teste (TEMP. SCSDITEMST8) · offset −2 °C');
   });
 
   it('resolveAccentHex: mapa plano (--myio-brand-700) e theme.accent', () => {

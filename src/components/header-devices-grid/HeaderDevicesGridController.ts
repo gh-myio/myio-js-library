@@ -89,6 +89,7 @@ export class HeaderDevicesGridController implements HeaderDevicesGridInstance {
       total: devices.length,
       consumption: displayValue,
       zeroCount,
+      loading: this.domain !== 'temperature' && devices.some((d) => d.dataLoading),
     });
   }
 

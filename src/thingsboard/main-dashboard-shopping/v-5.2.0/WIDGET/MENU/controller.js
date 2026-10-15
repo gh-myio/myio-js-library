@@ -401,6 +401,21 @@ self.onInit = function () {
     };
   })();
 
+  // RFC-0239: Reports Hub (lib) handle — closed on widget teardown
+  let _reportsHubHandle = null;
+  (function wireReportsHubTeardown() {
+    const oldDestroyReports = self.onDestroy;
+    self.onDestroy = function () {
+      if (typeof oldDestroyReports === 'function') oldDestroyReports();
+      try {
+        _reportsHubHandle?.close();
+      } catch (_) {
+        /* hub already gone */
+      }
+      _reportsHubHandle = null;
+    };
+  })();
+
   // Shared auth headers helper (used by fetchUserInfo and openIntegrationSetupModal)
   function buildAuthHeaders() {
     const token = localStorage.getItem('jwt_token');
@@ -1364,8 +1379,11 @@ self.onInit = function () {
     requestAnimationFrame(() => modal.classList.add('show'));
 
     let selectedDashboard = null;
+    let mddChrome = null;
 
     const closeModal = () => {
+      mddChrome?.destroy();
+      mddChrome = null;
       modal.classList.remove('show');
       setTimeout(() => modal.remove(), 200);
     };
@@ -1376,6 +1394,21 @@ self.onInit = function () {
     modal.querySelector('#mdd-modal-maximize')?.addEventListener('click', () => {
       modal.querySelector('.mdd-card').classList.toggle('is-maximized');
     });
+
+    // Moldura padrão (lib via ponte MyIOUtils): header no acento do tema + footer premium.
+    // Sem a lib nova, fica o header atual.
+    const mddCard = modal.querySelector('.mdd-card');
+    mddChrome =
+      window.MyIOUtils?.createPremiumModalChrome?.({
+        modalId: 'mdd-modal',
+        icon: '🏠',
+        title: `Dashboard Padrão${customerName ? ` — ${customerName}` : ''}`,
+        modalEl: mddCard,
+        headerSlot: mddCard.firstElementChild,
+        headerRadius: '16px 16px 0 0',
+        onClose: closeModal,
+        footer: { customerName },
+      }) || null;
 
     const escHandler = (e) => {
       if (e.key === 'Escape') {
@@ -1533,7 +1566,7 @@ self.onInit = function () {
         .myio-isetup.show .myio-isetup__card{transform:translateY(0) scale(1)}
         /* Header: ModalHeader (RFC-0121) */
         .myio-isetup__card.is-maximized{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0}
-        .myio-isetup__body{overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px}
+        .myio-isetup__body{overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0}
         .myio-isetup__loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 0;color:#6B7280;font-size:13px}
         .myio-isetup__spinner{width:20px;height:20px;border:2px solid #E9E0FA;border-top-color:#7B2FF7;border-radius:50%;animation:isetup-spin .7s linear infinite}
         @keyframes isetup-spin{to{transform:rotate(360deg)}}
@@ -1694,7 +1727,10 @@ self.onInit = function () {
     topDoc.body.appendChild(modal);
     requestAnimationFrame(() => modal.classList.add('show'));
 
+    let isetupChrome = null;
     const closeModal = () => {
+      isetupChrome?.destroy();
+      isetupChrome = null;
       modal.classList.remove('show');
       setTimeout(() => modal.remove(), 200);
     };
@@ -1704,6 +1740,19 @@ self.onInit = function () {
     modal.querySelector('#isetup-modal-maximize')?.addEventListener('click', () => {
       modal.querySelector('.myio-isetup__card').classList.toggle('is-maximized');
     });
+
+    // Moldura padrão (lib via ponte MyIOUtils): header no acento do tema + footer premium
+    const isetupCard = modal.querySelector('.myio-isetup__card');
+    isetupChrome =
+      window.MyIOUtils?.createPremiumModalChrome?.({
+        modalId: 'isetup-modal',
+        icon: '🔗',
+        title: 'Setup de Integração',
+        modalEl: isetupCard,
+        headerSlot: isetupCard.firstElementChild,
+        headerRadius: '16px 16px 0 0',
+        onClose: closeModal,
+      }) || null;
     modal.querySelector('#isetup-cancel').addEventListener('click', closeModal);
 
     const escHandler = (e) => {
@@ -2664,389 +2713,49 @@ function openGoalsModal() {
   });
 }
 
+  // RFC-0181/0239: Relatórios → Reports Hub (library). Catalog, defaults, device lists, lazy
+  // water/temperature loading and routing (AllReport / Demand Panel v2) live in the lib.
+  // Settled data only: provisional ':loading' / ':failed' emissions are not "loaded".
+  function isDomainSettled(data) {
+    return !!data?.items?.length && !/:(loading|failed)$/.test(String(data.periodKey || ''));
+  }
+
   function openReportsPickerModal() {
-    const orch = window.MyIOOrchestrator || {};
-    const creds = orch.getCredentials?.() || {};
-    const baseParams = {
-      customerId: creds.CUSTOMER_ING_ID || '',
-      debug: 0,
-      api: {
-        clientId: creds.CLIENT_ID || '',
-        clientSecret: creds.CLIENT_SECRET || '',
-        dataApiBaseUrl: window.MyIOUtils?.getDataApiHost?.(),
-        ingestionToken: orch.tokenManager?.getToken('ingestionToken') || '',
-      },
-      ui: { theme: 'light' },
-    };
-    _renderReportsPicker(baseParams);
-  }
-
-  function _renderReportsPicker(baseParams) {
-    const MODAL_ID = 'myio-reports-picker-modal';
-    const STYLE_ID = 'myio-reports-picker-styles';
-
-    // Inject at the highest accessible document level so modal covers full viewport
-    const topWin = window.top || window;
-    const topDoc = (() => {
-      try {
-        return topWin.document;
-      } catch {
-        return document;
-      }
-    })();
-
-    // Second click on Reports closes the modal
-    const existing = topDoc.getElementById(MODAL_ID);
-    if (existing) {
-      existing.remove();
+    // Second click closes, even if the context could no longer be built.
+    if (_reportsHubHandle?.isOpen) {
+      _reportsHubHandle.close();
+      _reportsHubHandle = null;
       return;
     }
-
-    // Inject styles once
-    if (!topDoc.getElementById(STYLE_ID)) {
-      const s = topDoc.createElement('style');
-      s.id = STYLE_ID;
-      s.textContent = `
-        .rp-overlay{position:fixed;inset:0;z-index:999998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s ease;font-family:'Nunito',system-ui,sans-serif;}
-        .rp-overlay.show{opacity:1;}
-        .rp-modal{position:relative;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(640px,92vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;transform:translateY(12px) scale(.98);transition:transform .2s ease;}
-        .rp-overlay.show .rp-modal{transform:translateY(0) scale(1);}
-        .rp-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,var(--rp-accent,#1565c0),var(--rp-accent-2,#1976d2));color:#fff;flex-shrink:0;}
-        .rp-header h3{margin:0;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;}
-        .rp-close{background:transparent;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s;}
-        .rp-close:hover{background:rgba(255,255,255,.15);}
-        .rp-tabs{display:flex;border-bottom:1px solid #e5e7eb;background:#f9fafb;flex-shrink:0;overflow-x:auto;}
-        .rp-tab{flex:1 1 auto;padding:12px 8px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:#6b7280;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap;}
-        .rp-tab:hover{color:var(--rp-accent,#1565c0);background:var(--rp-accent-soft,#eff6ff);}
-        .rp-tab.active{color:var(--rp-accent,#1565c0);border-bottom-color:var(--rp-accent,#1565c0);background:#fff;}
-        .rp-body{padding:20px;overflow-y:auto;}
-        .rp-panel{display:none;flex-direction:column;gap:12px;}
-        .rp-panel.active{display:flex;}
-        .rp-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;}
-        .rp-card{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid #e5e7eb;border-radius:12px;background:#fafafa;cursor:pointer;transition:all .15s;position:relative;text-align:left;width:100%;}
-        .rp-card[data-enabled="true"]:hover{background:var(--rp-accent-soft,#eff6ff);border-color:var(--rp-accent-border,#90caf9);box-shadow:0 4px 12px rgba(0,0,0,.10);transform:translateY(-1px);}
-        .rp-card[data-enabled="false"]{opacity:.55;cursor:not-allowed;}
-        .rp-card__icon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:20px;flex-shrink:0;}
-        .rp-card__text{display:flex;flex-direction:column;gap:2px;min-width:0;}
-        .rp-card__title{font-size:14px;font-weight:600;color:#1f2937;}
-        .rp-card__desc{font-size:11px;color:#6b7280;}
-        .rp-badge{position:absolute;top:8px;right:8px;font-size:12px;color:#9ca3af;background:#f3f4f6;border:1px solid #e5e7eb;padding:2px 5px;border-radius:20px;line-height:1.4;}
-        .rp-card[data-enabled="true"] .rp-badge{display:none;}
-      `;
-      topDoc.head.appendChild(s);
-    }
-
-    // RFC-0182: read enabled report items from MAIN_VIEW settings (via window.MyIOUtils)
-    const enabledItems = window.MyIOUtils?.enabledReportItems || {};
-    const ei = (key, def = false) => enabledItems[key] ?? def;
-
-    const DOMAINS = [
-      {
-        id: 'energy',
-        label: '⚡ Energia',
-        items: [
-          {
-            id: 'entrada',
-            label: 'Entrada',
-            icon: '📥',
-            bg: '#fff8e1',
-            color: '#f57f17',
-            desc: 'Medidores de entrada',
-            enabled: ei('energy_entrada'),
-          },
-          {
-            id: 'area_comum',
-            label: 'Área Comum',
-            icon: '🏢',
-            bg: '#f3e5f5',
-            color: '#6a1b9a',
-            desc: 'Consumo de áreas comuns',
-            enabled: ei('energy_area_comum'),
-          },
-          {
-            id: 'lojas',
-            label: 'Lojas',
-            icon: '🏬',
-            bg: '#e8f5e9',
-            color: '#2e7d32',
-            desc: 'Consumo por loja',
-            enabled: ei('energy_lojas', true),
-          },
-          {
-            id: 'todos',
-            label: 'Todos Dispositivos',
-            icon: '📋',
-            bg: '#e3f2fd',
-            color: '#1565c0',
-            desc: 'Todos os medidores',
-            enabled: ei('energy_todos'),
-          },
-        ],
-      },
-      {
-        id: 'water',
-        label: '💧 Água',
-        items: [
-          {
-            id: 'entrada',
-            label: 'Entrada',
-            icon: '📥',
-            bg: '#fff8e1',
-            color: '#f57f17',
-            desc: 'Medidores de entrada',
-            enabled: ei('water_entrada'),
-          },
-          {
-            id: 'area_comum',
-            label: 'Área Comum',
-            icon: '🏢',
-            bg: '#f3e5f5',
-            color: '#6a1b9a',
-            desc: 'Consumo de áreas comuns',
-            enabled: ei('water_area_comum'),
-          },
-          {
-            id: 'lojas',
-            label: 'Lojas',
-            icon: '🏬',
-            bg: '#e0f2f1',
-            color: '#00695c',
-            desc: 'Consumo por loja',
-            enabled: ei('water_lojas'),
-          },
-          {
-            id: 'todos',
-            label: 'Todos Dispositivos',
-            icon: '📋',
-            bg: '#e3f2fd',
-            color: '#1565c0',
-            desc: 'Todos os hidrômetros',
-            enabled: ei('water_todos'),
-          },
-        ],
-      },
-      {
-        id: 'temperature',
-        label: '🌡️ Temperatura',
-        items: [
-          {
-            id: 'climatizavel',
-            label: 'Ambientes Climatizáveis',
-            icon: '❄️',
-            bg: '#e1f5fe',
-            color: '#0277bd',
-            desc: 'Ambientes com termostato',
-            enabled: ei('temperature_climatizavel'),
-          },
-          {
-            id: 'nao_climatizavel',
-            label: 'Ambientes Não Climatizáveis',
-            icon: '🌤️',
-            bg: '#fff3e0',
-            color: '#e65100',
-            desc: 'Ambientes sem climatização',
-            enabled: ei('temperature_nao_climatizavel'),
-          },
-          {
-            id: 'todos',
-            label: 'Todos Ambientes',
-            icon: '📋',
-            bg: '#e3f2fd',
-            color: '#1565c0',
-            desc: 'Todos os termostatos',
-            enabled: ei('temperature_todos'),
-          },
-        ],
-      },
-      {
-        id: 'alarms',
-        label: '🔔 Alarmes',
-        items: [
-          {
-            id: 'por_dispositivo',
-            label: 'Por Dispositivo',
-            icon: '📟',
-            bg: '#fce4ec',
-            color: '#880e4f',
-            desc: 'Alarmes por dispositivo',
-            enabled: ei('alarms_por_dispositivo'),
-          },
-          {
-            id: 'dispositivo_x_alarme',
-            label: 'Por Dispositivo × Tipo',
-            icon: '🔀',
-            bg: '#fff3e0',
-            color: '#bf360c',
-            desc: 'Cruzamento dispositivo × regra',
-            enabled: ei('alarms_dispositivo_x_alarme'),
-          },
-          {
-            id: 'por_tipo',
-            label: 'Por Tipo de Alarme',
-            icon: '🏷️',
-            bg: '#ede7f6',
-            color: '#4527a0',
-            desc: 'Alarmes agrupados por tipo',
-            enabled: ei('alarms_por_tipo'),
-          },
-        ],
-      },
-    ];
-
-    const tabsHTML = DOMAINS.map(
-      (d, i) => `<button class="rp-tab${i === 0 ? ' active' : ''}" data-domain="${d.id}">${d.label}</button>`
-    ).join('');
-
-    const panelsHTML = DOMAINS.map(
-      (d, i) => `
-      <div class="rp-panel${i === 0 ? ' active' : ''}" data-domain="${d.id}">
-        <div class="rp-cards">
-          ${d.items
-            .map(
-              (item) => `
-            <button class="rp-card" data-domain="${d.id}" data-item="${item.id}" data-enabled="${item.enabled}" type="button">
-              <span class="rp-card__icon" style="background:${item.bg};color:${item.color};">${item.icon}</span>
-              <span class="rp-card__text">
-                <span class="rp-card__title">${item.label}</span>
-                <span class="rp-card__desc">${item.desc}</span>
-              </span>
-              ${!item.enabled ? '<span class="rp-badge">🔒</span>' : ''}
-            </button>
-          `
-            )
-            .join('')}
-        </div>
-      </div>
-    `
-    ).join('');
-
-    const overlay = topDoc.createElement('div');
-    overlay.id = MODAL_ID;
-    overlay.className = 'rp-overlay';
-    overlay.innerHTML = `
-      <div class="rp-modal">
-        <div class="rp-header">
-          <h3>📊 Relatórios</h3>
-          <button class="rp-close" type="button" aria-label="Fechar">&#215;</button>
-        </div>
-        <div class="rp-tabs">${tabsHTML}</div>
-        <div class="rp-body">${panelsHTML}</div>
-      </div>
-    `;
-
-    // Paleta do dashboard (createMyIOTheme via MAIN) — header/tabs/hover do picker
-    // seguem o accent; sem tema configurado, mantém o azul padrão.
-    const rpTheme = window.MyIOUtils?.theme;
-    if (rpTheme?.accent) {
-      overlay.style.setProperty('--rp-accent', rpTheme.accent);
-      overlay.style.setProperty('--rp-accent-2', rpTheme.accentDark || rpTheme.accent);
-      if (typeof rpTheme.lighten === 'function') {
-        overlay.style.setProperty('--rp-accent-soft', rpTheme.lighten(92));
-        overlay.style.setProperty('--rp-accent-border', rpTheme.lighten(55));
-      }
-    }
-
-    topDoc.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('show'));
-
-    function closeModal() {
-      overlay.classList.remove('show');
-      overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
-    }
-
-    overlay.querySelectorAll('.rp-tab').forEach((tab) => {
-      tab.addEventListener('click', () => {
-        overlay.querySelectorAll('.rp-tab').forEach((t) => t.classList.remove('active'));
-        overlay.querySelectorAll('.rp-panel').forEach((p) => p.classList.remove('active'));
-        tab.classList.add('active');
-        overlay.querySelector(`.rp-panel[data-domain="${tab.dataset.domain}"]`).classList.add('active');
-      });
-    });
-
-    overlay.querySelectorAll('.rp-card[data-enabled="true"]').forEach((card) => {
-      card.addEventListener('click', () => {
-        const domain = card.dataset.domain;
-        const group = card.dataset.item;
-        closeModal();
-        _openGroupReport(domain, group, baseParams);
-      });
-    });
-
-    overlay.querySelector('.rp-close').addEventListener('click', closeModal);
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) closeModal();
-    });
-  }
-
-  // RFC-0182: group → itemsList mapping using orchestrator classified groups
-  const GROUP_LABELS = {
-    lojas: 'Lojas',
-    entrada: 'Entrada',
-    area_comum: 'Área Comum',
-    banheiros: 'Banheiros',
-    climatizavel: 'Climatizável',
-    nao_climatizavel: 'Não Climatizável',
-  };
-
-  function _buildItemsList(domain, group) {
-    const orch = window.MyIOOrchestrator;
-    let groups;
-    if (domain === 'water') {
-      groups = orch?.getWaterGroups?.() || {};
-    } else if (domain === 'temperature') {
-      groups = orch?.getTemperatureGroups?.() || {};
-    } else {
-      groups = orch?.getEnergyGroups?.() || {};
-    }
-
-    const toItem = (d, groupLabel) => ({
-      id: d.ingestionId || d.id || '',
-      identifier: d.identifier || d.label || d.name || '',
-      label: d.label || d.name || d.identifier || '',
-      ...(groupLabel ? { groupLabel } : {}),
-      // RFC-0128: carry exclude_groups_totals so the report can drop devices that the
-      // dashboard KPIs already exclude (keeps report total == card total).
-      excludeGroupsTotals: d.excludeGroupsTotals || null,
-    });
-
-    if (group === 'todos') {
-      // Combine all groups (except ocultos), each item carries its groupLabel
-      return Object.entries(groups)
-        .filter(([key]) => key !== 'ocultos')
-        .flatMap(([key, items]) => (items || []).map((d) => toItem(d, GROUP_LABELS[key] || key)));
-    }
-
-    // Map group id → key in getXGroups() result
-    // 'area_comum' in DOMAINS maps to 'areacomum' key returned by categorizeItemsByGroup
-    const groupKey = group === 'area_comum' ? 'areacomum' : group;
-    return (groups[groupKey] || []).map((d) => toItem(d, null));
-  }
-
-  function _openGroupReport(domain, group, baseParams) {
-    const MyIOLib = window.MyIOUtils;
-    if (!MyIOLib?.openDashboardPopupAllReport) {
-      LogHelper.error('[MENU RFC-0181] openDashboardPopupAllReport not available');
+    const U = window.MyIOUtils || {};
+    if (typeof U.openReportsHub !== 'function' || typeof U.createDashboardReportsHubContext !== 'function') {
+      toastError('Relatórios indisponíveis nesta versão da biblioteca. Atualize a biblioteca MyIO.');
       return;
     }
-
-    const itemsList = _buildItemsList(domain, group);
-    LogHelper.log(`[MENU RFC-0181] Opening report domain=${domain} group=${group} items=${itemsList.length}`);
-
-    MyIOLib.openDashboardPopupAllReport({
-      ...baseParams,
-      domain,
-      group,
-      itemsList,
-      // Paleta do dashboard (createMyIOTheme, exposta pela MAIN em MyIOUtils.theme):
-      // a modal aplica as CSS vars --myio-* no próprio root.
-      theme: window.MyIOUtils?.theme || undefined,
-      // Nome do customer para o footer premium da modal
-      customerName:
-        window.MyIOOrchestrator?.customerName || getCurrentDashboardTitle() || '',
-    });
+    try {
+      const orch = window.MyIOOrchestrator;
+      _reportsHubHandle = U.openReportsHub({
+        context: U.createDashboardReportsHubContext({
+          orchestrator: orch,
+          tbCustomerId: settings.customerTB_ID || window.__myioCustomerTB_ID || '',
+          tbBaseUrl: settings.tbBaseUrl || '',
+          getJwt: () => localStorage.getItem('jwt_token') || '',
+          getDataApiHost: () => U.getDataApiHost?.(),
+          isDomainLoaded: (d) => isDomainSettled(window.MyIOOrchestratorData?.[d]),
+          temperatureClampRange: U.temperatureClampRange,
+          temperatureLimits: U.temperatureLimits,
+        }),
+        enabledItems: U.enabledReportItems,
+        theme: U.theme,
+        customerName: orch?.customerName || getCurrentDashboardTitle() || '',
+        onOpenReport: (e) => LogHelper.log(`[MENU RFC-0239] Opening report ${e.domain}/${e.item}`),
+        onError: (e) => LogHelper.warn(`[MENU RFC-0239] Report ${e.domain}/${e.item} (${e.phase}): ${e.message}`),
+      });
+    } catch (err) {
+      LogHelper.error('[MENU RFC-0239] Reports Hub failed to open:', err?.message || err);
+      toastError('Não foi possível abrir os relatórios agora.');
+    }
   }
-
-  // ─── end RFC-0181 ────────────────────────────────────────────────────────────
 
   // RFC-0055: Show modal with shopping options
   // eslint-disable-next-line no-unused-vars -- parked: disabled (see TODO in onDestroy); kept for re-enable
@@ -3328,8 +3037,17 @@ function openGoalsModal() {
       }
     });
 
-    // Set initial icon (light is default)
-    updateThemeIcon('light');
+    // Ícone inicial = tema atual. O MENU pode carregar antes da MAIN, então também lê a escolha
+    // salva no navegador (mesma chave 'myio:theme' da MAIN); light é o padrão.
+    let initialTheme = window.MyIOUtils?.getTheme?.();
+    if (initialTheme !== 'dark' && initialTheme !== 'light') {
+      try {
+        initialTheme = localStorage.getItem('myio:theme');
+      } catch {
+        initialTheme = null;
+      }
+    }
+    updateThemeIcon(initialTheme === 'dark' ? 'dark' : 'light');
     LogHelper.log('[MENU] RFC-0139: Theme toggle listener initialized');
   })();
 
@@ -3371,13 +3089,14 @@ function openGoalsModal() {
         .mcc-overlay{position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s ease;font-family:'Nunito',system-ui,sans-serif}
         .mcc-overlay.show{opacity:1;pointer-events:auto}
         .mcc-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
-        .mcc-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(520px,95vw);display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
+        .mcc-card{position:relative;z-index:2;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.28);width:min(520px,95vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;transform:translateY(12px) scale(.98);transition:transform .2s ease}
+        .mcc-card.is-maximized{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0}
         .mcc-overlay.show .mcc-card{transform:translateY(0) scale(1)}
         .mcc-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#3e1a7d;color:#fff;min-height:36px}
         .mcc-header h3{margin:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
         .mcc-close{background:transparent;border:none;color:#fff;font-size:24px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;transition:background .15s}
         .mcc-close:hover{background:rgba(255,255,255,.15)}
-        .mcc-body{padding:20px;display:flex;flex-direction:column;gap:18px}
+        .mcc-body{padding:20px;display:flex;flex-direction:column;gap:18px;overflow-y:auto;flex:1;min-height:0}
         .mcc-loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:32px 0;color:#6B7280;font-size:13px}
         .mcc-spinner{width:18px;height:18px;border:2px solid #E9E0FA;border-top-color:#7B2FF7;border-radius:50%;animation:mcc-spin .7s linear infinite;flex-shrink:0}
         @keyframes mcc-spin{to{transform:rotate(360deg)}}
@@ -3438,13 +3157,31 @@ function openGoalsModal() {
     topDoc.body.appendChild(modal);
     requestAnimationFrame(() => modal.classList.add('show'));
 
+    let mccChrome = null;
     const closeModal = () => {
+      mccChrome?.destroy();
+      mccChrome = null;
       modal.classList.remove('show');
       setTimeout(() => modal.remove(), 200);
     };
     modal.querySelector('.mcc-bg').addEventListener('click', closeModal);
     modal.querySelector('.mcc-close').addEventListener('click', closeModal);
     modal.querySelector('.mcc-btn-cancel').addEventListener('click', closeModal);
+
+    // Moldura padrão (lib via ponte MyIOUtils): header no acento do tema (com maximizar) +
+    // footer premium. Sem a lib nova, fica o header atual.
+    const mccCard = modal.querySelector('.mcc-card');
+    mccChrome =
+      window.MyIOUtils?.createPremiumModalChrome?.({
+        modalId: 'mcc-modal',
+        icon: '🏢',
+        title: `Configurações Cliente${customerName ? ` — ${customerName}` : ''}`,
+        modalEl: mccCard,
+        headerSlot: mccCard.querySelector('.mcc-header'),
+        headerRadius: '16px 16px 0 0',
+        onClose: closeModal,
+        footer: { customerName },
+      }) || null;
     const escHandler = (e) => {
       if (e.key === 'Escape') {
         closeModal();

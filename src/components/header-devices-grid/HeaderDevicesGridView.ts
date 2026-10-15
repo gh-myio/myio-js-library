@@ -13,7 +13,6 @@ import type {
 } from './types.js';
 import { injectHeaderDevicesGridStyles } from './styles.js';
 import { formatEnergy } from '../../utils/format/energy.js';
-import { formatWater } from '../../utils/format/water.js';
 
 const DOMAIN_CONFIG: Record<HeaderDevicesDomain, HeaderDomainConfig> = {
   energy: {
@@ -21,14 +20,16 @@ const DOMAIN_CONFIG: Record<HeaderDevicesDomain, HeaderDomainConfig> = {
     consumptionLabel: 'Consumo Total',
     zeroLabel: 'Sem Consumo',
     unit: 'kWh',
-    formatValue: (value: number) => formatEnergy(value, undefined, 2),
+    // 3 casas: mesmo padrão do dashboard de shopping (RFC-0108, measurementSettings default)
+    formatValue: (value: number) => formatEnergy(value, undefined, 3),
   },
   water: {
     totalLabel: 'Total Hidrômetros',
     consumptionLabel: 'Consumo Total',
     zeroLabel: 'Sem Consumo',
     unit: 'm³',
-    formatValue: (value: number) => formatWater(value),
+    formatValue: (value: number) =>
+      `${(Number(value) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} m³`,
   },
   temperature: {
     totalLabel: 'Total Sensores',
@@ -243,6 +244,16 @@ export class HeaderDevicesGridView {
 
     connectivityEl.textContent = `${online}/${total} (${percentage}%)`;
     totalEl.textContent = total.toString();
+    if (stats.loading) {
+      const spin = '<span class="hdg-value-spinner" aria-hidden="true"></span>';
+      consumptionEl.innerHTML = `${spin}Carregando…`;
+      zeroEl.innerHTML = spin;
+      consumptionEl.setAttribute('aria-busy', 'true');
+      zeroEl.setAttribute('aria-busy', 'true');
+      return;
+    }
+    consumptionEl.removeAttribute('aria-busy');
+    zeroEl.removeAttribute('aria-busy');
     consumptionEl.textContent = this.domainConfig.formatValue(consumption);
     zeroEl.textContent = zeroCount.toString();
   }
