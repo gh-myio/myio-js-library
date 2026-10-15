@@ -153,6 +153,43 @@ Object.assign(window.MyIOUtils, {
   SuperAdmin: false,
   // RFC-0171: Current user email - used for superadmin check in modals
   currentUserEmail: null,
+
+  // RFC-0239: LIB_SYMBOLS bridge — expose library symbols via MyIOUtils lazy getters
+  // This allows child widgets (MENU, TELEMETRY, etc.) to access library components
+  // without directly referencing window.MyIOLibrary
+  ...(function () {
+    const LIB_SYMBOLS = [
+      // Reports Hub (RFC-0239)
+      'openReportsHub',
+      'createDashboardReportsHubContext',
+      // Premium modal chrome (used by settings, annotations, etc.)
+      'createPremiumModalChrome',
+      // Version info
+      'version',
+      // Demand Panel v2 (RFC-0238)
+      'openDemandPanelV2',
+      'createTbEnvelopeStore',
+      'createGcdrReportJobsApi',
+      'demandDevicesFromItems',
+      'tbUserFromJwt',
+      // AllReport
+      'openDashboardPopupAllReport',
+      // Settings
+      'openDashboardPopupSettings',
+      // Goals
+      'GoalsModal',
+    ];
+    const bridge = {};
+    for (const name of LIB_SYMBOLS) {
+      if (Object.getOwnPropertyDescriptor(window.MyIOUtils, name)) continue;
+      bridge[name] = {
+        configurable: true,
+        enumerable: false,
+        get: () => window.MyIOLibrary?.[name],
+      };
+    }
+    return bridge;
+  })(),
   /**
    * Handle 401 Unauthorized errors globally
    * Shows toast message and reloads the page
@@ -3657,6 +3694,34 @@ Object.assign(window.MyIOUtils, {
     };
 
     LogHelper.log('[Orchestrator] 🔧 Config initialized from settings:', config);
+
+    // RFC-0239: Forward raw enabledReportItems setting (hub resolves defaults)
+    window.MyIOUtils.enabledReportItems = self.ctx.settings?.enabledReportItems || {};
+
+    // RFC-0239: Expose theme for Reports Hub palette
+    window.MyIOUtils.theme = {
+      mode: 'light',
+      cssVars: () => {
+        const root = document.documentElement;
+        return {
+          '--myio-brand-700': getComputedStyle(root).getPropertyValue('--myio-brand-700').trim() || '#6D28D9',
+          '--myio-brand-600': getComputedStyle(root).getPropertyValue('--myio-brand-600').trim() || '#7C3AED',
+          '--myio-brand-500': getComputedStyle(root).getPropertyValue('--myio-brand-500').trim() || '#8B5CF6',
+          '--myio-surface': getComputedStyle(root).getPropertyValue('--myio-surface').trim() || '#ffffff',
+          '--myio-surface-hover': getComputedStyle(root).getPropertyValue('--myio-surface-hover').trim() || '#f3f4f6',
+          '--myio-text': getComputedStyle(root).getPropertyValue('--myio-text').trim() || '#111827',
+          '--myio-text-muted': getComputedStyle(root).getPropertyValue('--myio-text-muted').trim() || '#6b7280',
+          '--myio-border': getComputedStyle(root).getPropertyValue('--myio-border').trim() || '#e5e7eb',
+        };
+      },
+    };
+
+    // RFC-0239: Expose getDataApiHost for adapter
+    window.MyIOUtils.getDataApiHost = () => DATA_API_HOST;
+
+    // RFC-0239: Expose temperature limits for adapter
+    window.MyIOUtils.temperatureClampRange = window.MyIOUtils?.temperatureClampRange;
+    window.MyIOUtils.temperatureLimits = window.MyIOUtils?.temperatureLimits;
 
     // RFC-0107: Initialize contract loading now that customerTB_ID is available
     // This fetches device counts from SERVER_SCOPE and shows the contract loading modal
