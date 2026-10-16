@@ -85,39 +85,6 @@ Object.assign(window.MyIOUtils, {
   getTheme: () => window.MyIOUtils.currentTheme || 'light',
 });
 
-// RFC-0239: LIB_SYMBOLS bridge — expose library symbols via MyIOUtils lazy getters
-(function defineLibBridge() {
-  const LIB_SYMBOLS = [
-    // Reports Hub (RFC-0239)
-    'openReportsHub',
-    'createDashboardReportsHubContext',
-    // Premium modal chrome (used by settings, annotations, etc.)
-    'createPremiumModalChrome',
-    // Version info
-    'version',
-    // Demand Panel v2 (RFC-0238)
-    'openDemandPanelV2',
-    'createTbEnvelopeStore',
-    'createGcdrReportJobsApi',
-    'demandDevicesFromItems',
-    'tbUserFromJwt',
-    // AllReport
-    'openDashboardPopupAllReport',
-    // Settings
-    'openDashboardPopupSettings',
-    // Goals
-    'GoalsModal',
-  ];
-  for (const name of LIB_SYMBOLS) {
-    if (Object.getOwnPropertyDescriptor(window.MyIOUtils, name)) continue;
-    Object.defineProperty(window.MyIOUtils, name, {
-      configurable: true,
-      enumerable: false,
-      get: () => window.MyIOLibrary?.[name],
-    });
-  }
-})();
-
 // ============================================================================
 // Module State
 // ============================================================================
@@ -2825,39 +2792,6 @@ function createComponents() {
       onAlarmClick: () => toggleAlarmFilter(),
       onTicketClick: () => openTicketDetail(),
       onAnnotationClick: () => openAnnotationsPanel(),
-      // RFC-0239: Reports Hub — open the Reports picker modal from the library
-      onReportClick: (domain) => {
-        const U = window.MyIOUtils || {};
-        if (typeof U.openReportsHub !== 'function' || typeof U.createDashboardReportsHubContext !== 'function') {
-          toastError('Relatórios indisponíveis nesta versão da biblioteca. Atualize a biblioteca MyIO.');
-          return;
-        }
-        try {
-          const orch = window.MyIOOrchestrator;
-          const _settings = self.ctx?.settings || {};
-          U.openReportsHub({
-            context: U.createDashboardReportsHubContext({
-              orchestrator: orch,
-              tbCustomerId: _settings.customerTB_ID || window.__myioCustomerTB_ID || '',
-              tbBaseUrl: _settings.tbBaseUrl || '',
-              getJwt: () => localStorage.getItem('jwt_token') || '',
-              getDataApiHost: () => U.getDataApiHost?.(),
-              isDomainLoaded: (d) => {
-                const data = window.MyIOOrchestratorData?.[d];
-                return !!data?.items?.length && !/:(loading|failed)$/.test(String(data.periodKey || ''));
-              },
-              temperatureClampRange: U.temperatureClampRange,
-              temperatureLimits: U.temperatureLimits,
-            }),
-            enabledItems: U.enabledReportItems,
-            theme: U.theme,
-            customerName: orch?.customerName || '',
-          });
-        } catch (err) {
-          LogHelper.error('[MAIN RFC-0239] Reports Hub failed to open:', err?.message || err);
-          toastError('Não foi possível abrir os relatórios agora.');
-        }
-      },
     });
     LogHelper.log('Header created with theme:', _currentThemeMode);
   }
@@ -3486,34 +3420,6 @@ self.onInit = async function () {
     window.MyIOOrchestrator.gcdrApiBaseUrl = gcdrApiBaseUrl;
   }
   LogHelper.log('[MAIN] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
-
-  // RFC-0239: Forward raw enabledReportItems setting (hub resolves defaults)
-  window.MyIOUtils.enabledReportItems = settings.enabledReportItems || {};
-
-  // RFC-0239: Expose theme for Reports Hub palette
-  window.MyIOUtils.theme = {
-    mode: _currentThemeMode,
-    cssVars: () => {
-      const root = document.documentElement;
-      return {
-        '--myio-brand-700': getComputedStyle(root).getPropertyValue('--myio-brand-700').trim() || '#6D28D9',
-        '--myio-brand-600': getComputedStyle(root).getPropertyValue('--myio-brand-600').trim() || '#7C3AED',
-        '--myio-brand-500': getComputedStyle(root).getPropertyValue('--myio-brand-500').trim() || '#8B5CF6',
-        '--myio-surface': getComputedStyle(root).getPropertyValue('--myio-surface').trim() || '#ffffff',
-        '--myio-surface-hover': getComputedStyle(root).getPropertyValue('--myio-surface-hover').trim() || '#f3f4f6',
-        '--myio-text': getComputedStyle(root).getPropertyValue('--myio-text').trim() || '#111827',
-        '--myio-text-muted': getComputedStyle(root).getPropertyValue('--myio-text-muted').trim() || '#6b7280',
-        '--myio-border': getComputedStyle(root).getPropertyValue('--myio-border').trim() || '#e5e7eb',
-      };
-    },
-  };
-
-  // RFC-0239: Expose getDataApiHost for adapter
-  window.MyIOUtils.getDataApiHost = () => DATA_API_HOST;
-
-  // RFC-0239: Expose temperature limits for adapter
-  window.MyIOUtils.temperatureClampRange = window.MyIOUtils?.temperatureClampRange;
-  window.MyIOUtils.temperatureLimits = window.MyIOUtils?.temperatureLimits;
 
   // RFC-0180: Pre-fetch all customer alarms (non-blocking)
   if (gcdrCustomerId) {
