@@ -1244,6 +1244,58 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     LogHelper.warn('[MENU] Metas button (myio-goals-btn) not found');
   }
 
+  // ===== RELATÓRIOS BUTTON HANDLER (RFC-0239: Reports Hub) =====
+  const btnRelatorios = document.getElementById('reports-hub-btn');
+
+  if (btnRelatorios) {
+    btnRelatorios.addEventListener('click', () => {
+      LogHelper.log('[MENU] 📊 Relatórios (Reports Hub) clicked');
+
+      // Check if library symbols are available via MyIOUtils bridge
+      const U = window.MyIOUtils || {};
+      if (typeof U.openReportsHub !== 'function' || typeof U.createDashboardReportsHubContext !== 'function') {
+        LogHelper.error('[MENU RFC-0239] Reports Hub not available in library');
+        if (U.MyIOToast?.error) U.MyIOToast.error('Relatórios indisponíveis nesta versão da biblioteca. Atualize a biblioteca MyIO.', 5000);
+        else window.alert('Relatórios indisponíveis nesta versão da biblioteca. Atualize a biblioteca MyIO.');
+        return;
+      }
+
+      try {
+        const orch = window.MyIOOrchestrator;
+        const settings = self.ctx?.settings || {};
+
+        U.openReportsHub({
+          context: U.createDashboardReportsHubContext({
+            orchestrator: orch,
+            tbCustomerId: settings.customerTB_ID || '',
+            tbBaseUrl: settings.tbBaseUrl || '',
+            getJwt: () => localStorage.getItem('jwt_token') || '',
+            getDataApiHost: () => U.DATA_API_HOST || U.getDataApiHost?.() || '',
+            isDomainLoaded: (d) => {
+              const data = window.MyIOOrchestratorData?.[d];
+              return !!data?.items?.length && !/:(loading|failed)$/.test(String(data.periodKey || ''));
+            },
+            temperatureClampRange: U.temperatureClampRange,
+            temperatureLimits: U.temperatureLimits,
+          }),
+          enabledItems: U.enabledReportItems || {},
+          theme: U.theme || { mode: 'light', cssVars: () => ({}) },
+          customerName: orch?.customerName || '',
+        });
+
+        LogHelper.log('[MENU] ✅ Reports Hub opened successfully');
+      } catch (error) {
+        LogHelper.error('[MENU] ❌ Error opening Reports Hub:', error);
+        if (U.MyIOToast?.error) U.MyIOToast.error('Não foi possível abrir os relatórios agora.', 5000);
+        else window.alert('Não foi possível abrir os relatórios agora.');
+      }
+    });
+
+    LogHelper.log('[MENU] Relatórios button handler registered');
+  } else {
+    LogHelper.warn('[MENU] Relatórios button (reports-hub-btn) not found');
+  }
+
   // ===== APPLY STYLES FROM SETTINGS.SCHEMA =====
   const settings = self.ctx?.settings || {};
   LogHelper.log('[MENU] Applying styles from settings:', settings);
