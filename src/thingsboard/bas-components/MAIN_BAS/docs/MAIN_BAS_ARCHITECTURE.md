@@ -487,17 +487,22 @@ O `controller.js` habilita o step (`enableActionSelector: true`) via `CardGridPa
 ### Relatórios na Sidebar — Reports Hub (RFC-0239)
 
 A Sidebar premium também oferece a opção independente **Relatórios**, que abre o Reports Hub
-público da biblioteca. Ela adapta os grupos classificados do MAIN_BAS para as categorias do Hub
-(Energia: `entrada`/`lojas`/`area_comum`; Água: `entrada`/`area_comum`; Temperatura:
-`climatizavel`/`nao_climatizavel`) sem alterar os objetos de origem. Somente dispositivos com um
+público da biblioteca usando o ícone SVG padrão do menu. O catálogo é específico do MAIN_BAS e só
+exibe grupos que contenham dispositivos classificados com `ingestionId`: Energia (`entrada`,
+`setores`, `areacomum`, equipamentos, motores e bombas), Água (entrada, hidrômetros, áreas comuns,
+banheiros, reservatórios e válvulas solenoides) e Temperatura (ambientes climatizáveis e sensores
+externos). As opções BAS são habilitadas por padrão; uma flag booleana explícita em
+`MyIOUtils.enabledReportItems` continua sendo respeitada. Os grupos são adaptados sem alterar os
+objetos de origem. Somente dispositivos com um
 `ingestionId` real são enviados; o identificador também pode vir de `rawData.ingestionId` ou
 `rawData.ingestion_id`, nunca do ID de entidade ThingsBoard.
 
 A preparação do relatório obtém o token de ingestion de forma assíncrona por
 `buildMyioIngestionAuth` antes de abrir o relatório de grupo. O JWT ThingsBoard não é usado como
-token de ingestion. Se os pontos públicos do Hub não estiverem disponíveis, MAIN_BAS registra um
-aviso e exibe uma mensagem controlada, mantendo as demais ações da Sidebar disponíveis. O handle
-do Hub é fechado durante `self.onDestroy`.
+token de ingestion. O nome BAS da categoria selecionada também é encaminhado ao relatório. Se os
+pontos públicos do Hub não estiverem disponíveis, MAIN_BAS registra um aviso e exibe uma mensagem
+controlada, mantendo as demais ações da Sidebar disponíveis. O handle do Hub é fechado durante
+`self.onDestroy`.
 
 Esta opção **não substitui nem altera** a ação **Relatório 📄** dos cards de dispositivo: ela
 continua roteada por `basOpenDeviceReport` para `openDashboardPopupReport`, com autenticação

@@ -4563,7 +4563,7 @@ function mountSidebarMenu(host, settings, _classified) {
   // Build unified navigation items: Dashboard, Reports Hub, then sorted ambientes
   var navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: MyIOLibrary.SIDEBAR_ICONS?.home || '🏠' },
-    { id: 'reports', label: 'Relatórios', icon: '📊' },
+    { id: 'reports', label: 'Relatórios', icon: MyIOLibrary.SIDEBAR_ICONS?.chart || '📊' },
   ].concat(ambienteItems);
 
   // Build menu sections - single unified navigation section (no title header)
@@ -4833,7 +4833,7 @@ function basBuildReportsHubGroups(classified, domain) {
   if (domain === 'energy') {
     groups = {
       entrada: source.entrada || [],
-      lojas: source.stores || [],
+      setores: source.stores || [],
       areacomum: source.areacomum || source.area_comum || [],
       equipments: source.equipments || [],
       motor: source.motor || [],
@@ -4842,8 +4842,9 @@ function basBuildReportsHubGroups(classified, domain) {
   } else if (domain === 'water') {
     groups = {
       entrada: source.hidrometro_entrada || [],
-      lojas: source.hidrometro || [],
-      areacomum: [].concat(source.banheiros || [], source.hidrometro_area_comum || []),
+      hidrometros: source.hidrometro || [],
+      banheiros: source.banheiros || [],
+      areacomum: source.hidrometro_area_comum || [],
       caixadagua: source.caixadagua || [],
       solenoide: source.solenoide || [],
     };
@@ -4859,6 +4860,69 @@ function basBuildReportsHubGroups(classified, domain) {
   return Object.keys(groups).reduce(function (adapted, groupId) {
     adapted[groupId] = basNormalizeReportsHubDevices(groups[groupId], domain);
     return adapted;
+  }, {});
+}
+
+function basBuildReportsHubCatalog(classified) {
+  var definitions = {
+    energy: [
+      { id: 'entrada', label: 'Entrada', description: 'Medidores de entrada', icon: '📥', tint: { bg: '#fff8e1', fg: '#f57f17' } },
+      { id: 'setores', label: 'Medição por setor', description: 'Medidores classificados por setor', icon: '📍', tint: { bg: '#e8f5e9', fg: '#2e7d32' } },
+      { id: 'area_comum', label: 'Áreas comuns', description: 'Equipamentos de áreas comuns', icon: '🏢', tint: { bg: '#f3e5f5', fg: '#6a1b9a' } },
+      { id: 'equipments', label: 'Equipamentos', description: 'Relatório dos equipamentos', icon: '⚙️', tint: { bg: '#e3f2fd', fg: '#1565c0' } },
+      { id: 'motor', label: 'Motores', description: 'Relatório dos motores', icon: '🔄', tint: { bg: '#ede7f6', fg: '#4527a0' } },
+      { id: 'bomba', label: 'Bombas', description: 'Relatório das bombas', icon: '💧', tint: { bg: '#e0f2f1', fg: '#00695c' } },
+      { id: 'todos', label: 'Todos os dispositivos', description: 'Todos os dispositivos de energia', icon: '📋', tint: { bg: '#e3f2fd', fg: '#1565c0' } },
+    ],
+    water: [
+      { id: 'entrada', label: 'Entrada', description: 'Hidrômetros de entrada', icon: '📥', tint: { bg: '#fff8e1', fg: '#f57f17' } },
+      { id: 'hidrometros', label: 'Hidrômetros', description: 'Relatório dos hidrômetros', icon: '💧', tint: { bg: '#e0f2f1', fg: '#00695c' } },
+      { id: 'area_comum', label: 'Áreas comuns', description: 'Hidrômetros das áreas comuns', icon: '🏢', tint: { bg: '#f3e5f5', fg: '#6a1b9a' } },
+      { id: 'banheiros', label: 'Banheiros', description: 'Hidrômetros dos banheiros', icon: '🚻', tint: { bg: '#fff3e0', fg: '#e65100' } },
+      { id: 'caixadagua', label: 'Reservatórios', description: 'Dispositivos de reservatórios', icon: '🚰', tint: { bg: '#e3f2fd', fg: '#1565c0' } },
+      { id: 'solenoide', label: 'Válvulas solenoides', description: 'Dispositivos de controle de água', icon: '🔧', tint: { bg: '#ede7f6', fg: '#4527a0' } },
+      { id: 'todos', label: 'Todos os dispositivos', description: 'Todos os dispositivos de água', icon: '📋', tint: { bg: '#e3f2fd', fg: '#1565c0' } },
+    ],
+    temperature: [
+      { id: 'climatizavel', label: 'Ambientes climatizáveis', description: 'Ambientes com termostato', icon: '❄️', tint: { bg: '#e1f5fe', fg: '#0277bd' } },
+      { id: 'nao_climatizavel', label: 'Ambientes sem climatização', description: 'Sensores externos de temperatura', icon: '🌡️', tint: { bg: '#fff3e0', fg: '#e65100' } },
+      { id: 'todos', label: 'Todos os ambientes', description: 'Todos os sensores de temperatura', icon: '📋', tint: { bg: '#e3f2fd', fg: '#1565c0' } },
+    ],
+  };
+
+  return Object.keys(definitions).reduce(function (catalog, domain) {
+    var groups = basBuildReportsHubGroups(classified, domain);
+    var items = definitions[domain].filter(function (item) {
+      if (item.id === 'todos') {
+        return Object.keys(groups).some(function (groupId) {
+          return (groups[groupId] || []).length > 0;
+        });
+      }
+      var groupId = item.id === 'area_comum' ? 'areacomum' : item.id;
+      return !!(groups[groupId] && groups[groupId].length);
+    }).map(function (item) {
+      return Object.assign({}, item, { kind: 'group-report' });
+    });
+
+    if (items.length) catalog.push({ id: domain, label: domain === 'temperature' ? 'Temperatura' : domain === 'water' ? 'Água' : 'Energia', items: items });
+    return catalog;
+  }, []);
+}
+
+function basBuildReportsHubEnabledItems(catalog, configuredItems) {
+  var legacyKeys = { energy_setores: 'energy_lojas', water_hidrometros: 'water_lojas' };
+  return catalog.reduce(function (enabledItems, domain) {
+    domain.items.forEach(function (item) {
+      var key = domain.id + '_' + item.id;
+      var legacyKey = legacyKeys[key];
+      enabledItems[key] =
+        configuredItems && typeof configuredItems[key] === 'boolean'
+          ? configuredItems[key]
+          : configuredItems && legacyKey && typeof configuredItems[legacyKey] === 'boolean'
+            ? configuredItems[legacyKey]
+            : true;
+    });
+    return enabledItems;
   }, {});
 }
 
@@ -4894,6 +4958,7 @@ function openBasReportsHub(settings, classified) {
   }
 
   var utils = window.MyIOUtils || {};
+  var catalog = basBuildReportsHubCatalog(_currentClassified || classified);
   if (
     typeof library.openReportsHub !== 'function' ||
     typeof library.openDashboardPopupAllReport !== 'function' ||
@@ -4929,7 +4994,8 @@ function openBasReportsHub(settings, classified) {
   try {
     _reportsHubHandle = library.openReportsHub({
       context: context,
-      enabledItems: utils.enabledReportItems,
+      catalog: catalog,
+      enabledItems: basBuildReportsHubEnabledItems(catalog, utils.enabledReportItems),
       theme: utils.theme,
       themeMode:
         _sidebarMenu && typeof _sidebarMenu.getThemeMode === 'function'
@@ -4983,6 +5049,7 @@ function openBasReportsHub(settings, classified) {
                 ...temperature,
                 domain: args.domain,
                 group: args.item.id,
+                groupLabel: args.item.label,
                 itemsList: itemsList,
                 api: { ...base.api, ingestionToken: ingestionToken },
                 ...(args.visual.palette || base.theme

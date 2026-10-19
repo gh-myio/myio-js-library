@@ -11,6 +11,7 @@ vi.mock('../../src/components/library-version-checker', () => ({
 }));
 
 import { openDashboardPopupAllReport } from '../../src/components/premium-modals/report-all/openDashboardPopupAllReport';
+import { AllReportModal } from '../../src/components/premium-modals/report-all/AllReportModal';
 import { openDemandPanelV2 } from '../../src/components/demand-panel-v2/openDemandPanelV2';
 import { createLibraryVersionChecker } from '../../src/components/library-version-checker';
 import { createModalFooter } from '../../src/components/premium-modals/footer-modal';
@@ -63,6 +64,21 @@ const open = (over: Partial<OpenReportsHubParams> = {}) => {
   handles.push(h);
   return h;
 };
+
+describe('MAIN_BAS report labels', () => {
+  it('uses the host-specific group label in the report title', () => {
+    const modal = new AllReportModal({
+      customerId: 'customer-1',
+      domain: 'water',
+      group: 'lojas',
+      groupLabel: 'Hidrômetros',
+      api: { clientId: '', clientSecret: '' },
+    });
+    const resolveTitle = (modal as unknown as { resolveTitle: () => string }).resolveTitle;
+
+    expect(resolveTitle.call(modal)).toBe('Relatório Geral - Água - Hidrômetros');
+  });
+});
 
 beforeEach(() => {
   document.body.innerHTML = '';

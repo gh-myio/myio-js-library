@@ -78,6 +78,35 @@ describe('RFC-0239 characterization — buildReportItemsList matches the legacy 
     expect(buildReportItemsList({}, 'water', 'lojas')).toEqual([]);
     expect(buildReportItemsList(null, 'water', 'todos')).toEqual([]);
   });
+
+  it('supports MAIN_BAS technical group ids and labels in the combined report', () => {
+    const basGroups = {
+      setores: [{ ingestionId: 'energy-sector', label: 'Setor A' }],
+      equipments: [{ ingestionId: 'equipment-1', label: 'Equipamento 1' }],
+      motor: [{ ingestionId: 'motor-1', label: 'Motor 1' }],
+      bomba: [{ ingestionId: 'pump-1', label: 'Bomba 1' }],
+      hidrometros: [{ ingestionId: 'water-meter-1', label: 'Hidrômetro 1' }],
+      banheiros: [{ ingestionId: 'bathroom-meter-1', label: 'Banheiro 1' }],
+      areacomum: [{ ingestionId: 'common-meter-1', label: 'Área comum 1' }],
+      caixadagua: [{ ingestionId: 'tank-1', label: 'Reservatório 1' }],
+      solenoide: [{ ingestionId: 'valve-1', label: 'Válvula 1' }],
+    };
+
+    expect(buildReportItemsList(basGroups as never, 'energy', 'setores')[0].id).toBe('energy-sector');
+    expect(buildReportItemsList(basGroups as never, 'water', 'hidrometros')[0].id).toBe('water-meter-1');
+    expect(buildReportItemsList(basGroups as never, 'water', 'banheiros')[0].id).toBe('bathroom-meter-1');
+    expect(buildReportItemsList(basGroups as never, 'energy', 'todos').map((item) => item.groupLabel)).toEqual([
+      'Setores',
+      'Equipamentos',
+      'Motores',
+      'Bombas',
+      'Hidrômetros',
+      'Banheiros',
+      'Área Comum',
+      'Reservatórios',
+      'Válvulas solenoides',
+    ]);
+  });
 });
 
 describe('RFC-0239 characterization — enablement defaults match the legacy MENU', () => {

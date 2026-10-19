@@ -11,6 +11,13 @@ export const GROUP_LABELS: Readonly<Record<string, string>> = {
   area_comum: 'Área Comum',
   areacomum: 'Área Comum',
   banheiros: 'Banheiros',
+  setores: 'Setores',
+  hidrometros: 'Hidrômetros',
+  equipments: 'Equipamentos',
+  motor: 'Motores',
+  bomba: 'Bombas',
+  caixadagua: 'Reservatórios',
+  solenoide: 'Válvulas solenoides',
   climatizavel: 'Climatizável',
   nao_climatizavel: 'Não Climatizável',
 };
