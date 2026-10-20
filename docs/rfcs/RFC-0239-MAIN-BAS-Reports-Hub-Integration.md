@@ -3,7 +3,7 @@ title: 'RFC-0239 Reports Hub in MAIN_BAS'
 type: 'feature'
 created: '2026-10-16'
 status: 'done'
-baseline_commit: '5116fdb78041926c7558c28a45c44b7e0b07443f'
+baseline_commit: '6466def6156db59611436881545739d2e9f0446b'
 context:
   - '{project-root}/docs/rfcs/RFC-0239-Reports-Hub-Library-Component.md'
 ---
@@ -64,13 +64,15 @@ MAIN_BAS stores domain groups under BAS-specific keys (for example, `energy.stor
 ## Verification
 
 **Commands:**
-- `npx vitest run tests/components/reports-hub.test.ts` — expected: all existing Reports Hub tests pass.
-- `npx eslint src/thingsboard/bas-components/MAIN_BAS/controller.js` — expected: no new lint errors.
+- `npx vitest run tests/components/reports-hub.test.ts tests/utils/reports-hub-items.test.ts` — 56 tests pass locally under Node 20; one additional sidebar-selection test also passes.
+- `npm run build:tsup && npm run build:umd && npm run minify:umd` — passes.
+- `node --check src/thingsboard/bas-components/MAIN_BAS/controller.js` and `git diff --check` — pass.
+- ESLint on the controller reports no errors and retains two pre-existing warnings; TypeScript test files are ignored by the current ESLint configuration.
 
 **Manual checks:**
-- Confirm MAIN_BAS sidebar includes the new Hub option and per-device “Relatório” remains available.
+- Live ThingsBoard QA was not run in this environment. The sidebar active-item behavior is covered by a component test; end-to-end report opening and data matching still require a BAS dashboard session.
 
-## Suggested Review Order
+## Original Integration Review Order
 
 **Hub entry point**
 
@@ -96,3 +98,52 @@ MAIN_BAS stores domain groups under BAS-specific keys (for example, `energy.stor
 
 - The existing card action remains routed to the individual report modal.
   [`controller.js:3220`](../../src/thingsboard/bas-components/MAIN_BAS/controller.js#L3220)
+
+## ED-1347 Review Corrections
+
+### Tasks
+
+- [x] `src/thingsboard/bas-components/MAIN_BAS/controller.js` — exclude energy and water entry meters from the combined `todos` report while retaining their individual categories; remove the unreachable energy common-area category; pass validated customer temperature limits as the report valid range; remove duplicate Hub toggle handling and nonexistent visual fallbacks.
+- [x] `tests/utils/reports-hub-items.test.ts`, `tests/components/reports-hub.test.ts`, and `tests/components/sidebar-menu-active-item.test.ts` — use domain-specific fixtures and cover the combined-report input, temperature valid-range handling, and sidebar selection behavior.
+- [x] `src/thingsboard/bas-components/MAIN_BAS/docs/MAIN_BAS_ARCHITECTURE.md` — document BAS-specific group and temperature-range semantics.
+- [x] Capture focused Vitest output and report the results of live BAS QA accurately; live ThingsBoard QA was not available in this environment.
+
+### Acceptance Criteria
+
+- Given energy or water has entry meters and subordinate devices, when the `todos` report is opened, then entry meters are omitted from its items and remain available through their own report category.
+- Given MAIN_BAS does not classify energy common-area devices, when the Hub catalog is built, then no empty Energia common-area option is shown.
+- Given customer `minTemperature` and `maxTemperature` values are finite and ordered, when a temperature report opens, then those values are sent as `temperatureValidRange`; missing or invalid values leave the library default in effect, and no ideal range is inferred.
+- Given the Hub is open, when the user selects Relatórios again, then the Hub library's toggle closes it without a second close mechanism, and the current sidebar selection stays active.
+- Given the focused regression tests run, when results are reported, then the exact test outcome and whether live BAS QA was run are stated.
+
+## Suggested Review Order
+
+**BAS report aggregation**
+
+- Keep report groups aligned with actual BAS classification and hide unavailable categories.
+  [`controller.js:4828`](../../src/thingsboard/bas-components/MAIN_BAS/controller.js#L4828)
+
+- Exclude entry meters from combined reports while preserving individual entry reports.
+  [`controller.js:5050`](../../src/thingsboard/bas-components/MAIN_BAS/controller.js#L5050)
+
+**Temperature context and modal lifecycle**
+
+- Validate customer temperature limits before supplying the report's valid range.
+  [`controller.js:4929`](../../src/thingsboard/bas-components/MAIN_BAS/controller.js#L4929)
+
+- Use the library toggle and pass only visual values actually provided by the Hub.
+  [`controller.js:5010`](../../src/thingsboard/bas-components/MAIN_BAS/controller.js#L5010)
+
+**Regression coverage and documentation**
+
+- Exercise domain-scoped combined-report fixtures with entry-meter exclusion.
+  [`reports-hub-items.test.ts:82`](../../tests/utils/reports-hub-items.test.ts#L82)
+
+- Verify temperature range forwarding and no inferred ideal range.
+  [`reports-hub.test.ts:188`](../../tests/components/reports-hub.test.ts#L188)
+
+- Confirm modal navigation does not change the selected page.
+  [`sidebar-menu-active-item.test.ts:13`](../../tests/components/sidebar-menu-active-item.test.ts#L13)
+
+- Read the updated BAS category, aggregation, and range semantics.
+  [`MAIN_BAS_ARCHITECTURE.md:487`](../../src/thingsboard/bas-components/MAIN_BAS/docs/MAIN_BAS_ARCHITECTURE.md#L487)

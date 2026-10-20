@@ -4834,7 +4834,6 @@ function basBuildReportsHubGroups(classified, domain) {
     groups = {
       entrada: source.entrada || [],
       setores: source.stores || [],
-      areacomum: source.areacomum || source.area_comum || [],
       equipments: source.equipments || [],
       motor: source.motor || [],
       bomba: source.bomba || [],
@@ -4868,7 +4867,6 @@ function basBuildReportsHubCatalog(classified) {
     energy: [
       { id: 'entrada', label: 'Entrada', description: 'Medidores de entrada', icon: '📥', tint: { bg: '#fff8e1', fg: '#f57f17' } },
       { id: 'setores', label: 'Medição por setor', description: 'Medidores classificados por setor', icon: '📍', tint: { bg: '#e8f5e9', fg: '#2e7d32' } },
-      { id: 'area_comum', label: 'Áreas comuns', description: 'Equipamentos de áreas comuns', icon: '🏢', tint: { bg: '#f3e5f5', fg: '#6a1b9a' } },
       { id: 'equipments', label: 'Equipamentos', description: 'Relatório dos equipamentos', icon: '⚙️', tint: { bg: '#e3f2fd', fg: '#1565c0' } },
       { id: 'motor', label: 'Motores', description: 'Relatório dos motores', icon: '🔄', tint: { bg: '#ede7f6', fg: '#4527a0' } },
       { id: 'bomba', label: 'Bombas', description: 'Relatório das bombas', icon: '💧', tint: { bg: '#e0f2f1', fg: '#00695c' } },
@@ -4895,10 +4893,11 @@ function basBuildReportsHubCatalog(classified) {
     var items = definitions[domain].filter(function (item) {
       if (item.id === 'todos') {
         return Object.keys(groups).some(function (groupId) {
+          if ((domain === 'energy' || domain === 'water') && groupId === 'entrada') return false;
           return (groups[groupId] || []).length > 0;
         });
       }
-      var groupId = item.id === 'area_comum' ? 'areacomum' : item.id;
+      var groupId = domain === 'water' && item.id === 'area_comum' ? 'areacomum' : item.id;
       return !!(groups[groupId] && groups[groupId].length);
     }).map(function (item) {
       return Object.assign({}, item, { kind: 'group-report' });
@@ -4910,6 +4909,7 @@ function basBuildReportsHubCatalog(classified) {
 }
 
 function basBuildReportsHubEnabledItems(catalog, configuredItems) {
+  // These legacy keys are configured by the Shopping v-5.2.0 MENU enabledReportItems settings.
   var legacyKeys = { energy_setores: 'energy_lojas', water_hidrometros: 'water_lojas' };
   return catalog.reduce(function (enabledItems, domain) {
     domain.items.forEach(function (item) {
@@ -4924,6 +4924,25 @@ function basBuildReportsHubEnabledItems(catalog, configuredItems) {
     });
     return enabledItems;
   }, {});
+}
+
+function basGetReportsHubTemperatureRange() {
+  var rawMin = CUSTOMER_TELEMETRY_SETTINGS.minTemperature;
+  var rawMax = CUSTOMER_TELEMETRY_SETTINGS.maxTemperature;
+  if (
+    rawMin === null ||
+    rawMin === undefined ||
+    String(rawMin).trim() === '' ||
+    rawMax === null ||
+    rawMax === undefined ||
+    String(rawMax).trim() === ''
+  ) {
+    return null;
+  }
+
+  var min = Number(rawMin);
+  var max = Number(rawMax);
+  return Number.isFinite(min) && Number.isFinite(max) && min < max ? { min: min, max: max } : null;
 }
 
 function basShowReportsHubUnavailable(message) {
@@ -4951,14 +4970,9 @@ function openBasReportsHub(settings, classified) {
   settings = settings || {};
   var library = window.MyIOLibrary || {};
 
-  if (_reportsHubHandle && _reportsHubHandle.isOpen) {
-    _reportsHubHandle.close();
-    _reportsHubHandle = null;
-    return;
-  }
-
   var utils = window.MyIOUtils || {};
   var catalog = basBuildReportsHubCatalog(_currentClassified || classified);
+  var temperatureRange = basGetReportsHubTemperatureRange();
   if (
     typeof library.openReportsHub !== 'function' ||
     typeof library.openDashboardPopupAllReport !== 'function' ||
@@ -4973,6 +4987,7 @@ function openBasReportsHub(settings, classified) {
 
   var context = {
     domains: ['energy', 'water', 'temperature'],
+    temperature: temperatureRange ? { validRange: temperatureRange } : {},
     getGroups: function (domain) {
       return basBuildReportsHubGroups(_currentClassified || classified, domain);
     },
@@ -5027,8 +5042,15 @@ function openBasReportsHub(settings, classified) {
             }
 
             var base = args.context.getAllReportBase();
+            var groups = args.context.getGroups(args.domain);
+            if (
+              args.item.id === 'todos' &&
+              (args.domain === 'energy' || args.domain === 'water')
+            ) {
+              groups = Object.assign({}, groups, { entrada: [] });
+            }
             var itemsList = library.buildReportItemsList(
-              args.context.getGroups(args.domain),
+              groups,
               args.domain,
               args.item.id
             );
@@ -5037,9 +5059,6 @@ function openBasReportsHub(settings, classified) {
                 ? {
                     ...(args.context.temperature && args.context.temperature.validRange
                       ? { temperatureValidRange: args.context.temperature.validRange }
-                      : {}),
-                    ...(args.context.temperature && args.context.temperature.idealRange
-                      ? { temperatureIdealRange: args.context.temperature.idealRange }
                       : {}),
                   }
                 : {};
@@ -5052,12 +5071,8 @@ function openBasReportsHub(settings, classified) {
                 groupLabel: args.item.label,
                 itemsList: itemsList,
                 api: { ...base.api, ingestionToken: ingestionToken },
-                ...(args.visual.palette || base.theme
-                  ? { theme: args.visual.palette || base.theme }
-                  : {}),
-                ...(args.visual.customerName || base.customerName
-                  ? { customerName: args.visual.customerName || base.customerName }
-                  : {}),
+                ...(args.visual.palette ? { theme: args.visual.palette } : {}),
+                ...(args.visual.customerName ? { customerName: args.visual.customerName } : {}),
               });
             };
           },
@@ -6476,8 +6491,8 @@ self.onInit = async function () {
 
         // Populate telemetry settings
         CUSTOMER_TELEMETRY_SETTINGS.mapInstantaneousPower = attrs?.mapInstantaneousPower || null;
-        CUSTOMER_TELEMETRY_SETTINGS.minTemperature = attrs?.minTemperature || null;
-        CUSTOMER_TELEMETRY_SETTINGS.maxTemperature = attrs?.maxTemperature || null;
+        CUSTOMER_TELEMETRY_SETTINGS.minTemperature = attrs?.minTemperature ?? null;
+        CUSTOMER_TELEMETRY_SETTINGS.maxTemperature = attrs?.maxTemperature ?? null;
 
         LogHelper.log('[MAIN_BAS] Customer credentials loaded:', {
           hasIngestionId: !!MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Id,

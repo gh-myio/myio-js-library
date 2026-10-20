@@ -79,27 +79,52 @@ describe('RFC-0239 characterization — buildReportItemsList matches the legacy 
     expect(buildReportItemsList(null, 'water', 'todos')).toEqual([]);
   });
 
-  it('supports MAIN_BAS technical group ids and labels in the combined report', () => {
-    const basGroups = {
+  it('keeps the energy Todos fixture domain-scoped and omits entry meters', () => {
+    const energyGroups = {
+      entrada: [{ ingestionId: 'energy-entry', label: 'Entrada energia' }],
       setores: [{ ingestionId: 'energy-sector', label: 'Setor A' }],
       equipments: [{ ingestionId: 'equipment-1', label: 'Equipamento 1' }],
       motor: [{ ingestionId: 'motor-1', label: 'Motor 1' }],
       bomba: [{ ingestionId: 'pump-1', label: 'Bomba 1' }],
+    };
+    const energyTodosGroups = { ...energyGroups, entrada: [] };
+
+    expect(buildReportItemsList(energyGroups as never, 'energy', 'entrada').map((item) => item.id)).toEqual([
+      'energy-entry',
+    ]);
+    const energyItems = buildReportItemsList(energyTodosGroups as never, 'energy', 'todos');
+    expect(energyItems.map((item) => item.id)).toEqual(['energy-sector', 'equipment-1', 'motor-1', 'pump-1']);
+    expect(energyItems.map((item) => item.groupLabel)).toEqual([
+      'Setores',
+      'Equipamentos',
+      'Motores',
+      'Bombas',
+    ]);
+  });
+
+  it('keeps the water Todos fixture domain-scoped and omits entry meters', () => {
+    const waterGroups = {
+      entrada: [{ ingestionId: 'water-entry', label: 'Entrada água' }],
       hidrometros: [{ ingestionId: 'water-meter-1', label: 'Hidrômetro 1' }],
       banheiros: [{ ingestionId: 'bathroom-meter-1', label: 'Banheiro 1' }],
       areacomum: [{ ingestionId: 'common-meter-1', label: 'Área comum 1' }],
       caixadagua: [{ ingestionId: 'tank-1', label: 'Reservatório 1' }],
       solenoide: [{ ingestionId: 'valve-1', label: 'Válvula 1' }],
     };
+    const waterTodosGroups = { ...waterGroups, entrada: [] };
 
-    expect(buildReportItemsList(basGroups as never, 'energy', 'setores')[0].id).toBe('energy-sector');
-    expect(buildReportItemsList(basGroups as never, 'water', 'hidrometros')[0].id).toBe('water-meter-1');
-    expect(buildReportItemsList(basGroups as never, 'water', 'banheiros')[0].id).toBe('bathroom-meter-1');
-    expect(buildReportItemsList(basGroups as never, 'energy', 'todos').map((item) => item.groupLabel)).toEqual([
-      'Setores',
-      'Equipamentos',
-      'Motores',
-      'Bombas',
+    expect(buildReportItemsList(waterGroups as never, 'water', 'entrada').map((item) => item.id)).toEqual([
+      'water-entry',
+    ]);
+    const waterItems = buildReportItemsList(waterTodosGroups as never, 'water', 'todos');
+    expect(waterItems.map((item) => item.id)).toEqual([
+      'water-meter-1',
+      'bathroom-meter-1',
+      'common-meter-1',
+      'tank-1',
+      'valve-1',
+    ]);
+    expect(waterItems.map((item) => item.groupLabel)).toEqual([
       'Hidrômetros',
       'Banheiros',
       'Área Comum',

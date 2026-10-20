@@ -185,6 +185,20 @@ describe('RFC-0239 openReportsHub — selection protocol', () => {
     expect(p.itemsList[0].temperatureOffset).toBe(2);
   });
 
+  it('forwards the configured valid range without inventing an ideal range', async () => {
+    open({
+      context: makeContext({ temperature: { validRange: { min: 18, max: 27 } } }),
+      enabledItems: { temperature_climatizavel: true },
+      initialDomain: 'temperature',
+    });
+    card('temperature', 'climatizavel')!.click();
+    await flush();
+
+    const p = allReport.mock.calls[0][0];
+    expect(p.temperatureValidRange).toEqual({ min: 18, max: 27 });
+    expect(p).not.toHaveProperty('temperatureIdealRange');
+  });
+
   it('demand panel: energy devices without ocultos, customer ids kept, name from the hub', async () => {
     const dp = { customer: { tbCustomerId: 'tb-c', gcdrCustomerId: 'g-c', name: '' }, user: { tbUserId: 'u', name: 'U' }, store: {}, api: {} };
     open({ context: makeContext({ getDemandPanelParams: () => dp as never }), customerName: 'Shopping A' });
