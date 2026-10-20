@@ -244,9 +244,12 @@
     const MOCK_GCDR_HOST = 'https://gcdr.mock.local';
     const MOCK_CUSTOMER_ATTRS = {
       '00000000-0000-4000-8000-000000000001': { ingestionId: 'ing-cust-alfa', client_id: 'mock-alfa', client_secret: 'mock-secret', gcdrCustomerId: 'gcdr-cust-alfa', gcdrApiKey: 'mock-key' },
-      // Beta: GCDR só no integration_setup (sem atributos soltos) — Demandas deve abrir mesmo assim
-      '00000000-0000-4000-8000-000000000002': { ingestionId: 'ing-cust-beta', client_id: 'mock-beta', client_secret: 'mock-secret',
-        integration_setup: JSON.stringify({ gcdr: { gcdrCustomerId: 'gcdr-cust-beta', gcdrApiKey: 'mock-key-beta', gcdrTenantId: '' } }) },
+      // Beta: Ingestion e GCDR só no integration_setup (sem atributos soltos) — tudo deve abrir mesmo assim
+      '00000000-0000-4000-8000-000000000002': {
+        integration_setup: JSON.stringify({
+          ingestion: { ingestionId: 'ing-cust-beta', client_id: 'mock-beta', client_secret: 'mock-secret' },
+          gcdr: { gcdrCustomerId: 'gcdr-cust-beta', gcdrApiKey: 'mock-key-beta', gcdrTenantId: '' },
+        }) },
       // 'Loja Sem Integração' (…0003) sem atributos → aviso "sem integração"
     };
     const realFetch = window.fetch.bind(window);

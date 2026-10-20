@@ -1361,8 +1361,11 @@ function createInventoryApp(ctx) {
     return out;
   }
 
-  /** `integration_setup.gcdr` (JSON string or object) → { gcdrCustomerId, gcdrApiKey, gcdrTenantId }. */
-  function integrationGcdr(attrs) {
+  /**
+   * `integration_setup` (JSON string or object, gravado pelo modal Integrações / GCDR-Upsell-Setup)
+   * → { ingestion: { ingestionId, client_id, client_secret }, gcdr: { gcdrCustomerId, gcdrApiKey, gcdrTenantId } }.
+   */
+  function integrationSetup(attrs) {
     var setup = attrs.integration_setup;
     if (typeof setup === 'string') {
       try {
@@ -1371,7 +1374,8 @@ function createInventoryApp(ctx) {
         setup = null;
       }
     }
-    return (setup && typeof setup === 'object' && setup.gcdr) || {};
+    setup = setup && typeof setup === 'object' ? setup : {};
+    return { ingestion: setup.ingestion || {}, gcdr: setup.gcdr || {} };
   }
 
   function openCustomerReports(key, button) {
@@ -1396,8 +1400,19 @@ function createInventoryApp(ctx) {
         log('customer attrs failed', err);
         return {};
       })
-      .then(function (attrs) {
+      .then(function (raw) {
         if (destroyed) return null;
+        // Credenciais: atributos soltos (como o MAIN_VIEW lê) ou, na falta deles, o
+        // integration_setup (ingestion/gcdr) — clientes novos só têm o segundo.
+        var setup = integrationSetup(raw);
+        var attrs = {
+          ingestionId: raw.ingestionId || setup.ingestion.ingestionId || '',
+          client_id: raw.client_id || setup.ingestion.client_id || '',
+          client_secret: raw.client_secret || setup.ingestion.client_secret || '',
+          gcdrCustomerId: raw.gcdrCustomerId || setup.gcdr.gcdrCustomerId || '',
+          gcdrApiKey: raw.gcdrApiKey || setup.gcdr.gcdrApiKey || '',
+          gcdrTenantId: raw.gcdrTenantId || setup.gcdr.gcdrTenantId || '',
+        };
         var hasIngestion = !!(attrs.ingestionId && attrs.client_id && attrs.client_secret);
         var tokenPromise = hasIngestion && lib.buildMyioIngestionAuth
           ? Promise.resolve()
@@ -1421,28 +1436,42 @@ function createInventoryApp(ctx) {
         if (!r || destroyed) return;
         var groups = customerReportGroups(rows);
         var attrs = r.attrs;
-        // GCDR ids: atributos soltos (gcdrCustomerId/gcdrApiKey/gcdrTenantId) ou, na falta
-        // deles, o bloco integration_setup.gcdr — assim Demandas e Telemetrias fica
-        // disponível para todo cliente que tenha a integração GCDR cadastrada em um dos dois.
-        var gcdr = integrationGcdr(attrs);
         // Minimal orchestrator for the library adapter (only the capabilities it reads).
         var orchestrator = {
           getCredentials: function () {
             return { CUSTOMER_ING_ID: attrs.ingestionId || '', CLIENT_ID: attrs.client_id || '', CLIENT_SECRET: attrs.client_secret || '' };
           },
           tokenManager: { getToken: function () { return r.token; } },
-          gcdrCustomerId: attrs.gcdrCustomerId || gcdr.gcdrCustomerId || '',
+          gcdrCustomerId: attrs.gcdrCustomerId,
           gcdrApiBaseUrl: settings.gcdrApiBaseUrl || '',
-          gcdrApiKey: attrs.gcdrApiKey || gcdr.gcdrApiKey || '',
-          gcdrTenantId: attrs.gcdrTenantId || gcdr.gcdrTenantId || '',
+          gcdrApiKey: attrs.gcdrApiKey,
+          gcdrTenantId: attrs.gcdrTenantId,
         };
+        var counts = {};
         ['energy', 'water', 'temperature'].forEach(function (domain) {
-          if (!Object.keys(groups[domain]).length) return;
+          counts[domain] = Object.keys(groups[domain]).reduce(function (n, k) { return n + groups[domain][k].length; }, 0);
+          if (!counts[domain]) return;
           var getter = { energy: 'getEnergyGroups', water: 'getWaterGroups', temperature: 'getTemperatureGroups' }[domain];
           orchestrator[getter] = function () { return groups[domain]; };
         });
+        // Diagnóstico sempre visível (sem segredos): por que um relatório aparece ou não.
+        console.info('[InventoryPanel v2] relatórios "' + key + '"', {
+          devicesAtivos: rows.length,
+          porDominio: counts,
+          naoClassificados: rows.filter(function (row) { return !(row.domain in counts); }).length,
+          ingestion: r.hasIngestion,
+          gcdr: !!(attrs.gcdrCustomerId && orchestrator.gcdrApiBaseUrl),
+        });
+        if (counts.energy + counts.water + counts.temperature === 0) {
+          notify(
+            'warning',
+            'Nenhum dispositivo ativo de "' + key + '" tem deviceProfile de energia, água ou temperatura — não há relatórios para mostrar.',
+          );
+          return;
+        }
+        // Só os relatórios de consumo dependem do Ingestion; Demandas e Telemetrias usa o GCDR.
         if (!r.hasIngestion && lib.MyIOToast && lib.MyIOToast.warning) {
-          lib.MyIOToast.warning('Cliente sem integração com o Ingestion — os relatórios de consumo podem vir vazios.');
+          lib.MyIOToast.warning('Cliente sem credenciais do Ingestion — os relatórios de consumo podem vir vazios (Demandas e Telemetrias não é afetado).');
         }
         lib.openReportsHub({
           context: lib.createDashboardReportsHubContext({
