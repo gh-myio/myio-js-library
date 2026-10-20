@@ -308,51 +308,20 @@ const ingestionCache = new Map<string, IngestionCache>();
 // Ingestion API Auth & Device Fetching
 // ============================================================================
 
-const INGESTION_AUTH_URL = 'https://api.data.apps.myio-bas.com/api/v1/auth';
 const INGESTION_API_BASE = 'https://api.data.apps.myio-bas.com/api/v1';
-const INGESTION_CLIENT_ID = 'myioadmi_mekj7xw7_sccibe';
-const INGESTION_CLIENT_SECRET = 'KmXhNZu0uydeWZ8scAi43h7P2pntGoWkdzNVMSjbVj3slEsZ5hGVXyayshgJAoqA';
 
-// Token cache
-let ingestionToken: string | null = null;
-let ingestionTokenExpiresAt = 0;
+// No credentials live in the lib: the caller authenticates (admin creds from its
+// widget settings) and hands over `ingestionToken` / `getIngestionToken`.
+let ingestionTokenSource: { token: string; provider?: () => Promise<string> } = { token: '' };
 
 async function getIngestionToken(): Promise<string> {
-  const now = Date.now();
-  // Return cached token if still valid (with 60s margin)
-  if (ingestionToken && now < ingestionTokenExpiresAt - 60000) {
-    return ingestionToken;
+  const token = ingestionTokenSource.provider
+    ? await ingestionTokenSource.provider()
+    : ingestionTokenSource.token;
+  if (!token) {
+    throw new Error('Ingestion token ausente — passe ingestionToken/getIngestionToken ao openUpsellModal.');
   }
-
-  console.log('[UpsellModal] Requesting new ingestion token...');
-  const res = await fetch(INGESTION_AUTH_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: INGESTION_CLIENT_ID,
-      client_secret: INGESTION_CLIENT_SECRET,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Ingestion auth failed: ${res.status} ${res.statusText} ${text}`);
-  }
-
-  const json = await res.json();
-  if (!json?.access_token || !json?.expires_in) {
-    throw new Error('Invalid ingestion auth response');
-  }
-
-  ingestionToken = json.access_token as string;
-  ingestionTokenExpiresAt = now + Number(json.expires_in) * 1000;
-  console.log(
-    '[UpsellModal] Ingestion token obtained, expires in ~',
-    Math.round(json.expires_in / 60),
-    'min'
-  );
-
-  return ingestionToken!
+  return token;
 }
 
 interface IngestionGateway {
@@ -918,6 +887,7 @@ function sortDevices(devices: Device[], field: DeviceSortField, order: SortOrder
 export function openUpsellModal(params: UpsellModalParams): UpsellModalInstance {
   const modalId = `myio-upsell-modal-${Date.now()}`;
   const t = i18n[params.lang || 'pt'];
+  ingestionTokenSource = { token: params.ingestionToken, provider: params.getIngestionToken };
 
   // Initialize state
   const state: ModalState = {

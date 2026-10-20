@@ -9,8 +9,14 @@ export interface UpsellModalParams {
   /** ThingsBoard JWT token (from localStorage.jwt_token) */
   thingsboardToken: string;
 
-  /** Ingestion API JWT token (pre-authenticated) */
+  /** Ingestion API JWT token (pre-authenticated, `management.admin` scope) */
   ingestionToken: string;
+
+  /**
+   * Optional token provider used instead of `ingestionToken` — lets long sessions
+   * renew the token (it expires in ~30 min). The lib holds no Ingestion credentials.
+   */
+  getIngestionToken?: () => Promise<string>;
 
   /** ThingsBoard API base URL (optional, defaults to current instance) */
   tbApiBase?: string;

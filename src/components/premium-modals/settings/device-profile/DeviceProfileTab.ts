@@ -30,6 +30,8 @@ export interface DeviceProfileTabConfig {
   deviceId: string;
   jwtToken: string;
   tbBaseUrl: string;
+  /** Ingestion token provider (`management.admin` scope) for "Sync Ingestion ID" */
+  getIngestionAdminToken?: () => Promise<string>;
 }
 
 interface TbEntityRef {
@@ -265,14 +267,14 @@ export class DeviceProfileTab {
    * Single-device "Sync Ingestion ID" — identical match algorithm to the bulk
    * tool (customer's `ingestionId` attr → this device's centralId+slaveId →
    * paged ingestion-API device list → match by gateway hardwareUuid+slaveId),
-   * scoped to one device. Reuses the same ingestion-API app credentials
-   * already shipped in openUpsellModal.ts (not a new secret).
+   * scoped to one device. The admin token comes from the host widget
+   * (`getIngestionAdminToken`); the lib holds no Ingestion credentials.
    */
   private async syncIngestionId(): Promise<{ ok: boolean; message: string }> {
-    const INGESTION_AUTH_URL = 'https://api.data.apps.myio-bas.com/api/v1/auth';
     const INGESTION_API_BASE = 'https://api.data.apps.myio-bas.com/api/v1';
-    const INGESTION_CLIENT_ID = 'myioadmi_mekj7xw7_sccibe';
-    const INGESTION_CLIENT_SECRET = 'KmXhNZu0uydeWZ8scAi43h7P2pntGoWkdzNVMSjbVj3slEsZ5hGVXyayshgJAoqA';
+    if (!this.config.getIngestionAdminToken) {
+      return { ok: false, message: 'Credencial admin da Ingestion não configurada neste dashboard — sync indisponível.' };
+    }
 
     const centralId = this.attrValue('centralId') as string | undefined;
     const slaveId = this.attrValue('slaveId') as string | number | undefined;
@@ -290,15 +292,8 @@ export class DeviceProfileTab {
       return { ok: false, message: 'Customer não tem atributo ingestionId configurado no ThingsBoard.' };
     }
 
-    const authRes = await fetch(INGESTION_AUTH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: INGESTION_CLIENT_ID, client_secret: INGESTION_CLIENT_SECRET }),
-    });
-    if (!authRes.ok) throw new Error(`Ingestion auth HTTP ${authRes.status}`);
-    const authJson = await authRes.json();
-    const token = authJson?.access_token;
-    if (!token) throw new Error('Ingestion auth: access_token ausente na resposta.');
+    const token = await this.config.getIngestionAdminToken();
+    if (!token) throw new Error('Ingestion auth: token admin ausente.');
 
     const slaveIdNum = typeof slaveId === 'string' ? parseInt(slaveId, 10) : slaveId;
     let page = 1;
