@@ -5338,6 +5338,25 @@ function buildSummaryWater(entrada, lojas, banheiros, areacomum, periodKey) {
 }
 
 /**
+ * Friendly name per centralId ({ [centralId]: centralName }) from the devices' `centralName`
+ * attribute. Devices of the same central may disagree on the spelling — the most frequent wins.
+ */
+function buildCentralNameMap(items) {
+  const counts = {};
+  for (const item of items) {
+    const name = (item.centralName || '').trim();
+    if (!item.centralId || !name) continue;
+    const byName = (counts[item.centralId] = counts[item.centralId] || {});
+    byName[name] = (byName[name] || 0) + 1;
+  }
+  const names = {};
+  for (const [centralId, byName] of Object.entries(counts)) {
+    names[centralId] = Object.keys(byName).sort((a, b) => byName[b] - byName[a])[0];
+  }
+  return names;
+}
+
+/**
  * Populate window.STATE for a domain with categorized data
  * RFC-0106: Now supports both energy and water domains with specific categorization
  */
@@ -5399,6 +5418,7 @@ function populateState(domain, items, periodKey) {
     ];
     const centralIdSet = new Set(allRaw.map((i) => i.centralId).filter(Boolean));
     window.MyIOOrchestrator.centralIds = Array.from(centralIdSet).sort();
+    window.MyIOOrchestrator.centralNames = buildCentralNameMap(allRaw);
   }
 
   // Emit state-ready event for widgets that prefer to read from STATE
