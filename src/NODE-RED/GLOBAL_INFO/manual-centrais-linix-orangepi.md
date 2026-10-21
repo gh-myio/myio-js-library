@@ -145,6 +145,14 @@ ssh -i id_rsa root@<ipv6-da-central>
 | ----------------------- | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
 | Porto Imbituba 4 — NOVA | `200:c301:a4e7:529a:780c:9230:2142:9dba` | `014fab8e-ee6d-4349-9866-d73864cbd44b` | —          | —          |
 
+#### Cliente: SHOPPING TABOÃO (SP)
+
+| Central                              | IPv6                                     | Gateway ID                             | Central ID | Frequência |
+| ------------------------------------ | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
+| Central Shopping Taboão - 2026-10-19 | `200:223e:1e9f:71b9:f655:ed55:a5e8:295c` | `8324c829-1bc9-4ab8-9bcb-2793ee0f436a` | `207.160.244.105` | `102`      |
+
+> **Central Shopping Taboão** (adicionada 2026-10-19) — `central_uuid` = `8324c829-1bc9-4ab8-9bcb-2793ee0f436a`; central id `[207,160,244,105]` (`207.160.244.105`), frequência `102`. Holding ainda não informada.
+
 #### MYIO — PRÉ-SETUP (bancada / referência)
 
 | Central           | IPv6                                    | Gateway ID                             | Central ID       | Frequência |
@@ -319,6 +327,9 @@ ssh -i id_rsa root@201:16bc:18d:dd1f:373c:c603:92bf:b83d
 
 # Porto Imbituba 4 — NOVA (Porto Imbituba)
 ssh -i id_rsa root@200:c301:a4e7:529a:780c:9230:2142:9dba
+
+# Central Shopping Taboão - 2026-10-19 (Shopping Taboão SP)
+ssh -i id_rsa root@200:223e:1e9f:71b9:f655:ed55:a5e8:295c
 
 # Central Pre-Setup (bancada / referência)
 ssh -i id_rsa root@204:12fb:5518:d04:d9e1:360d:4ab0:125b

@@ -2,19 +2,25 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-10-05",
+    "generatedAt": "2026-10-20",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
   "total": 8,
-  "peopleOver": 1,
+  "peopleOver": 2,
   "people": [
     {
       "name": "Rodrigo Lago",
-      "count": 6,
+      "count": 4,
       "over": true,
       "tickets": [
+        {
+          "key": "ED-996",
+          "type": "Bug",
+          "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
+          "updated": "2026-10-06"
+        },
         {
           "key": "ED-1301",
           "type": "Bug",
@@ -32,24 +38,25 @@
           "type": "Tarefa",
           "summary": "GCDR — Fluxo \"Esqueci a senha\" com magic link e template MYIO",
           "updated": "2026-09-30"
+        }
+      ]
+    },
+    {
+      "name": "Victor Hugo da Silva",
+      "count": 2,
+      "over": true,
+      "tickets": [
+        {
+          "key": "ED-1334",
+          "type": "Tarefa",
+          "summary": "Node-RED (aba Notifics): investigar por que a central manda triggered=true de vez em quando sem atender a condição — Campinas G0 Nova",
+          "updated": "2026-10-09"
         },
         {
-          "key": "ED-1292",
-          "type": "Bug",
-          "summary": "Melicidade - Outlier no registro de consumo de água",
-          "updated": "2026-09-29"
-        },
-        {
-          "key": "ED-1290",
-          "type": "Bug",
-          "summary": "Mestre Alvaro - Verificação de possível outlier de consumo",
-          "updated": "2026-09-29"
-        },
-        {
-          "key": "ED-996",
-          "type": "Bug",
-          "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
-          "updated": "2026-10-05"
+          "key": "ED-1328",
+          "type": "Tarefa",
+          "summary": "Shopping da Ilha — configurar o Node-RED da central nova de ENTRADA (cópia do Rio Poty, contribs e gateway no ThingsBoard)",
+          "updated": "2026-10-06"
         }
       ]
     },
@@ -59,10 +66,10 @@
       "over": false,
       "tickets": [
         {
-          "key": "ED-1294",
-          "type": "Bug",
-          "summary": "[BUG] Anotações: dropdown de Status/Importância cortado em \"Filtros Avançados\" + arquivamento bloqueado indevidamente",
-          "updated": "2026-10-05"
+          "key": "ED-1325",
+          "type": "Tarefa",
+          "summary": "QA — GCDR: fluxo de usuário de ponta a ponta (cadastro → magic link → aprovação → aguardando perfil → acesso com escopo, funções e funcionalidades)",
+          "updated": "2026-10-20"
         }
       ]
     },

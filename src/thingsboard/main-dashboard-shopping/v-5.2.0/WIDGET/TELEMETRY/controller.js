@@ -3837,6 +3837,12 @@ function _openPresetupConfigPrompt(s, prefillClientId, prefillClientSecret, onCo
     : [];
   const centralIds = orchCentralIds.length ? orchCentralIds : localCentralIds;
 
+  // Friendly central names: MAIN_VIEW map first, fallback to the local items' centralName
+  const centralNames = { ...(window.MyIOOrchestrator?.centralNames || {}) };
+  (STATE.itemsBase || []).forEach((i) => {
+    if (i.centralId && i.centralName && !centralNames[i.centralId]) centralNames[i.centralId] = i.centralName;
+  });
+
   const inputStyle =
     'display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:7px;font-size:13px;box-sizing:border-box;';
   const labelStyle = 'font-size:12px;color:#555;font-weight:600;';
@@ -3850,7 +3856,8 @@ function _openPresetupConfigPrompt(s, prefillClientId, prefillClientSecret, onCo
     const options = centralIds
       .map((id) => {
         const sel = id === gwPreset ? ' selected' : '';
-        return `<option value="${id}"${sel}>${id}</option>`;
+        const label = centralNames[id] ? `${escapeHtml(centralNames[id])} — ${id}` : id;
+        return `<option value="${id}"${sel}>${label}</option>`;
       })
       .join('');
     gatewayField = `
