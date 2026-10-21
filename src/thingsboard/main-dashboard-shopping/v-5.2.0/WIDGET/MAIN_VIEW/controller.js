@@ -1191,6 +1191,91 @@ async function _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, g
   }
 }
 
+// ── Filtro global "Status Disp." (GCDR device.status) ────────────────────────
+// HEADER escolhe TODOS | ATIVOS | INATIVOS (| DESCONHECIDOS, só se houver device sem
+// match no GCDR) e dispara `myio:device-status-filter`. A MAIN aplica o predicado em
+// emitProvide — choke point único de cards (TELEMETRY), totais (STATE.summary →
+// TELEMETRY_INFO) e relatórios (MyIOOrchestratorData[d].items → Reports Hub do MENU).
+// GCDR device.status ∈ ACTIVE | INACTIVE | DELETED (DELETED conta como INATIVO).
+const DEVICE_STATUS_FILTERS = ['all', 'ACTIVE', 'INACTIVE', 'UNKNOWN'];
+let _deviceStatusFilter = 'all';
+// { byGcdrId: Map<gcdrDeviceId,status>, byTbId: Map<tbDeviceId,status> } | null (ainda não carregado)
+let _gcdrDeviceStatusIndex = null;
+
+/** Lista os devices do customer no GCDR (X-API-Key) e indexa o status por id GCDR e por id TB. */
+async function _fetchGcdrDeviceStatus() {
+  const root = _rfc0234GcdrApiRoot();
+  const customerId = _rfc0234GcdrCustomerId();
+  if (!root || !customerId || !window.MyIOOrchestrator?.gcdrApiKey) return null;
+
+  const byGcdrId = new Map();
+  const byTbId = new Map();
+  try {
+    for (let page = 1; page <= 20; page++) {
+      const url =
+        `${root}/api/v1/devices?customerId=${encodeURIComponent(customerId)}` + `&limit=500&page=${page}`;
+      const res = await fetch(url, { headers: _rfc0234GcdrHeaders() });
+      if (!res.ok) {
+        LogHelper.warn(`[MAIN_VIEW] Status Disp.: GCDR /devices HTTP ${res.status}`);
+        return null;
+      }
+      const body = await res.json();
+      const list = Array.isArray(body?.data?.items) ? body.data.items : [];
+      list.forEach((d) => {
+        const status = d.status === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE'; // INACTIVE | DELETED
+        if (d.id) byGcdrId.set(String(d.id), status);
+        const tbId = d.metadata?.tbId || d.externalId;
+        if (tbId) byTbId.set(String(tbId), status);
+      });
+      if (!body?.data?.pagination?.hasMore || list.length === 0) break;
+    }
+  } catch (e) {
+    LogHelper.warn('[MAIN_VIEW] Status Disp.: falha ao listar devices do GCDR:', e?.message);
+    return null;
+  }
+  LogHelper.log(`[MAIN_VIEW] Status Disp.: ${byGcdrId.size} devices GCDR indexados`);
+  return { byGcdrId, byTbId };
+}
+
+/** 'ACTIVE' | 'INACTIVE' | 'UNKNOWN' (sem match no GCDR ou índice ainda não carregado). */
+function _resolveDeviceGcdrStatus(item) {
+  if (!_gcdrDeviceStatusIndex || !item) return 'UNKNOWN';
+  const byGcdr = item.gcdrDeviceId && _gcdrDeviceStatusIndex.byGcdrId.get(String(item.gcdrDeviceId));
+  if (byGcdr) return byGcdr;
+  const tbId = item.tbId || item.id;
+  return (tbId && _gcdrDeviceStatusIndex.byTbId.get(String(tbId))) || 'UNKNOWN';
+}
+
+/** Marca `item.gcdrStatus` e devolve só os itens do filtro corrente (mesmos objetos). */
+function _applyDeviceStatusFilter(items) {
+  const list = items || [];
+  list.forEach((item) => {
+    if (item && typeof item === 'object') item.gcdrStatus = _resolveDeviceGcdrStatus(item);
+  });
+  if (_deviceStatusFilter === 'all' || !_gcdrDeviceStatusIndex) return list;
+  return list.filter((item) => item && item.gcdrStatus === _deviceStatusFilter);
+}
+
+/** Contagem por status sobre a lista completa de todos os domínios (para o seletor do HEADER). */
+function _publishDeviceStatusOptions() {
+  const counts = { all: 0, ACTIVE: 0, INACTIVE: 0, UNKNOWN: 0 };
+  ['energy', 'water', 'temperature'].forEach((d) => {
+    const c = window.MyIOOrchestratorData?.[d];
+    (c?.allItems || c?.items || []).forEach((item) => {
+      counts.all++;
+      counts[_resolveDeviceGcdrStatus(item)]++;
+    });
+  });
+  const detail = {
+    available: !!_gcdrDeviceStatusIndex,
+    value: _deviceStatusFilter,
+    counts,
+    hasUnknown: counts.UNKNOWN > 0,
+  };
+  if (window.MyIOOrchestrator) window.MyIOOrchestrator.deviceStatusFilterState = detail;
+  window.dispatchEvent(new CustomEvent('myio:device-status-options', { detail }));
+}
+
 // RFC-0051.1: Global widget settings (will be populated in onInit)
 // IMPORTANT: customerTB_ID must NEVER be 'default' - it must always be a valid ThingsBoard ID
 let widgetSettings = {
@@ -2850,6 +2935,13 @@ Object.assign(window.MyIOUtils, {
         window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
         if (gcdrCustomerId && gcdrApiKey) {
           _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, gcdrTenantId);
+
+          // Filtro "Status Disp." (HEADER): índice de status dos devices do GCDR. Non-blocking.
+          _fetchGcdrDeviceStatus().then((index) => {
+            if (!index) return;
+            _gcdrDeviceStatusIndex = index;
+            window.dispatchEvent(new CustomEvent('myio:gcdr-device-status-loaded'));
+          });
         }
 
         // Check if credentials are present
@@ -7219,7 +7311,7 @@ const MyIOOrchestrator = (() => {
       // RFC-0138 FIX: Also verify period matches before returning cached data
       if (domain) {
         const cachedData = window.MyIOOrchestratorData?.[domain];
-        if (cachedData && cachedData.items && cachedData.items.length > 0) {
+        if (cachedData && (cachedData.allItems || cachedData.items || []).length > 0) {
           const cacheAge = Date.now() - (cachedData.timestamp || 0);
           const periodMatches = !expectedPeriodKey || cachedData.periodKey === expectedPeriodKey;
 
@@ -7245,7 +7337,7 @@ const MyIOOrchestrator = (() => {
     // RFC-0138: Also verify period matches
     if (domain) {
       const cachedData = window.MyIOOrchestratorData?.[domain];
-      if (cachedData && cachedData.items && cachedData.items.length > 0) {
+      if (cachedData && (cachedData.allItems || cachedData.items || []).length > 0) {
         const periodMatches = !expectedPeriodKey || cachedData.periodKey === expectedPeriodKey;
         if (periodMatches) {
           LogHelper.log(
@@ -7458,7 +7550,7 @@ const MyIOOrchestrator = (() => {
   function readyDomainData(domain, period) {
     const cached = window.MyIOOrchestratorData?.[domain];
     const built = builtDomains.get(domain);
-    if (!cached?.items?.length || !built || !period) return null;
+    if (!(cached?.allItems || cached?.items)?.length || !built || !period) return null;
     if (Date.now() - built.at > SUMMARY_TTL_MS) return null;
     if (domain !== 'temperature' && built.sig !== periodSig(period)) return null;
     return cached;
@@ -7500,17 +7592,19 @@ const MyIOOrchestrator = (() => {
       // RFC-0138 FIX: Also verify periodKey matches to avoid returning stale data for different period
       const cachedData = window.MyIOOrchestratorData?.[domain];
       const currentPeriodKey = periodKey(domain, period);
-      if (cachedData && cachedData.items && cachedData.items.length > 0) {
+      // allItems: o cache devolvido aqui é re-emitido via emitProvide, que re-aplica o filtro
+      const cachedAll = cachedData && (cachedData.allItems || cachedData.items);
+      if (cachedAll && cachedAll.length > 0) {
         const cacheAge = Date.now() - (cachedData.timestamp || 0);
         const periodMatches = cachedData.periodKey === currentPeriodKey;
 
         // Use cache if less than 30 seconds old AND period matches
         if (cacheAge < 30000 && periodMatches) {
           LogHelper.log(
-            `[Orchestrator] ✅ Using cached data for ${domain}: ${cachedData.items.length} items (age: ${cacheAge}ms, period: matched)`
+            `[Orchestrator] ✅ Using cached data for ${domain}: ${cachedAll.length} items (age: ${cacheAge}ms, period: matched)`
           );
 
-          return cachedData.items;
+          return cachedAll;
         } else if (cachedData && !periodMatches) {
           // RFC-0138: Cache exists but period doesn't match - will fetch fresh data
           LogHelper.log(
@@ -7536,7 +7630,7 @@ const MyIOOrchestrator = (() => {
           LogHelper.log(
             `[Orchestrator] ✅ Using cached temperature data: ${cachedData?.items?.length || 0} items`
           );
-          return cachedData?.items || [];
+          return cachedData?.allItems || cachedData?.items || [];
         }
 
         if (!ctxDataReady) {
@@ -7793,7 +7887,7 @@ const MyIOOrchestrator = (() => {
         LogHelper.log(
           `[Orchestrator] ✅ Using cached ${domain} data: ${cachedData?.items?.length || 0} items`
         );
-        return cachedData?.items || [];
+        return cachedData?.allItems || cachedData?.items || [];
       }
 
       if (!ctxDataReady) {
@@ -8621,6 +8715,11 @@ const MyIOOrchestrator = (() => {
       return;
     }
 
+    // Filtro "Status Disp." (GCDR): a lista completa fica em allItems; cards, STATE e
+    // relatórios recebem só o subconjunto filtrado (que pode ser vazio).
+    const allItems = items;
+    items = _applyDeviceStatusFilter(allItems);
+
     // Prevent duplicate emissions (< 100ms)
     if (OrchestratorState.lastEmission[key]) {
       const timeSinceLastEmit = now - OrchestratorState.lastEmission[key];
@@ -8646,6 +8745,8 @@ const MyIOOrchestrator = (() => {
     window.MyIOOrchestratorData[domain] = {
       periodKey: pKey,
       items: items,
+      allItems: allItems,
+      deviceStatusFilter: _deviceStatusFilter,
       timestamp: now,
       version: (window.MyIOOrchestratorData[domain]?.version || 0) + 1,
     };
@@ -8685,7 +8786,42 @@ const MyIOOrchestrator = (() => {
     }
 
     LogHelper.log(`[Orchestrator] 📡 Emitted provide-data for ${domain} with ${items.length} items`);
+
+    if (_gcdrDeviceStatusIndex) _publishDeviceStatusOptions();
   }
+
+  // Re-emite todos os domínios já carregados a partir da lista completa, com periodKey
+  // novo (mesmo truque do `myio:device-exclusion-updated`: fura o dedup de 100ms e os
+  // guards de periodKey do TELEMETRY / TELEMETRY_INFO).
+  function reemitForDeviceStatusFilter() {
+    ['energy', 'water', 'temperature'].forEach((domain) => {
+      const cached = window.MyIOOrchestratorData?.[domain];
+      const source = cached?.allItems || cached?.items;
+      if (!source || source.length === 0) return;
+      const baseKey = String(cached.periodKey || '').split('_recalc_')[0];
+      emitProvide(domain, `${baseKey}_recalc_${Date.now()}`, source);
+    });
+    try {
+      window.MyIOOrchestrator?.requestSummary?.();
+    } catch {
+      // ENERGY summary é opcional neste dashboard
+    }
+  }
+
+  window.addEventListener('myio:device-status-filter', (ev) => {
+    const value = ev?.detail?.value;
+    if (!DEVICE_STATUS_FILTERS.includes(value) || value === _deviceStatusFilter) return;
+    _deviceStatusFilter = value;
+    LogHelper.log(`[MAIN_VIEW] Status Disp.: filtro = ${value}`);
+    reemitForDeviceStatusFilter();
+    _publishDeviceStatusOptions();
+  });
+
+  // Índice GCDR carregado depois dos dados TB → marca/re-filtra o que já foi emitido.
+  window.addEventListener('myio:gcdr-device-status-loaded', () => {
+    if (_deviceStatusFilter !== 'all') reemitForDeviceStatusFilter();
+    _publishDeviceStatusOptions();
+  });
 
   function emitHydrated(domain, periodKey, count) {
     window.dispatchEvent(
@@ -8764,7 +8900,7 @@ const MyIOOrchestrator = (() => {
 
       // RFC-0130: Se já temos dados em cache para este domínio, fornecer imediatamente ao widget "atrasado"
       const cached = window.MyIOOrchestratorData?.[domain];
-      if (cached && cached.items && cached.items.length > 0) {
+      if (cached && (cached.allItems || cached.items || []).length > 0) {
         const age = Date.now() - cached.timestamp;
         if (age < 120000) {
           // Aumentado para 2 minutos para maior resiliência em transições lentas
@@ -8995,12 +9131,12 @@ const MyIOOrchestrator = (() => {
       const ready = readyDomainData(visibleTab, currentPeriod);
       if (ready) {
         LogHelper.log(`[Orchestrator] ⚡ ${visibleTab}: cards já montados — entregando sem hidratar`);
-        emitProvide(visibleTab, ready.periodKey, ready.items);
+        emitProvide(visibleTab, ready.periodKey, ready.allItems || ready.items);
         return;
       }
 
       // RFC-0130: Se trocou de tab e já temos dados em cache fresco, emitir imediatamente para atualizar UI antes de hidratar
-      if (stateChanged && cachedData && cachedData.items && cachedData.items.length > 0) {
+      if (stateChanged && cachedData && (cachedData.allItems || cachedData.items || []).length > 0) {
         const age = Date.now() - (cachedData.timestamp || 0);
         if (age < 120000) {
           LogHelper.log(
@@ -9008,7 +9144,7 @@ const MyIOOrchestrator = (() => {
               age / 1000
             )}s) para tab ${visibleTab}`
           );
-          emitProvide(visibleTab, cachedData.periodKey, cachedData.items);
+          emitProvide(visibleTab, cachedData.periodKey, cachedData.allItems || cachedData.items);
         }
       }
 
@@ -9038,9 +9174,9 @@ const MyIOOrchestrator = (() => {
 
     const cachedEnergy = window.MyIOOrchestratorData?.energy;
 
-    if (cachedEnergy && cachedEnergy.items && cachedEnergy.items.length > 0) {
+    if (cachedEnergy && (cachedEnergy.allItems || cachedEnergy.items || []).length > 0) {
       // Energy items use item.id = TB entityId (UUID). item.tbId is only present on water items.
-      const itemToUpdate = cachedEnergy.items.find((i) => i.id === deviceId);
+      const itemToUpdate = (cachedEnergy.allItems || cachedEnergy.items).find((i) => i.id === deviceId);
 
       if (itemToUpdate) {
         // Patch the cached item so getValorEfetivo picks up the new rule immediately.
@@ -9062,7 +9198,8 @@ const MyIOOrchestrator = (() => {
         // Clear the emission lock for the new key (it doesn't exist yet, but be explicit).
         delete OrchestratorState.lastEmission[`energy_${novaChave}`];
 
-        emitProvide('energy', novaChave, cachedEnergy.items);
+        // allItems: re-emitir só o subconjunto do filtro "Status Disp." perderia os demais
+        emitProvide('energy', novaChave, cachedEnergy.allItems || cachedEnergy.items);
       } else if (currentPeriod) {
         hydrateDomain('energy', currentPeriod, { force: true });
       }
