@@ -1,0 +1,6 @@
+/* Inventory Panel v2.0.0 (RFC-0237) — the widget injects its own styles inside the
+   container (scoped by .ipv2-root, see controller.js IPV2_CSS). This file only makes
+   the widget fill the ThingsBoard cell. */
+.tb-widget-container > .tb-widget {
+  overflow: hidden;
+}
