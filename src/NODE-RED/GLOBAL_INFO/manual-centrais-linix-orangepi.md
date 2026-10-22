@@ -80,7 +80,8 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Macaé                  | `200:bf4f:c3a0:e697:17ff:28a5:38ae:536b` | `571ff592-8983-43b3-b7f2-96ab688d4f1c` | —          | —          |
 | ~~Ilha Plaza AL1~~ ⚠️ **DEPRECATED** — substituída pela central nova CM4 abaixo | ~~`200:dc42:651b:5ae5:338d:2b26:670d:34e6`~~ | ~~`81a60176-222c-4bb9-88f5-bc2b47802d82`~~ | —          | —          |
 | Ilha Plaza AL1 - NOVA CM4 | `201:46fb:1e45:5ad9:7324:ecb7:5c4:b7d6` | `65b7e467-d340-4dff-a05f-4e8de0e94bca` | `185.19.10.226` | `104`      |
-| Ilha Plaza AL2         | `200:24a5:8297:cce7:59d2:8126:6d67:7e4d` | `53052549-cc8c-4ca2-a597-58e0577548a2` | —          | —          |
+| ~~Ilha Plaza AL2~~ ⚠️ **CONDENADA 2026-10-22** — substituída pela central abaixo (restore do banco desta) | ~~`200:24a5:8297:cce7:59d2:8126:6d67:7e4d`~~ | ~~`53052549-cc8c-4ca2-a597-58e0577548a2`~~ | —          | —          |
+| Central Ilha Plaza AL2 - 2026-10-22 | `202:c116:b4a1:d987:7cc5:e7da:148e:1614` | `c88ab239-8c22-4251-892a-02737590fefb` | —          | —          |
 | Ilha Plaza AL3         | `206:c160:eb69:3ddb:42c7:efce:511e:792a` | `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` | —          | —          |
 | Melicidade             | `200:43cb:c66:59be:9966:7330:8b9a:224`   | `05148707-6011-42fb-8b78-46f33a5ca988` | —          | —          |
 | Shopping Contagem      | `200:12b0:b768:7ba0:32b5:1c15:bec7:33aa` | `70b6d878-090f-4326-af18-2695396cbc67` | —          | —          |
@@ -88,6 +89,8 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Shopping Capim Dourado 2.0 - 2026-07-30 | `200:9738:d165:f821:68d3:2852:d822:a748` | `84638207-ac49-4adf-a033-4731dbb920c2` | `75.216.106.156` | `102`      |
 | ~~West Plaza~~ ⚠️ **SUBSTITUÍDA 2026-09-28** — substituída pela central nova abaixo | ~~`203:1211:7a3a:89f:4ce2:4482:13:e8b`~~ | ~~`1982b47d-2e82-40df-94cc-f89ae12cba58`~~ | ~~`137.177.222.39`~~ | ~~`1117`~~ |
 | West Plaza - NOVA - 2026-09-28 | `200:4bfa:32e0:da5f:74bd:ab68:202b:20a7` | `61b789a3-23cc-45b2-91a3-5ec1dfc2ac6d` | `70.96.63.2222` | `77`      |
+
+> **Central Ilha Plaza AL2 - 2026-10-22** — a central de bancada **"CEntral Rodrigo Citta 5"** (IPv6 `202:c116:b4a1:d987:7cc5:e7da:148e:1614`, `central_uuid` = `c88ab239-8c22-4251-892a-02737590fefb`) foi **realocada para o lugar da Ilha Plaza AL2** (`200:24a5:8297:cce7:59d2:8126:6d67:7e4d`, gateway `53052549-cc8c-4ca2-a597-58e0577548a2`), que foi **condenada**. Restore do banco da AL2 antiga → central nova: ticket [ED-1356](https://myio.atlassian.net/browse/ED-1356). Central ID / frequência da nova: a preencher após o restore.
 
 #### Holding: ARGO PLAN
 
@@ -104,10 +107,13 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 | Central      | IPv6                                    | Gateway ID                             | Central ID | Frequência |
 | ------------ | --------------------------------------- | -------------------------------------- | ---------- | ---------- |
-| Deodoro      | `200:1e6a:69a5:73f1:b18a:e6e:aa68:9229` | `adb43bf6-6107-44fa-b786-6e88c150d779` | —          | —          |
+| ~~Deodoro~~ ⚠️ **CONDENADA 2026-10-22** — substituída pela central abaixo | ~~`200:1e6a:69a5:73f1:b18a:e6e:aa68:9229`~~ | ~~`adb43bf6-6107-44fa-b786-6e88c150d779`~~ | —          | —          |
+| Central Deodoro - 2026-10-22 | `201:92b:2197:6dcc:9167:4be7:b2aa:896f` | `da4f38b5-06e6-4f86-8705-c1e23f2639f9` | `18.196.25.155` | `20`       |
 | ~~Supervia CCO~~ ⚠️ **QUEIMOU — substituída em 2026-10-05** pela central abaixo | ~~`206:e178:b5ba:16:f028:c0bc:d616:2c5b`~~ | ~~`af8a4c31-aa30-4417-9421-457496bcfe01`~~ | —          | —          |
 | Central Supervia CCO 2026-10-05 | `201:4536:897d:52fc:3bd0:c93f:df9f:51e4` | `fb924430-a756-4a45-842a-e55b6cb091dc` | `242.37.202.62` | `45` |
 | Supervia CTO | `202:1c94:dab9:af71:f553:616:615:adbc`  | `6dd63004-1009-4585-bd9f-556d4385e292` | —          | —          |
+
+> **Central Deodoro - 2026-10-22** — a central reserva **"Central Backup Vitória 2"** (nome original; IPv6 `201:92b:2197:6dcc:9167:4be7:b2aa:896f`, `central_uuid` = `da4f38b5-06e6-4f86-8705-c1e23f2639f9`) foi batizada de **Central Deodoro - 2026-10-22** e **substitui a Deodoro** (`200:1e6a:69a5:73f1:b18a:e6e:aa68:9229`, gateway `adb43bf6-6107-44fa-b786-6e88c150d779`), que foi **condenada**. Central id `[18,196,25,155]` (`18.196.25.155`), frequência `20`.
 
 #### Holding: DIMENSION
 
@@ -241,8 +247,11 @@ ssh -i id_rsa root@200:bf4f:c3a0:e697:17ff:28a5:38ae:536b
 # Ilha Plaza AL1 - NOVA CM4 (Soul Malls)
 ssh -i id_rsa root@201:46fb:1e45:5ad9:7324:ecb7:5c4:b7d6
 
-# Ilha Plaza AL2 (Soul Malls)
-ssh -i id_rsa root@200:24a5:8297:cce7:59d2:8126:6d67:7e4d
+# Ilha Plaza AL2 (Soul Malls) — ⚠️ CONDENADA 2026-10-22 (substituída pela central abaixo)
+# ssh -i id_rsa root@200:24a5:8297:cce7:59d2:8126:6d67:7e4d
+
+# Central Ilha Plaza AL2 - 2026-10-22 (Soul Malls) — ex-"CEntral Rodrigo Citta 5", realocada
+ssh -i id_rsa root@202:c116:b4a1:d987:7cc5:e7da:148e:1614
 
 # Ilha Plaza AL3 (Soul Malls)
 ssh -i id_rsa root@206:c160:eb69:3ddb:42c7:efce:511e:792a
@@ -283,8 +292,11 @@ ssh -i id_rsa root@200:9738:d165:f821:68d3:2852:d822:a748
 # West Plaza - NOVA - 2026-09-28 (Soul Malls)
 ssh -i id_rsa root@200:4bfa:32e0:da5f:74bd:ab68:202b:20a7
 
-# Deodoro (Supervia Estações)
-ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
+# Deodoro (Supervia Estações) — ⚠️ CONDENADA 2026-10-22 (substituída pela central abaixo)
+# ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
+
+# Central Deodoro - 2026-10-22 (Supervia Estações) — ex-"Central Backup Vitória 2"
+ssh -i id_rsa root@201:92b:2197:6dcc:9167:4be7:b2aa:896f
 
 # Supervia CCO (Supervia Estações) — ⚠️ QUEIMOU, SUBSTITUÍDA 2026-10-05
 # ssh -i id_rsa root@206:e178:b5ba:16:f028:c0bc:d616:2c5b
