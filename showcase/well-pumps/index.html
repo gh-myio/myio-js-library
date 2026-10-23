@@ -31,6 +31,7 @@
   <div class="hero">
     <h1>Automação dos Poços — bombas (BOMBA_POCO) e solenoide</h1>
     <p>ED-1354 · Shopping Taboão · dados <b>simulados</b> (a telemetria muda a cada 6 s). Tudo abaixo usa só APIs da lib.</p>
+    <p>Configurações: ThingsBoard simulado no navegador; vínculos ficam somente nesta sessão e não são enviados ao TB real.</p>
   </div>
 
   <div class="panel">
@@ -39,10 +40,12 @@
       <button id="btn-modal">Abrir modal "Automação dos Poços"</button>
       <button id="btn-tank">Abrir modal do reservatório (Poço 3)</button>
       <button id="btn-tank-p4">Abrir modal do reservatório (Poço 4)</button>
+      <button id="btn-settings-p3">Configurar equipamentos do Poço 3</button>
+      <button id="btn-settings-p4">Configurar equipamentos do Poço 4</button>
       <button id="btn-toggle-b1">Alternar B1</button>
       <button id="btn-toggle-b2">Alternar B2</button>
       <button id="btn-toggle-s">Alternar S</button>
-      <label><input type="checkbox" id="chk-myio" checked> usuário @myio (atalho no header do reservatório)</label>
+      <label><input type="checkbox" id="chk-myio" checked> simular SuperAdmin @myio (aba de vínculos e atalho no reservatório)</label>
       <label><input type="checkbox" id="chk-live" checked> simulação ao vivo</label>
     </div>
     <div class="controls" style="margin-top:10px">
@@ -80,6 +83,29 @@
     const el = document.getElementById('log');
     el.insertAdjacentHTML('beforeend', `<div>[${new Date().toLocaleTimeString('pt-BR')}] ${m}</div>`);
     el.scrollTop = el.scrollHeight;
+  };
+
+  const openWellSettings = async (wellId) => {
+    if (!document.getElementById('chk-myio').checked) {
+      log('A aba de equipamentos exige usuário @myio/SuperAdmin.');
+    }
+    try {
+      await L.openDashboardPopupSettings({
+        deviceId: wellId,
+        label: wells[wellId].label,
+        deviceProfile: wells[wellId].deviceProfile,
+        domain: 'water',
+        customerId: 'customer-demo',
+        jwtToken: 'showcase-simulated-token',
+        superadmin: document.getElementById('chk-myio').checked,
+        api: { tbBaseUrl: location.origin },
+        ui: { title: 'Configurações do Poço', width: 1100 },
+      });
+      log(`configurações abertas (${wells[wellId].label})`);
+    } catch (error) {
+      log(`falha ao abrir configurações: ${error.message}`);
+      console.error('[well-pumps showcase] Falha ao abrir configurações:', error);
+    }
   };
 
   // ---- Telemetria simulada (formato TB { ts, value }, convenção MAIN_BAS) -------
@@ -128,25 +154,54 @@
     'poco-4': { label: 'POÇO 4', deviceProfile: 'CISTERNA', levelMca: 188, perc: 0.41 },
   };
 
+  const equipmentCatalog = [
+    { id: 'pump-1', label: 'Bomba Poço 3', profile: 'BOMBA_POCO', gcdrId: 'gcdr-pump-1', telemetryKey: 'b1' },
+    { id: 'pump-2', label: 'Bomba Poço 4', profile: 'BOMBA_POCO', gcdrId: 'gcdr-pump-2', telemetryKey: 'b2' },
+    { id: 'valve-1', label: 'Solenoide Sabesp', profile: 'SOLENOIDE', gcdrId: 'gcdr-valve-1', telemetryKey: 's' },
+  ];
+  const pumpBindings = new Map([
+    ['poco-3', {
+      pumps: [{ tbId: 'pump-1', gcdrId: 'gcdr-pump-1', code: 'B1', label: 'Bomba Poço 3' }],
+      valves: [{ tbId: 'valve-1', gcdrId: 'gcdr-valve-1', code: 'S', label: 'Solenoide Sabesp' }],
+    }],
+    ['poco-4', {
+      pumps: [{ tbId: 'pump-2', gcdrId: 'gcdr-pump-2', code: 'B2', label: 'Bomba Poço 4' }],
+      valves: [{ tbId: 'valve-1', gcdrId: 'gcdr-valve-1', code: 'S', label: 'Solenoide Sabesp' }],
+    }],
+  ]);
+  const tbJson = (data, status = 200) => Promise.resolve(new Response(JSON.stringify(data), {
+    status, headers: { 'Content-Type': 'application/json' },
+  }));
+
   const buildData = (wellId) => {
-    const pumps = [
-      { key: 'b1', code: 'B1', label: 'Bomba Poço 3', identifier: 'BOMBA-P3', wellId: 'poco-3', wellLabel: 'Poço 3' },
-      { key: 'b2', code: 'B2', label: 'Bomba Poço 4', identifier: 'BOMBA-P4', wellId: 'poco-4', wellLabel: 'Poço 4' },
-    ].map((pump) => ({
-      ...pump,
-      powerKw: unavailable.has(pump.key) ? null : L.latestPowerKw(telemetry[pump.key]),
-      wellLevelMca: wells[pump.wellId].levelMca,
-      wellPercentage: wells[pump.wellId].perc,
-      history: unavailable.has(pump.key) ? null : L.pumpHistoryFromConsumption(telemetry[pump.key]),
-    }));
-    const valves = [{
-      code: 'S',
-      label: 'Solenoide Sabesp',
-      identifier: 'SOL-SABESP',
-      description: 'entrada principal de água',
-      history: unavailable.has('s') ? null : L.valveHistoryFromTelemetry(telemetry.s),
-    }];
-    return { pumps: wellId ? pumps.filter((pump) => pump.wellId === wellId) : pumps, valves };
+    const selectedWells = wellId ? [wellId] : Object.keys(wells);
+    const pumps = [];
+    const valves = [];
+    for (const id of selectedWells) {
+      const well = wells[id];
+      const binding = pumpBindings.get(id) || { pumps: [], valves: [] };
+      for (const item of binding.pumps) {
+        const device = equipmentCatalog.find((candidate) => candidate.id === item.tbId);
+        if (!device) continue;
+        const key = device.telemetryKey;
+        pumps.push({
+          ...item, key, identifier: item.tbId, wellId: id, wellLabel: well.label,
+          powerKw: unavailable.has(key) ? null : L.latestPowerKw(telemetry[key]),
+          wellLevelMca: well.levelMca, wellPercentage: well.perc,
+          history: unavailable.has(key) ? null : L.pumpHistoryFromConsumption(telemetry[key]),
+        });
+      }
+      for (const item of binding.valves) {
+        const device = equipmentCatalog.find((candidate) => candidate.id === item.tbId);
+        if (!device) continue;
+        const key = device.telemetryKey;
+        valves.push({
+          ...item, identifier: item.tbId, description: 'entrada principal de água',
+          history: unavailable.has(key) ? null : L.valveHistoryFromTelemetry(telemetry[key]),
+        });
+      }
+    }
+    return { pumps, valves };
   };
 
   // ---- Modal das bombas -------------------------------------------------------
@@ -168,6 +223,62 @@
   const origFetch = window.fetch.bind(window);
   window.fetch = (input, init) => {
     const url = typeof input === 'string' ? input : input?.url || '';
+    const parsedUrl = new URL(url, location.origin);
+    const pathname = parsedUrl.pathname;
+    const deviceMatch = pathname.match(/\/api\/plugins\/telemetry\/DEVICE\/([^/]+)\/values\/attributes\/SERVER_SCOPE$/);
+    const deviceId = deviceMatch ? decodeURIComponent(deviceMatch[1]) : null;
+    const attributeWriteMatch = pathname.match(/\/api\/plugins\/telemetry\/DEVICE\/([^/]+)\/attributes\/SERVER_SCOPE$/);
+    const attributeWriteDeviceId = attributeWriteMatch ? decodeURIComponent(attributeWriteMatch[1]) : null;
+    const customerDevicesMatch = pathname.match(/\/api\/customer\/([^/]+)\/devices$/);
+
+    if (customerDevicesMatch) {
+      return tbJson({
+        data: equipmentCatalog.map((item) => ({ id: { id: item.id }, name: item.label, label: item.label })),
+        hasNext: false,
+      });
+    }
+    if (attributeWriteDeviceId && init?.method === 'POST') {
+      const payload = JSON.parse(init.body || '{}');
+      if (Object.prototype.hasOwnProperty.call(payload, 'pumpBindings')) {
+        pumpBindings.set(attributeWriteDeviceId, payload.pumpBindings);
+        log(`pumpBindings salvo localmente para ${wells[attributeWriteDeviceId]?.label || attributeWriteDeviceId}`);
+        setTimeout(refresh, 0);
+      }
+      return tbJson({});
+    }
+    if (deviceId) {
+      const requestedKeys = parsedUrl.searchParams.get('keys');
+      if (requestedKeys === 'pumpBindings') {
+        const bindings = pumpBindings.get(deviceId);
+        return tbJson(bindings ? [{ key: 'pumpBindings', value: bindings }] : []);
+      }
+      const equipment = equipmentCatalog.find((item) => item.id === deviceId);
+      if (equipment) {
+        const attributes = [{ key: 'deviceProfile', value: equipment.profile }];
+        if (equipment.gcdrId) attributes.push({ key: 'gcdrDeviceId', value: equipment.gcdrId });
+        return tbJson(attributes);
+      }
+      return tbJson([]);
+    }
+    if (pathname === '/api/auth/user') {
+      const isMyio = document.getElementById('chk-myio').checked;
+      return tbJson({
+        id: { id: 'showcase-user' },
+        firstName: 'Showcase',
+        lastName: 'User',
+        email: isMyio ? 'showcase@myio.com.br' : 'operator@example.com',
+      });
+    }
+    if (/\/api\/plugins\/telemetry\/(CUSTOMER|USER)\//.test(pathname)) return tbJson([]);
+    const deviceEntityMatch = pathname.match(/\/api\/device\/([^/]+)$/);
+    if (deviceEntityMatch) {
+      const id = decodeURIComponent(deviceEntityMatch[1]);
+      return tbJson({ id: { id }, name: wells[id]?.label || id, label: wells[id]?.label || id, createdTime: now0 });
+    }
+    if (pathname === '/api/deviceProfile/names') return tbJson([]);
+    if (pathname === '/api/customers') return tbJson({ data: [], hasNext: false });
+    if (pathname.startsWith('/api/customer/')) return tbJson({ title: 'Shopping Taboão' });
+
     const m = url.match(/\/DEVICE\/(poco-\d)\/values\/timeseries/);
     if (!m) return origFetch(input, init);
     const w = wells[m[1]];
@@ -221,7 +332,7 @@
         entityObject: e, enableSelection: false, enableDragDrop: false,
         handleActionDashboard: () => (wells[e.entityId] ? openTank(e.entityId) : log('dashboard: só poços')),
         handleActionReport: () => log(`relatório ${e.labelOrName}`),
-        handleActionSettings: () => log(`settings ${e.labelOrName}`),
+        handleActionSettings: () => (wells[e.entityId] ? openWellSettings(e.entityId) : log('settings: só poços')),
         handleActionEquipment: (ent) => openPumps(ent.entityId),
       });
       box.appendChild(ret instanceof Node ? ret : ret[0]);
@@ -237,6 +348,8 @@
   document.getElementById('btn-modal').onclick = () => openPumps();
   document.getElementById('btn-tank').onclick = () => openTank('poco-3');
   document.getElementById('btn-tank-p4').onclick = () => openTank('poco-4');
+  document.getElementById('btn-settings-p3').onclick = () => openWellSettings('poco-3');
+  document.getElementById('btn-settings-p4').onclick = () => openWellSettings('poco-4');
   document.getElementById('btn-toggle-b1').onclick = () => toggle('b1');
   document.getElementById('btn-toggle-b2').onclick = () => toggle('b2');
   document.getElementById('btn-toggle-s').onclick = () => toggle('s');
