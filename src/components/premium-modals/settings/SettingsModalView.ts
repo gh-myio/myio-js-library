@@ -8,6 +8,7 @@ import { ExclusionGroupsTab } from './exclusion-groups/ExclusionGroupsTab';
 import { DeviceProfileTab } from './device-profile/DeviceProfileTab';
 import { createTicketsTab } from './tickets/TicketsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
+import { loadStoreSegmentCatalog, activitiesForSegment } from './commercialCatalog';
 import type { UserInfo, PermissionSet } from './annotations/types';
 import {
   createInputDateRangePickerInsideDIV,
@@ -123,6 +124,11 @@ export class SettingsModalView {
     const lastUpdatedEl = this.modal.querySelector('#identity-last-updated-value') as HTMLElement;
     if (lastUpdatedEl) {
       lastUpdatedEl.textContent = formData.lastUpdatedTime ? this.formatTs(formData.lastUpdatedTime) : '—';
+    }
+
+    // Campos comerciais (só @myio / superadmin): selects em cascata Segmento → Atividade
+    if (this.isSuperAdmin()) {
+      this.initCommercialFields(formData);
     }
 
     // Patch gcdrDeviceId from SERVER_SCOPE attribute if not already provided
@@ -909,6 +915,7 @@ export class SettingsModalView {
             </div>
 
           </div>
+          ${this.isSuperAdmin() ? this.getCommercialFieldsHTML() : ''}
         </div>
 
         <!-- Central/gateway identity+telemetry — only for CentralSettingsModal (isGateway);
@@ -925,6 +932,85 @@ export class SettingsModalView {
         ${this.config.domain === 'temperature' ? this.getTemperatureOffsetHTML() : ''}
       </div>
     `;
+  }
+
+  /**
+   * Campos comerciais — só @myio / superadmin (o bloco nem é renderizado para os demais,
+   * então getFormData não envia essas chaves e o save não as sobrescreve).
+   * Linha 1: ABL + Contrato (texto). Linha 2: Segmento → Atividade (selects em cascata,
+   * opções preenchidas em initCommercialFields após carregar o catálogo).
+   */
+  private getCommercialFieldsHTML(): string {
+    // Nome do customer: config → fallback MyIOUtils.customerName (setado pelo MAIN_VIEW)
+    const customerName = String(
+      this.config.customerName || (window as any).MyIOUtils?.customerName || ''
+    ).trim();
+    const escName = customerName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `
+      <div class="commercial-block">
+        <div class="commercial-title">Dados de Cadastro${
+          escName ? ` <span class="commercial-sep">|</span> <span class="commercial-customer">${escName.toLocaleUpperCase('pt-BR')}</span>` : ''
+        }</div>
+        <div class="commercial-grid">
+          <div class="commercial-field">
+            <label class="identity-field-label" for="abl">ABL</label>
+            <input type="text" id="abl" name="abl" class="identity-input" maxlength="50" placeholder="Ex.: 120,50 m²">
+          </div>
+          <div class="commercial-field">
+            <label class="identity-field-label" for="contract">Contrato</label>
+            <input type="text" id="contract" name="contract" class="identity-input" maxlength="100" placeholder="Nº / identificação do contrato">
+          </div>
+          <div class="commercial-field">
+            <label class="identity-field-label" for="segment">Segmento</label>
+            <select id="segment" name="segment" class="identity-input" disabled>
+              <option value="">Carregando segmentos…</option>
+            </select>
+          </div>
+          <div class="commercial-field">
+            <label class="identity-field-label" for="activity">Atividade</label>
+            <select id="activity" name="activity" class="identity-input" disabled>
+              <option value="">Selecione o segmento primeiro</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /** Carrega o catálogo de segmentos e liga a cascata Segmento → Atividade, restaurando os valores salvos. */
+  private async initCommercialFields(saved: Record<string, any>): Promise<void> {
+    const segmentEl = this.modal.querySelector('#segment') as HTMLSelectElement | null;
+    const activityEl = this.modal.querySelector('#activity') as HTMLSelectElement | null;
+    if (!segmentEl || !activityEl) return;
+
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const options = (values: string[], selected: string, placeholder: string) =>
+      `<option value="">${placeholder}</option>` +
+      values.map((v) => `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${esc(v)}</option>`).join('');
+
+    const catalog = await loadStoreSegmentCatalog(this.config.segmentCatalog);
+    const savedSegment = String(saved.segment || '');
+    const savedActivity = String(saved.activity || '');
+
+    // Segmento salvo que saiu do catálogo continua selecionável (não perde o dado)
+    const segments = catalog.map((s) => s.segment);
+    if (savedSegment && !segments.includes(savedSegment)) segments.push(savedSegment);
+    segmentEl.innerHTML = options(segments, savedSegment, 'Selecione…');
+    segmentEl.disabled = false;
+
+    const fillActivities = (segment: string, selected: string) => {
+      if (!segment) {
+        activityEl.innerHTML = options([], '', 'Selecione o segmento primeiro');
+        activityEl.disabled = true;
+        return;
+      }
+      activityEl.innerHTML = options(activitiesForSegment(catalog, segment, selected), selected, 'Selecione…');
+      activityEl.disabled = false;
+    };
+    fillActivities(savedSegment, savedActivity);
+
+    segmentEl.addEventListener('change', () => fillActivities(segmentEl.value, ''));
   }
 
   /** RFC-0171: Offset de Temperatura — sempre visível para domain=temperature; editável só para @myio.com.br */
@@ -2776,6 +2862,49 @@ export class SettingsModalView {
           cursor: default;
         }
 
+        /* Campos comerciais (só @myio / superadmin) */
+        .commercial-block {
+          margin-top: 14px;
+          padding-top: 12px;
+          border-top: 1px dashed #e5e7eb;
+        }
+        .commercial-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          color: #495057;
+          margin-bottom: 8px;
+        }
+        .commercial-sep {
+          color: #ced4da;
+          font-weight: 400;
+        }
+        .commercial-customer {
+          color: var(--myio-brand-700, #3e1a7d);
+          letter-spacing: 0.3px;
+        }
+        .commercial-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px 16px;
+        }
+        .commercial-field {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        select.identity-input {
+          height: 30px;
+          cursor: pointer;
+        }
+        select.identity-input:disabled {
+          background: #f8f9fa;
+          color: #9ca3af;
+          cursor: not-allowed;
+        }
+
         /* Col 3: date info block */
         .identity-dates-block {
           grid-column: 3;
@@ -3774,6 +3903,11 @@ export class SettingsModalView {
           color: #6c757d;
           border-color: #373a40;
         }
+        .theme-dark .commercial-block { border-top-color: #373a40; }
+        .theme-dark .commercial-title { color: #ced4da; }
+        .theme-dark .commercial-sep { color: #495057; }
+        .theme-dark .commercial-customer { color: #c4b5fd; }
+        .theme-dark select.identity-input:disabled { background: #1a1b1e; color: #6c757d; }
         .theme-dark .device-name-subtitle {
           color: #6c757d;
         }
