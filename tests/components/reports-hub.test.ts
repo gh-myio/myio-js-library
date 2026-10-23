@@ -11,6 +11,7 @@ vi.mock('../../src/components/library-version-checker', () => ({
 }));
 
 import { openDashboardPopupAllReport } from '../../src/components/premium-modals/report-all/openDashboardPopupAllReport';
+import { AllReportModal } from '../../src/components/premium-modals/report-all/AllReportModal';
 import { openDemandPanelV2 } from '../../src/components/demand-panel-v2/openDemandPanelV2';
 import { createLibraryVersionChecker } from '../../src/components/library-version-checker';
 import { createModalFooter } from '../../src/components/premium-modals/footer-modal';
@@ -63,6 +64,21 @@ const open = (over: Partial<OpenReportsHubParams> = {}) => {
   handles.push(h);
   return h;
 };
+
+describe('MAIN_BAS report labels', () => {
+  it('uses the host-specific group label in the report title', () => {
+    const modal = new AllReportModal({
+      customerId: 'customer-1',
+      domain: 'water',
+      group: 'lojas',
+      groupLabel: 'Hidrômetros',
+      api: { clientId: '', clientSecret: '' },
+    });
+    const resolveTitle = (modal as unknown as { resolveTitle: () => string }).resolveTitle;
+
+    expect(resolveTitle.call(modal)).toBe('Relatório Geral - Água - Hidrômetros');
+  });
+});
 
 beforeEach(() => {
   document.body.innerHTML = '';
@@ -167,6 +183,20 @@ describe('RFC-0239 openReportsHub — selection protocol', () => {
     expect(p.temperatureValidRange).toEqual({ min: 15, max: 40 });
     expect(p.temperatureIdealRange).toEqual({ min: 20, max: 24 });
     expect(p.itemsList[0].temperatureOffset).toBe(2);
+  });
+
+  it('forwards the configured valid range without inventing an ideal range', async () => {
+    open({
+      context: makeContext({ temperature: { validRange: { min: 18, max: 27 } } }),
+      enabledItems: { temperature_climatizavel: true },
+      initialDomain: 'temperature',
+    });
+    card('temperature', 'climatizavel')!.click();
+    await flush();
+
+    const p = allReport.mock.calls[0][0];
+    expect(p.temperatureValidRange).toEqual({ min: 18, max: 27 });
+    expect(p).not.toHaveProperty('temperatureIdealRange');
   });
 
   it('demand panel: energy devices without ocultos, customer ids kept, name from the hub', async () => {

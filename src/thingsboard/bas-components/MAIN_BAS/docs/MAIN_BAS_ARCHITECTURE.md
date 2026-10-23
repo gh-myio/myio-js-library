@@ -484,6 +484,38 @@ O `controller.js` habilita o step (`enableActionSelector: true`) via `CardGridPa
 - `basOpenDeviceReport`/`basOpenDeviceSettings` sao **guardados**: se a funcao da MyIOLibrary ou as credenciais de ingestion (`MAP_CUSTOMER_CREDENTIALS` / `DATA_API_HOST`) estiverem ausentes, degradam para log em vez de lancar erro.
 - O clique no corpo do card (`handleClickCard`) continua abrindo o Gráfico — coexiste com o botao `⋮` do step.
 
+### Relatórios na Sidebar — Reports Hub (RFC-0239)
+
+A Sidebar premium também oferece a opção independente **Relatórios**, que abre o Reports Hub
+público da biblioteca usando o ícone SVG padrão do menu. O catálogo é específico do MAIN_BAS e só
+exibe grupos que contenham dispositivos classificados com `ingestionId`: Energia (`entrada`,
+`setores`, equipamentos, motores e bombas), Água (entrada, hidrômetros, áreas comuns, banheiros,
+reservatórios e válvulas solenoides) e Temperatura (ambientes climatizáveis e sensores externos).
+Energia não exibe “Áreas comuns”, pois a classificação do MAIN_BAS não fornece esse grupo. As
+opções BAS são habilitadas por padrão; uma flag booleana explícita em
+`MyIOUtils.enabledReportItems` continua sendo respeitada. Os grupos são adaptados sem alterar os
+objetos de origem. Somente dispositivos com um
+`ingestionId` real são enviados; o identificador também pode vir de `rawData.ingestionId` ou
+`rawData.ingestion_id`, nunca do ID de entidade ThingsBoard.
+
+A categoria **Entrada** permanece disponível individualmente, mas é excluída de **Todos** em
+Energia e Água para evitar somar medidores principais com seus submedidores. Relatórios de
+Temperatura usam `minTemperature` e `maxTemperature` dos atributos do cliente como faixa válida
+quando ambos são numéricos e ordenados; valores ausentes ou inválidos mantêm o limite padrão do
+relatório. O MAIN_BAS não fornece uma faixa ideal distinta, portanto ela não é inferida.
+
+A preparação do relatório obtém o token de ingestion de forma assíncrona por
+`buildMyioIngestionAuth` antes de abrir o relatório de grupo. O JWT ThingsBoard não é usado como
+token de ingestion. O nome BAS da categoria selecionada também é encaminhado ao relatório. Se os
+pontos públicos do Hub não estiverem disponíveis, MAIN_BAS registra um aviso e exibe uma mensagem
+controlada, mantendo as demais ações da Sidebar disponíveis. O handle do Hub é fechado durante
+`self.onDestroy`. Abrir Relatórios é uma ação modal e não altera o item ativo da Sidebar; uma
+segunda seleção delega o fechamento ao toggle público do Hub.
+
+Esta opção **não substitui nem altera** a ação **Relatório 📄** dos cards de dispositivo: ela
+continua roteada por `basOpenDeviceReport` para `openDashboardPopupReport`, com autenticação
+assíncrona própria via `buildMyioIngestionAuth`.
+
 ---
 
 ## 7. Estrutura de Dados

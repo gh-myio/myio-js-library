@@ -114,6 +114,8 @@ export interface OpenAllReportParams {
   customerId: string;
   domain?: 'energy' | 'water' | 'temperature'; // Data domain (default: 'energy')
   group?: string; // RFC-0182: e.g. 'lojas' | 'entrada' | 'area_comum' | 'todos' | 'climatizavel' | 'nao_climatizavel'
+  /** Optional host-specific group title; defaults to the built-in domain/group title. */
+  groupLabel?: string;
   granularity?: '1d' | '1h'; // Granularidade inicial do seletor (default: '1h' p/ temperature, '1d' p/ os demais)
   ui?: BaseUiCfg;
   api: BaseApiCfg;

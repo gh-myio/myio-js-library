@@ -134,6 +134,7 @@ let _currentAmbientes = [];
 let _currentClassified = null;
 let _dataUpdatedCount = 0; // Counter to limit onDataUpdated calls (max 3)
 let _sidebarMenu = null; // RFC-0173: Premium sidebar menu instance
+let _reportsHubHandle = null; // RFC-0239: independent Reports Hub lifecycle
 
 // ============================================================================
 // RFC-0161: Ambiente Hierarchy Caches
@@ -4559,9 +4560,10 @@ function mountSidebarMenu(host, settings, _classified) {
     'ambiente items for sidebar menu (sorted by prefix)'
   );
 
-  // Build unified navigation items: Dashboard first, then sorted ambientes
+  // Build unified navigation items: Dashboard, Reports Hub, then sorted ambientes
   var navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: MyIOLibrary.SIDEBAR_ICONS?.home || '🏠' },
+    { id: 'reports', label: 'Relatórios', icon: MyIOLibrary.SIDEBAR_ICONS?.chart || '📊' },
   ].concat(ambienteItems);
 
   // Build menu sections - single unified navigation section (no title header)
@@ -4605,7 +4607,7 @@ function mountSidebarMenu(host, settings, _classified) {
     },
     onItemClick: function (item, section) {
       LogHelper.log('[MAIN_BAS] Sidebar menu item clicked:', item.id, 'section:', section.id);
-      handleSidebarMenuNavigation(item.id, item);
+      handleSidebarMenuNavigation(item.id, item, settings, _classified);
     },
     onStateChange: function (state) {
       LogHelper.log('[MAIN_BAS] Sidebar menu state changed:', state);
@@ -4718,7 +4720,7 @@ async function handleSidebarLogout() {
  * @param {string} itemId - Menu item ID
  * @param {Object} item - Full menu item object (optional)
  */
-function handleSidebarMenuNavigation(itemId, item) {
+function handleSidebarMenuNavigation(itemId, item, settings, classified) {
   // Handle ambiente selection (items starting with 'ambiente:')
   if (itemId.startsWith('ambiente:')) {
     var ambienteId = itemId.replace('ambiente:', '');
@@ -4727,6 +4729,10 @@ function handleSidebarMenuNavigation(itemId, item) {
   }
 
   switch (itemId) {
+    case 'reports':
+      openBasReportsHub(settings, classified);
+      break;
+
     case 'dashboard':
       // Reset filters - show all devices
       _selectedAmbiente = null;
@@ -4783,6 +4789,307 @@ function handleSidebarMenuNavigation(itemId, item) {
 
     default:
       LogHelper.log('[MAIN_BAS] Unknown menu item:', itemId);
+  }
+}
+
+function basGetReportsHubIngestionId(device) {
+  if (!device || typeof device !== 'object') return null;
+  var rawData = device.rawData;
+  var ingestionId =
+    device.ingestionId || (rawData && (rawData.ingestionId || rawData.ingestion_id)) || null;
+  if (
+    (typeof ingestionId !== 'string' && typeof ingestionId !== 'number') ||
+    !String(ingestionId).trim()
+  ) {
+    return null;
+  }
+  return String(ingestionId).trim();
+}
+
+function basNormalizeReportsHubDevices(devices, domain) {
+  return (devices || []).reduce(function (normalized, device) {
+    var ingestionId = basGetReportsHubIngestionId(device);
+    if (!ingestionId) return normalized;
+
+    var rawData = device.rawData || {};
+    normalized.push({
+      ingestionId: ingestionId,
+      identifier: rawData.identifier || device.identifier || device.label || device.name || '',
+      label: device.name || device.label || device.identifier || rawData.identifier || '',
+      excludeGroupsTotals: device.excludeGroupsTotals || rawData.excludeGroupsTotals || null,
+      ...(domain === 'temperature'
+        ? { offSetTemperature: device.offSetTemperature ?? rawData.offSetTemperature }
+        : {}),
+    });
+    return normalized;
+  }, []);
+}
+
+function basBuildReportsHubGroups(classified, domain) {
+  var source = classified && classified[domain];
+  if (!source) return {};
+
+  var groups;
+  if (domain === 'energy') {
+    groups = {
+      entrada: source.entrada || [],
+      setores: source.stores || [],
+      equipments: source.equipments || [],
+      motor: source.motor || [],
+      bomba: source.bomba || [],
+    };
+  } else if (domain === 'water') {
+    groups = {
+      entrada: source.hidrometro_entrada || [],
+      hidrometros: source.hidrometro || [],
+      banheiros: source.banheiros || [],
+      areacomum: source.hidrometro_area_comum || [],
+      caixadagua: source.caixadagua || [],
+      solenoide: source.solenoide || [],
+    };
+  } else if (domain === 'temperature') {
+    groups = {
+      climatizavel: source.termostato || [],
+      nao_climatizavel: source.termostato_external || [],
+    };
+  } else {
+    return {};
+  }
+
+  return Object.keys(groups).reduce(function (adapted, groupId) {
+    adapted[groupId] = basNormalizeReportsHubDevices(groups[groupId], domain);
+    return adapted;
+  }, {});
+}
+
+function basBuildReportsHubCatalog(classified) {
+  var definitions = {
+    energy: [
+      { id: 'entrada', label: 'Entrada', description: 'Medidores de entrada', icon: '📥', tint: { bg: '#fff8e1', fg: '#f57f17' } },
+      { id: 'setores', label: 'Medição por setor', description: 'Medidores classificados por setor', icon: '📍', tint: { bg: '#e8f5e9', fg: '#2e7d32' } },
+      { id: 'equipments', label: 'Equipamentos', description: 'Relatório dos equipamentos', icon: '⚙️', tint: { bg: '#e3f2fd', fg: '#1565c0' } },
+      { id: 'motor', label: 'Motores', description: 'Relatório dos motores', icon: '🔄', tint: { bg: '#ede7f6', fg: '#4527a0' } },
+      { id: 'bomba', label: 'Bombas', description: 'Relatório das bombas', icon: '💧', tint: { bg: '#e0f2f1', fg: '#00695c' } },
+      { id: 'todos', label: 'Todos os dispositivos', description: 'Todos os dispositivos de energia', icon: '📋', tint: { bg: '#e3f2fd', fg: '#1565c0' } },
+    ],
+    water: [
+      { id: 'entrada', label: 'Entrada', description: 'Hidrômetros de entrada', icon: '📥', tint: { bg: '#fff8e1', fg: '#f57f17' } },
+      { id: 'hidrometros', label: 'Hidrômetros', description: 'Relatório dos hidrômetros', icon: '💧', tint: { bg: '#e0f2f1', fg: '#00695c' } },
+      { id: 'area_comum', label: 'Áreas comuns', description: 'Hidrômetros das áreas comuns', icon: '🏢', tint: { bg: '#f3e5f5', fg: '#6a1b9a' } },
+      { id: 'banheiros', label: 'Banheiros', description: 'Hidrômetros dos banheiros', icon: '🚻', tint: { bg: '#fff3e0', fg: '#e65100' } },
+      { id: 'caixadagua', label: 'Reservatórios', description: 'Dispositivos de reservatórios', icon: '🚰', tint: { bg: '#e3f2fd', fg: '#1565c0' } },
+      { id: 'solenoide', label: 'Válvulas solenoides', description: 'Dispositivos de controle de água', icon: '🔧', tint: { bg: '#ede7f6', fg: '#4527a0' } },
+      { id: 'todos', label: 'Todos os dispositivos', description: 'Todos os dispositivos de água', icon: '📋', tint: { bg: '#e3f2fd', fg: '#1565c0' } },
+    ],
+    temperature: [
+      { id: 'climatizavel', label: 'Ambientes climatizáveis', description: 'Ambientes com termostato', icon: '❄️', tint: { bg: '#e1f5fe', fg: '#0277bd' } },
+      { id: 'nao_climatizavel', label: 'Ambientes sem climatização', description: 'Sensores externos de temperatura', icon: '🌡️', tint: { bg: '#fff3e0', fg: '#e65100' } },
+      { id: 'todos', label: 'Todos os ambientes', description: 'Todos os sensores de temperatura', icon: '📋', tint: { bg: '#e3f2fd', fg: '#1565c0' } },
+    ],
+  };
+
+  return Object.keys(definitions).reduce(function (catalog, domain) {
+    var groups = basBuildReportsHubGroups(classified, domain);
+    var items = definitions[domain].filter(function (item) {
+      if (item.id === 'todos') {
+        return Object.keys(groups).some(function (groupId) {
+          if ((domain === 'energy' || domain === 'water') && groupId === 'entrada') return false;
+          return (groups[groupId] || []).length > 0;
+        });
+      }
+      var groupId = domain === 'water' && item.id === 'area_comum' ? 'areacomum' : item.id;
+      return !!(groups[groupId] && groups[groupId].length);
+    }).map(function (item) {
+      return Object.assign({}, item, { kind: 'group-report' });
+    });
+
+    if (items.length) catalog.push({ id: domain, label: domain === 'temperature' ? 'Temperatura' : domain === 'water' ? 'Água' : 'Energia', items: items });
+    return catalog;
+  }, []);
+}
+
+function basBuildReportsHubEnabledItems(catalog, configuredItems) {
+  // These legacy keys are configured by the Shopping v-5.2.0 MENU enabledReportItems settings.
+  var legacyKeys = { energy_setores: 'energy_lojas', water_hidrometros: 'water_lojas' };
+  return catalog.reduce(function (enabledItems, domain) {
+    domain.items.forEach(function (item) {
+      var key = domain.id + '_' + item.id;
+      var legacyKey = legacyKeys[key];
+      enabledItems[key] =
+        configuredItems && typeof configuredItems[key] === 'boolean'
+          ? configuredItems[key]
+          : configuredItems && legacyKey && typeof configuredItems[legacyKey] === 'boolean'
+            ? configuredItems[legacyKey]
+            : true;
+    });
+    return enabledItems;
+  }, {});
+}
+
+function basGetReportsHubTemperatureRange() {
+  var rawMin = CUSTOMER_TELEMETRY_SETTINGS.minTemperature;
+  var rawMax = CUSTOMER_TELEMETRY_SETTINGS.maxTemperature;
+  if (
+    rawMin === null ||
+    rawMin === undefined ||
+    String(rawMin).trim() === '' ||
+    rawMax === null ||
+    rawMax === undefined ||
+    String(rawMax).trim() === ''
+  ) {
+    return null;
+  }
+
+  var min = Number(rawMin);
+  var max = Number(rawMax);
+  return Number.isFinite(min) && Number.isFinite(max) && min < max ? { min: min, max: max } : null;
+}
+
+function basShowReportsHubUnavailable(message) {
+  console.warn('[MAIN_BAS] ' + message);
+  var utils = window.MyIOUtils || {};
+  var toast =
+    utils.MyIOToast ||
+    (typeof MyIOLibrary !== 'undefined' ? MyIOLibrary.MyIOToast : null);
+  if (toast && typeof toast.warning === 'function') {
+    try {
+      toast.warning(message, 6000);
+    } catch (err) {
+      LogHelper.warn('[MAIN_BAS] Reports Hub warning toast failed:', err && err.message ? err.message : err);
+    }
+  } else if (toast && typeof toast.error === 'function') {
+    try {
+      toast.error(message, 6000);
+    } catch (err) {
+      LogHelper.warn('[MAIN_BAS] Reports Hub error toast failed:', err && err.message ? err.message : err);
+    }
+  }
+}
+
+function openBasReportsHub(settings, classified) {
+  settings = settings || {};
+  var library = window.MyIOLibrary || {};
+
+  var utils = window.MyIOUtils || {};
+  var catalog = basBuildReportsHubCatalog(_currentClassified || classified);
+  var temperatureRange = basGetReportsHubTemperatureRange();
+  if (
+    typeof library.openReportsHub !== 'function' ||
+    typeof library.openDashboardPopupAllReport !== 'function' ||
+    typeof library.buildMyioIngestionAuth !== 'function' ||
+    typeof library.buildReportItemsList !== 'function'
+  ) {
+    basShowReportsHubUnavailable(
+      'Relatórios indisponíveis nesta versão da biblioteca MyIO. Atualize a biblioteca.'
+    );
+    return;
+  }
+
+  var context = {
+    domains: ['energy', 'water', 'temperature'],
+    temperature: temperatureRange ? { validRange: temperatureRange } : {},
+    getGroups: function (domain) {
+      return basBuildReportsHubGroups(_currentClassified || classified, domain);
+    },
+    getAllReportBase: function () {
+      return {
+        customerId: MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Id || '',
+        debug: 0,
+        api: {
+          clientId: MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id || '',
+          clientSecret: MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret || '',
+          dataApiBaseUrl: DATA_API_HOST || undefined,
+          ingestionToken: '',
+        },
+        ui: { theme: 'light' },
+      };
+    },
+  };
+
+  try {
+    _reportsHubHandle = library.openReportsHub({
+      context: context,
+      catalog: catalog,
+      enabledItems: basBuildReportsHubEnabledItems(catalog, utils.enabledReportItems),
+      theme: utils.theme,
+      themeMode:
+        _sidebarMenu && typeof _sidebarMenu.getThemeMode === 'function'
+          ? _sidebarMenu.getThemeMode()
+          : settings.themeMode || settings.defaultThemeMode || 'light',
+      customerName: settings.customerName || '',
+      handlers: {
+        'group-report': {
+          domains: ['energy', 'water', 'temperature'],
+          async prepare(args) {
+            var customerId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Id;
+            var clientId = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Cliente_Id;
+            var clientSecret = MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Secret;
+            if (!customerId || !DATA_API_HOST || !clientId || !clientSecret) {
+              throw new Error('Credenciais de ingestão indisponíveis para abrir este relatório.');
+            }
+
+            var auth = library.buildMyioIngestionAuth({
+              dataApiHost: DATA_API_HOST,
+              clientId: clientId,
+              clientSecret: clientSecret,
+            });
+            if (!auth || typeof auth.getToken !== 'function') {
+              throw new Error('Autenticação de ingestão indisponível para abrir este relatório.');
+            }
+            var ingestionToken = await auth.getToken();
+            if (!ingestionToken) {
+              throw new Error('Não foi possível obter a autenticação de ingestão.');
+            }
+
+            var base = args.context.getAllReportBase();
+            var groups = args.context.getGroups(args.domain);
+            if (
+              args.item.id === 'todos' &&
+              (args.domain === 'energy' || args.domain === 'water')
+            ) {
+              groups = Object.assign({}, groups, { entrada: [] });
+            }
+            var itemsList = library.buildReportItemsList(
+              groups,
+              args.domain,
+              args.item.id
+            );
+            var temperature =
+              args.domain === 'temperature'
+                ? {
+                    ...(args.context.temperature && args.context.temperature.validRange
+                      ? { temperatureValidRange: args.context.temperature.validRange }
+                      : {}),
+                  }
+                : {};
+            return function () {
+              library.openDashboardPopupAllReport({
+                ...base,
+                ...temperature,
+                domain: args.domain,
+                group: args.item.id,
+                groupLabel: args.item.label,
+                itemsList: itemsList,
+                api: { ...base.api, ingestionToken: ingestionToken },
+                ...(args.visual.palette ? { theme: args.visual.palette } : {}),
+                ...(args.visual.customerName ? { customerName: args.visual.customerName } : {}),
+              });
+            };
+          },
+        },
+      },
+      onOpenReport: function (event) {
+        LogHelper.log('[MAIN_BAS] Opening Reports Hub report ' + event.domain + '/' + event.item);
+      },
+      onError: function (event) {
+        LogHelper.warn(
+          '[MAIN_BAS] Reports Hub ' + event.domain + '/' + event.item + ' (' + event.phase + '): ' + event.message
+        );
+      },
+    });
+  } catch (err) {
+    LogHelper.error('[MAIN_BAS] Reports Hub failed to open:', err && err.message ? err.message : err);
+    basShowReportsHubUnavailable('Não foi possível abrir os relatórios agora.');
   }
 }
 
@@ -6184,8 +6491,8 @@ self.onInit = async function () {
 
         // Populate telemetry settings
         CUSTOMER_TELEMETRY_SETTINGS.mapInstantaneousPower = attrs?.mapInstantaneousPower || null;
-        CUSTOMER_TELEMETRY_SETTINGS.minTemperature = attrs?.minTemperature || null;
-        CUSTOMER_TELEMETRY_SETTINGS.maxTemperature = attrs?.maxTemperature || null;
+        CUSTOMER_TELEMETRY_SETTINGS.minTemperature = attrs?.minTemperature ?? null;
+        CUSTOMER_TELEMETRY_SETTINGS.maxTemperature = attrs?.maxTemperature ?? null;
 
         LogHelper.log('[MAIN_BAS] Customer credentials loaded:', {
           hasIngestionId: !!MAP_CUSTOMER_CREDENTIALS.customer_Ingestion_Id,
@@ -6485,6 +6792,15 @@ self.onDestroy = function () {
   // RFC-0173: Clean up sidebar menu
   if (_sidebarMenu && _sidebarMenu.destroy) {
     _sidebarMenu.destroy();
+  }
+  // RFC-0239: Close the independent Reports Hub before clearing widget state.
+  if (_reportsHubHandle) {
+    try {
+      _reportsHubHandle.close();
+    } catch (err) {
+      LogHelper.warn('[MAIN_BAS] Reports Hub cleanup failed:', err && err.message ? err.message : err);
+    }
+    _reportsHubHandle = null;
   }
   if (_sharedDatePicker) {
     try { _sharedDatePicker.destroy(); } catch { /* noop */ }

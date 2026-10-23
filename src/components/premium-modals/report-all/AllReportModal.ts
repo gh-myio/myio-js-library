@@ -347,7 +347,7 @@ export class AllReportModal {
     };
 
     const badge = DOMAIN_BADGE[domain] || DOMAIN_BADGE.energy;
-    const groupTitle = GROUP_TITLES[domain]?.[group] ?? group;
+    const groupTitle = this.params.groupLabel || GROUP_TITLES[domain]?.[group] || group;
     const domainPart = withIcon ? `${badge.icon} ${badge.label}` : badge.label;
     return `Relatório Geral - ${domainPart} - ${groupTitle}`;
   }
