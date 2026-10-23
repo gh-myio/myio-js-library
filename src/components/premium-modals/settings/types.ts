@@ -1,4 +1,5 @@
 import type { GCDRCustomerBundle } from '../gcdr-sync/types';
+import type { StoreSegmentCatalogSource } from './commercialCatalog';
 
 export type TbScope = 'CLIENT_SCOPE' | 'SERVER_SCOPE';
 export type Domain = 'energy' | 'water' | 'temperature';
@@ -33,6 +34,10 @@ export interface OpenDashboardPopupSettingsParams {
 
   // Holding admin (USER SERVER_SCOPE attrs isHolding=true AND isUserAdmin=true) - also allows editing the Identificador field
   holdingAdmin?: boolean;
+
+  /** Catálogo Segmento → Atividade dos campos comerciais (só @myio / superadmin).
+   *  Lista ou loader async; omitido → DEFAULT_STORE_SEGMENTS. */
+  segmentCatalog?: StoreSegmentCatalogSource;
 
   // Connection information (from card v5 info panel)
   connectionData?: {
@@ -133,6 +138,11 @@ export interface OpenDashboardPopupSettingsParams {
     offSetTemperature?: number; // RFC-XXXX: Temperature offset (SuperAdmin only, e.g., -20.99, +12.55)
     minWaterLevel?: number; // For CAIXA_DAGUA deviceType (percentage)
     maxWaterLevel?: number; // For CAIXA_DAGUA deviceType (percentage)
+    // Campos comerciais (só @myio / superadmin) — SERVER_SCOPE
+    abl?: string; // ABL (Área Bruta Locável)
+    contract?: string; // Contrato
+    segment?: string; // Segmento
+    activity?: string; // Atividade (depende do segmento)
   };
 }
 
@@ -213,6 +223,8 @@ export interface ModalConfig {
   superadmin?: boolean; // RFC-XXXX: SuperAdmin mode - allows editing identifier and offSetTemperature fields
   userEmail?: string; // RFC-0171: User email for permission check (fields editable only for @myio.com.br domain)
   holdingAdmin?: boolean; // Holding admin (USER SERVER_SCOPE isHolding=true AND isUserAdmin=true) - also allows editing the Identificador field
+  /** Catálogo Segmento → Atividade dos campos comerciais (só @myio / superadmin) */
+  segmentCatalog?: StoreSegmentCatalogSource;
   /** RFC-0144: If false, annotations onboarding tour is never shown. Default: false */
   enableAnnotationsOnboarding?: boolean;
 

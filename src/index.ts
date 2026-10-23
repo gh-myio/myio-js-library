@@ -571,6 +571,9 @@ export type {
   SettingsEvent,
   TbScope,
 } from './components/premium-modals/settings/types';
+// Campos comerciais do Settings (ABL / Contrato / Segmento / Atividade — só @myio)
+export { DEFAULT_STORE_SEGMENTS } from './components/premium-modals/settings/commercialCatalog';
+export type { StoreSegment, StoreSegmentCatalogSource } from './components/premium-modals/settings/commercialCatalog';
 
 // Water Tank Modal Types
 export type {

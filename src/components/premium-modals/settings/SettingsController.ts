@@ -56,6 +56,7 @@ export class SettingsController {
       superadmin: params.superadmin,
       userEmail: params.userEmail || (window as any).MyIOUtils?.currentUserEmail || null,
       holdingAdmin: params.holdingAdmin ?? (window as any).MyIOUtils?.HoldingAdmin ?? false,
+      segmentCatalog: params.segmentCatalog,
       // RFC-0144: Pass enableAnnotationsOnboarding flag for onboarding control
       enableAnnotationsOnboarding: params.enableAnnotationsOnboarding ?? false,
       // RFC-0180: Raw device name + GCDR identifiers for Alarms tab
@@ -466,6 +467,15 @@ export class SettingsController {
 
     if (formData.floor && formData.floor.length > 50) {
       errors.push('Floor must be 50 characters or less');
+    }
+
+    // Campos comerciais (texto livre)
+    if (formData.abl && formData.abl.length > 50) {
+      errors.push('ABL must be 50 characters or less');
+    }
+
+    if (formData.contract && formData.contract.length > 100) {
+      errors.push('Contract must be 100 characters or less');
     }
 
     if (formData.storeNumber && formData.storeNumber.length > 20) {

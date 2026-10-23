@@ -153,6 +153,9 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
           attributes.lastUpdatedTime = attr.value;
         } else if (attr.key === "gcdrDeviceId") {
           attributes.gcdrDeviceId = attr.value;
+        } else if (["abl", "contract", "segment", "activity"].includes(attr.key)) {
+          // Campos comerciais (só @myio / superadmin no modal)
+          attributes[attr.key] = String(attr.value);
         }
       }
     }
@@ -200,7 +203,12 @@ static sanitizeFetchedData(data: Record<string, any>): Record<string, any> {
     const stringFields = [
       "label",
       "floor",
-      "identifier"
+      "identifier",
+      // Campos comerciais (só @myio / superadmin no modal)
+      "abl",
+      "contract",
+      "segment",
+      "activity"
     ];
     for (const field of stringFields) {
       if (data[field] && typeof data[field] === "string") {
