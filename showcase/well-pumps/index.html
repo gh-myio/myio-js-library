@@ -17,6 +17,8 @@
     .controls button { font: 700 13px Nunito, sans-serif; padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; }
     .controls button:hover { background: #f8fafc; }
     .controls label { font-size: 13px; font-weight: 700; display: inline-flex; gap: 6px; align-items: center; margin-left: 8px; }
+    .controls .control-group-label { font-size: 12px; font-weight: 800; color: #475569; margin-left: 8px; }
+    .controls button.unavailable { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
     .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
     .cards > * { min-height: 200px; }
     #log { font: 12px ui-monospace, monospace; background: #0f172a; color: #a5f3fc; border-radius: 8px; padding: 10px; max-height: 160px; overflow: auto; }
@@ -36,11 +38,18 @@
     <div class="controls">
       <button id="btn-modal">Abrir modal "Automação dos Poços"</button>
       <button id="btn-tank">Abrir modal do reservatório (Poço 3)</button>
+      <button id="btn-tank-p4">Abrir modal do reservatório (Poço 4)</button>
       <button id="btn-toggle-b1">Alternar B1</button>
       <button id="btn-toggle-b2">Alternar B2</button>
       <button id="btn-toggle-s">Alternar S</button>
       <label><input type="checkbox" id="chk-myio" checked> usuário @myio (atalho no header do reservatório)</label>
       <label><input type="checkbox" id="chk-live" checked> simulação ao vivo</label>
+    </div>
+    <div class="controls" style="margin-top:10px">
+      <span class="control-group-label">Simular telemetria ausente:</span>
+      <button type="button" data-unavailable="b1">B1: com leitura</button>
+      <button type="button" data-unavailable="b2">B2: com leitura</button>
+      <button type="button" data-unavailable="s">S: com leitura</button>
     </div>
   </div>
 
@@ -53,8 +62,8 @@
     <h2>Como o widget usa</h2>
     <ul>
       <li>Bomba (<code>BOMBA_POCO</code>): série <code>consumption</code> (W) → <code>pumpHistoryFromConsumption(points)</code> (ligada = &gt; 0) e <code>latestPowerKw(points)</code>.</li>
-      <li>Solenoide (<code>SOLENOIDE</code>): série <code>state</code> ('on'/'off') → <code>intervalsFromTelemetry(points)</code>.</li>
-      <li><code>indicatorsFromModalData(data)</code> → <code>entityObject.equipmentIndicators</code> no card do poço e <code>equipmentIndicators</code> na modal do reservatório.</li>
+      <li>Solenoide (<code>SOLENOIDE</code>): série <code>state</code> ('on'/'off') → <code>valveHistoryFromTelemetry(points)</code>; sem amostra utilizável permanece “SEM LEITURA”.</li>
+      <li><code>indicatorsFromModalData(data)</code> → cada card/modal de poço recebe sua bomba e a solenoide compartilhada; a modal de automação reúne B1, B2 e S.</li>
       <li>Clique em B1/B2/S (<code>handleActionEquipment</code>) ou atalho do header (<code>headerActions</code>, só @myio) → <code>openWellPumpsModal</code>.</li>
     </ul>
   </div>
@@ -82,7 +91,12 @@
     b2: [{ ts: now0 - 21 * H, value: '5480' }, { ts: now0 - 18 * H, value: '0' }, { ts: now0 - 5.2 * H, value: '5530' }, { ts: now0 - 3 * H, value: '0' }],
     s: [{ ts: now0 - 23 * H, value: 'on' }, { ts: now0 - 16 * H, value: 'off' }, { ts: now0 - 2 * H, value: 'on' }],
   };
+  const unavailable = new Set();
   const toggle = (k) => {
+    if (unavailable.has(k)) {
+      log(`${k.toUpperCase()} está sem leitura; restaure a telemetria antes de alternar.`);
+      return;
+    }
     const last = telemetry[k][telemetry[k].length - 1];
     const on = k === 's' ? last.value === 'on' : Number(last.value) > 0;
     const value = k === 's' ? (on ? 'off' : 'on') : on ? '0' : String(Math.round(RATED_W[k] * (0.97 + Math.random() * 0.06)));
@@ -90,21 +104,50 @@
     log(`${k === 's' ? 'S state' : `${k.toUpperCase()} consumption`} = ${value}`);
     refresh();
   };
+  const setAvailabilityButton = (k) => {
+    const button = document.querySelector(`[data-unavailable="${k}"]`);
+    const missing = unavailable.has(k);
+    button.textContent = `${k.toUpperCase()}: ${missing ? 'SEM LEITURA' : 'com leitura'}`;
+    button.classList.toggle('unavailable', missing);
+    button.setAttribute('aria-pressed', String(missing));
+  };
+  document.querySelectorAll('[data-unavailable]').forEach((button) => {
+    button.onclick = () => {
+      const { unavailable: key } = button.dataset;
+      if (unavailable.has(key)) unavailable.delete(key);
+      else unavailable.add(key);
+      setAvailabilityButton(key);
+      log(`${key.toUpperCase()} ${unavailable.has(key) ? 'sem leitura simulada' : 'telemetria restaurada'}`);
+      refresh();
+    };
+    setAvailabilityButton(button.dataset.unavailable);
+  });
 
   const wells = {
-    'poco-3': { label: 'POÇO 3', levelMca: 312, perc: 0.72 },
-    'poco-4': { label: 'POÇO 4', levelMca: 188, perc: 0.41 },
+    'poco-3': { label: 'POÇO 3', deviceProfile: 'CISTERNA_ENTRADA', levelMca: 312, perc: 0.72 },
+    'poco-4': { label: 'POÇO 4', deviceProfile: 'CISTERNA', levelMca: 188, perc: 0.41 },
   };
 
-  const buildData = () => ({
-    pumps: [
-      { code: 'B1', label: 'Bomba Poço 3', identifier: 'BOMBA-P3', wellId: 'poco-3', wellLabel: 'Poço 3', powerKw: L.latestPowerKw(telemetry.b1),
-        wellLevelMca: wells['poco-3'].levelMca, wellPercentage: wells['poco-3'].perc, history: L.pumpHistoryFromConsumption(telemetry.b1) },
-      { code: 'B2', label: 'Bomba Poço 4', identifier: 'BOMBA-P4', wellId: 'poco-4', wellLabel: 'Poço 4', powerKw: L.latestPowerKw(telemetry.b2),
-        wellLevelMca: wells['poco-4'].levelMca, wellPercentage: wells['poco-4'].perc, history: L.pumpHistoryFromConsumption(telemetry.b2) },
-    ],
-    valves: [{ code: 'S', label: 'Solenoide Sabesp', identifier: 'SOL-SABESP', description: 'entrada principal de água', history: L.intervalsFromTelemetry(telemetry.s) }],
-  });
+  const buildData = (wellId) => {
+    const pumps = [
+      { key: 'b1', code: 'B1', label: 'Bomba Poço 3', identifier: 'BOMBA-P3', wellId: 'poco-3', wellLabel: 'Poço 3' },
+      { key: 'b2', code: 'B2', label: 'Bomba Poço 4', identifier: 'BOMBA-P4', wellId: 'poco-4', wellLabel: 'Poço 4' },
+    ].map((pump) => ({
+      ...pump,
+      powerKw: unavailable.has(pump.key) ? null : L.latestPowerKw(telemetry[pump.key]),
+      wellLevelMca: wells[pump.wellId].levelMca,
+      wellPercentage: wells[pump.wellId].perc,
+      history: unavailable.has(pump.key) ? null : L.pumpHistoryFromConsumption(telemetry[pump.key]),
+    }));
+    const valves = [{
+      code: 'S',
+      label: 'Solenoide Sabesp',
+      identifier: 'SOL-SABESP',
+      description: 'entrada principal de água',
+      history: unavailable.has('s') ? null : L.valveHistoryFromTelemetry(telemetry.s),
+    }];
+    return { pumps: wellId ? pumps.filter((pump) => pump.wellId === wellId) : pumps, valves };
+  };
 
   // ---- Modal das bombas -------------------------------------------------------
   let pumpsModal = null;
@@ -141,18 +184,20 @@
   };
 
   let tankHandle = null;
+  let tankWellId = null;
   const openTank = async (wellId) => {
     const w = wells[wellId];
-    const inds = L.indicatorsFromModalData(buildData());
+    const inds = L.indicatorsFromModalData(buildData(wellId));
     const isMyio = document.getElementById('chk-myio').checked;
     const end = Date.now();
+    tankWellId = wellId;
     tankHandle = await L.openDashboardPopupWaterTank({
-      deviceId: wellId, deviceType: 'CISTERNA_ENTRADA', tbJwtToken: 'mock', startTs: end - 3 * 24 * H, endTs: end,
+      deviceId: wellId, deviceType: w.deviceProfile, tbJwtToken: 'mock', startTs: end - 3 * 24 * H, endTs: end,
       label: `${w.label} (SIMULADO)`, currentLevel: w.perc * 100, currentLevelClamped: Math.min(100, w.perc * 100),
       waterLevel: w.levelMca, waterPercentage: w.perc, telemetryKeys: ['water_level', 'water_percentage'],
       equipmentIndicators: inds,
       headerActions: isMyio ? [{ label: 'Bombas', title: 'Abrir status das bombas e da solenoide', indicators: inds, onClick: () => openPumps(wellId) }] : [],
-      onClose: () => { tankHandle = null; },
+      onClose: () => { tankHandle = null; tankWellId = null; },
     });
     log(`modal do reservatório aberta (${wellId}, atalho ${isMyio ? 'visível' : 'oculto'})`);
   };
@@ -161,16 +206,15 @@
   const renderCards = () => {
     const box = document.getElementById('cards');
     box.innerHTML = '';
-    const inds = L.indicatorsFromModalData(buildData());
     const entities = [
       ...Object.entries(wells).map(([id, w]) => ({
-        entityId: id, labelOrName: w.label, deviceProfile: 'CISTERNA_ENTRADA', deviceIdentifier: w.label,
+        entityId: id, labelOrName: w.label, deviceProfile: w.deviceProfile, deviceIdentifier: w.label,
         val: w.levelMca, deviceStatus: 'power_on', waterLevel: w.levelMca, waterPercentage: w.perc,
-        timeVal: Date.now(), connectionStatusTime: Date.now(), equipmentIndicators: inds,
+        timeVal: Date.now(), connectionStatusTime: Date.now(),
+        equipmentIndicators: L.indicatorsFromModalData(buildData(id)),
       })),
       { entityId: 'sabesp', labelOrName: 'SABESP', deviceProfile: 'HIDROMETRO_SHOPPING', deviceIdentifier: 'ENTRADA',
-        val: 418.6, deviceStatus: 'power_on', timeVal: Date.now(), connectionStatusTime: Date.now(),
-        equipmentIndicators: inds.filter((i) => i.kind === 'valve') },
+        val: 418.6, deviceStatus: 'power_on', timeVal: Date.now(), connectionStatusTime: Date.now() },
     ];
     for (const e of entities) {
       const ret = L.renderCardComponentV5({
@@ -187,11 +231,12 @@
   const refresh = () => {
     renderCards();
     pumpsModal?.update(buildData());
-    tankHandle?.updateEquipmentIndicators(L.indicatorsFromModalData(buildData()));
+    if (tankHandle && tankWellId) tankHandle.updateEquipmentIndicators(L.indicatorsFromModalData(buildData(tankWellId)));
   };
 
   document.getElementById('btn-modal').onclick = () => openPumps();
   document.getElementById('btn-tank').onclick = () => openTank('poco-3');
+  document.getElementById('btn-tank-p4').onclick = () => openTank('poco-4');
   document.getElementById('btn-toggle-b1').onclick = () => toggle('b1');
   document.getElementById('btn-toggle-b2').onclick = () => toggle('b2');
   document.getElementById('btn-toggle-s').onclick = () => toggle('s');
@@ -200,9 +245,9 @@
   setInterval(() => {
     if (!document.getElementById('chk-live').checked) return;
     tick++;
-    if (tick % 2 === 0) toggle('b2');
-    if (tick % 3 === 0) toggle('b1');
-    if (tick % 5 === 0) toggle('s');
+    if (tick % 2 === 0 && !unavailable.has('b2')) toggle('b2');
+    if (tick % 3 === 0 && !unavailable.has('b1')) toggle('b1');
+    if (tick % 5 === 0 && !unavailable.has('s')) toggle('s');
   }, 6000);
 
   renderCards();

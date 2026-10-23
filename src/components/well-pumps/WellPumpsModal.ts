@@ -114,15 +114,16 @@ function timelineHTML(history: WellPumpInfo['history'], now: number, kind: 'pump
 function pumpCardHTML(p: WellPumpInfo, now: number, images: { pump: string }, focusWellId?: string): string {
   const on = isActive(p.history);
   const known = Array.isArray(p.history);
+  const stateClass = !known ? 'is-unknown' : on ? 'is-on' : 'is-off';
   const since = stateSince(p.history);
-  const { activeMs, starts } = dayStats(p.history, now);
-  const power = on ? (typeof p.powerKw === 'number' ? fmtKw(p.powerKw) : '—') : fmtKw(0).replace(',0', '');
+  const { activeMs, starts } = dayStats(p.history || [], now);
+  const power = !known ? '—' : on ? (typeof p.powerKw === 'number' ? fmtKw(p.powerKw) : '—') : fmtKw(0).replace(',0', '');
   const hasLevel = typeof p.wellLevelMca === 'number';
   const hasPerc = typeof p.wellPercentage === 'number';
   const pct = hasPerc ? Math.round(Math.max(0, Math.min(1, p.wellPercentage as number)) * 100) : null;
   const meta = [p.identifier, p.wellLabel].filter(Boolean).map(escapeHtml).join(' · ');
   return `
-    <div class="myio-wp-card ${on ? 'is-on' : 'is-off'} ${focusWellId && p.wellId === focusWellId ? 'focus' : ''}" data-code="${escapeHtml(p.code)}">
+    <div class="myio-wp-card ${stateClass} ${focusWellId && p.wellId === focusWellId ? 'focus' : ''}" data-code="${escapeHtml(p.code)}">
       <div class="myio-wp-top">
         <img class="myio-wp-img" src="${escapeHtml(images.pump)}" alt="">
         <div>
@@ -132,9 +133,9 @@ function pumpCardHTML(p: WellPumpInfo, now: number, images: { pump: string }, fo
         <span class="myio-wp-state ${!known ? 'unk' : on ? 'on' : 'off'}">${PUMP_SVG}${!known ? 'SEM LEITURA' : on ? 'LIGADA' : 'DESLIGADA'}</span>
       </div>
       <div class="myio-wp-grid">
-        <div class="myio-wp-cell"><small>${on ? 'Ligada desde' : 'Desligada desde'}</small><span>${formatClock(since)}</span></div>
-        <div class="myio-wp-cell"><small>Tempo ligada hoje</small><span>${formatDuration(activeMs)}</span></div>
-        <div class="myio-wp-cell"><small>Acionamentos hoje</small><span>${starts}</span></div>
+        <div class="myio-wp-cell"><small>${known ? (on ? 'Ligada desde' : 'Desligada desde') : 'Estado desde'}</small><span>${formatClock(since)}</span></div>
+        <div class="myio-wp-cell"><small>Tempo ligada hoje</small><span>${known ? formatDuration(activeMs) : '—'}</span></div>
+        <div class="myio-wp-cell"><small>Acionamentos hoje</small><span>${known ? starts : '—'}</span></div>
         <div class="myio-wp-cell"><small>Potência atual</small><span>${power}</span></div>
         <div class="myio-wp-cell"><small>Estado há</small><span>${since ? formatDuration(now - since) : '—'}</span></div>
         <div class="myio-wp-cell"><small>Nível do poço</small><span>${hasLevel ? `${((p.wellLevelMca as number) / 100).toFixed(2).replace('.', ',')} M.C.A` : '—'}</span></div>
@@ -144,18 +145,19 @@ function pumpCardHTML(p: WellPumpInfo, now: number, images: { pump: string }, fo
           ? `<div class="myio-wp-level">${escapeHtml(p.wellLabel || 'Poço')}<div class="myio-wp-bar"><i style="width:${pct}%"></i></div>${pct}%</div>`
           : ''
       }
-      ${timelineHTML(p.history, now, 'pump')}
+      ${timelineHTML(p.history || [], now, 'pump')}
     </div>`;
 }
 
 function valveCardHTML(v: WellValveInfo, now: number, images: { valve: string }): string {
   const open = isActive(v.history);
   const known = Array.isArray(v.history);
+  const stateClass = !known ? 'is-unknown' : open ? 'is-open' : 'is-closed';
   const since = stateSince(v.history);
-  const { activeMs, starts } = dayStats(v.history, now);
+  const { activeMs, starts } = dayStats(v.history || [], now);
   const meta = [v.identifier, v.description].filter(Boolean).map(escapeHtml).join(' · ');
   return `
-    <div class="myio-wp-card myio-wp-valve ${open ? 'is-open' : 'is-closed'}" data-code="${escapeHtml(v.code)}">
+    <div class="myio-wp-card myio-wp-valve ${stateClass}" data-code="${escapeHtml(v.code)}">
       <img class="myio-wp-img" src="${escapeHtml(images.valve)}" alt="">
       <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
         <div class="myio-wp-top">
@@ -166,11 +168,11 @@ function valveCardHTML(v: WellValveInfo, now: number, images: { valve: string })
           <span class="myio-wp-state ${!known ? 'unk' : open ? 'open' : 'closed'}">${VALVE_SVG}${!known ? 'SEM LEITURA' : open ? 'ABERTA' : 'FECHADA'}</span>
         </div>
         <div class="myio-wp-grid">
-          <div class="myio-wp-cell"><small>${open ? 'Aberta desde' : 'Fechada desde'}</small><span>${formatClock(since)}</span></div>
-          <div class="myio-wp-cell"><small>Tempo aberta hoje</small><span>${formatDuration(activeMs)}</span></div>
-          <div class="myio-wp-cell"><small>Aberturas hoje</small><span>${starts}</span></div>
+          <div class="myio-wp-cell"><small>${known ? (open ? 'Aberta desde' : 'Fechada desde') : 'Estado desde'}</small><span>${formatClock(since)}</span></div>
+          <div class="myio-wp-cell"><small>Tempo aberta hoje</small><span>${known ? formatDuration(activeMs) : '—'}</span></div>
+          <div class="myio-wp-cell"><small>Aberturas hoje</small><span>${known ? starts : '—'}</span></div>
         </div>
-        ${timelineHTML(v.history, now, 'valve')}
+        ${timelineHTML(v.history || [], now, 'valve')}
       </div>
     </div>`;
 }
@@ -190,24 +192,35 @@ export function renderWellPumpsBodyHTML(
   if (!pumps.length && !valves.length) return `<div class="myio-wp-empty">Nenhuma bomba ou solenoide vinculada a este poço.</div>`;
 
   const onPumps = pumps.filter((p) => isActive(p.history));
+  const unknownPumpCount = pumps.filter((p) => !Array.isArray(p.history)).length;
   const knownPower = onPumps.filter((p) => typeof p.powerKw === 'number');
-  const totalPower = knownPower.length ? fmtKw(knownPower.reduce((s, p) => s + (p.powerKw as number), 0)) : onPumps.length ? '—' : '0 kW';
+  const totalPower =
+    unknownPumpCount > 0
+      ? knownPower.length
+        ? `${fmtKw(knownPower.reduce((s, p) => s + (p.powerKw as number), 0))} parcial`
+        : '—'
+      : knownPower.length
+        ? fmtKw(knownPower.reduce((s, p) => s + (p.powerKw as number), 0))
+        : onPumps.length
+          ? '—'
+          : '0 kW';
   const openValves = valves.filter((v) => isActive(v.history));
+  const unknownValveCount = valves.filter((v) => !Array.isArray(v.history)).length;
   // 1 solenoide → estado + desde quando; M solenoides → "X de M abertas"
   const valveKpi =
     valves.length === 1
-      ? `<div class="myio-wp-kpi"><small>${escapeHtml(valves[0].label)}</small><b class="${openValves.length ? 'open' : 'closed'}">${openValves.length ? 'Aberta' : 'Fechada'}</b>
-           <div class="sub">desde ${formatClock(stateSince(valves[0].history))}</div></div>`
+      ? `<div class="myio-wp-kpi"><small>${escapeHtml(valves[0].label)}</small><b class="${!Array.isArray(valves[0].history) ? '' : openValves.length ? 'open' : 'closed'}">${!Array.isArray(valves[0].history) ? 'SEM LEITURA' : openValves.length ? 'Aberta' : 'Fechada'}</b>
+           <div class="sub">${Array.isArray(valves[0].history) ? `desde ${formatClock(stateSince(valves[0].history))}` : 'Estado desconhecido'}</div></div>`
       : valves.length > 1
-        ? `<div class="myio-wp-kpi"><small>Solenoides abertas</small><b>${openValves.length} de ${valves.length}</b></div>`
+        ? `<div class="myio-wp-kpi"><small>Solenoides abertas</small><b>${openValves.length} de ${valves.length}</b>${unknownValveCount ? `<div class="sub">${unknownValveCount} sem leitura</div>` : ''}</div>`
         : '';
+  const pumpKpis = pumps.length
+    ? `<div class="myio-wp-kpi"><small>Bombas ligadas</small><b>${onPumps.length} de ${pumps.length}</b>${unknownPumpCount ? `<div class="sub">${unknownPumpCount} sem leitura</div>` : ''}</div>
+       <div class="myio-wp-kpi"><small>Potência total</small><b>${totalPower}</b>${unknownPumpCount && knownPower.length ? `<div class="sub">${unknownPumpCount} sem leitura</div>` : ''}</div>`
+    : '';
 
   return `
-    <div class="myio-wp-kpis">
-      <div class="myio-wp-kpi"><small>Bombas ligadas</small><b>${onPumps.length} de ${pumps.length}</b></div>
-      <div class="myio-wp-kpi"><small>Potência total</small><b>${totalPower}</b></div>
-      ${valveKpi}
-    </div>
+    <div class="myio-wp-kpis">${pumpKpis}${valveKpi}</div>
     ${pumps.length ? `<div class="myio-wp-pumps">${pumps.map((p) => pumpCardHTML(p, now, images, opts.focusWellId)).join('')}</div>` : ''}
     ${valves.map((v) => valveCardHTML(v, now, images)).join('')}
     ${opts.footnote ? `<div class="myio-wp-foot">ⓘ ${escapeHtml(opts.footnote)}</div>` : ''}`;

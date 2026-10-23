@@ -12,6 +12,7 @@ import {
   timelineSegments,
   indicatorsFromModalData,
   pumpHistoryFromConsumption,
+  valveHistoryFromTelemetry,
   latestPowerKw,
   PUMP_POWER_KEY,
   VALVE_STATE_KEYS,
@@ -96,6 +97,19 @@ describe('equipmentState', () => {
     expect(latestPowerKw(pts)).toBe(5.5);
     expect(latestPowerKw([])).toBeNull();
     expect(PUMP_POWER_KEY).toBe('consumption');
+  });
+
+  it('distingue ausência de amostras de uma leitura válida inativa', () => {
+    expect(pumpHistoryFromConsumption([])).toBeNull();
+    expect(pumpHistoryFromConsumption([{ ts: NOW, value: 'inválido' }])).toBeNull();
+    expect(pumpHistoryFromConsumption([{ ts: NOW, value: true }])).toBeNull();
+    expect(pumpHistoryFromConsumption([{ ts: NaN, value: 0 }])).toBeNull();
+    expect(pumpHistoryFromConsumption([{ ts: NOW, value: 0 }])).toEqual([]);
+    expect(latestPowerKw([{ ts: NOW, value: false }])).toBeNull();
+    expect(valveHistoryFromTelemetry([])).toBeNull();
+    expect(valveHistoryFromTelemetry([{ ts: NOW, value: 'inválido' }])).toBeNull();
+    expect(valveHistoryFromTelemetry([{ ts: NaN, value: 'off' }])).toBeNull();
+    expect(valveHistoryFromTelemetry([{ ts: NOW, value: 'off' }])).toEqual([]);
   });
 
   it("solenoide: state 'on'/'off' (convenção MAIN_BAS)", () => {
@@ -204,23 +218,39 @@ describe('modal Automação dos Poços', () => {
   it('N bombas + M solenoides: KPIs agregados, um painel por equipamento, sem leitura tracejado', () => {
     const data: WellPumpsModalData = {
       pumps: [
-        { code: 'B1', label: 'Bomba 1', history: [[NOW - HOUR_MS, null]] },
+        { code: 'B1', label: 'Bomba 1', powerKw: 7.4, history: [[NOW - HOUR_MS, null]] },
         { code: 'B2', label: 'Bomba 2', history: [] },
-        { code: 'B3', label: 'Bomba 3', history: null as any }, // telemetria indisponível
+        { code: 'B3', label: 'Bomba 3', history: null }, // telemetria indisponível
       ],
       valves: [
         { code: 'S1', label: 'Solenoide Sabesp', history: [[NOW - HOUR_MS, null]] },
         { code: 'S2', label: 'Solenoide Reuso', history: [[NOW - 3 * HOUR_MS, NOW - HOUR_MS]] },
+        { code: 'S3', label: 'Solenoide sem leitura', history: null },
       ],
     };
     const div = document.createElement('div');
     div.innerHTML = renderWellPumpsBodyHTML(data, { now: NOW });
-    expect(div.querySelectorAll('.myio-wp-card')).toHaveLength(5);
+    expect(div.querySelectorAll('.myio-wp-card')).toHaveLength(6);
     const kpis = [...div.querySelectorAll('.myio-wp-kpi')].map((k) => k.textContent!.replace(/\s+/g, ' ').trim());
     expect(kpis[0]).toContain('1 de 3');
-    expect(kpis[2]).toBe('Solenoides abertas1 de 2');
+    expect(kpis[0]).toContain('1 sem leitura');
+    expect(kpis[1]).toContain('7,4 kW parcial');
+    expect(kpis[1]).toContain('1 sem leitura');
+    expect(kpis[2]).toContain('1 de 3');
+    expect(kpis[2]).toContain('1 sem leitura');
     expect(div.querySelector('[data-code="B3"] .myio-wp-state')!.className).toContain('unk');
     expect(div.querySelector('[data-code="B3"] .myio-wp-state')!.textContent).toContain('SEM LEITURA');
+    const unknownPump = div.querySelector('[data-code="B3"]') as HTMLElement;
+    expect([...unknownPump.querySelectorAll('.myio-wp-cell span')].map((span) => span.textContent)).toEqual([
+      '—',
+      '—',
+      '—',
+      '—',
+      '—',
+      '—',
+    ]);
+    expect(div.querySelector('[data-code="S3"] .myio-wp-state')!.className).toContain('unk');
+    expect(div.querySelector('[data-code="S3"] .myio-wp-state')!.textContent).toContain('SEM LEITURA');
 
     const inds = indicatorsFromModalData(data);
     expect(inds.map((i) => [i.code, indicatorStateClass(i)])).toEqual([
@@ -229,6 +259,7 @@ describe('modal Automação dos Poços', () => {
       ['B3', 'unk'],
       ['S1', 'open'],
       ['S2', 'closed'],
+      ['S3', 'unk'],
     ]);
     // várias solenoides → código no lugar do ícone (para distinguir S1 de S2)
     const strip = createEquipmentIndicatorStrip(inds);
@@ -237,6 +268,18 @@ describe('modal Automação dos Poços', () => {
 
   it('sem equipamentos → mensagem vazia', () => {
     expect(renderWellPumpsBodyHTML({ pumps: [] })).toContain('Nenhuma bomba');
+  });
+
+  it('uma solenoide sem telemetria não é apresentada como fechada', () => {
+    const div = document.createElement('div');
+    div.innerHTML = renderWellPumpsBodyHTML({
+      pumps: [],
+      valves: [{ code: 'S', label: 'Solenoide Sabesp', history: null }],
+    });
+    expect(div.querySelector('.myio-wp-kpi b')!.textContent).toBe('SEM LEITURA');
+    expect(div.querySelector('.myio-wp-state')!.className).toContain('unk');
+    expect(div.querySelectorAll('.myio-wp-cell span').length).toBe(3);
+    expect([...div.querySelectorAll('.myio-wp-cell span')].map((span) => span.textContent)).toEqual(['—', '—', '—']);
   });
 
   it('abre, atualiza e fecha (ESC e onClose)', () => {

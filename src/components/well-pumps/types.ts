@@ -43,8 +43,8 @@ export interface WellPumpInfo {
   wellId?: string;
   /** Potência atual (kW) quando ligada; null/undefined = sem medição */
   powerKw?: number | null;
-  /** Intervalos ligada (ordem cronológica) */
-  history: StateInterval[];
+  /** Intervalos ligada (ordem cronológica); null quando não há amostras utilizáveis */
+  history: StateInterval[] | null;
   /** Nível do poço (m.c.a) */
   wellLevelMca?: number | null;
   /** Nível do poço (0–1) */
@@ -64,8 +64,8 @@ export interface WellValveInfo {
   deviceProfile?: string;
   /** Linha de contexto (ex.: 'entrada Sabesp') */
   description?: string;
-  /** Intervalos aberta (ordem cronológica) */
-  history: StateInterval[];
+  /** Intervalos aberta (ordem cronológica); null quando não há amostras utilizáveis */
+  history: StateInterval[] | null;
 }
 
 export interface WellPumpsModalData {

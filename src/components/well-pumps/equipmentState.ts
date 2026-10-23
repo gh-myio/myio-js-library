@@ -61,6 +61,23 @@ export function intervalsFromTelemetry(
   return out;
 }
 
+function hasUsableTelemetryPoint(
+  points: Array<{ ts: number; value: unknown }> | null | undefined,
+  parseValue: (value: unknown) => unknown | null
+): boolean {
+  return (points || []).some((point) => {
+    const ts = Number(point?.ts);
+    return point?.ts !== null && point?.ts !== undefined && Number.isFinite(ts) && parseValue(point?.value) !== null;
+  });
+}
+
+function parseNumericTelemetry(value: unknown): number | null {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 /**
  * Telemetrias do ThingsBoard (convenção MAIN_BAS):
  *  - bomba (BOMBA_POCO / MOTOR): sem key de estado — ligada = `consumption` (potência instantânea, W) > limiar
@@ -69,12 +86,21 @@ export function intervalsFromTelemetry(
 export const PUMP_POWER_KEY = 'consumption';
 export const VALVE_STATE_KEYS = ['state', 'status'];
 
-/** Histórico ligada/desligada da bomba a partir da série `consumption` (W). */
+/** Histórico ligada/desligada da bomba; null indica ausência de amostras numéricas utilizáveis. */
 export function pumpHistoryFromConsumption(
   points: Array<{ ts: number; value: unknown }> | null | undefined,
   thresholdW = 0
-): StateInterval[] {
+): StateInterval[] | null {
+  if (!hasUsableTelemetryPoint(points, parseNumericTelemetry)) return null;
   return intervalsFromTelemetry(points, { threshold: thresholdW });
+}
+
+/** Histórico aberta/fechada da solenoide; null indica que não houve amostra binária utilizável. */
+export function valveHistoryFromTelemetry(
+  points: Array<{ ts: number; value: unknown }> | null | undefined
+): StateInterval[] | null {
+  if (!hasUsableTelemetryPoint(points, parseBinaryState)) return null;
+  return intervalsFromTelemetry(points);
 }
 
 /** Potência atual em kW a partir do último ponto de `consumption` (W); null sem leitura. */
@@ -82,8 +108,8 @@ export function latestPowerKw(points: Array<{ ts: number; value: unknown }> | nu
   let best: { ts: number; v: number } | null = null;
   for (const p of points || []) {
     const ts = Number(p?.ts);
-    const v = Number(p?.value);
-    if (!Number.isFinite(ts) || !Number.isFinite(v) || p?.value === '' || p?.value === null) continue;
+    const v = parseNumericTelemetry(p?.value);
+    if (!Number.isFinite(ts) || v === null) continue;
     if (!best || ts > best.ts) best = { ts, v };
   }
   return best ? best.v / 1000 : null;
@@ -103,7 +129,10 @@ export function stateSince(history: StateInterval[] | null | undefined): number 
 }
 
 /** Tempo ativo e nº de acionamentos desde a meia-noite local até `now`. */
-export function dayStats(history: StateInterval[], now: number = Date.now()): { activeMs: number; starts: number } {
+export function dayStats(
+  history: StateInterval[],
+  now: number = Date.now()
+): { activeMs: number; starts: number } {
   const midnight = new Date(now);
   midnight.setHours(0, 0, 0, 0);
   const m = midnight.getTime();
@@ -127,7 +156,11 @@ export interface TimelineSegment {
 }
 
 /** Segmentos ativos na janela [now − windowMs, now] em % da largura (mín. 0,6% para continuar visível). */
-export function timelineSegments(history: StateInterval[], now: number = Date.now(), windowMs: number = DAY_MS): TimelineSegment[] {
+export function timelineSegments(
+  history: StateInterval[],
+  now: number = Date.now(),
+  windowMs: number = DAY_MS
+): TimelineSegment[] {
   const from = now - windowMs;
   const out: TimelineSegment[] = [];
   for (const [s, e] of history || []) {
