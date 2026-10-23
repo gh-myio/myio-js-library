@@ -99,6 +99,40 @@
         ></span>
       </button>
 
+      <!-- Status Disp. (GCDR device.status) — oculto até a MAIN publicar o índice do GCDR;
+           a opção DESCONHECIDOS só aparece se houver device sem match no GCDR -->
+      <div
+        class="tbx-status-filter"
+        id="tbx-device-status-filter"
+        role="radiogroup"
+        aria-label="Status dos dispositivos"
+        style="display: none"
+      >
+        <span class="tbx-status-filter-label">Status Disp.:</span>
+        <div class="tbx-status-track">
+          <span class="tbx-status-thumb" aria-hidden="true"></span>
+          <button type="button" class="tbx-status-opt is-active" data-status="all" role="radio" aria-checked="true">
+            Todos
+          </button>
+          <button type="button" class="tbx-status-opt" data-status="ACTIVE" role="radio" aria-checked="false">
+            Ativos
+          </button>
+          <button type="button" class="tbx-status-opt" data-status="INACTIVE" role="radio" aria-checked="false">
+            Inativos
+          </button>
+          <button
+            type="button"
+            class="tbx-status-opt"
+            data-status="UNKNOWN"
+            role="radio"
+            aria-checked="false"
+            style="display: none"
+          >
+            Desconhecidos
+          </button>
+        </div>
+      </div>
+
       <button
         class="tbx-btn tbx-btn-primary"
         id="tbx-btn-report-general"
