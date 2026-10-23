@@ -2,6 +2,7 @@
 
 import { WaterTankModal } from './WaterTankModal';
 import { OpenDashboardPopupWaterTankOptions } from './types';
+import type { EquipmentIndicator } from '../../well-pumps/types';
 
 /**
  * Opens the water tank detail modal for a specific device
@@ -73,7 +74,7 @@ import { OpenDashboardPopupWaterTankOptions } from './types';
  */
 export async function openDashboardPopupWaterTank(
   options: OpenDashboardPopupWaterTankOptions
-): Promise<{ close: () => void }> {
+): Promise<{ close: () => void; updateEquipmentIndicators: (indicators: EquipmentIndicator[]) => void }> {
   try {
     // Validate required parameters
     validateOptions(options);
@@ -185,6 +186,7 @@ function validateOptions(options: OpenDashboardPopupWaterTankOptions): void {
 
 // Re-export types for convenience
 export type {
+  WaterTankHeaderAction,
   OpenDashboardPopupWaterTankOptions,
   WaterTankModalContext,
   WaterTankModalError,

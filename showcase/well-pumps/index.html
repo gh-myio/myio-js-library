@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automação dos Poços (ED-1354) - MYIO JS Library Showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Nunito', system-ui, sans-serif; background: #f1f5f9; color: #1e293b; padding: 32px 16px; }
+    .page { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+    .hero h1 { font-size: 1.6rem; font-weight: 800; color: #3e1a7d; }
+    .hero p { color: #475569; margin-top: 4px; font-size: 14px; }
+    .panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; }
+    .panel h2 { font-size: 14px; font-weight: 800; color: #334155; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .3px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .controls button { font: 700 13px Nunito, sans-serif; padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; }
+    .controls button:hover { background: #f8fafc; }
+    .controls label { font-size: 13px; font-weight: 700; display: inline-flex; gap: 6px; align-items: center; margin-left: 8px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+    .cards > * { min-height: 200px; }
+    #log { font: 12px ui-monospace, monospace; background: #0f172a; color: #a5f3fc; border-radius: 8px; padding: 10px; max-height: 160px; overflow: auto; }
+    code { background: #f1f5f9; padding: 1px 4px; border-radius: 4px; }
+    ul { margin-left: 18px; font-size: 13px; color: #475569; line-height: 1.6; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="hero">
+    <h1>Automação dos Poços — bombas (BOMBA_POCO) e solenoide</h1>
+    <p>ED-1354 · Shopping Taboão · dados <b>simulados</b> (a telemetria muda a cada 6 s). Tudo abaixo usa só APIs da lib.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Controles</h2>
+    <div class="controls">
+      <button id="btn-modal">Abrir modal "Automação dos Poços"</button>
+      <button id="btn-tank">Abrir modal do reservatório (Poço 3)</button>
+      <button id="btn-toggle-b1">Alternar B1</button>
+      <button id="btn-toggle-b2">Alternar B2</button>
+      <button id="btn-toggle-s">Alternar S</button>
+      <label><input type="checkbox" id="chk-myio" checked> usuário @myio (atalho no header do reservatório)</label>
+      <label><input type="checkbox" id="chk-live" checked> simulação ao vivo</label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Cards (renderCardComponentV5 + entityObject.equipmentIndicators)</h2>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Como o widget usa</h2>
+    <ul>
+      <li>Bomba (<code>BOMBA_POCO</code>): série <code>consumption</code> (W) → <code>pumpHistoryFromConsumption(points)</code> (ligada = &gt; 0) e <code>latestPowerKw(points)</code>.</li>
+      <li>Solenoide (<code>SOLENOIDE</code>): série <code>state</code> ('on'/'off') → <code>intervalsFromTelemetry(points)</code>.</li>
+      <li><code>indicatorsFromModalData(data)</code> → <code>entityObject.equipmentIndicators</code> no card do poço e <code>equipmentIndicators</code> na modal do reservatório.</li>
+      <li>Clique em B1/B2/S (<code>handleActionEquipment</code>) ou atalho do header (<code>headerActions</code>, só @myio) → <code>openWellPumpsModal</code>.</li>
+    </ul>
+  </div>
+
+  <div id="log"></div>
+</div>
+
+<script src="../../dist/myio-js-library.umd.js"></script>
+<script>
+  const L = window.MyIOLibrary;
+  const H = 3600000;
+  const now0 = Date.now();
+  const log = (m) => {
+    const el = document.getElementById('log');
+    el.insertAdjacentHTML('beforeend', `<div>[${new Date().toLocaleTimeString('pt-BR')}] ${m}</div>`);
+    el.scrollTop = el.scrollHeight;
+  };
+
+  // ---- Telemetria simulada (formato TB { ts, value }, convenção MAIN_BAS) -------
+  // Bombas BOMBA_POCO: key `consumption` = potência instantânea em W (ligada = > 0).
+  // Solenoide SOLENOIDE: key `state` = 'on' (aberta) | 'off' (fechada).
+  const RATED_W = { b1: 7400, b2: 5500 };
+  const telemetry = {
+    b1: [{ ts: now0 - 22 * H, value: '7380' }, { ts: now0 - 19.5 * H, value: '0' }, { ts: now0 - 8 * H, value: '7412' }, { ts: now0 - 6.5 * H, value: '0' }, { ts: now0 - 47 * 60000, value: '7395' }],
+    b2: [{ ts: now0 - 21 * H, value: '5480' }, { ts: now0 - 18 * H, value: '0' }, { ts: now0 - 5.2 * H, value: '5530' }, { ts: now0 - 3 * H, value: '0' }],
+    s: [{ ts: now0 - 23 * H, value: 'on' }, { ts: now0 - 16 * H, value: 'off' }, { ts: now0 - 2 * H, value: 'on' }],
+  };
+  const toggle = (k) => {
+    const last = telemetry[k][telemetry[k].length - 1];
+    const on = k === 's' ? last.value === 'on' : Number(last.value) > 0;
+    const value = k === 's' ? (on ? 'off' : 'on') : on ? '0' : String(Math.round(RATED_W[k] * (0.97 + Math.random() * 0.06)));
+    telemetry[k].push({ ts: Date.now(), value });
+    log(`${k === 's' ? 'S state' : `${k.toUpperCase()} consumption`} = ${value}`);
+    refresh();
+  };
+
+  const wells = {
+    'poco-3': { label: 'POÇO 3', levelMca: 312, perc: 0.72 },
+    'poco-4': { label: 'POÇO 4', levelMca: 188, perc: 0.41 },
+  };
+
+  const buildData = () => ({
+    pumps: [
+      { code: 'B1', label: 'Bomba Poço 3', identifier: 'BOMBA-P3', wellId: 'poco-3', wellLabel: 'Poço 3', powerKw: L.latestPowerKw(telemetry.b1),
+        wellLevelMca: wells['poco-3'].levelMca, wellPercentage: wells['poco-3'].perc, history: L.pumpHistoryFromConsumption(telemetry.b1) },
+      { code: 'B2', label: 'Bomba Poço 4', identifier: 'BOMBA-P4', wellId: 'poco-4', wellLabel: 'Poço 4', powerKw: L.latestPowerKw(telemetry.b2),
+        wellLevelMca: wells['poco-4'].levelMca, wellPercentage: wells['poco-4'].perc, history: L.pumpHistoryFromConsumption(telemetry.b2) },
+    ],
+    valves: [{ code: 'S', label: 'Solenoide Sabesp', identifier: 'SOL-SABESP', description: 'entrada principal de água', history: L.intervalsFromTelemetry(telemetry.s) }],
+  });
+
+  // ---- Modal das bombas -------------------------------------------------------
+  let pumpsModal = null;
+  const openPumps = (focusWellId) => {
+    pumpsModal?.close();
+    pumpsModal = L.openWellPumpsModal({
+      subtitle: 'Shopping Taboão · 2 bombas (BOMBA_POCO) + solenoide da entrada Sabesp',
+      data: buildData(),
+      focusWellId,
+      simulated: true,
+      footnote: 'As duas bombas são independentes e podem operar ao mesmo tempo.',
+      onClose: () => { pumpsModal = null; log('modal das bombas fechada'); },
+    });
+    log(`modal das bombas aberta${focusWellId ? ` (foco ${focusWellId})` : ''}`);
+  };
+
+  // ---- Modal do reservatório (fetch do TB simulado p/ ids poco-*) --------------
+  const origFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === 'string' ? input : input?.url || '';
+    const m = url.match(/\/DEVICE\/(poco-\d)\/values\/timeseries/);
+    if (!m) return origFetch(input, init);
+    const w = wells[m[1]];
+    const qs = new URL(url, location.origin).searchParams;
+    const start = Number(qs.get('startTs')); const end = Math.min(Number(qs.get('endTs')), Date.now());
+    const lvl = []; const pct = [];
+    for (let ts = end; ts >= start; ts -= 30 * 60000) {
+      const k = (end - ts) / H;
+      const p = Math.min(0.98, Math.max(0.08, w.perc + 0.18 * Math.sin(k / 3.2) - 0.06 * Math.sin(k / 0.9)));
+      pct.push({ ts, value: p.toFixed(4) });
+      lvl.push({ ts, value: String(Math.round((p / w.perc) * w.levelMca)) });
+    }
+    return Promise.resolve(new Response(JSON.stringify({ water_level: lvl, water_percentage: pct }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+  };
+
+  let tankHandle = null;
+  const openTank = async (wellId) => {
+    const w = wells[wellId];
+    const inds = L.indicatorsFromModalData(buildData());
+    const isMyio = document.getElementById('chk-myio').checked;
+    const end = Date.now();
+    tankHandle = await L.openDashboardPopupWaterTank({
+      deviceId: wellId, deviceType: 'CISTERNA_ENTRADA', tbJwtToken: 'mock', startTs: end - 3 * 24 * H, endTs: end,
+      label: `${w.label} (SIMULADO)`, currentLevel: w.perc * 100, currentLevelClamped: Math.min(100, w.perc * 100),
+      waterLevel: w.levelMca, waterPercentage: w.perc, telemetryKeys: ['water_level', 'water_percentage'],
+      equipmentIndicators: inds,
+      headerActions: isMyio ? [{ label: 'Bombas', title: 'Abrir status das bombas e da solenoide', indicators: inds, onClick: () => openPumps(wellId) }] : [],
+      onClose: () => { tankHandle = null; },
+    });
+    log(`modal do reservatório aberta (${wellId}, atalho ${isMyio ? 'visível' : 'oculto'})`);
+  };
+
+  // ---- Cards --------------------------------------------------------------------
+  const renderCards = () => {
+    const box = document.getElementById('cards');
+    box.innerHTML = '';
+    const inds = L.indicatorsFromModalData(buildData());
+    const entities = [
+      ...Object.entries(wells).map(([id, w]) => ({
+        entityId: id, labelOrName: w.label, deviceProfile: 'CISTERNA_ENTRADA', deviceIdentifier: w.label,
+        val: w.levelMca, deviceStatus: 'power_on', waterLevel: w.levelMca, waterPercentage: w.perc,
+        timeVal: Date.now(), connectionStatusTime: Date.now(), equipmentIndicators: inds,
+      })),
+      { entityId: 'sabesp', labelOrName: 'SABESP', deviceProfile: 'HIDROMETRO_SHOPPING', deviceIdentifier: 'ENTRADA',
+        val: 418.6, deviceStatus: 'power_on', timeVal: Date.now(), connectionStatusTime: Date.now(),
+        equipmentIndicators: inds.filter((i) => i.kind === 'valve') },
+    ];
+    for (const e of entities) {
+      const ret = L.renderCardComponentV5({
+        entityObject: e, enableSelection: false, enableDragDrop: false,
+        handleActionDashboard: () => (wells[e.entityId] ? openTank(e.entityId) : log('dashboard: só poços')),
+        handleActionReport: () => log(`relatório ${e.labelOrName}`),
+        handleActionSettings: () => log(`settings ${e.labelOrName}`),
+        handleActionEquipment: (ent) => openPumps(ent.entityId),
+      });
+      box.appendChild(ret instanceof Node ? ret : ret[0]);
+    }
+  };
+
+  const refresh = () => {
+    renderCards();
+    pumpsModal?.update(buildData());
+    tankHandle?.updateEquipmentIndicators(L.indicatorsFromModalData(buildData()));
+  };
+
+  document.getElementById('btn-modal').onclick = () => openPumps();
+  document.getElementById('btn-tank').onclick = () => openTank('poco-3');
+  document.getElementById('btn-toggle-b1').onclick = () => toggle('b1');
+  document.getElementById('btn-toggle-b2').onclick = () => toggle('b2');
+  document.getElementById('btn-toggle-s').onclick = () => toggle('s');
+
+  let tick = 0;
+  setInterval(() => {
+    if (!document.getElementById('chk-live').checked) return;
+    tick++;
+    if (tick % 2 === 0) toggle('b2');
+    if (tick % 3 === 0) toggle('b1');
+    if (tick % 5 === 0) toggle('s');
+  }, 6000);
+
+  renderCards();
+  log('showcase pronta');
+</script>
+</body>
+</html>

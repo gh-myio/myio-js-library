@@ -48,10 +48,10 @@ describe('RFC-0200 deviceIcons utility', () => {
       }
     });
 
-    it('the const-as-const enum exposes the expected 24 entries', () => {
-      expect(Object.keys(DeviceIconType).length).toBe(24);
-      expect(Object.keys(deviceIcons).length).toBe(24);
-      expect(Object.keys(deviceIconLabels).length).toBe(24);
+    it('the const-as-const enum exposes the expected 27 entries', () => {
+      expect(Object.keys(DeviceIconType).length).toBe(27);
+      expect(Object.keys(deviceIcons).length).toBe(27);
+      expect(Object.keys(deviceIconLabels).length).toBe(27);
     });
 
     it('resolves COMPRESSOR / VENTILADOR / SOLENOIDE (previously default-only)', () => {

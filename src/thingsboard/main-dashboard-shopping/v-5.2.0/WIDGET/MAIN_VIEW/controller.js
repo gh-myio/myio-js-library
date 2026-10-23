@@ -232,6 +232,10 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
     // modals / popups
     'openDashboardPopupEnergy',
     'openDashboardPopupWaterTank',
+    // ED-1354 — Automação dos poços (bombas BOMBA_POCO + solenoide)
+    'openWellPumpsModal',
+    'createEquipmentIndicatorStrip',
+    'indicatorsFromModalData',
     'openDashboardPopupAllReport',
     'openDashboardPopupReport',
     'openDashboardPopupSettings',
@@ -1274,6 +1278,159 @@ function _publishDeviceStatusOptions() {
   };
   if (window.MyIOOrchestrator) window.MyIOOrchestrator.deviceStatusFilterState = detail;
   window.dispatchEvent(new CustomEvent('myio:device-status-options', { detail }));
+}
+
+// ── ED-1354: Automação dos poços — bombas (BOMBA_POCO) + solenoide (SOLENOIDE) ───────
+// Poço = device de nível com deviceProfile CISTERNA_ENTRADA (coluna Entrada da água) ou CISTERNA
+// (coluna Área Comum), lido como CAIXA_DAGUA (water_level/water_percentage) e fora dos totais em m³.
+// N bombas + M solenoides DESTA cisterna no atributo SERVER_SCOPE `pumpBindings` (JSON):
+//   { "pumps":  [{ "tbId": "<uuid TB>", "gcdrId": "<uuid GCDR>", "code": "B1", "label": "Bomba Poço 3",
+//                  "thresholdW": 20 }, …],          // thresholdW opcional: W acima do qual conta como ligada (default 0)
+//     "valves": [{ "tbId": "<uuid TB>", "gcdrId": "<uuid GCDR>", "code": "S", "label": "Solenoide Sabesp" }, …] }
+// O poço de cada bomba é a própria cisterna que tem o atributo (nível/nome vêm dela).
+// Os equipamentos NÃO entram em datasource (BOMBA_POCO cairia em energia/Bombas Hidráulicas):
+// o estado é lido por REST do TB, convenção MAIN_BAS — bomba ligada = `consumption` (W) > thresholdW;
+// solenoide `state` (fallback `status`) = on/off. Últimas 24 h + o ponto anterior à janela.
+// Cards/modais leem via MyIOOrchestrator.getWellEquipment(tbId); atualização → `myio:well-equipment-updated`.
+// (window.__myioWellEquipmentRefreshMs: override p/ showcase/diagnóstico)
+const WELL_EQUIPMENT_REFRESH_MS = Number(window.__myioWellEquipmentRefreshMs) || 60000;
+const WELL_EQUIPMENT_WINDOW_MS = 24 * 3600000;
+const _wellEquipment = { wells: [], byWell: new Map(), timer: null, inflight: null, lastFetch: 0, signature: '' };
+
+function _parsePumpBindings(raw) {
+  if (!raw) return null;
+  try {
+    const b = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const pumps = Array.isArray(b?.pumps) ? b.pumps.filter((p) => p && p.tbId && p.code) : [];
+    const valves = Array.isArray(b?.valves) ? b.valves.filter((v) => v && v.tbId && v.code) : [];
+    if (!pumps.length && !valves.length) return null;
+    return { pumps, valves };
+  } catch (e) {
+    LogHelper.warn('[MAIN_VIEW] ED-1354: pumpBindings inválido:', e?.message);
+    return null;
+  }
+}
+
+/** Série TB de um device: janela [start, end] + o último ponto antes da janela (estado inicial). */
+async function _fetchTbSeriesWithPrior(deviceId, keys, startTs, endTs) {
+  const jwt = localStorage.getItem('jwt_token');
+  const headers = { 'X-Authorization': `Bearer ${jwt}` };
+  const base = `/api/plugins/telemetry/DEVICE/${encodeURIComponent(deviceId)}/values/timeseries?keys=${keys.join(',')}&agg=NONE`;
+  const get = async (qs) => {
+    const res = await fetch(`${base}&${qs}`, { headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  };
+  const [win, prior] = await Promise.all([
+    get(`startTs=${startTs}&endTs=${endTs}&limit=5000&orderBy=ASC`),
+    get(`startTs=0&endTs=${startTs - 1}&limit=1&orderBy=DESC`).catch(() => ({})),
+  ]);
+  const out = {};
+  keys.forEach((k) => {
+    out[k] = [...(prior?.[k] || []), ...(win?.[k] || [])];
+  });
+  return out;
+}
+
+/** Placeholder (estado desconhecido) enquanto a primeira leitura não chega. */
+function _wellPlaceholder(bindings) {
+  return {
+    pumps: bindings.pumps.map((p) => ({ ...p, deviceProfile: 'BOMBA_POCO', history: null })),
+    valves: bindings.valves.map((v) => ({ ...v, deviceProfile: 'SOLENOIDE', history: null })),
+  };
+}
+
+function _getWellEquipment(tbId) {
+  const well = _wellEquipment.wells.find((w) => String(w.tbId || w.id) === String(tbId));
+  if (!well) return null;
+  const data = _wellEquipment.byWell.get(String(tbId)) || _wellPlaceholder(well.pumpBindings);
+  const lib = window.MyIOLibrary;
+  return {
+    data,
+    indicators: lib?.indicatorsFromModalData ? lib.indicatorsFromModalData(data) : [],
+    simulated: !!window.__myioWellEquipmentSimulated,
+  };
+}
+
+async function _refreshWellEquipment() {
+  const lib = window.MyIOLibrary;
+  if (!lib?.pumpHistoryFromConsumption || !_wellEquipment.wells.length) return;
+  const endTs = Date.now();
+  const startTs = endTs - WELL_EQUIPMENT_WINDOW_MS;
+
+  // dedupe: os dois poços costumam apontar para as mesmas bombas/solenoide
+  const devices = new Map(); // deviceId → keys
+  _wellEquipment.wells.forEach(({ pumpBindings: b }) => {
+    b.pumps.forEach((p) => devices.set(p.tbId, ['consumption']));
+    b.valves.forEach((v) => devices.set(v.tbId, ['state', 'status']));
+  });
+  const series = new Map();
+  await Promise.all(
+    [...devices].map(async ([id, keys]) => {
+      try {
+        series.set(id, await _fetchTbSeriesWithPrior(id, keys, startTs, endTs));
+      } catch (e) {
+        LogHelper.warn(`[MAIN_VIEW] ED-1354: telemetria do equipamento ${id} indisponível:`, e?.message);
+      }
+    })
+  );
+
+  _wellEquipment.wells.forEach((well) => {
+    const b = well.pumpBindings;
+    // o poço de cada bomba é a própria cisterna que declara o atributo
+    const wellLabel = well.label || well.name || '';
+    const pumps = b.pumps.map((p) => {
+      const s = series.get(p.tbId);
+      return {
+        ...p,
+        id: p.tbId,
+        deviceProfile: 'BOMBA_POCO',
+        wellLabel,
+        history: s ? lib.pumpHistoryFromConsumption(s.consumption, Number(p.thresholdW) || 0) : null,
+        powerKw: s ? lib.latestPowerKw(s.consumption) : null,
+        wellLevelMca: well.waterLevel != null ? Number(well.waterLevel) : null,
+        wellPercentage: well.waterPercentage != null ? Number(well.waterPercentage) : null,
+      };
+    });
+    const valves = b.valves.map((v) => {
+      const s = series.get(v.tbId);
+      const pts = s ? (s.state?.length ? s.state : s.status) : null;
+      return { ...v, id: v.tbId, deviceProfile: 'SOLENOIDE', history: pts ? lib.intervalsFromTelemetry(pts) : null };
+    });
+    _wellEquipment.byWell.set(String(well.tbId || well.id), { pumps, valves });
+  });
+  _wellEquipment.lastFetch = Date.now();
+  window.dispatchEvent(
+    new CustomEvent('myio:well-equipment-updated', {
+      detail: { wellIds: _wellEquipment.wells.map((w) => String(w.tbId || w.id)) },
+    })
+  );
+}
+
+/** Chamado a cada populateState('water'): registra os poços e mantém o polling (1 fetch por vez). */
+function _syncWellEquipment(wells) {
+  _wellEquipment.wells = wells || [];
+  if (window.MyIOOrchestrator) window.MyIOOrchestrator.getWellEquipment = _getWellEquipment;
+  if (!_wellEquipment.wells.length) {
+    clearInterval(_wellEquipment.timer);
+    _wellEquipment.timer = null;
+    return;
+  }
+  const signature = _wellEquipment.wells.map((w) => `${w.tbId || w.id}:${JSON.stringify(w.pumpBindings)}`).join('|');
+  const run = () => {
+    if (_wellEquipment.inflight) return _wellEquipment.inflight;
+    _wellEquipment.inflight = _refreshWellEquipment()
+      .catch((e) => LogHelper.warn('[MAIN_VIEW] ED-1354: falha ao atualizar poços:', e?.message))
+      .finally(() => {
+        _wellEquipment.inflight = null;
+      });
+    return _wellEquipment.inflight;
+  };
+  if (signature !== _wellEquipment.signature || Date.now() - _wellEquipment.lastFetch > WELL_EQUIPMENT_REFRESH_MS / 2) {
+    _wellEquipment.signature = signature;
+    run();
+  }
+  if (!_wellEquipment.timer) _wellEquipment.timer = setInterval(run, WELL_EQUIPMENT_REFRESH_MS);
 }
 
 // RFC-0051.1: Global widget settings (will be populated in onInit)
@@ -3215,6 +3372,9 @@ Object.assign(window.MyIOUtils, {
       clearInterval(window.__myioTbTokenKeepAlive);
       window.__myioTbTokenKeepAlive = null;
     }
+    // ED-1354: para o polling das bombas/solenoide dos poços
+    clearInterval(_wellEquipment.timer);
+    _wellEquipment.timer = null;
     // Limpa event listeners se necessário
     if (typeof window !== 'undefined') {
       // Remove custom event listeners se foram adicionados
@@ -4513,6 +4673,12 @@ function categorizeItemsByGroupWater(items) {
   }
 
   for (const item of items) {
+    // ED-1354: CISTERNA / CISTERNA_ENTRADA (poço) ficam no grupo de tanques (fora dos totais em m³);
+    // o TELEMETRY as exibe na coluna Entrada (_ENTRADA) ou Área Comum. O perfil RFC-0207 não as conhece.
+    if (/^CISTERNA(_ENTRADA)?$/.test(String(item?.deviceProfile || '').toUpperCase())) {
+      caixadagua.push(item);
+      continue;
+    }
     const grp = _resolveGroup(item, undefined, 'water').group;
     if (grp === 'entrada') entrada.push(item);
     else if (grp === 'lojas') lojas.push(item);
@@ -5468,6 +5634,9 @@ function populateState(domain, items, periodKey) {
     };
 
     window.STATE._lastUpdate[domain] = Date.now();
+
+    // ED-1354: poços automatizados (pumpBindings) → estado das bombas/solenoide (non-blocking)
+    _syncWellEquipment(items.filter((it) => it && it.pumpBindings));
 
     LogHelper.log(`[Orchestrator] 🗄️ window.STATE.${domain} populated:`, {
       entrada: entrada.length,
@@ -7023,6 +7192,8 @@ const MyIOOrchestrator = (() => {
       gcdrCustomerId: meta.gcdrCustomerId || null,
       gcdrAssetId: meta.gcdrAssetId || null,
       gcdrSyncAt: meta.gcdrSyncAt || null,
+      // ED-1354: bombas/solenoide vinculadas ao poço (null = não é poço automatizado)
+      pumpBindings: meta.pumpBindings || null,
       // ThingsBoard entity name (raw, before label override)
       entityName: meta.entityName || '',
 
@@ -7186,6 +7357,8 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'gcdrcustomerid') meta.gcdrCustomerId = val;
       else if (keyName === 'gcdrassetid') meta.gcdrAssetId = val;
       else if (keyName === 'gcdrsyncat') meta.gcdrSyncAt = val;
+      // ED-1354: poço → bombas (BOMBA_POCO) + solenoide (SERVER_SCOPE JSON)
+      else if (keyName === 'pumpbindings') meta.pumpBindings = _parsePumpBindings(val);
       // Only override label if dataKey has a non-empty value
       // Otherwise keep the entityLabel/entityName fallback from initialization
       else if (keyName === 'label' && val && String(val).trim() !== '') meta.label = val;
@@ -7935,7 +8108,12 @@ const MyIOOrchestrator = (() => {
           // RFC-0107: Detect tank devices by profile TANK/CAIXA_DAGUA
           // OR water_level/water_percentage data; hidrometers by profile.
           const hasWaterLevelData = meta.waterLevel !== undefined || meta.waterPercentage !== undefined;
-          const isTankByType = deviceProfile === 'TANK' || deviceProfile === 'CAIXA_DAGUA';
+          // ED-1354: CISTERNA / CISTERNA_ENTRADA (poço) é lido como tanque (water_level/water_percentage)
+          const isTankByType =
+            deviceProfile === 'TANK' ||
+            deviceProfile === 'CAIXA_DAGUA' ||
+            deviceProfile === 'CISTERNA' ||
+            deviceProfile === 'CISTERNA_ENTRADA';
           const isHidrometer = deviceProfile.includes('HIDROMETRO');
 
           // RFC-0107: Build HIDROMETRO items from ctx.data

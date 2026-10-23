@@ -575,8 +575,33 @@ export type {
 export { DEFAULT_STORE_SEGMENTS } from './components/premium-modals/settings/commercialCatalog';
 export type { StoreSegment, StoreSegmentCatalogSource } from './components/premium-modals/settings/commercialCatalog';
 
+// ED-1354: Automação dos poços — bombas (MOTOR) e solenoide (B1 / B2 / S)
+export {
+  openWellPumpsModal,
+  createEquipmentIndicatorStrip,
+  renderEquipmentTilesHTML,
+  renderEquipmentShortcutHTML,
+  parseBinaryState,
+  intervalsFromTelemetry,
+  pumpHistoryFromConsumption,
+  latestPowerKw,
+  PUMP_POWER_KEY,
+  VALVE_STATE_KEYS,
+  indicatorsFromModalData,
+} from './components/well-pumps';
+export type {
+  StateInterval,
+  EquipmentIndicator,
+  WellPumpInfo,
+  WellValveInfo,
+  WellPumpsModalData,
+  OpenWellPumpsModalParams,
+  WellPumpsModalHandle,
+} from './components/well-pumps';
+
 // Water Tank Modal Types
 export type {
+  WaterTankHeaderAction,
   OpenDashboardPopupWaterTankOptions,
   WaterTankModalContext,
   WaterTankModalError,
