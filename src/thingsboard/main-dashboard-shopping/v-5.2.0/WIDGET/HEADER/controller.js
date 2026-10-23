@@ -2681,6 +2681,72 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
     window.addEventListener('myio:annotations-ready', _applyHeaderFeatureVisibility);
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Status Disp. (GCDR device.status) — tab slider TODOS | ATIVOS | INATIVOS
+    // (| DESCONHECIDOS só quando existir device sem match no GCDR). O HEADER só
+    // escolhe: dispara `myio:device-status-filter` e a MAIN filtra e re-emite tudo.
+    // A MAIN publica opções/contagens em `myio:device-status-options` (também
+    // espelhadas em MyIOOrchestrator.deviceStatusFilterState p/ init tardio).
+    // ─────────────────────────────────────────────────────────────────────────
+    (function _initDeviceStatusFilter() {
+      const root = document.getElementById('tbx-device-status-filter');
+      if (!root) return;
+      const track = root.querySelector('.tbx-status-track');
+      const thumb = root.querySelector('.tbx-status-thumb');
+      const opts = Array.from(root.querySelectorAll('.tbx-status-opt'));
+      const LABELS = { all: 'Todos', ACTIVE: 'Ativos', INACTIVE: 'Inativos', UNKNOWN: 'Desconhecidos (sem cadastro no GCDR)' };
+      let current = 'all';
+
+      function moveThumb() {
+        const active = opts.find((b) => b.dataset.status === current);
+        if (!active || !thumb || !track) return;
+        thumb.style.left = `${active.offsetLeft}px`;
+        thumb.style.width = `${active.offsetWidth}px`;
+      }
+
+      function setActive(value) {
+        current = value;
+        opts.forEach((b) => {
+          const on = b.dataset.status === value;
+          b.classList.toggle('is-active', on);
+          b.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+        window.requestAnimationFrame(moveThumb);
+      }
+
+      function render(state) {
+        if (!state || !state.available) return;
+        const counts = state.counts || {};
+        const unknownBtn = opts.find((b) => b.dataset.status === 'UNKNOWN');
+        if (unknownBtn) unknownBtn.style.display = state.hasUnknown ? '' : 'none';
+        opts.forEach((b) => {
+          const s = b.dataset.status;
+          b.title = `${LABELS[s]}: ${counts[s] ?? 0} dispositivo(s)`;
+        });
+        root.style.display = '';
+        // Filtro DESCONHECIDOS sem nenhum device desconhecido → volta para TODOS
+        if (state.value === 'UNKNOWN' && !state.hasUnknown) {
+          setActive('all');
+          window.dispatchEvent(new CustomEvent('myio:device-status-filter', { detail: { value: 'all' } }));
+          return;
+        }
+        setActive(state.value || 'all');
+      }
+
+      opts.forEach((b) => {
+        b.addEventListener('click', () => {
+          const value = b.dataset.status;
+          if (value === current) return;
+          setActive(value);
+          window.dispatchEvent(new CustomEvent('myio:device-status-filter', { detail: { value } }));
+        });
+      });
+
+      window.addEventListener('myio:device-status-options', (ev) => render(ev.detail));
+      window.addEventListener('resize', () => window.requestAnimationFrame(moveThumb));
+      render(window.MyIOOrchestrator?.deviceStatusFilterState);
+    })();
+
+    // ─────────────────────────────────────────────────────────────────────────
     // RFC-0045 FIX: Track last emission to prevent duplicates
     let lastEmission = {};
 
