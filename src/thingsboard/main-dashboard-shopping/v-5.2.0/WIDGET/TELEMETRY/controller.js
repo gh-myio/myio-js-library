@@ -1009,7 +1009,8 @@ function _groupFilterChangedHandler(ev) {
     // null group = untagged card, always shown
     return itemGroup === null || groupFilter[itemGroup] !== false;
   });
-  const visibleSum = visibleItems.reduce((acc, x) => acc + (x.value || 0), 0);
+  // ED-1354: poço (nível em M.C.A) não soma no total em m³
+  const visibleSum = visibleItems.reduce((acc, x) => acc + (x._isWell ? 0 : x.value || 0), 0);
   renderHeader(visibleItems.length, visibleSum);
 
   LogHelper.log(`[RFC-0196] Group filter applied for domain=${domain}:`, groupFilter);
@@ -1838,6 +1839,12 @@ function getItemsFromState(domain, labelWidget) {
     LogHelper.log(
       `[TELEMETRY] Getting items from STATE.${domain}.${stateGroup}: ${groupData?.count || 0} items`
     );
+    // ED-1354: CISTERNA_ENTRADA aparece na coluna Entrada da água
+    // (continua no grupo caixadagua do STATE → fora dos totais em m³)
+    if (domain === 'water' && stateGroup === 'entrada') {
+      const wells = _cisternasOf(domain, 'CISTERNA_ENTRADA');
+      if (wells.length) return [...(groupData?.items || []), ...wells];
+    }
     return groupData?.items || [];
   }
 
@@ -1850,6 +1857,11 @@ function getItemsFromState(domain, labelWidget) {
   const lwLower = labelWidget.toLowerCase().trim();
   if (lwLower === 'área comum' || lwLower === 'areacomum' || lwLower === 'area comum') {
     LogHelper.log(`[TELEMETRY] Getting all areacomum items: ${areacomumData.count} items`);
+    // ED-1354: CISTERNA (sem _ENTRADA) aparece na coluna Área Comum da água
+    if (domain === 'water') {
+      const wells = _cisternasOf(domain, 'CISTERNA');
+      if (wells.length) return [...areacomumData.items, ...wells];
+    }
     return areacomumData.items;
   }
 
@@ -2355,13 +2367,68 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode, alarmFilter) 
 }
 
 function recomputePercentages(visible) {
-  const groupSum = visible.reduce((acc, x) => acc + (x.value || 0), 0);
+  // ED-1354: poço na coluna Entrada mostra nível (M.C.A), não volume — fora da soma e do %
+  const groupSum = visible.reduce((acc, x) => acc + (x._isWell ? 0 : x.value || 0), 0);
   const updated = visible.map((x) => ({
     ...x,
-    perc: groupSum > 0 ? (x.value / groupSum) * 100 : 0,
+    perc: x._isWell ? x.perc : groupSum > 0 ? (x.value / groupSum) * 100 : 0,
   }));
   return { visible: updated, groupSum };
 }
+
+/** ===================== ED-1354: POÇOS (bombas BOMBA_POCO + solenoide) ===================== **/
+/** Cisternas de um profile exato (CISTERNA_ENTRADA → coluna Entrada; CISTERNA → Área Comum). */
+function _cisternasOf(domain, profile) {
+  return (window.STATE.get(domain, 'caixadagua')?.items || []).filter(
+    (it) => String(it?.deviceProfile || '').toUpperCase() === profile
+  );
+}
+function _wellEquipmentOf(it) {
+  if (!it || !it.pumpBindings) return null;
+  return window.MyIOOrchestrator?.getWellEquipment?.(it.tbId || it.id) || null;
+}
+
+function _openWellPumps(it) {
+  const open = window.MyIOUtils?.openWellPumpsModal;
+  const eq = _wellEquipmentOf(it);
+  if (!eq || typeof open !== 'function') {
+    console.error('[TELEMETRY] ED-1354: openWellPumpsModal indisponível via MyIOUtils');
+    return;
+  }
+  const onUpdate = () => {
+    const next = _wellEquipmentOf(it);
+    if (next) handle.update(next.data);
+  };
+  const handle = open({
+    subtitle: [window.MyIOUtils?.customerName, 'bombas de poço + solenoide da entrada'].filter(Boolean).join(' · '),
+    title: `Automação · ${it.label || it.name || 'Poço'}`,
+    data: eq.data,
+    simulated: eq.simulated,
+    footnote: 'As bombas são independentes e podem operar ao mesmo tempo.',
+    onClose: () => window.removeEventListener('myio:well-equipment-updated', onUpdate),
+  });
+  window.addEventListener('myio:well-equipment-updated', onUpdate);
+}
+
+/** Atualiza só a coluna B1/B2/S dos cards de poço (sem re-renderizar a lista). */
+function _patchWellStrips(ev) {
+  if (WIDGET_DOMAIN !== 'water') return;
+  const createStrip = window.MyIOUtils?.createEquipmentIndicatorStrip;
+  if (typeof createStrip !== 'function') return;
+  const items = STATE.lastVisible || [];
+  (ev?.detail?.wellIds || []).forEach((id) => {
+    const it = items.find((x) => String(x.tbId || x.id) === String(id));
+    const eq = _wellEquipmentOf(it);
+    if (!eq) return;
+    $list()
+      .find(`.device-card-centered[data-entity-id="${id}"]`)
+      .each((_, card) => {
+        card.querySelector('.myio-eq-strip')?.remove();
+        card.appendChild(createStrip(eq.indicators, { onClick: () => _openWellPumps(it) }));
+      });
+  });
+}
+window.addEventListener('myio:well-equipment-updated', _patchWellStrips);
 
 /** ===================== TEMPERATURE INFO TOOLTIP ===================== **/
 // Now uses TempSensorSummaryTooltip from myio-js-library (premium tooltip with drag, pin, maximize, close)
@@ -2927,6 +2994,8 @@ function renderList(visible) {
       log_annotations: it.log_annotations || null,
       // Card desenhado antes da telemetria chegar (MAIN_VIEW): spinner no valor, status neutro
       dataLoading: !!it.dataLoading,
+      // ED-1354: B1/B2/S (bombas BOMBA_POCO + solenoide) no card do poço
+      equipmentIndicators: _wellEquipmentOf(it)?.indicators || undefined,
     };
 
     // DEBUG: Investigate why "Burguer king" card is rendering as offline
@@ -2972,6 +3041,9 @@ function renderList(visible) {
       showTempComparisonTooltip: false,
       showTempRangeTooltip: false,
 
+      // ED-1354: clique na coluna B1/B2/S → modal "Automação dos Poços"
+      handleActionEquipment: () => _openWellPumps(it),
+
       handleActionDashboard: async () => {
         const jwtToken = await getTbToken();
         const MyIOToast = window.MyIOUtils?.MyIOToast;
@@ -2992,7 +3064,8 @@ function renderList(visible) {
         const endTs = endDateISO ? new Date(endDateISO).getTime() : Date.now();
         // deviceProfile apenas (deviceType em desuso)
         const deviceType = it.deviceProfile || entityObject.deviceType;
-        const isWaterTank = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
+        const isWaterTank =
+          deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA' || /^CISTERNA(_ENTRADA)?$/.test(deviceType || '');
         const isTermostato = String(deviceType || '').startsWith('TERMOSTATO');
 
         LogHelper.log(
@@ -3234,7 +3307,27 @@ function renderList(visible) {
 
             LogHelper.log('[TELEMETRY v5] ⏳ About to call openDashboardPopupWaterTank...');
 
+            // ED-1354: poço automatizado → B1/B2/S sob o ícone (todos) + atalho no header (só @myio)
+            const wellEq = _wellEquipmentOf(it);
+            const wellExtras = wellEq
+              ? {
+                  equipmentIndicators: wellEq.indicators,
+                  headerActions:
+                    window.MyIOUtils?.SuperAdmin === true
+                      ? [
+                          {
+                            label: 'Bombas',
+                            title: 'Abrir status das bombas e da solenoide',
+                            indicators: wellEq.indicators,
+                            onClick: () => _openWellPumps(it),
+                          },
+                        ]
+                      : [],
+                }
+              : {};
+
             const modalHandle = await window.MyIOUtils.openDashboardPopupWaterTank({
+              ...wellExtras,
               deviceId: it.id,
               deviceType: deviceType,
               tbJwtToken: jwtToken,
@@ -3270,6 +3363,20 @@ function renderList(visible) {
             });
 
             LogHelper.log('[TELEMETRY v5] ✅ Water tank modal handle received:', modalHandle);
+
+            // ED-1354: mantém B1/B2/S da modal do reservatório em dia com o polling da MAIN
+            if (wellEq && modalHandle?.updateEquipmentIndicators) {
+              const onWellUpdate = () => {
+                const next = _wellEquipmentOf(it);
+                if (next) modalHandle.updateEquipmentIndicators(next.indicators);
+              };
+              window.addEventListener('myio:well-equipment-updated', onWellUpdate);
+              const origClose = modalHandle.close;
+              modalHandle.close = () => {
+                window.removeEventListener('myio:well-equipment-updated', onWellUpdate);
+                origClose();
+              };
+            }
           } else {
             // Energy/Water/Temperature Modal Path (Ingestion API)
             LogHelper.log('[TELEMETRY v5] Opening energy modal...');
@@ -3554,7 +3661,7 @@ function renderList(visible) {
             domain: WIDGET_DOMAIN,
             deviceType: it.deviceType,
             deviceProfile: it.deviceProfile || null, // RFC-0086: needed for 3F_MEDIDOR detection
-            customerId: customerTbId, // RFC-0080: Pass customerId for GLOBAL fetch
+            customerId: customerTbId || it.customerId?.id || it.customerId || it.customerTbId || null, // Required customer context for shared equipment catalog
             superadmin: isSuperAdmin, // RFC-XXXX: SuperAdmin mode
             userEmail: window.MyIOUtils?.currentUserEmail || '', // RFC-0171: needed for offSetTemperature field visibility
             holdingAdmin: isHoldingAdmin, // Holding admin (isHolding+isUserAdmin) — also unlocks Identificador editing
@@ -6655,7 +6762,10 @@ self.onInit = async function () {
 
       // RFC-0107: Calculate percentage and value for water tanks (profile apenas)
       const isTankDevice =
-        item._isTankDevice || item.deviceProfile === 'TANK' || item.deviceProfile === 'CAIXA_DAGUA';
+        item._isTankDevice ||
+        item.deviceProfile === 'TANK' ||
+        item.deviceProfile === 'CAIXA_DAGUA' ||
+        /^CISTERNA(_ENTRADA)?$/.test(item.deviceProfile || '');
       let itemPerc = 0;
       let itemValue = temp;
 
@@ -6727,6 +6837,9 @@ self.onInit = async function () {
         waterPercentage: item.waterPercentage ?? null,
         _isTankDevice: item._isTankDevice || false,
         _isHidrometerDevice: item._isHidrometerDevice || false,
+        // ED-1354: poço (CISTERNA) + bombas BOMBA_POCO / solenoides vinculadas
+        pumpBindings: item.pumpBindings || null,
+        _isWell: /^CISTERNA(_ENTRADA)?$/.test(String(item.deviceProfile || '').toUpperCase()),
         // Per-device exclude_groups_totals (drives the v5 "excluded" beige bg + marker)
         excludeGroupsTotals: item.excludeGroupsTotals || null,
         // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup

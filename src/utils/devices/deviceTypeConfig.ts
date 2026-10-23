@@ -68,6 +68,10 @@ export const DEVICE_TYPE_CONFIG: Record<string, DeviceTypeConfigEntry> = {
   HIDROMETRO_AREA_COMUM: { category: 'water', image: deviceIcons.HIDROMETRO_AREA_COMUM },
   HIDROMETRO_SHOPPING: { category: 'water', image: deviceIcons.HIDROMETRO_SHOPPING },
   CAIXA_DAGUA: { category: 'water', image: deviceIcons.CAIXA_DAGUA },
+  // ED-1354: poço/cisterna (nível, como CAIXA_DAGUA) — _ENTRADA vai p/ a coluna Entrada, o outro p/ Área Comum
+  CISTERNA: { category: 'water', image: deviceIcons.CISTERNA },
+  CISTERNA_ENTRADA: { category: 'water', image: deviceIcons.CISTERNA_ENTRADA },
+  BOMBA_POCO: { category: 'energy', image: deviceIcons.BOMBA_POCO }, // ED-1354: bomba do poço (consumption W)
 
   // Tank devices (dynamic images based on level)
   TANK: { category: 'tank', image: null },
