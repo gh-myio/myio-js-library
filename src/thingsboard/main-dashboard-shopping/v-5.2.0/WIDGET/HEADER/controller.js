@@ -2721,6 +2721,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         opts.forEach((b) => {
           const s = b.dataset.status;
           b.title = `${LABELS[s]}: ${counts[s] ?? 0} dispositivo(s)`;
+          const badge = b.querySelector('.tbx-status-count');
+          if (badge) badge.textContent = Number(counts[s] ?? 0).toLocaleString('pt-BR');
         });
         root.style.display = '';
         // Filtro DESCONHECIDOS sem nenhum device desconhecido → volta para TODOS

@@ -22,9 +22,8 @@
       </label>
 
       <!-- carregar -->
-      <button class="tbx-btn tbx-btn-primary" id="tbx-btn-load" title="Carregar">
-        <span class="tbx-ico rotate">⟲</span>
-        <span>Carregar</span>
+      <button class="tbx-btn tbx-btn-primary tbx-btn-icon-only" id="tbx-btn-load" title="Carregar" aria-label="Carregar">
+        <span class="tbx-ico rotate" aria-hidden="true">⟲</span>
       </button>
 
       <!-- force refresh -->
@@ -112,23 +111,24 @@
         <div class="tbx-status-track">
           <span class="tbx-status-thumb" aria-hidden="true"></span>
           <button type="button" class="tbx-status-opt is-active" data-status="all" role="radio" aria-checked="true">
-            Todos
+            Todos <span class="tbx-status-count" aria-hidden="true"></span>
           </button>
           <button type="button" class="tbx-status-opt" data-status="ACTIVE" role="radio" aria-checked="false">
-            Ativos
+            Ativos <span class="tbx-status-count" aria-hidden="true"></span>
           </button>
           <button type="button" class="tbx-status-opt" data-status="INACTIVE" role="radio" aria-checked="false">
-            Inativos
+            Inativos <span class="tbx-status-count" aria-hidden="true"></span>
           </button>
           <button
             type="button"
             class="tbx-status-opt"
             data-status="UNKNOWN"
+            aria-label="Desconhecidos"
             role="radio"
             aria-checked="false"
             style="display: none"
           >
-            Desconhecidos
+            Desc. <span class="tbx-status-count" aria-hidden="true"></span>
           </button>
         </div>
       </div>

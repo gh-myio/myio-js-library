@@ -310,6 +310,13 @@
   filter: none;
 }
 
+/* Botão só com ícone (Carregar ⟲) — quadrado 36×36, mesma altura dos demais */
+.tbx-btn.tbx-btn-icon-only {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+}
+
 /* Status Disp. (GCDR device.status) — tab slider; o thumb é posicionado via JS */
 .tbx-status-filter {
   display: inline-flex;
@@ -351,6 +358,9 @@
 .tbx-status-opt {
   position: relative;
   z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: 100%;
   padding: 0 12px;
   border: none;
@@ -369,6 +379,31 @@
   color: #1f2937;
 }
 .tbx-status-opt.is-active {
+  color: #fff;
+}
+/* Badge de contagem por status — sutil; some enquanto vazio (antes da MAIN publicar) */
+.tbx-status-count {
+  min-width: 18px;
+  padding: 1px 6px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: rgba(71, 85, 105, 0.12);
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+.tbx-status-count:empty {
+  display: none;
+}
+.tbx-status-opt.is-active .tbx-status-count {
+  background: rgba(255, 255, 255, 0.22);
   color: #fff;
 }
 .tbx-status-opt:focus-visible {
