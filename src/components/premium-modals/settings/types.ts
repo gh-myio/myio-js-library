@@ -67,6 +67,9 @@ export interface OpenDashboardPopupSettingsParams {
     clientSecret?: string;
     dataApiBaseUrl?: string;
     ingestionToken?: string;
+    // Ingestion token with `management.admin` scope (Perfil tab → "Sync Ingestion ID").
+    // The lib holds no Ingestion credentials; without it that action reports it as unavailable.
+    getIngestionAdminToken?: () => Promise<string>;
     tbBaseUrl?: string; // ThingsBoard base URL, defaults to current origin
   };
   
@@ -212,6 +215,7 @@ export interface ModalConfig {
   deviceId?: string; // ThingsBoard device ID for fetching device-level attributes
   jwtToken?: string; // JWT token for API calls
   tbBaseUrl?: string; // ThingsBoard base URL for API calls (defaults to window.location.origin)
+  getIngestionAdminToken?: () => Promise<string>; // Ingestion `management.admin` token provider (Perfil tab)
   connectionData?: { // Connection info from card v5
     centralName?: string;
     connectionStatusTime?: string;

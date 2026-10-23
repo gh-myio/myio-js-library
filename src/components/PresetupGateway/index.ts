@@ -19,9 +19,26 @@ import {
 } from './utils/device';
 import { exportDeviceTagsPdf, type PdfLayout } from './utils/pdf';
 
-const DEFAULT_INGESTION_API = 'https://management.myio-bas.com';
-const DEFAULT_INGESTION_AUTH = 'https://api.myio-bas.com/auth/token';
-const DEFAULT_PROVISIONING_API = 'https://provisioning.apps.myio-bas.com';
+// Same hosts as presetup-nextjs (src/lib/config.ts + api/ingestion/auth/route.ts).
+// The management API requires credentials with the `management.admin` scope;
+// customer (read-only) credentials authenticate but get HTTP 403 on /gateways and /devices.
+const DEFAULT_INGESTION_API = 'https://api.data.apps.myio-bas.com/api/v1/management';
+const DEFAULT_INGESTION_AUTH = 'https://api.data.apps.myio-bas.com/api/v1/auth';
+// provisioning.apps.myio-bas.com was removed (404); the active service has no `apps.`
+const DEFAULT_PROVISIONING_API = 'https://provisioning.myio-bas.com';
+
+/** Human-readable reason for a failed load, shown in the badge tooltip and the log. */
+function describeLoadError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/HTTP 403/.test(msg) && /management\.admin/.test(msg)) {
+    return 'Credencial sem permissão management.admin — use a credencial admin da Ingestion.';
+  }
+  if (/Auth failed: HTTP 401/.test(msg)) return 'Client ID / Client Secret inválidos.';
+  if (/Failed to fetch|NetworkError|ERR_NAME_NOT_RESOLVED/i.test(msg)) {
+    return 'Falha de rede ao acessar a Ingestion API — verifique as URLs configuradas.';
+  }
+  return msg;
+}
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -259,6 +276,7 @@ export function createPresetupGateway(opts: PresetupGatewayOptions): PresetupGat
 
   function setBadge(text: string, bg: string, fg: string): void {
     statusBadge.textContent = text;
+    statusBadge.title = '';
     statusBadge.style.cssText = S.badge(bg, fg);
   }
 
@@ -363,7 +381,11 @@ export function createPresetupGateway(opts: PresetupGatewayOptions): PresetupGat
 
       setBadge(`${devices.length} dispositivo(s)`, '#d1fae5', '#059669');
     } catch (err: any) {
+      const reason = describeLoadError(err);
       setBadge('Erro ao carregar', '#fee2e2', '#dc2626');
+      statusBadge.title = reason;
+      logArea.textContent = '';
+      appendLog(`❌ ${reason}`);
       onError?.(err instanceof Error ? err : new Error(String(err)));
     } finally {
       renderTable();

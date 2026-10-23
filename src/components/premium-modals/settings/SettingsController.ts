@@ -41,6 +41,7 @@ export class SettingsController {
       deviceId: params.deviceId, // RFC-0077: Pass deviceId for Power Limits feature
       jwtToken: params.jwtToken, // RFC-0077: Pass jwtToken for API calls
       tbBaseUrl: params.api?.tbBaseUrl, // Pass tbBaseUrl for superAdmin API calls
+      getIngestionAdminToken: params.api?.getIngestionAdminToken,
       themeTokens: params.ui?.themeTokens,
       // Host dashboard palette (createMyIOTheme); falls back to window.MyIOUtils.theme in the view.
       themePalette: params.theme,
