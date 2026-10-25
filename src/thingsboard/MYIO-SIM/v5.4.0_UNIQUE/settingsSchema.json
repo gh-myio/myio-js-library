@@ -45,6 +45,12 @@
         "default": "",
         "description": "RFC-0046: Customer key (gcdr_cust_*) sent as X-API-Key on GCDR requests (Goals). Fallback when the customer SERVER_SCOPE attribute gcdrApiKey is not set."
       },
+      "enablePortfolioCommandCenter": {
+        "title": "Enable Portfolio Command Center (menu Dashboard section)",
+        "type": "boolean",
+        "default": true,
+        "description": "RFC-0238: adds the 'Dashboard' section to the menu with the executive Portfolio view (KPIs, shopping matrix, priorities). Existing views are unchanged. Set false to hide it."
+      },
       "enableTemperatureApiDataFetch": {
         "title": "Enable Temperature API Fetch (Ingestion value + offline detection)",
         "type": "boolean",
@@ -284,6 +290,10 @@
     },
     {
       "key": "enableTemperatureApiDataFetch",
+      "type": "checkbox"
+    },
+    {
+      "key": "enablePortfolioCommandCenter",
       "type": "checkbox"
     },
     {

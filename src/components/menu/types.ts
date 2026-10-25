@@ -449,6 +449,55 @@ export const OPERATIONAL_INDICATORS_TAB: TabConfig = {
 };
 
 /**
+ * RFC-0238: seção "Dashboard" (Head Office Portfolio Command Center).
+ * Opcional — só entra no menu com `enableDashboardSection: true`; as visões
+ * existentes (Energia/Água/Temperatura/Indicadores) continuam iguais.
+ */
+export const DASHBOARD_SECTION_TAB: TabConfig = {
+  id: 'dashboard',
+  label: 'Dashboard',
+  icon: '🧭',
+  contexts: [
+    {
+      id: 'portfolio_overview',
+      target: 'portfolio_command_center',
+      title: 'Portfólio',
+      description: 'Visão executiva da holding',
+      icon: '🏛️',
+    },
+    {
+      id: 'portfolio_demand',
+      target: 'portfolio_demand',
+      title: 'Demanda',
+      description: 'Contratos x demanda medida (em breve)',
+      icon: '📈',
+    },
+    {
+      id: 'portfolio_benchmarking',
+      target: 'portfolio_benchmarking',
+      title: 'Benchmarking',
+      description: 'Comparação normalizada (em breve)',
+      icon: '📊',
+    },
+    {
+      id: 'portfolio_reports',
+      target: 'portfolio_reports',
+      title: 'Relatórios',
+      description: 'Exportações e snapshots (em breve)',
+      icon: '📄',
+    },
+    {
+      id: 'portfolio_admin',
+      target: 'portfolio_admin',
+      title: 'Administração',
+      description: 'Categorias, contratos e mapeamentos (em breve)',
+      icon: '⚙️',
+    },
+  ],
+  defaultContext: 'portfolio_overview',
+};
+
+/**
  * Parameters for creating the Menu Component
  */
 export interface MenuComponentParams {
@@ -466,6 +515,9 @@ export interface MenuComponentParams {
 
   /** Tab configuration (defaults to DEFAULT_TABS) */
   tabs?: TabConfig[];
+
+  /** RFC-0238: adiciona a seção "Dashboard" (Portfólio) como primeira coluna do menu (default: false) */
+  enableDashboardSection?: boolean;
 
   /** Initial active tab ID (default: 'energy') */
   initialTab?: string;
