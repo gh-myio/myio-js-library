@@ -5,15 +5,15 @@ export interface PresetupGatewayOptions {
   mount: HTMLElement;
   /** UUID of the existing gateway in the Ingestion API */
   gatewayId: string;
-  /** OAuth2 client ID for the Ingestion API */
+  /** OAuth2 client ID for the Ingestion API — must carry the `management.admin` scope */
   clientId: string;
   /** OAuth2 client secret for the Ingestion API */
   clientSecret: string;
-  /** Base URL of the MyIO Ingestion Management API */
+  /** Base URL of the MyIO Ingestion Management API (default: https://api.data.apps.myio-bas.com/api/v1/management) */
   ingestionApiUrl?: string;
-  /** Base URL of the MyIO Ingestion Auth API */
+  /** Token URL of the MyIO Ingestion Auth API (default: https://api.data.apps.myio-bas.com/api/v1/auth) */
   ingestionAuthUrl?: string;
-  /** Base URL of the MyIO Provisioning API */
+  /** Base URL of the MyIO Provisioning API (default: https://provisioning.myio-bas.com) */
   provisioningApiUrl?: string;
   /** Called after a successful full sync (Ingestion + Provisioning) */
   onSyncComplete?: (result: SyncResult) => void;

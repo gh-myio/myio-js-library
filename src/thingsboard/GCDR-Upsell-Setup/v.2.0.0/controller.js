@@ -5777,6 +5777,7 @@ self.onInit = function () {
       lib.openUpsellModal({
         thingsboardToken: tbToken,
         ingestionToken: ingestionToken,
+        getIngestionToken: () => myIOAuth.getToken(),
         lang: 'pt',
         preselectedCustomer: { id: selectedCustomer.id, name: selectedCustomer.name },
         onSave: (deviceId, attributes) => {

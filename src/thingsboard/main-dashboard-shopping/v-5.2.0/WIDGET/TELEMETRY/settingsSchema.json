@@ -21,9 +21,52 @@
         "enum": ["auto", "entrada", "lojas", "areaComum"],
         "default": "auto",
         "description": "Override auto-detected context for water domain. Use 'auto' to detect from alias name."
+      },
+      "presetupGatewayId": {
+        "type": "string",
+        "title": "Presetup — Gateway ID (opcional)",
+        "default": "",
+        "description": "UUID do gateway na Ingestion API. Vazio = escolher na modal (lista de centrais)."
+      },
+      "presetupClientId": {
+        "type": "string",
+        "title": "Presetup — Ingestion Client ID (admin)",
+        "default": "",
+        "description": "Credencial com escopo management.admin. As credenciais do cliente NÃO servem (HTTP 403)."
+      },
+      "presetupClientSecret": {
+        "type": "string",
+        "title": "Presetup — Ingestion Client Secret (admin)",
+        "default": ""
+      },
+      "presetupIngestionApiUrl": {
+        "type": "string",
+        "title": "Presetup — Ingestion Management API URL",
+        "default": "https://api.data.apps.myio-bas.com/api/v1/management"
+      },
+      "presetupIngestionAuthUrl": {
+        "type": "string",
+        "title": "Presetup — Ingestion Auth URL",
+        "default": "https://api.data.apps.myio-bas.com/api/v1/auth"
+      },
+      "presetupProvisioningApiUrl": {
+        "type": "string",
+        "title": "Presetup — Provisioning API URL",
+        "default": "https://provisioning.myio-bas.com"
       }
     },
     "required": ["DOMAIN"]
   },
-  "form": ["labelWidget", "DOMAIN", "waterContext"]
+  "form": [
+    "labelWidget", "DOMAIN", "waterContext",
+    "presetupGatewayId",
+    "presetupClientId",
+    {
+      "key": "presetupClientSecret",
+      "type": "password"
+    },
+    "presetupIngestionApiUrl",
+    "presetupIngestionAuthUrl",
+    "presetupProvisioningApiUrl"
+  ]
 }

@@ -459,6 +459,7 @@ export class SettingsModalView {
         deviceId,
         jwtToken,
         tbBaseUrl: tbBaseUrl ?? window.location.origin,
+        getIngestionAdminToken: this.config.getIngestionAdminToken,
       });
       await this.deviceProfileTab.init();
       console.log('[SettingsModalView] DeviceProfileTab initialized');

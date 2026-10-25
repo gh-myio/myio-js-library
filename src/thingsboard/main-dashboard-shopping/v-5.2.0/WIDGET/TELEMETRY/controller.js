@@ -3577,6 +3577,7 @@ function renderList(visible) {
             prefetchedBundle: window.MyIOOrchestrator?.alarmBundle ?? null,
             prefetchedAlarms: window.MyIOOrchestrator?.customerAlarms ?? null,
             masterAdminPassword: masterAdminPassword || null,
+            api: { getIngestionAdminToken: isSuperAdmin ? _ingestionAdminTokenProvider() : undefined },
             onSaved: (payload) => {
               LogHelper.log('[Settings Saved]', payload);
               //hideBusy();
@@ -3767,6 +3768,34 @@ function _getExportCustomerName() {
   return null;
 }
 
+// Ingestion admin token (management.admin) from the presetup widget settings — used by
+// the Settings modal "Perfil" tab (Sync Ingestion ID). Undefined when not configured.
+let _ingestionAdminToken = { value: null, expiresAt: 0 };
+function _ingestionAdminTokenProvider() {
+  const s = self.ctx.settings || {};
+  const clientId = s.presetupClientId || '';
+  const clientSecret = s.presetupClientSecret || '';
+  if (!clientId || !clientSecret) return undefined;
+  const authUrl = s.presetupIngestionAuthUrl || 'https://api.data.apps.myio-bas.com/api/v1/auth';
+  return async () => {
+    if (_ingestionAdminToken.value && Date.now() < _ingestionAdminToken.expiresAt - 60000) {
+      return _ingestionAdminToken.value;
+    }
+    const res = await fetch(authUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+    });
+    if (!res.ok) throw new Error(`Ingestion auth HTTP ${res.status}`);
+    const json = await res.json();
+    _ingestionAdminToken = {
+      value: json?.access_token || null,
+      expiresAt: Date.now() + Number(json?.expires_in || 0) * 1000,
+    };
+    return _ingestionAdminToken.value;
+  };
+}
+
 function _openPresetupModal() {
   const lib = window.MyIOUtils;
   if (!lib?.createPresetupGateway) {
@@ -3776,10 +3805,11 @@ function _openPresetupModal() {
   const s = self.ctx.settings || {};
   const gatewayId = s.presetupGatewayId || '';
 
-  // Fallback: use credentials already loaded by MAIN_VIEW into MyIOOrchestrator
-  const orchCreds = window.MyIOOrchestrator?.getCredentials?.() || {};
-  const clientId = s.presetupClientId || orchCreds.CLIENT_ID || '';
-  const clientSecret = s.presetupClientSecret || orchCreds.CLIENT_SECRET || '';
+  // Ingestion management API requires the `management.admin` scope. The customer
+  // credentials loaded by MAIN_VIEW (MyIOOrchestrator.getCredentials) only read
+  // telemetry (HTTP 403 on /management) — so they are NOT used as a fallback.
+  const clientId = s.presetupClientId || '';
+  const clientSecret = s.presetupClientSecret || '';
 
   if (!gatewayId || !clientId || !clientSecret) {
     _openPresetupConfigPrompt(
@@ -3823,9 +3853,10 @@ function _launchPresetupGateway(lib, s, gatewayId, clientId, clientSecret) {
     gatewayId,
     clientId,
     clientSecret,
-    ingestionApiUrl: s.presetupIngestionApiUrl || undefined,
-    ingestionAuthUrl: s.presetupIngestionAuthUrl || undefined,
-    provisioningApiUrl: s.presetupProvisioningApiUrl || undefined,
+    // Explicit defaults: lib versions before this fix default to hosts that no longer resolve
+    ingestionApiUrl: s.presetupIngestionApiUrl || 'https://api.data.apps.myio-bas.com/api/v1/management',
+    ingestionAuthUrl: s.presetupIngestionAuthUrl || 'https://api.data.apps.myio-bas.com/api/v1/auth',
+    provisioningApiUrl: s.presetupProvisioningApiUrl || 'https://provisioning.myio-bas.com',
   });
 }
 
@@ -3901,7 +3932,7 @@ function _openPresetupConfigPrompt(s, prefillClientId, prefillClientSecret, onCo
       </svg>
       <div>
         <p style="margin:0 0 4px;font-weight:600;color:#222;font-size:14px;">Configuração do Gateway</p>
-        <p style="margin:0;font-size:12.5px;color:#666;line-height:1.5;">Selecione ou informe o Gateway ID para continuar.${hasCredentials ? ' Credenciais carregadas automaticamente.' : ''}</p>
+        <p style="margin:0;font-size:12.5px;color:#666;line-height:1.5;">Selecione ou informe o Gateway ID para continuar.${hasCredentials ? ' Credenciais carregadas das configurações do widget.' : ' Informe a credencial <b>admin</b> da Ingestion (escopo management.admin) — as credenciais do cliente não têm acesso.'}</p>
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:12px;">
