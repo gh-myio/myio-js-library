@@ -70,6 +70,12 @@ export interface AmbienteGroupModalConfig {
   onRemoteToggle?: (isOn: boolean, subAmbiente: SubAmbienteItem, remoteId: string) => void;
   /** Callback when modal is closed */
   onClose?: () => void;
+  /**
+   * Central ID — forwarded to the nested On/Off device modal so it can build
+   * https://${centralId}.y.myio.com.br/api/OnOff. Without it, remote toggle
+   * clicks inside this modal silently skip the on/off command.
+   */
+  centralId?: string;
 }
 
 /**
