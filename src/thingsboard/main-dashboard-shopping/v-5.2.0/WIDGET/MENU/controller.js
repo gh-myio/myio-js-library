@@ -536,6 +536,7 @@ self.onInit = function () {
   const DOMAIN_BY_STATE = {
     telemetry_content: 'energy',
     water_content: 'water',
+    devices_manuals: 'manual', // devices *_MANUAL (energia + água), TELEMETRY com label "…_MANUAL"
     temperature_content: 'temperature',
     alarm_content: 'alarm',
   };
@@ -653,16 +654,25 @@ self.onInit = function () {
       // Show target container
       const targetContent = main.querySelector(`[data-content-state="${stateId}"]`);
       if (targetContent) {
+        main.querySelector('.myio-menu-state-missing')?.remove();
         targetContent.style.display = 'block';
         LogHelper.log(`[MENU] ✅ RFC-0053: Showing content container for ${stateId} (no iframe!)`);
       } else {
         LogHelper.warn(`[MENU] Content container not found for ${stateId}`);
-        main.innerHTML = `<div style="padding: 20px; text-align: center; color: #ff6b6b;">
-          <p><strong>State "${stateId}" not configured</strong></p>
+        // Não destruir o <main> (innerHTML apagava todos os containers até recarregar a página):
+        // aviso num elemento próprio, removido na próxima troca bem-sucedida.
+        let warn = main.querySelector('.myio-menu-state-missing');
+        if (!warn) {
+          warn = document.createElement('div');
+          warn.className = 'myio-menu-state-missing';
+          warn.style.cssText = 'padding: 20px; text-align: center; color: #ff6b6b;';
+          main.appendChild(warn);
+        }
+        warn.innerHTML = `<p><strong>State "${stateId}" not configured</strong></p>
           <p>Available containers: ${Array.from(allContents)
             .map((c) => c.getAttribute('data-content-state'))
             .join(', ')}</p>
-        </div>`;
+          <p>Adicione &lt;div data-content-state="${stateId}"&gt; no template.html do MAIN_VIEW.</p>`;
       }
     } catch (err) {
       LogHelper.error('[MENU] RFC-0053: Failed to switch content container:', err);

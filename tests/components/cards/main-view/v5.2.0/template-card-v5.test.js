@@ -266,3 +266,36 @@ describe('renderCardComponentV5 — temperatura atual do Ingestion (média 2 h)'
     expect($card[0].querySelector('.consumption-value').hasAttribute('title')).toBe(false);
   });
 });
+
+describe('renderCardComponentV5 — device *_MANUAL (sem verificação de conectividade)', () => {
+  const cardOf = (entityObject) =>
+    renderCardComponentV5({
+      entityObject: { entityId: 'dev-1', labelOrName: 'Manual', ...entityObject },
+      enableSelection: false,
+      enableDragDrop: false,
+    })[0].querySelector('.device-card-centered');
+
+  it.each(['offline', 'no_info', 'weak_connection'])('3F_MEDIDOR_MANUAL com status %s não fica offline', (st) => {
+    const el = cardOf({ deviceProfile: '3F_MEDIDOR_MANUAL', deviceStatus: st, val: 1500 });
+    expect(el.classList.contains('offline')).toBe(false);
+    expect(el.querySelector('.connection-status-icon').getAttribute('data-conn')).toBe('online');
+    expect(el.querySelector('.flash-icon').classList.contains('flash')).toBe(false);
+  });
+
+  it('usa o tipo base para formatar o valor (energia / água)', () => {
+    const energy = cardOf({ deviceProfile: '3F_MEDIDOR_MANUAL', deviceStatus: 'offline', val: 1500 });
+    const base = cardOf({ deviceProfile: '3F_MEDIDOR', deviceStatus: 'power_on', val: 1500 });
+    expect(energy.querySelector('.consumption-value').textContent.trim()).toBe(
+      base.querySelector('.consumption-value').textContent.trim()
+    );
+
+    const water = cardOf({ deviceProfile: 'HIDROMETRO_MANUAL', deviceStatus: 'no_info', val: 12.5 });
+    expect(water.classList.contains('offline')).toBe(false);
+    expect(water.querySelector('.consumption-value').textContent).toContain('m³');
+  });
+
+  it('device não-manual continua offline', () => {
+    const el = cardOf({ deviceProfile: 'HIDROMETRO', deviceStatus: 'offline', val: 12.5 });
+    expect(el.classList.contains('offline')).toBe(true);
+  });
+});

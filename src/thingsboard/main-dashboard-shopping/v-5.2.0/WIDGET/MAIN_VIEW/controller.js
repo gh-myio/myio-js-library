@@ -1266,6 +1266,7 @@ function _publishDeviceStatusOptions() {
   ['energy', 'water', 'temperature'].forEach((d) => {
     const c = window.MyIOOrchestratorData?.[d];
     (c?.allItems || c?.items || []).forEach((item) => {
+      if (_isManualDevice(item)) return; // *_MANUAL não tem conectividade
       counts.all++;
       counts[_resolveDeviceGcdrStatus(item)]++;
     });
@@ -5615,10 +5616,41 @@ function buildCentralNameMap(items) {
 }
 
 /**
+ * Device "*_MANUAL" (deviceProfile ex.: 3F_MEDIDOR_MANUAL, HIDROMETRO_MANUAL): leitura lançada à mão.
+ * Fica FORA de todos os grupos, totais e relatórios do domínio — vai só para STATE[domain].manual,
+ * exibido apenas pelo TELEMETRY cujo labelWidget contém "_MANUAL" (ex.: "Entrada_MANUAL").
+ * Sem telemetria de conexão → status fixo online (o card V5 também ignora a conectividade).
+ */
+function _isManualDevice(item) {
+  return /_MANUAL$/i.test(String(item?.deviceProfile || item?.deviceType || '').trim());
+}
+
+function _splitManualItems(items) {
+  const regular = [];
+  const manual = [];
+  for (const item of items || []) {
+    if (_isManualDevice(item)) {
+      manual.push({ ...item, deviceStatus: 'power_on', connectionStatus: 'online', _isManual: true });
+    } else {
+      regular.push(item);
+    }
+  }
+  return { regular, manual };
+}
+
+/**
  * Populate window.STATE for a domain with categorized data
  * RFC-0106: Now supports both energy and water domains with specific categorization
  */
-function populateState(domain, items, periodKey) {
+function populateState(domain, rawItems, periodKey, manualItems) {
+  // *_MANUAL: separados antes de qualquer agrupamento/total (ver _splitManualItems)
+  const split = _splitManualItems(rawItems);
+  const items = split.regular;
+  const manual = manualItems || split.manual;
+  if (manual.length > 0) {
+    LogHelper.log(`[Orchestrator] ✍️ ${manual.length} device(s) *_MANUAL em ${domain} (fora dos totais/relatórios)`);
+  }
+
   if (domain === 'water') {
     // Water domain: entrada, lojas, banheiros, areacomum, caixadagua
     const { entrada, lojas, banheiros, areacomum, caixadagua } = categorizeItemsByGroupWater(items);
@@ -5629,6 +5661,7 @@ function populateState(domain, items, periodKey) {
       banheiros: buildGroupData(banheiros),
       areacomum: buildGroupData(areacomum),
       caixadagua: buildGroupData(caixadagua), // RFC-0107: Tanks
+      manual: buildGroupData(manual), // *_MANUAL: só no TELEMETRY "…_MANUAL", fora do summary
       summary: buildSummaryWater(entrada, lojas, banheiros, areacomum, periodKey),
       _raw: items,
     };
@@ -5655,6 +5688,7 @@ function populateState(domain, items, periodKey) {
       entrada: buildGroupData(entrada),
       transformadores: buildGroupData(transformadores), // RFC-0234
       areacomum: buildGroupData(areacomum),
+      manual: buildGroupData(manual), // *_MANUAL: só no TELEMETRY "…_MANUAL", fora do summary
       summary: buildSummary(lojas, entrada, transformadores, areacomum, periodKey),
       _raw: items,
     };
@@ -8893,10 +8927,12 @@ const MyIOOrchestrator = (() => {
       return;
     }
 
-    // Filtro "Status Disp." (GCDR): a lista completa fica em allItems; cards, STATE e
-    // relatórios recebem só o subconjunto filtrado (que pode ser vazio).
+    // Filtro "Status Disp." (GCDR): a lista completa fica em allItems (re-emissões do cache);
+    // cards, STATE e relatórios recebem só o subconjunto filtrado (que pode ser vazio).
+    // *_MANUAL: fora de cards normais, totais, relatórios e do filtro (STATE[domain].manual).
     const allItems = items;
-    items = _applyDeviceStatusFilter(allItems);
+    const { regular, manual: manualItems } = _splitManualItems(allItems);
+    items = _applyDeviceStatusFilter(regular);
 
     // Prevent duplicate emissions (< 100ms)
     if (OrchestratorState.lastEmission[key]) {
@@ -8913,7 +8949,7 @@ const MyIOOrchestrator = (() => {
 
     // RFC-0106: Populate window.STATE with categorized data BEFORE emitting
     // This allows widgets to read directly from window.STATE instead of events
-    populateState(domain, items, pKey);
+    populateState(domain, items, pKey, manualItems);
 
     // RFC-0106 FIX: Store in MyIOOrchestratorData for late-initializing widgets
     // This ensures widgets that miss the event can still find the data
@@ -8924,6 +8960,7 @@ const MyIOOrchestrator = (() => {
       periodKey: pKey,
       items: items,
       allItems: allItems,
+      manualItems: manualItems,
       deviceStatusFilter: _deviceStatusFilter,
       timestamp: now,
       version: (window.MyIOOrchestratorData[domain]?.version || 0) + 1,
@@ -9194,9 +9231,51 @@ const MyIOOrchestrator = (() => {
     return 'energy';
   }
 
+  // Aba "Disp. Manuais" (state devices_manuals, tab 'manual'): mistura widgets de energia e água
+  // (labelWidget "…_MANUAL" → STATE[domain].manual). Re-emite o cache de cada domínio e/ou
+  // hidrata em silêncio (sem busy global — dois domínios ao mesmo tempo).
+  function _manualDomains() {
+    const de = widgetSettings?.domainsEnabled || {};
+    return ['energy', 'water'].filter((d) => de[d] !== false);
+  }
+  function _loadManualTab({ force = false } = {}) {
+    _manualDomains().forEach((d) => {
+      const cached = window.MyIOOrchestratorData?.[d];
+      const cachedAll = cached && (cached.allItems || cached.items);
+      if (!force && cachedAll?.length) {
+        emitProvide(d, cached.periodKey, cachedAll);
+        return;
+      }
+      if (currentPeriod) {
+        hydrateDomain(d, currentPeriod, { force, silent: true }).catch((err) =>
+          LogHelper.warn(`[Orchestrator] ✍️ aba manual: falha ao hidratar ${d}:`, err)
+        );
+      } else {
+        requestDataWithRetry(d, null);
+      }
+    });
+  }
+
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
     LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
+
+    if (visibleTab === 'manual') {
+      const p = ev.detail.period;
+      const changed =
+        !currentPeriod || currentPeriod.startISO !== p?.startISO || currentPeriod.endISO !== p?.endISO;
+      if (changed) {
+        _manualDomains().forEach((d) => {
+          if (window.MyIOOrchestratorData?.[d]) delete window.MyIOOrchestratorData[d];
+        });
+        inFlight.clear();
+        _pendingDateHydrate = null;
+      }
+      currentPeriod = p;
+      LogHelper.log(`[Orchestrator] ✍️ myio:update-date na aba manual → energy+water (force=${changed})`);
+      _loadManualTab({ force: changed });
+      return;
+    }
 
     // RFC-0152c: if no dashboard-state ever set the tab, derive it from
     // domainsEnabled so "Carregar" hydrates the right domain instead of skipping.
@@ -9264,6 +9343,15 @@ const MyIOOrchestrator = (() => {
 
   window.addEventListener('myio:dashboard-state', (ev) => {
     const tab = ev.detail.tab;
+
+    // Aba "Disp. Manuais": energia + água ao mesmo tempo (ver _loadManualTab)
+    if (tab === 'manual') {
+      visibleTab = 'manual';
+      releaseContractBusy();
+      LogHelper.log('[Orchestrator] ✍️ myio:dashboard-state → aba Disp. Manuais (energy+water)');
+      _loadManualTab();
+      return;
+    }
 
     // Alarm view — activate alarm panel and skip domain hydration
     // Accept both 'alarm' (RFC-0178) and null/falsy (legacy, when MENU is not yet updated)

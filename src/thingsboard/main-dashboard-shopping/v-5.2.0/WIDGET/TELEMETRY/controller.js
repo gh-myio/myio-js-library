@@ -1760,10 +1760,13 @@ let MyIO = null;
 // entrada = 'Entrada'
 // transformadores = 'Transformador' | 'Transformadores' (RFC-0234)
 // ocultos = 'Ocultos' (RFC-0142: archived/inactive devices)
+// manual = qualquer label com '_MANUAL' (ex.: 'Entrada_MANUAL') → todos os devices *_MANUAL do domínio
 // areacomum = everything else (Climatização, Elevadores, Escadas Rolantes, Área Comum, etc.)
 function mapLabelWidgetToStateGroup(labelWidget) {
   if (!labelWidget) return null;
   const lw = labelWidget.toLowerCase().trim();
+  // *_MANUAL: grupo próprio (STATE[domain].manual), fora dos totais — antes dos demais matches
+  if (lw.includes('_manual')) return 'manual';
   if (lw === 'lojas') return 'lojas';
   if (lw === 'entrada') return 'entrada';
   // RFC-0234: dedicated, optional group for step-down transformers — never
@@ -1833,7 +1836,8 @@ function getItemsFromState(domain, labelWidget) {
     stateGroup === 'lojas' ||
     stateGroup === 'entrada' ||
     stateGroup === 'transformadores' ||
-    stateGroup === 'caixadagua'
+    stateGroup === 'caixadagua' ||
+    stateGroup === 'manual'
   ) {
     const groupData = window.STATE.get(domain, stateGroup);
     LogHelper.log(
@@ -5450,6 +5454,9 @@ function normalizeLabel(str) {
  */
 function emitTelemetryUpdate() {
   try {
+    // *_MANUAL: widget de devices manuais não alimenta totais do HEADER/MAIN
+    if (mapLabelWidgetToStateGroup(self.ctx?.settings?.labelWidget || '') === 'manual') return;
+
     // Determinar tipo de widget pelo datasource alias
     const widgetType = detectWidgetType();
 
