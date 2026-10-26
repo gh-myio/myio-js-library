@@ -21,9 +21,15 @@
         "enum": ["auto", "entrada", "lojas", "areaComum"],
         "default": "auto",
         "description": "Override auto-detected context for water domain. Use 'auto' to detect from alias name."
+      },
+      "manualDevicesWidget": {
+        "type": "boolean",
+        "title": "Widget de dispositivos manuais",
+        "default": false,
+        "description": "Mostra só os devices *_MANUAL do domínio (3F_MEDIDOR_MANUAL / HIDROMETRO_MANUAL), fora dos totais. Habilita no header o '+' (novo dispositivo manual) e o botão 'Importar dados' (planilha → Ingestion). Labels com a palavra MANUAL também ativam o modo."
       }
     },
     "required": ["DOMAIN"]
   },
-  "form": ["labelWidget", "DOMAIN", "waterContext"]
+  "form": ["labelWidget", "DOMAIN", "waterContext", "manualDevicesWidget"]
 }

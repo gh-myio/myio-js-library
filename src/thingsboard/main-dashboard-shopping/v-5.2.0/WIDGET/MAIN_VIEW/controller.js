@@ -237,6 +237,9 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
     'createEquipmentIndicatorStrip',
     'indicatorsFromModalData',
     'openDashboardPopupAllReport',
+    'openManualDeviceModal', // devices *_MANUAL: "+" da aba Disp. Manuais
+    'openStandardModal', // shell padrão (ModalHeader + footer) — ex.: Configuração do Gateway
+    'openTelemetryImportModal', // "Importar dados" dos widgets de dispositivos manuais
     'openDashboardPopupReport',
     'openDashboardPopupSettings',
     'openSettingsHubModal',
@@ -1257,7 +1260,13 @@ function _applyDeviceStatusFilter(items) {
     if (item && typeof item === 'object') item.gcdrStatus = _resolveDeviceGcdrStatus(item);
   });
   if (_deviceStatusFilter === 'all' || !_gcdrDeviceStatusIndex) return list;
-  return list.filter((item) => item && item.gcdrStatus === _deviceStatusFilter);
+  // Retrolavagem é virtual (derivada dos demais) — fica independente do filtro
+  return list.filter(
+    (item) =>
+      item &&
+      (item.gcdrStatus === _deviceStatusFilter ||
+        String(item.deviceProfile || '').toUpperCase() === 'HIDROMETRO_ENTRADA_RETROLAVAGEM')
+  );
 }
 
 /** Contagem por status sobre a lista completa de todos os domínios (para o seletor do HEADER). */
@@ -4664,6 +4673,7 @@ function categorizeItemsByGroupWater(items) {
   const areacomum = [];
   const caixadagua = [];
   const ocultos = [];
+  const retrolavagem = []; // virtual HIDROMETRO_ENTRADA_RETROLAVAGEM (fora dos totais)
 
   // RFC-0207 (follow-up #2 → cleanup): the single-source resolver's water domain
   // is the ONLY classifier. The legacy deviceProfile body was removed (proven
@@ -4675,13 +4685,24 @@ function categorizeItemsByGroupWater(items) {
     LogHelper.error(
       '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveGroup unavailable — water grouping degraded (update the MyIO library bundle)'
     );
-    return { entrada, lojas, banheiros, areacomum: items.slice(), caixadagua, ocultos };
+    return { entrada, lojas, banheiros, areacomum: items.slice(), caixadagua, ocultos, retrolavagem };
   }
 
   for (const item of items) {
+    const _profile = String(item?.deviceProfile || '').toUpperCase();
+    // Retrolavagem: device virtual — valor = Entrada − Σ consumos (calculado em populateState)
+    if (_profile === 'HIDROMETRO_ENTRADA_RETROLAVAGEM') {
+      retrolavagem.push(item);
+      continue;
+    }
+    // HIDROMETRO_ENTRADA = hidrômetro de entrada (como HIDROMETRO_SHOPPING); o perfil RFC-0207 não o conhece
+    if (_profile === 'HIDROMETRO_ENTRADA') {
+      entrada.push(item);
+      continue;
+    }
     // ED-1354: CISTERNA / CISTERNA_ENTRADA (poço) ficam no grupo de tanques (fora dos totais em m³);
     // o TELEMETRY as exibe na coluna Entrada (_ENTRADA) ou Área Comum. O perfil RFC-0207 não as conhece.
-    if (/^CISTERNA(_ENTRADA)?$/.test(String(item?.deviceProfile || '').toUpperCase())) {
+    if (/^CISTERNA(_ENTRADA)?$/.test(_profile)) {
       caixadagua.push(item);
       continue;
     }
@@ -4700,7 +4721,31 @@ function categorizeItemsByGroupWater(items) {
     );
   }
 
-  return { entrada, lojas, banheiros, areacomum, caixadagua, ocultos };
+  return { entrada, lojas, banheiros, areacomum, caixadagua, ocultos, retrolavagem };
+}
+
+/**
+ * Retrolavagem (HIDROMETRO_ENTRADA_RETROLAVAGEM): device virtual sem medição própria.
+ * Valor = Σ Entrada (HIDROMETRO_SHOPPING / HIDROMETRO_ENTRADA) − Σ consumos (lojas + banheiros +
+ * área comum), mínimo 0 — mesma conta dos "Pontos não mapeados". Só informativo: aparece na
+ * coluna Entrada, fora dos totais em m³.
+ */
+function _applyRetrolavagemValues(retrolavagem, entrada, lojas, banheiros, areacomum) {
+  if (!retrolavagem.length) return;
+  const sum = (arr) => arr.reduce((acc, it) => acc + (Number(it.value) || 0), 0);
+  const entradaTotal = sum(entrada);
+  const consumidores = sum(lojas) + sum(banheiros) + sum(areacomum);
+  const value = Math.max(0, entradaTotal - consumidores);
+  retrolavagem.forEach((it) => {
+    it.value = value;
+    it.consumption = value;
+    it.perc = entradaTotal > 0 ? (value / entradaTotal) * 100 : 0;
+    it.deviceStatus = 'power_on'; // virtual: sem conectividade a verificar
+    it.connectionStatus = 'online';
+    it._isVirtual = true;
+    it._isRetrolavagem = true;
+    it._loading = false;
+  });
 }
 
 /**
@@ -5658,7 +5703,8 @@ function populateState(domain, rawItems, periodKey, manualItems) {
 
   if (domain === 'water') {
     // Water domain: entrada, lojas, banheiros, areacomum, caixadagua
-    const { entrada, lojas, banheiros, areacomum, caixadagua } = categorizeItemsByGroupWater(items);
+    const { entrada, lojas, banheiros, areacomum, caixadagua, retrolavagem } = categorizeItemsByGroupWater(items);
+    _applyRetrolavagemValues(retrolavagem, entrada, lojas, banheiros, areacomum);
 
     window.STATE[domain] = {
       entrada: buildGroupData(entrada),
@@ -5666,6 +5712,7 @@ function populateState(domain, rawItems, periodKey, manualItems) {
       banheiros: buildGroupData(banheiros),
       areacomum: buildGroupData(areacomum),
       caixadagua: buildGroupData(caixadagua), // RFC-0107: Tanks
+      retrolavagem: buildGroupData(retrolavagem), // virtual: coluna Entrada, fora do summary
       manual: buildGroupData(manual), // *_MANUAL: só no TELEMETRY "…_MANUAL", fora do summary
       summary: buildSummaryWater(entrada, lojas, banheiros, areacomum, periodKey),
       _raw: items,
@@ -8167,7 +8214,11 @@ const MyIOOrchestrator = (() => {
             let labelWidget = 'Lojas'; // Default: store meters
             let isEntradaDevice = false;
 
-            if (deviceProfile === 'HIDROMETRO_SHOPPING') {
+            if (
+              deviceProfile === 'HIDROMETRO_SHOPPING' ||
+              deviceProfile === 'HIDROMETRO_ENTRADA' ||
+              deviceProfile === 'HIDROMETRO_ENTRADA_RETROLAVAGEM'
+            ) {
               labelWidget = 'Entrada';
               isEntradaDevice = true;
             } else if (deviceProfile === 'HIDROMETRO_AREA_COMUM') {

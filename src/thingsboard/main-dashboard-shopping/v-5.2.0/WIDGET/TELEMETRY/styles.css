@@ -191,6 +191,7 @@
 /* ── Collapsible buttons (filter + presetup + exports) ── */
 .shops-root #btnFilter,
 .shops-root #btnPresetup,
+.shops-root #btnImportData,
 .shops-root .export-icon-btn {
   transition:
     max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
@@ -203,6 +204,7 @@
 
 .shops-root .shops-header-btns.search-mode #btnFilter,
 .shops-root .shops-header-btns.search-mode #btnPresetup,
+.shops-root .shops-header-btns.search-mode #btnImportData,
 .shops-root .shops-header-btns.search-mode .export-icon-btn {
   max-width: 0;
   min-width: 0; /* sobrescreve .icon-btn min-width:32px — sem isso min-width>max-width e cada botão ocupa 32px mesmo "colapsado" */

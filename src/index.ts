@@ -1390,6 +1390,47 @@ export type { AlarmBadgeOptions, TicketBadgeOptions, IncidentBadgeOptions } from
 
 // RFC-0205: Premium Dialog — exported confirm/message modal + generic HTML modal
 export { openConfirmDialog, openMessageDialog, openGenericModal } from './components/premium-modals/dialog';
+// Shell padrão (ModalHeader + footer do SettingsModalView) para formulários curtos
+export { openStandardModal } from './components/premium-modals/standard-modal';
+export type {
+  StandardModalParams,
+  StandardModalInstance,
+  StandardModalButton,
+  StandardModalButtonVariant,
+} from './components/premium-modals/standard-modal';
+// Importar dados (planilha → Ingestion /import) — widgets de dispositivos manuais
+export {
+  openTelemetryImportModal,
+  createTelemetryImportApi,
+  ImportApiError,
+  buildTemplateCsv,
+  rowsFromTable,
+  parseCsv,
+} from './components/premium-modals/telemetry-import';
+export type {
+  OpenTelemetryImportModalParams,
+  TelemetryImportApi,
+  TelemetryImportApiConfig,
+  ImportDevice,
+  ImportRow,
+} from './components/premium-modals/telemetry-import';
+// Devices *_MANUAL: modal "+" da aba Disp. Manuais (Shopping v-5.2.0)
+export {
+  openManualDeviceModal,
+  createManualDevice,
+  manualDeviceName,
+  siglaFromManualAsset,
+  nextManualSeq,
+  ManualDeviceError,
+  MANUAL_DEVICE_PROFILES,
+  MANUAL_ASSET_SUFFIX,
+} from './components/premium-modals/manual-device';
+export type {
+  ManualDeviceDomain,
+  CreateManualDeviceParams,
+  CreateManualDeviceResult,
+  OpenManualDeviceModalParams,
+} from './components/premium-modals/manual-device';
 export type {
   ConfirmDialogParams,
   MessageDialogParams,

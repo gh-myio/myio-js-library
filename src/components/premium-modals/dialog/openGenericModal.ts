@@ -142,12 +142,15 @@ function injectGenericModalStyles(): void {
   flex-shrink: 0;
 }
 .myio-genmodal__icon { font-size: 22px; line-height: 1.3; }
-.myio-genmodal__title {
+/* h3.… + prefixo do overlay: vence o "h3" global do ThingsBoard (mat-typography) */
+.myio-genmodal-overlay h3.myio-genmodal__title {
   flex: 1;
   margin: 0;
+  font-family: inherit;
   font-size: 18px;
   font-weight: 700;
   line-height: 1.35;
+  letter-spacing: normal;
 }
 .myio-genmodal__close {
   border: none;
