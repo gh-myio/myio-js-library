@@ -4,6 +4,8 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { renderCardComponentV5 } from '../../../src/components/cards/main-view/v5.2.0/template-card-v5.js';
 import { WaterTankModalView } from '../../../src/components/premium-modals/water-tank/WaterTankModalView';
+import { renderWellPumpsBodyHTML } from '../../../src/components/well-pumps/WellPumpsModal';
+import { indicatorsFromModalData } from '../../../src/components/well-pumps/equipmentState';
 import type { EquipmentIndicator } from '../../../src/components/well-pumps/types';
 
 const INDS: EquipmentIndicator[] = [
@@ -114,5 +116,28 @@ describe('modal do reservatório — equipmentIndicators / headerActions', () =>
     view.updateEquipmentIndicators(next);
     expect(panel.querySelector('.myio-eq-ti:last-child')!.className).toContain('open');
     expect(btn.innerHTML).toContain('<i class="open">S</i>');
+  });
+
+  it('propaga sem leitura para card, modal do reservatório e modal de automação', () => {
+    const data = {
+      pumps: [{ code: 'B1', label: 'Bomba sem leitura', history: null }],
+      valves: [{ code: 'S', label: 'Solenoide sem leitura', history: null }],
+    };
+    const indicators = indicatorsFromModalData(data);
+    const card = cardEl(
+      renderCardComponentV5({
+        entityObject: wellEntity({ equipmentIndicators: indicators }),
+        enableDragDrop: false,
+      })
+    );
+    expect(card.querySelectorAll('.myio-eq-b.unk')).toHaveLength(2);
+
+    open({ equipmentIndicators: indicators });
+    expect(document.querySelectorAll('.myio-water-tank-equipment .myio-eq-ti.unk')).toHaveLength(2);
+
+    const modal = document.createElement('div');
+    modal.innerHTML = renderWellPumpsBodyHTML(data);
+    expect(modal.querySelectorAll('.myio-wp-state.unk')).toHaveLength(2);
+    expect(modal.textContent).toContain('SEM LEITURA');
   });
 });

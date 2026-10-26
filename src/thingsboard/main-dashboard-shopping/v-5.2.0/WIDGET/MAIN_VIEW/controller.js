@@ -1355,7 +1355,11 @@ function _getWellEquipment(tbId) {
 
 async function _refreshWellEquipment() {
   const lib = window.MyIOLibrary;
-  if (!lib?.pumpHistoryFromConsumption || !_wellEquipment.wells.length) return;
+  if (!_wellEquipment.wells.length) return;
+  if (!lib?.pumpHistoryFromConsumption || !lib?.valveHistoryFromTelemetry || !lib?.latestPowerKw) {
+    LogHelper.error('[MAIN_VIEW] ED-1354: well-equipment helpers unavailable; update the MyIO library bundle');
+    return;
+  }
   const endTs = Date.now();
   const startTs = endTs - WELL_EQUIPMENT_WINDOW_MS;
 
@@ -1395,8 +1399,9 @@ async function _refreshWellEquipment() {
     });
     const valves = b.valves.map((v) => {
       const s = series.get(v.tbId);
-      const pts = s ? (s.state?.length ? s.state : s.status) : null;
-      return { ...v, id: v.tbId, deviceProfile: 'SOLENOIDE', history: pts ? lib.intervalsFromTelemetry(pts) : null };
+      const stateHistory = s ? lib.valveHistoryFromTelemetry(s.state) : null;
+      const history = stateHistory ?? (s ? lib.valveHistoryFromTelemetry(s.status) : null);
+      return { ...v, id: v.tbId, deviceProfile: 'SOLENOIDE', history };
     });
     _wellEquipment.byWell.set(String(well.tbId || well.id), { pumps, valves });
   });

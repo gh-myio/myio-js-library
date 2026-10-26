@@ -3665,7 +3665,7 @@ function renderList(visible) {
             domain: WIDGET_DOMAIN,
             deviceType: it.deviceType,
             deviceProfile: it.deviceProfile || null, // RFC-0086: needed for 3F_MEDIDOR detection
-            customerId: customerTbId, // RFC-0080: Pass customerId for GLOBAL fetch
+            customerId: customerTbId || it.customerId?.id || it.customerId || it.customerTbId || null, // Required customer context for shared equipment catalog
             superadmin: isSuperAdmin, // RFC-XXXX: SuperAdmin mode
             userEmail: window.MyIOUtils?.currentUserEmail || '', // RFC-0171: needed for offSetTemperature field visibility
             holdingAdmin: isHoldingAdmin, // Holding admin (isHolding+isUserAdmin) — also unlocks Identificador editing

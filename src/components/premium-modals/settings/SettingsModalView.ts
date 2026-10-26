@@ -6,6 +6,7 @@ import { AnnotationsTab } from './annotations/AnnotationsTab';
 import { AlarmsTab } from './alarms/AlarmsTab';
 import { ExclusionGroupsTab } from './exclusion-groups/ExclusionGroupsTab';
 import { DeviceProfileTab } from './device-profile/DeviceProfileTab';
+import { WellEquipmentTab } from './well-equipment/WellEquipmentTab';
 import { createTicketsTab } from './tickets/TicketsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import { loadStoreSegmentCatalog, activitiesForSegment } from './commercialCatalog';
@@ -34,7 +35,8 @@ export class SettingsModalView {
   // Exclusão de Grupos tab
   private exclusionGroupsTab: ExclusionGroupsTab | null = null;
   private deviceProfileTab: DeviceProfileTab | null = null;
-  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'incidents' = 'general';
+  private wellEquipmentTab: WellEquipmentTab | null = null;
+  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'well-equipment' | 'incidents' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
   // RFC-0190: Exclude Groups Totals
@@ -89,6 +91,10 @@ export class SettingsModalView {
    */
   private canEditIdentifier(): boolean {
     return this.isSuperAdmin() || this.config.holdingAdmin === true;
+  }
+
+  private isWellEquipmentDevice(): boolean {
+    return ['CISTERNA', 'CISTERNA_ENTRADA'].includes(String(this.config.deviceProfile || '').toUpperCase());
   }
 
   render(initialData: Record<string, any>): void {
@@ -153,6 +159,10 @@ export class SettingsModalView {
     this.initExclusionGroupsTab();
     // Perfil de Dispositivo tab (async, all domains)
     this.initDeviceProfileTab();
+    // Well equipment bindings are limited to cisterns and MyIO SuperAdmins.
+    if (this.isWellEquipmentDevice() && this.isSuperAdmin()) {
+      this.initWellEquipmentTab();
+    }
     // RFC-0232: Incidentes tab (central + admin MyIO only) — search/devices
     // filters are plain sync listeners, the period picker loads its CDN deps async.
     if (this.config.isGateway && this.isSuperAdmin()) {
@@ -469,9 +479,38 @@ export class SettingsModalView {
     }
   }
 
+  private async initWellEquipmentTab(): Promise<void> {
+    const container = this.modal.querySelector('#well-equipment-tab-content') as HTMLElement | null;
+    if (!container || !this.isWellEquipmentDevice() || !this.isSuperAdmin()) return;
+
+    const customerId = this.config.customerId || (window as any).MyIOUtils?.customerTB_ID;
+    const { deviceId, jwtToken, tbBaseUrl, deviceProfile } = this.config;
+    if (!deviceId || !jwtToken || !customerId) {
+      container.innerHTML =
+        '<p class="wet-state wet-error" role="alert">Configuração de equipamentos indisponível: deviceId, autenticação ou customerId não informado.</p>';
+      return;
+    }
+
+    try {
+      this.wellEquipmentTab = new WellEquipmentTab({
+        container,
+        deviceId,
+        deviceProfile: String(deviceProfile || ''),
+        customerId,
+        jwtToken,
+        tbBaseUrl: tbBaseUrl ?? window.location.origin,
+      });
+      await this.wellEquipmentTab.init();
+    } catch (error) {
+      console.error('[SettingsModalView] Failed to initialize WellEquipmentTab:', error);
+      container.innerHTML =
+        '<p class="wet-state wet-error" role="alert">Erro ao carregar configurações de equipamentos do poço.</p>';
+    }
+  }
+
   // RFC-0104 / RFC-0180 / RFC-0198: Switch between tabs
   private switchTab(
-    tab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'incidents'
+    tab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'well-equipment' | 'incidents'
   ): void {
     this.currentTab = tab;
 
@@ -488,6 +527,7 @@ export class SettingsModalView {
     const chamadosContent = this.modal.querySelector('#chamados-tab-content') as HTMLElement;
     const exclusionGroupsContent = this.modal.querySelector('#exclusion-groups-tab-content') as HTMLElement;
     const deviceProfileContent = this.modal.querySelector('#device-profile-tab-content') as HTMLElement;
+    const wellEquipmentContent = this.modal.querySelector('#well-equipment-tab-content') as HTMLElement;
     const incidentsContent = this.modal.querySelector('#incidents-tab-content') as HTMLElement;
 
     if (generalContent) generalContent.style.display = tab === 'general' ? 'block' : 'none';
@@ -495,6 +535,7 @@ export class SettingsModalView {
     if (alarmsContent) alarmsContent.style.display = tab === 'alarms' ? 'block' : 'none';
     if (chamadosContent) chamadosContent.style.display = tab === 'chamados' ? 'block' : 'none';
     if (deviceProfileContent) deviceProfileContent.style.display = tab === 'device-profile' ? 'block' : 'none';
+    if (wellEquipmentContent) wellEquipmentContent.style.display = tab === 'well-equipment' ? 'block' : 'none';
     if (exclusionGroupsContent) exclusionGroupsContent.style.display = tab === 'exclusion-groups' ? 'block' : 'none';
     if (incidentsContent) incidentsContent.style.display = tab === 'incidents' ? 'block' : 'none';
 
@@ -539,6 +580,11 @@ export class SettingsModalView {
     if (this.deviceProfileTab) {
       this.deviceProfileTab.destroy();
       this.deviceProfileTab = null;
+    }
+
+    if (this.wellEquipmentTab) {
+      this.wellEquipmentTab.destroy();
+      this.wellEquipmentTab = null;
     }
 
     // RFC-0232: Clean up the Incidentes tab's period picker (jQuery plugin instance)
@@ -753,6 +799,17 @@ export class SettingsModalView {
             </button>`
                 : ''
             }
+            ${
+              this.isWellEquipmentDevice() && this.isSuperAdmin()
+                ? `<button type="button" class="modal-tab" data-tab="well-equipment">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 18h16M6 18V8l6-4 6 4v10M9 18v-5h6v5"></path>
+                  <path d="M12 4v4"></path>
+                </svg>
+                Equipamentos do Poço
+              </button>`
+                : ''
+            }
             <!-- RFC-0232: Incidentes (interpolação) — central + admin MyIO only -->
             ${
               this.config.isGateway && this.isSuperAdmin()
@@ -815,6 +872,13 @@ export class SettingsModalView {
                 <p>Carregando perfil do dispositivo...</p>
               </div>
             </div>
+            ${
+              this.isWellEquipmentDevice() && this.isSuperAdmin()
+                ? `<div id="well-equipment-tab-content" class="tab-content" style="display:none;">
+                    <p class="wet-state">Carregando vínculos e equipamentos…</p>
+                  </div>`
+                : ''
+            }
             <!-- RFC-0232: Incidentes (interpolação) Tab Content — central + admin MyIO only.
                  Rendered synchronously (data comes pre-fetched via config.interpolatedSlots,
                  same as getGatewayInfoHTML() — no async loading state needed here). -->
@@ -4175,6 +4239,7 @@ export class SettingsModalView {
           | 'chamados'
           | 'exclusion-groups'
           | 'device-profile'
+          | 'well-equipment'
           | 'incidents';
         if (tab) {
           this.switchTab(tab);

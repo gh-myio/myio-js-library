@@ -584,6 +584,7 @@ export {
   parseBinaryState,
   intervalsFromTelemetry,
   pumpHistoryFromConsumption,
+  valveHistoryFromTelemetry,
   latestPowerKw,
   PUMP_POWER_KEY,
   VALVE_STATE_KEYS,
