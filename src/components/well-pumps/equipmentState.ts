@@ -211,3 +211,39 @@ export function indicatorsFromModalData(data: WellPumpsModalData | null | undefi
   });
   return list;
 }
+
+/**
+ * Build the shared cistern-solenoid indicators for the Sabesp entry card.
+ * Bindings are deduplicated by ThingsBoard device id, never by display text/code.
+ */
+export function indicatorsFromSharedWellValves(
+  wellData: Array<WellPumpsModalData | null | undefined>
+): EquipmentIndicator[] {
+  const valvesByTbId = new Map<string, NonNullable<WellPumpsModalData['valves']>[number]>();
+  (wellData || []).forEach((data) => {
+    (data?.valves || []).forEach((valve) => {
+      const tbId = String(valve.tbId || valve.id || '').trim();
+      if (tbId && !valvesByTbId.has(tbId)) valvesByTbId.set(tbId, valve);
+    });
+  });
+  const sharedIds = new Set(sharedWellValveIds(wellData));
+  return indicatorsFromModalData({
+    pumps: [],
+    valves: [...valvesByTbId.entries()].filter(([id]) => sharedIds.has(id)).map(([, valve]) => valve),
+  });
+}
+
+/** Return IDs of valves bound to more than one distinct cisterna. */
+export function sharedWellValveIds(wellData: Array<WellPumpsModalData | null | undefined>): string[] {
+  const valvesByTbId = new Map<string, Set<number>>();
+  (wellData || []).forEach((data, wellIndex) => {
+    (data?.valves || []).forEach((valve) => {
+      const tbId = String(valve.tbId || valve.id || '').trim();
+      if (!tbId) return;
+      const wells = valvesByTbId.get(tbId) || new Set<number>();
+      wells.add(wellIndex);
+      valvesByTbId.set(tbId, wells);
+    });
+  });
+  return [...valvesByTbId.entries()].filter(([, wells]) => wells.size > 1).map(([id]) => id);
+}

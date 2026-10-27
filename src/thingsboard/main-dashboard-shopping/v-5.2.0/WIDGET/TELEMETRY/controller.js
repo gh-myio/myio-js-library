@@ -2428,6 +2428,81 @@ function _wellEquipmentOf(it) {
   return window.MyIOOrchestrator?.getWellEquipment?.(it.tbId || it.id) || null;
 }
 
+let _warnedAmbiguousSabespCard = false;
+function _sabespMainWaterCard() {
+  if (WIDGET_DOMAIN !== 'water') return null;
+  const cards = (STATE.lastVisible || []).filter(
+    (it) => String(it?.deviceProfile || '').trim().toUpperCase() === 'HIDROMETRO_SHOPPING'
+  );
+  if (cards.length !== 1) {
+    if (cards.length > 1 && !_warnedAmbiguousSabespCard) {
+      _warnedAmbiguousSabespCard = true;
+      LogHelper.warn('[TELEMETRY] ED-1354: múltiplos HIDROMETRO_SHOPPING visíveis; indicador Sabesp omitido por ambiguidade');
+    }
+    return null;
+  }
+  return cards[0];
+}
+
+function _isSabespMainWaterCard(it) {
+  const mainCard = _sabespMainWaterCard();
+  return !!mainCard && String(mainCard.tbId || mainCard.id) === String(it?.tbId || it?.id);
+}
+
+function _sabespSolenoidIndicators() {
+  const wells = [..._cisternasOf('water', 'CISTERNA_ENTRADA'), ..._cisternasOf('water', 'CISTERNA')];
+  const data = wells.map((well) => _wellEquipmentOf(well)?.data).filter(Boolean);
+  const fromSharedValves = window.MyIOLibrary?.indicatorsFromSharedWellValves;
+  if (typeof fromSharedValves === 'function') return fromSharedValves(data);
+
+  // Older library bundles still resolve only solenoids shared across cisternas.
+  const sharedIds = _sharedSabespValveIds(data);
+  const valvesByTbId = new Map();
+  data.forEach((wellData) =>
+    (wellData.valves || []).forEach((valve) => {
+      const tbId = String(valve.tbId || valve.id || '').trim();
+      if (sharedIds.has(tbId) && !valvesByTbId.has(tbId)) valvesByTbId.set(tbId, valve);
+    })
+  );
+  return window.MyIOLibrary?.indicatorsFromModalData?.({ pumps: [], valves: [...valvesByTbId.values()] }) || [];
+}
+
+function _sharedSabespValveIds(data) {
+  const idsByWell = new Map();
+  (data || []).forEach((wellData, wellIndex) =>
+    (wellData?.valves || []).forEach((valve) => {
+      const id = String(valve.tbId || valve.id || '').trim();
+      if (!id) return;
+      const indices = idsByWell.get(id) || new Set();
+      indices.add(wellIndex);
+      idsByWell.set(id, indices);
+    })
+  );
+  return new Set([...idsByWell.entries()].filter(([, indices]) => indices.size > 1).map(([id]) => id));
+}
+
+function _sabespSolenoidSourceWell() {
+  const wells = [..._cisternasOf('water', 'CISTERNA_ENTRADA'), ..._cisternasOf('water', 'CISTERNA')];
+  const data = wells.map((well) => _wellEquipmentOf(well)?.data);
+  const getSharedIds = window.MyIOLibrary?.sharedWellValveIds;
+  const sharedIds =
+    typeof getSharedIds === 'function'
+      ? new Set(getSharedIds(data))
+      : _sharedSabespValveIds(data);
+  return wells.find((well, index) =>
+    (data[index]?.valves || []).some((valve) => {
+      const id = String(valve.tbId || valve.id || '').trim();
+      return id && sharedIds.has(id);
+    })
+  );
+}
+
+function _equipmentIndicatorsOf(it) {
+  if (it?.pumpBindings) return _wellEquipmentOf(it)?.indicators || undefined;
+  if (_isSabespMainWaterCard(it)) return _sabespSolenoidIndicators();
+  return undefined;
+}
+
 function _openWellPumps(it) {
   const open = window.MyIOUtils?.openWellPumpsModal;
   const eq = _wellEquipmentOf(it);
@@ -2450,7 +2525,7 @@ function _openWellPumps(it) {
   window.addEventListener('myio:well-equipment-updated', onUpdate);
 }
 
-/** Atualiza só a coluna B1/B2/S dos cards de poço (sem re-renderizar a lista). */
+/** Atualiza os indicadores dos poços e do hidrômetro Sabesp sem re-renderizar a lista. */
 function _patchWellStrips(ev) {
   if (WIDGET_DOMAIN !== 'water') return;
   const createStrip = window.MyIOUtils?.createEquipmentIndicatorStrip;
@@ -2465,6 +2540,26 @@ function _patchWellStrips(ev) {
       .each((_, card) => {
         card.querySelector('.myio-eq-strip')?.remove();
         card.appendChild(createStrip(eq.indicators, { onClick: () => _openWellPumps(it) }));
+      });
+  });
+  const sabespIndicators = _sabespSolenoidIndicators();
+  (STATE.lastVisible || []).filter(_isSabespMainWaterCard).forEach((it) => {
+    const id = String(it.tbId || it.id || '');
+    if (!id) return;
+    $list()
+      .find(`.device-card-centered[data-entity-id="${id}"]`)
+      .each((_, card) => {
+        card.querySelector('.myio-eq-strip')?.remove();
+        if (sabespIndicators.length) {
+          card.appendChild(
+            createStrip(sabespIndicators, {
+              onClick: () => {
+                const sourceWell = _sabespSolenoidSourceWell();
+                if (sourceWell) _openWellPumps(sourceWell);
+              },
+            })
+          );
+        }
       });
   });
 }
@@ -3035,7 +3130,7 @@ function renderList(visible) {
       // Card desenhado antes da telemetria chegar (MAIN_VIEW): spinner no valor, status neutro
       dataLoading: !!it.dataLoading,
       // ED-1354: B1/B2/S (bombas BOMBA_POCO + solenoide) no card do poço
-      equipmentIndicators: _wellEquipmentOf(it)?.indicators || undefined,
+      equipmentIndicators: _equipmentIndicatorsOf(it),
     };
 
     // DEBUG: Investigate why "Burguer king" card is rendering as offline
@@ -3081,8 +3176,15 @@ function renderList(visible) {
       showTempComparisonTooltip: false,
       showTempRangeTooltip: false,
 
-      // ED-1354: clique na coluna B1/B2/S → modal "Automação dos Poços"
-      handleActionEquipment: () => _openWellPumps(it),
+      // ED-1354: clique na coluna B1/B2/S → modal do poço ou da Sabesp
+      handleActionEquipment: it.pumpBindings
+        ? () => _openWellPumps(it)
+        : _isSabespMainWaterCard(it)
+          ? () => {
+              const sourceWell = _sabespSolenoidSourceWell();
+              if (sourceWell) _openWellPumps(sourceWell);
+            }
+          : undefined,
 
       handleActionDashboard: async () => {
         const jwtToken = await getTbToken();

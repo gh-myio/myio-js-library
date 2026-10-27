@@ -1307,6 +1307,16 @@ const WELL_EQUIPMENT_REFRESH_MS = Number(window.__myioWellEquipmentRefreshMs) ||
 const WELL_EQUIPMENT_WINDOW_MS = 24 * 3600000;
 const _wellEquipment = { wells: [], byWell: new Map(), timer: null, inflight: null, lastFetch: 0, signature: '' };
 
+function _filterWellAutomationItems(domain, items) {
+  if (domain !== 'water' && domain !== 'energy') return items || [];
+  const filter = window.MyIOLibrary?.filterWellAutomationItems;
+  if (typeof filter === 'function') return filter(items);
+  // Keep the defensive boundary effective with an older library bundle too.
+  return (items || []).filter(
+    (item) => !['BOMBA_POCO', 'SOLENOIDE'].includes(String(item?.deviceProfile || '').trim().toUpperCase())
+  );
+}
+
 function _parsePumpBindings(raw) {
   if (!raw) return null;
   try {
@@ -5695,12 +5705,13 @@ function _splitManualItems(items) {
 function populateState(domain, rawItems, periodKey, manualItems) {
   // *_MANUAL: separados antes de qualquer agrupamento/total (ver _splitManualItems)
   const split = _splitManualItems(rawItems);
-  const items = split.regular;
+  const items = _filterWellAutomationItems(domain, split.regular);
   const manual = manualItems || split.manual;
   if (manual.length > 0) {
-    LogHelper.log(`[Orchestrator] ✍️ ${manual.length} device(s) *_MANUAL em ${domain} (fora dos totais/relatórios)`);
+    LogHelper.log(
+      `[Orchestrator] ✍️ ${manual.length} device(s) *_MANUAL em ${domain} (fora dos totais/relatórios)`
+    );
   }
-
   if (domain === 'water') {
     // Water domain: entrada, lojas, banheiros, areacomum, caixadagua
     const { entrada, lojas, banheiros, areacomum, caixadagua, retrolavagem } = categorizeItemsByGroupWater(items);
@@ -8323,9 +8334,10 @@ const MyIOOrchestrator = (() => {
           );
 
           // Populate state and return
+          const visibleBasicItems = _filterWellAutomationItems(domain, basicItems);
           const basicPeriodKey = `${domain}:${period.startISO}:${period.endISO}:${period.granularity}:basic`;
-          populateState(domain, basicItems, basicPeriodKey);
-          return basicItems;
+          populateState(domain, visibleBasicItems, basicPeriodKey);
+          return visibleBasicItems;
         }
 
         LogHelper.warn(`[Orchestrator] ⚠️ Metadata map is empty - no devices found in ctx.data`);
@@ -8345,12 +8357,13 @@ const MyIOOrchestrator = (() => {
 
       // If we only have water devices from ctx.data and no devices with ingestionId, return them directly
       if (metadataMap.size === 0 && waterDevicesFromCtx.length > 0) {
+        const visibleWaterDevices = _filterWellAutomationItems(domain, waterDevicesFromCtx);
         LogHelper.log(
-          `[Orchestrator] 🚰 Only water devices from ctx.data found - skipping API call, returning ${waterDevicesFromCtx.length} items (${tankItems.length} tanks, ${hidrometroItems.length} hidrometros)`
+          `[Orchestrator] 🚰 Only water devices from ctx.data found - skipping API call, returning ${visibleWaterDevices.length} items (${tankItems.length} tanks, ${hidrometroItems.length} hidrometros)`
         );
         const waterPeriodKey = `water:${domain}:${period.startISO}:${period.endISO}:${period.granularity}`;
-        populateState(domain, waterDevicesFromCtx, waterPeriodKey);
-        return waterDevicesFromCtx;
+        populateState(domain, visibleWaterDevices, waterPeriodKey);
+        return visibleWaterDevices;
       }
 
       LogHelper.log(`[Orchestrator] ✅ Metadata map built: ${metadataMap.size} devices with ingestionId`);
@@ -8983,10 +8996,10 @@ const MyIOOrchestrator = (() => {
       return;
     }
 
-    // Filtro "Status Disp." (GCDR): a lista completa fica em allItems (re-emissões do cache);
-    // cards, STATE e relatórios recebem só o subconjunto filtrado (que pode ser vazio).
+    // Filtro "Status Disp." (GCDR): a lista completa fica em allItems; cards, STATE e
+    // relatórios recebem só o subconjunto filtrado (que pode ser vazio).
+    const allItems = _filterWellAutomationItems(domain, items);
     // *_MANUAL: fora de cards normais, totais, relatórios e do filtro (STATE[domain].manual).
-    const allItems = items;
     const { regular, manual: manualItems } = _splitManualItems(allItems);
     items = _applyDeviceStatusFilter(regular);
 
