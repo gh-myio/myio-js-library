@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Showcase — Importar dados</title>
+  <style>
+    body { font-family: 'Nunito', system-ui, sans-serif; margin: 0; padding: 24px; background: #f5f3ff; color: #1f2937; }
+    h1 { font-size: 20px; margin: 0 0 6px; }
+    p { margin: 0 0 14px; color: #4b5563; font-size: 14px; max-width: 900px; }
+    fieldset { border: 1px solid #ddd6fe; border-radius: 10px; padding: 12px 16px; margin: 0 0 14px; background: #fff; max-width: 900px; }
+    legend { font-weight: 700; font-size: 13px; color: #5b21b6; padding: 0 6px; }
+    label { margin-right: 14px; font-size: 13px; }
+    button { font-family: inherit; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 8px; border: 0; background: #3e1a7d; color: #fff; cursor: pointer; margin-right: 8px; }
+    pre { background: #111827; color: #d1fae5; padding: 12px; border-radius: 8px; font-size: 12px; max-height: 260px; overflow: auto; max-width: 900px; }
+  </style>
+</head>
+<body>
+  <h1>📥 Importar dados (widget de dispositivos manuais)</h1>
+  <p>API <code>/api/v1/import</code> do Ingestion simulada (runbook TELEMETRY-SHEET-IMPORT). Baixe o modelo, preencha alguns valores
+    em <code>value_kwh</code>/<code>value_m3</code> e envie. Linhas em branco são ignoradas; hora não fechada (ex.: 14:30) é erro local.</p>
+
+  <fieldset>
+    <legend>Resposta da API simulada</legend>
+    <label><input type="radio" name="scn" value="ok" checked /> válida</label>
+    <label><input type="radio" name="scn" value="real" /> válida c/ leituras reais (pede confirmação)</label>
+    <label><input type="radio" name="scn" value="invalid" /> recusada (422)</label>
+    <label><input type="radio" name="scn" value="fail" /> job falha</label>
+    <label><input type="radio" name="scn" value="404" /> API não publicada (404)</label>
+  </fieldset>
+  <button id="btnEnergy">📥 Energia</button>
+  <button id="btnWater">📥 Água</button>
+
+  <h3>Chamadas</h3>
+  <pre id="log">—</pre>
+
+  <script src="../../dist/myio-js-library.umd.min.js"></script>
+  <script>
+    const logEl = document.getElementById('log');
+    const log = (s) => { logEl.textContent = (logEl.textContent === '—' ? '' : logEl.textContent + '\n') + s; };
+    const scn = () => document.querySelector('input[name="scn"]:checked').value;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const err = (status, message) => { const e = new MyIOLibrary.ImportApiError(message, status, `simulado ${status}`); return e; };
+
+    function fakeApi() {
+      let polls = 0;
+      return {
+        async validate(b) {
+          log(`POST /import/validate  ${b.readingType} rows=${b.rows.length} sourceRef=${b.sourceRef}`);
+          await sleep(500);
+          if (scn() === '404') throw err(404, 'A importação ainda não está disponível neste ambiente.');
+          if (scn() === 'invalid') return { valid: false, invalidCount: 2, errors: [{ line: 3, reason: 'unknown_device (slave 9 não existe na central)' }, { line: 7, reason: 'out_of_scope_gateway' }] };
+          const total = b.rows.reduce((a, r) => a + (r.value_kwh ?? r.value_m3 ?? 0), 0);
+          return { valid: true, validationId: 'val-' + Date.now(), preview: {
+            targetSlots: b.rows.length, devices: new Set(b.rows.map((r) => r.gateway_id + r.slave_id)).size,
+            totalValue: total, existingReadingsInTarget: Math.floor(b.rows.length / 2),
+            existingRealReadings: scn() === 'real' ? 3 : 0, period: { start: b.rows[0]?.date, end: b.rows.at(-1)?.date } } };
+        },
+        async startJob(b) { log(`POST /import/jobs  ${JSON.stringify(b)}`); await sleep(300); polls = 0; return { jobId: 'job-123', status: 'queued' }; },
+        async getJob(id) {
+          polls++;
+          log(`GET /import/jobs/${id}  (#${polls})`);
+          if (scn() === 'fail' && polls >= 2) return { status: 'failed', progress: 40, error: 'errorPhase=write (simulado)' };
+          if (polls < 3) return { status: polls === 1 ? 'queued' : 'executing', progress: polls * 35, phase: 'archive+delete → insert', deleted: polls * 5, inserted: polls * 4 };
+          return { status: 'completed', progress: 100, deleted: 12, inserted: 24, refreshStatus: 'started' };
+        },
+        async cancelJob(id) { log(`POST /import/jobs/${id}/cancel`); await sleep(300); return { status: 'cancelled' }; },
+      };
+    }
+
+    const DEVICES = [
+      { label: 'Burger King', centralId: '11111111-2222-3333-4444-555555555555', slaveId: 3 },
+      { label: 'Lavoisier', centralId: '11111111-2222-3333-4444-555555555555', slaveId: 4 },
+      { label: 'Sem central (manual antigo)', centralId: null, slaveId: null },
+    ];
+    function open(domain) {
+      logEl.textContent = '—';
+      MyIOLibrary.openTelemetryImportModal({
+        domain, customerId: 'cust-ing-demo', customerName: 'Shopping Demo', devices: DEVICES,
+        api: fakeApi(), pollMs: 1500, showTechnicalDetails: true,
+        onCompleted: (j) => log('onCompleted → ' + JSON.stringify(j)),
+      });
+    }
+    document.getElementById('btnEnergy').onclick = () => open('energy');
+    document.getElementById('btnWater').onclick = () => open('water');
+  </script>
+</body>
+</html>

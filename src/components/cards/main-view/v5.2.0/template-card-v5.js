@@ -136,11 +136,15 @@ export function renderCardComponentV5({
     // ED-1354: indicadores B1/B2/S (bombas MOTOR + solenoide) no card do poço
     equipmentIndicators,
   } = entityObject;
-  const deviceStatus = dataLoading ? 'loading' : rawDeviceStatus;
-
   // deviceProfile é a autoridade; o campo legado deviceType (quando presente em
   // payloads antigos) serve só de último recurso de exibição.
-  const deviceType = deviceProfile || legacyDeviceType || '';
+  const rawProfile = String(deviceProfile || legacyDeviceType || '');
+  // Device "*_MANUAL" (ex.: 3F_MEDIDOR_MANUAL, HIDROMETRO_MANUAL): leitura lançada à mão, sem
+  // telemetria de conexão → ignora as verificações de conectividade (nunca offline/sem info/
+  // conexão fraca, sem piscar) e usa o tipo base p/ categoria, ícone e unidade.
+  const isManualDevice = /_MANUAL$/i.test(rawProfile);
+  const deviceType = isManualDevice ? rawProfile.replace(/_MANUAL$/i, '') : rawProfile;
+  const deviceStatus = dataLoading ? 'loading' : isManualDevice ? 'power_on' : rawDeviceStatus;
 
   /*********************************************************
    * MyIO Global Toast Manager

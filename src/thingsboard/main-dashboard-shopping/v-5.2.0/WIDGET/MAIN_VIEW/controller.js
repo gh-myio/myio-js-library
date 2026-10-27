@@ -237,6 +237,9 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
     'createEquipmentIndicatorStrip',
     'indicatorsFromModalData',
     'openDashboardPopupAllReport',
+    'openManualDeviceModal', // devices *_MANUAL: "+" da aba Disp. Manuais
+    'openStandardModal', // shell padrão (ModalHeader + footer) — ex.: Configuração do Gateway
+    'openTelemetryImportModal', // "Importar dados" dos widgets de dispositivos manuais
     'openDashboardPopupReport',
     'openDashboardPopupSettings',
     'openSettingsHubModal',
@@ -1257,7 +1260,13 @@ function _applyDeviceStatusFilter(items) {
     if (item && typeof item === 'object') item.gcdrStatus = _resolveDeviceGcdrStatus(item);
   });
   if (_deviceStatusFilter === 'all' || !_gcdrDeviceStatusIndex) return list;
-  return list.filter((item) => item && item.gcdrStatus === _deviceStatusFilter);
+  // Retrolavagem é virtual (derivada dos demais) — fica independente do filtro
+  return list.filter(
+    (item) =>
+      item &&
+      (item.gcdrStatus === _deviceStatusFilter ||
+        String(item.deviceProfile || '').toUpperCase() === 'HIDROMETRO_ENTRADA_RETROLAVAGEM')
+  );
 }
 
 /** Contagem por status sobre a lista completa de todos os domínios (para o seletor do HEADER). */
@@ -1266,6 +1275,7 @@ function _publishDeviceStatusOptions() {
   ['energy', 'water', 'temperature'].forEach((d) => {
     const c = window.MyIOOrchestratorData?.[d];
     (c?.allItems || c?.items || []).forEach((item) => {
+      if (_isManualDevice(item)) return; // *_MANUAL não tem conectividade
       counts.all++;
       counts[_resolveDeviceGcdrStatus(item)]++;
     });
@@ -4673,6 +4683,7 @@ function categorizeItemsByGroupWater(items) {
   const areacomum = [];
   const caixadagua = [];
   const ocultos = [];
+  const retrolavagem = []; // virtual HIDROMETRO_ENTRADA_RETROLAVAGEM (fora dos totais)
 
   // RFC-0207 (follow-up #2 → cleanup): the single-source resolver's water domain
   // is the ONLY classifier. The legacy deviceProfile body was removed (proven
@@ -4684,13 +4695,24 @@ function categorizeItemsByGroupWater(items) {
     LogHelper.error(
       '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveGroup unavailable — water grouping degraded (update the MyIO library bundle)'
     );
-    return { entrada, lojas, banheiros, areacomum: items.slice(), caixadagua, ocultos };
+    return { entrada, lojas, banheiros, areacomum: items.slice(), caixadagua, ocultos, retrolavagem };
   }
 
   for (const item of items) {
+    const _profile = String(item?.deviceProfile || '').toUpperCase();
+    // Retrolavagem: device virtual — valor = Entrada − Σ consumos (calculado em populateState)
+    if (_profile === 'HIDROMETRO_ENTRADA_RETROLAVAGEM') {
+      retrolavagem.push(item);
+      continue;
+    }
+    // HIDROMETRO_ENTRADA = hidrômetro de entrada (como HIDROMETRO_SHOPPING); o perfil RFC-0207 não o conhece
+    if (_profile === 'HIDROMETRO_ENTRADA') {
+      entrada.push(item);
+      continue;
+    }
     // ED-1354: CISTERNA / CISTERNA_ENTRADA (poço) ficam no grupo de tanques (fora dos totais em m³);
     // o TELEMETRY as exibe na coluna Entrada (_ENTRADA) ou Área Comum. O perfil RFC-0207 não as conhece.
-    if (/^CISTERNA(_ENTRADA)?$/.test(String(item?.deviceProfile || '').toUpperCase())) {
+    if (/^CISTERNA(_ENTRADA)?$/.test(_profile)) {
       caixadagua.push(item);
       continue;
     }
@@ -4709,7 +4731,31 @@ function categorizeItemsByGroupWater(items) {
     );
   }
 
-  return { entrada, lojas, banheiros, areacomum, caixadagua, ocultos };
+  return { entrada, lojas, banheiros, areacomum, caixadagua, ocultos, retrolavagem };
+}
+
+/**
+ * Retrolavagem (HIDROMETRO_ENTRADA_RETROLAVAGEM): device virtual sem medição própria.
+ * Valor = Σ Entrada (HIDROMETRO_SHOPPING / HIDROMETRO_ENTRADA) − Σ consumos (lojas + banheiros +
+ * área comum), mínimo 0 — mesma conta dos "Pontos não mapeados". Só informativo: aparece na
+ * coluna Entrada, fora dos totais em m³.
+ */
+function _applyRetrolavagemValues(retrolavagem, entrada, lojas, banheiros, areacomum) {
+  if (!retrolavagem.length) return;
+  const sum = (arr) => arr.reduce((acc, it) => acc + (Number(it.value) || 0), 0);
+  const entradaTotal = sum(entrada);
+  const consumidores = sum(lojas) + sum(banheiros) + sum(areacomum);
+  const value = Math.max(0, entradaTotal - consumidores);
+  retrolavagem.forEach((it) => {
+    it.value = value;
+    it.consumption = value;
+    it.perc = entradaTotal > 0 ? (value / entradaTotal) * 100 : 0;
+    it.deviceStatus = 'power_on'; // virtual: sem conectividade a verificar
+    it.connectionStatus = 'online';
+    it._isVirtual = true;
+    it._isRetrolavagem = true;
+    it._loading = false;
+  });
 }
 
 /**
@@ -5630,14 +5676,46 @@ function buildCentralNameMap(items) {
 }
 
 /**
+ * Device "*_MANUAL" (deviceProfile ex.: 3F_MEDIDOR_MANUAL, HIDROMETRO_MANUAL): leitura lançada à mão.
+ * Fica FORA de todos os grupos, totais e relatórios do domínio — vai só para STATE[domain].manual,
+ * exibido apenas pelo TELEMETRY cujo labelWidget contém "_MANUAL" (ex.: "Entrada_MANUAL").
+ * Sem telemetria de conexão → status fixo online (o card V5 também ignora a conectividade).
+ */
+function _isManualDevice(item) {
+  return /_MANUAL$/i.test(String(item?.deviceProfile || item?.deviceType || '').trim());
+}
+
+function _splitManualItems(items) {
+  const regular = [];
+  const manual = [];
+  for (const item of items || []) {
+    if (_isManualDevice(item)) {
+      manual.push({ ...item, deviceStatus: 'power_on', connectionStatus: 'online', _isManual: true });
+    } else {
+      regular.push(item);
+    }
+  }
+  return { regular, manual };
+}
+
+/**
  * Populate window.STATE for a domain with categorized data
  * RFC-0106: Now supports both energy and water domains with specific categorization
  */
-function populateState(domain, items, periodKey) {
-  items = _filterWellAutomationItems(domain, items);
+function populateState(domain, rawItems, periodKey, manualItems) {
+  // *_MANUAL: separados antes de qualquer agrupamento/total (ver _splitManualItems)
+  const split = _splitManualItems(rawItems);
+  const items = _filterWellAutomationItems(domain, split.regular);
+  const manual = manualItems || split.manual;
+  if (manual.length > 0) {
+    LogHelper.log(
+      `[Orchestrator] ✍️ ${manual.length} device(s) *_MANUAL em ${domain} (fora dos totais/relatórios)`
+    );
+  }
   if (domain === 'water') {
     // Water domain: entrada, lojas, banheiros, areacomum, caixadagua
-    const { entrada, lojas, banheiros, areacomum, caixadagua } = categorizeItemsByGroupWater(items);
+    const { entrada, lojas, banheiros, areacomum, caixadagua, retrolavagem } = categorizeItemsByGroupWater(items);
+    _applyRetrolavagemValues(retrolavagem, entrada, lojas, banheiros, areacomum);
 
     window.STATE[domain] = {
       entrada: buildGroupData(entrada),
@@ -5645,6 +5723,8 @@ function populateState(domain, items, periodKey) {
       banheiros: buildGroupData(banheiros),
       areacomum: buildGroupData(areacomum),
       caixadagua: buildGroupData(caixadagua), // RFC-0107: Tanks
+      retrolavagem: buildGroupData(retrolavagem), // virtual: coluna Entrada, fora do summary
+      manual: buildGroupData(manual), // *_MANUAL: só no TELEMETRY "…_MANUAL", fora do summary
       summary: buildSummaryWater(entrada, lojas, banheiros, areacomum, periodKey),
       _raw: items,
     };
@@ -5671,6 +5751,7 @@ function populateState(domain, items, periodKey) {
       entrada: buildGroupData(entrada),
       transformadores: buildGroupData(transformadores), // RFC-0234
       areacomum: buildGroupData(areacomum),
+      manual: buildGroupData(manual), // *_MANUAL: só no TELEMETRY "…_MANUAL", fora do summary
       summary: buildSummary(lojas, entrada, transformadores, areacomum, periodKey),
       _raw: items,
     };
@@ -8144,7 +8225,11 @@ const MyIOOrchestrator = (() => {
             let labelWidget = 'Lojas'; // Default: store meters
             let isEntradaDevice = false;
 
-            if (deviceProfile === 'HIDROMETRO_SHOPPING') {
+            if (
+              deviceProfile === 'HIDROMETRO_SHOPPING' ||
+              deviceProfile === 'HIDROMETRO_ENTRADA' ||
+              deviceProfile === 'HIDROMETRO_ENTRADA_RETROLAVAGEM'
+            ) {
               labelWidget = 'Entrada';
               isEntradaDevice = true;
             } else if (deviceProfile === 'HIDROMETRO_AREA_COMUM') {
@@ -8914,7 +8999,9 @@ const MyIOOrchestrator = (() => {
     // Filtro "Status Disp." (GCDR): a lista completa fica em allItems; cards, STATE e
     // relatórios recebem só o subconjunto filtrado (que pode ser vazio).
     const allItems = _filterWellAutomationItems(domain, items);
-    items = _applyDeviceStatusFilter(allItems);
+    // *_MANUAL: fora de cards normais, totais, relatórios e do filtro (STATE[domain].manual).
+    const { regular, manual: manualItems } = _splitManualItems(allItems);
+    items = _applyDeviceStatusFilter(regular);
 
     // Prevent duplicate emissions (< 100ms)
     if (OrchestratorState.lastEmission[key]) {
@@ -8931,7 +9018,7 @@ const MyIOOrchestrator = (() => {
 
     // RFC-0106: Populate window.STATE with categorized data BEFORE emitting
     // This allows widgets to read directly from window.STATE instead of events
-    populateState(domain, items, pKey);
+    populateState(domain, items, pKey, manualItems);
 
     // RFC-0106 FIX: Store in MyIOOrchestratorData for late-initializing widgets
     // This ensures widgets that miss the event can still find the data
@@ -8942,6 +9029,7 @@ const MyIOOrchestrator = (() => {
       periodKey: pKey,
       items: items,
       allItems: allItems,
+      manualItems: manualItems,
       deviceStatusFilter: _deviceStatusFilter,
       timestamp: now,
       version: (window.MyIOOrchestratorData[domain]?.version || 0) + 1,
@@ -9212,9 +9300,51 @@ const MyIOOrchestrator = (() => {
     return 'energy';
   }
 
+  // Aba "Disp. Manuais" (state devices_manuals, tab 'manual'): mistura widgets de energia e água
+  // (labelWidget "…_MANUAL" → STATE[domain].manual). Re-emite o cache de cada domínio e/ou
+  // hidrata em silêncio (sem busy global — dois domínios ao mesmo tempo).
+  function _manualDomains() {
+    const de = widgetSettings?.domainsEnabled || {};
+    return ['energy', 'water'].filter((d) => de[d] !== false);
+  }
+  function _loadManualTab({ force = false } = {}) {
+    _manualDomains().forEach((d) => {
+      const cached = window.MyIOOrchestratorData?.[d];
+      const cachedAll = cached && (cached.allItems || cached.items);
+      if (!force && cachedAll?.length) {
+        emitProvide(d, cached.periodKey, cachedAll);
+        return;
+      }
+      if (currentPeriod) {
+        hydrateDomain(d, currentPeriod, { force, silent: true }).catch((err) =>
+          LogHelper.warn(`[Orchestrator] ✍️ aba manual: falha ao hidratar ${d}:`, err)
+        );
+      } else {
+        requestDataWithRetry(d, null);
+      }
+    });
+  }
+
   // Event listeners
   window.addEventListener('myio:update-date', (ev) => {
     LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
+
+    if (visibleTab === 'manual') {
+      const p = ev.detail.period;
+      const changed =
+        !currentPeriod || currentPeriod.startISO !== p?.startISO || currentPeriod.endISO !== p?.endISO;
+      if (changed) {
+        _manualDomains().forEach((d) => {
+          if (window.MyIOOrchestratorData?.[d]) delete window.MyIOOrchestratorData[d];
+        });
+        inFlight.clear();
+        _pendingDateHydrate = null;
+      }
+      currentPeriod = p;
+      LogHelper.log(`[Orchestrator] ✍️ myio:update-date na aba manual → energy+water (force=${changed})`);
+      _loadManualTab({ force: changed });
+      return;
+    }
 
     // RFC-0152c: if no dashboard-state ever set the tab, derive it from
     // domainsEnabled so "Carregar" hydrates the right domain instead of skipping.
@@ -9282,6 +9412,15 @@ const MyIOOrchestrator = (() => {
 
   window.addEventListener('myio:dashboard-state', (ev) => {
     const tab = ev.detail.tab;
+
+    // Aba "Disp. Manuais": energia + água ao mesmo tempo (ver _loadManualTab)
+    if (tab === 'manual') {
+      visibleTab = 'manual';
+      releaseContractBusy();
+      LogHelper.log('[Orchestrator] ✍️ myio:dashboard-state → aba Disp. Manuais (energy+water)');
+      _loadManualTab();
+      return;
+    }
 
     // Alarm view — activate alarm panel and skip domain hydration
     // Accept both 'alarm' (RFC-0178) and null/falsy (legacy, when MENU is not yet updated)

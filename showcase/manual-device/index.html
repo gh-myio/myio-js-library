@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Showcase — Dispositivo manual</title>
+  <style>
+    body { font-family: 'Nunito', system-ui, sans-serif; margin: 0; padding: 24px; background: #f5f3ff; color: #1f2937; }
+    h1 { font-size: 20px; margin: 0 0 6px; }
+    p { margin: 0 0 16px; color: #4b5563; font-size: 14px; }
+    fieldset { border: 1px solid #ddd6fe; border-radius: 10px; padding: 14px 16px; margin: 0 0 14px; background: #fff; }
+    legend { font-weight: 700; font-size: 13px; color: #5b21b6; padding: 0 6px; }
+    label { margin-right: 14px; font-size: 13px; }
+    button { font-family: inherit; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 8px; border: 0; background: #7c3aed; color: #fff; cursor: pointer; margin-right: 8px; }
+    pre { background: #111827; color: #d1fae5; padding: 12px; border-radius: 8px; font-size: 12px; max-height: 280px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>➕ Dispositivo manual (aba Disp. Manuais)</h1>
+  <p>Simula o ThingsBoard (fetch mockado): asset <code>ASSET_STB_DEVICES_MANUAIS</code>, profiles <code>3F_MEDIDOR_MANUAL</code> / <code>HIDROMETRO_MANUAL</code>. O nome do device é automático: sigla do asset + próximo número livre (já existe <code>3F STB_LOJA_001_MANUAL</code> → o próximo é <code>…_002_MANUAL</code>).</p>
+
+  <fieldset>
+    <legend>Cenário</legend>
+    <label><input type="checkbox" id="optMyio" /> usuário MyIO (detalhes técnicos)</label>
+    <label><input type="checkbox" id="optNoAsset" /> sem asset *_DEVICES_MANUAIS</label>
+    <label><input type="checkbox" id="optFailRel" /> falha na relação (rollback)</label>
+  </fieldset>
+  <button id="btnEnergy">+ Energia (Lojas Energia MANUAL)</button>
+  <button id="btnWater">+ Água (Lojas Água MANUAL)</button>
+
+  <h3>Chamadas à API do ThingsBoard</h3>
+  <pre id="log">—</pre>
+
+  <script src="../../dist/myio-js-library.umd.min.js"></script>
+  <script>
+    const logEl = document.getElementById('log');
+    const lines = [];
+    const log = (s) => { lines.push(s); logEl.textContent = lines.join('\n'); };
+    const json = (status, data) => new Response(data === undefined ? '' : JSON.stringify(data), { status });
+    const created = new Set(['3F STB_LOJA_001_MANUAL', 'Hidr. STB_LOJA_001_MANUAL']);
+
+    function fakeFetch(url, init = {}) {
+      const method = init.method || 'GET';
+      const body = init.body ? JSON.parse(init.body) : undefined;
+      log(`${method} ${url}${body ? '  ' + JSON.stringify(body) : ''}`);
+      const noAsset = document.getElementById('optNoAsset').checked;
+      const failRel = document.getElementById('optFailRel').checked;
+      return new Promise((resolve) => setTimeout(() => {
+        if (url.includes('/assets')) return resolve(json(200, { data: noAsset ? [] : [{ id: { id: 'asset-1' }, name: 'ASSET_STB_DEVICES_MANUAIS' }] }));
+        if (url.includes('/devices?')) return resolve(json(200, { data: [...created].map((name) => ({ name })) }));
+        if (url.includes('/deviceProfileInfos')) return resolve(json(200, { data: [
+          { id: { id: 'p-3f' }, name: '3F_MEDIDOR_MANUAL' }, { id: { id: 'p-h' }, name: 'HIDROMETRO_MANUAL' }] }));
+        if (method === 'POST' && url.endsWith('/api/device')) { created.add(body.name); return resolve(json(200, { id: { id: 'dev-' + created.size }, name: body.name, customerId: { id: 'cust-1' } })); }
+        if (url.endsWith('/api/relation')) return resolve(failRel ? json(403, { message: 'Permission denied' }) : json(200));
+        if (method === 'DELETE') return resolve(json(200));
+        return resolve(json(200));
+      }, 350));
+    }
+
+    function open(domain) {
+      lines.length = 0; log('—');
+      MyIOLibrary.openManualDeviceModal({
+        domain,
+        customerId: 'cust-1',
+        token: 'showcase',
+        fetchImpl: fakeFetch,
+        showTechnicalDetails: document.getElementById('optMyio').checked,
+        onCreated: (r) => log('onCreated → ' + JSON.stringify(r)),
+      });
+    }
+    document.getElementById('btnEnergy').onclick = () => open('energy');
+    document.getElementById('btnWater').onclick = () => open('water');
+  </script>
+</body>
+</html>

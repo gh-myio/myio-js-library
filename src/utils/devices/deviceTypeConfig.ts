@@ -67,6 +67,9 @@ export const DEVICE_TYPE_CONFIG: Record<string, DeviceTypeConfigEntry> = {
   HIDROMETRO: { category: 'water', image: deviceIcons.HIDROMETRO },
   HIDROMETRO_AREA_COMUM: { category: 'water', image: deviceIcons.HIDROMETRO_AREA_COMUM },
   HIDROMETRO_SHOPPING: { category: 'water', image: deviceIcons.HIDROMETRO_SHOPPING },
+  HIDROMETRO_ENTRADA: { category: 'water', image: deviceIcons.HIDROMETRO_SHOPPING },
+  // Virtual: Entrada − Σ consumos (calculado no dashboard; card informativo na coluna Entrada)
+  HIDROMETRO_ENTRADA_RETROLAVAGEM: { category: 'water', image: deviceIcons.HIDROMETRO_SHOPPING },
   CAIXA_DAGUA: { category: 'water', image: deviceIcons.CAIXA_DAGUA },
   // ED-1354: poço/cisterna (nível, como CAIXA_DAGUA) — _ENTRADA vai p/ a coluna Entrada, o outro p/ Área Comum
   CISTERNA: { category: 'water', image: deviceIcons.CISTERNA },

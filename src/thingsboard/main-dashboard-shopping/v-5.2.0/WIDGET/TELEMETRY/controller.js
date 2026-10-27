@@ -1010,7 +1010,7 @@ function _groupFilterChangedHandler(ev) {
     return itemGroup === null || groupFilter[itemGroup] !== false;
   });
   // ED-1354: poço (nível em M.C.A) não soma no total em m³
-  const visibleSum = visibleItems.reduce((acc, x) => acc + (x._isWell ? 0 : x.value || 0), 0);
+  const visibleSum = visibleItems.reduce((acc, x) => acc + (x._isWell || x._isRetrolavagem ? 0 : x.value || 0), 0);
   renderHeader(visibleItems.length, visibleSum);
 
   LogHelper.log(`[RFC-0196] Group filter applied for domain=${domain}:`, groupFilter);
@@ -1752,6 +1752,19 @@ function applyTemperatureOffset(temperature, offset) {
 
 let dateUpdateHandler = null;
 let dataProvideHandler = null; // RFC-0042: Orchestrator data listener
+let _cisternasRegistered = false; // ED-1354: esta instância é o widget "Poços / Cisternas"
+
+// ED-1354: widget "Poços / Cisternas" montado/desmontado depois desta instância → Entrada /
+// Área Comum (água) relê o STATE para incluir/tirar os poços.
+window.addEventListener('myio:cisternas-widget-changed', () => {
+  if (WIDGET_DOMAIN !== 'water' || typeof dataProvideHandler !== 'function' || !lastProcessedPeriodKey) return;
+  const group = mapLabelWidgetToStateGroup(self.ctx?.settings?.labelWidget || '');
+  if (group !== 'entrada' && group !== 'areacomum') return;
+  const stored = window.MyIOOrchestratorData?.water;
+  if (!stored) return;
+  lastProcessedPeriodKey = null; // força reprocessar o mesmo período
+  dataProvideHandler({ detail: { domain: 'water', periodKey: stored.periodKey, items: stored.items } });
+});
 //let DEVICE_TYPE = "energy";
 let MyIO = null;
 
@@ -1760,10 +1773,19 @@ let MyIO = null;
 // entrada = 'Entrada'
 // transformadores = 'Transformador' | 'Transformadores' (RFC-0234)
 // ocultos = 'Ocultos' (RFC-0142: archived/inactive devices)
+// manual = label com a palavra 'MANUAL' (ex.: 'Entrada_MANUAL', 'Lojas Energia MANUAL') → todos os devices *_MANUAL do domínio
+// cisternas = label com 'poço' ou 'cisterna' (ex.: 'Poços / Cisternas') → todos os CISTERNA / CISTERNA_ENTRADA (ED-1354)
 // areacomum = everything else (Climatização, Elevadores, Escadas Rolantes, Área Comum, etc.)
 function mapLabelWidgetToStateGroup(labelWidget) {
   if (!labelWidget) return null;
+  // settingsSchema "manualDevicesWidget" (ou label com a palavra MANUAL): widget de devices manuais
+  if (self.ctx?.settings?.manualDevicesWidget === true) return 'manual';
   const lw = labelWidget.toLowerCase().trim();
+  // *_MANUAL: grupo próprio (STATE[domain].manual), fora dos totais — antes dos demais matches
+  // aceita "Entrada_MANUAL", "Lojas Energia MANUAL", "lojas-manual"… (palavra "manual" isolada)
+  if (/(^|[^a-zà-ú])manual([^a-zà-ú]|$)/.test(lw)) return 'manual';
+  // ED-1354: widget dedicado aos poços/cisternas (tira os poços das colunas Entrada / Área Comum)
+  if (/po[cç]os?|cisternas?/.test(lw)) return 'cisternas';
   if (lw === 'lojas') return 'lojas';
   if (lw === 'entrada') return 'entrada';
   // RFC-0234: dedicated, optional group for step-down transformers — never
@@ -1828,12 +1850,18 @@ function getItemsFromState(domain, labelWidget) {
     return window.STATE[domain]?._raw || [];
   }
 
+  // ED-1354: widget "Poços / Cisternas" — todas as cisternas (CISTERNA + CISTERNA_ENTRADA)
+  if (stateGroup === 'cisternas') {
+    return domain === 'water' ? [..._cisternasOf(domain, 'CISTERNA_ENTRADA'), ..._cisternasOf(domain, 'CISTERNA')] : [];
+  }
+
   // For lojas, entrada, transformadores, and caixadagua, return directly from STATE group
   if (
     stateGroup === 'lojas' ||
     stateGroup === 'entrada' ||
     stateGroup === 'transformadores' ||
-    stateGroup === 'caixadagua'
+    stateGroup === 'caixadagua' ||
+    stateGroup === 'manual'
   ) {
     const groupData = window.STATE.get(domain, stateGroup);
     LogHelper.log(
@@ -1842,8 +1870,10 @@ function getItemsFromState(domain, labelWidget) {
     // ED-1354: CISTERNA_ENTRADA aparece na coluna Entrada da água
     // (continua no grupo caixadagua do STATE → fora dos totais em m³)
     if (domain === 'water' && stateGroup === 'entrada') {
-      const wells = _cisternasOf(domain, 'CISTERNA_ENTRADA');
-      if (wells.length) return [...(groupData?.items || []), ...wells];
+      // Retrolavagem (virtual, Entrada − Σ consumos): card informativo, fora da soma
+      const retro = window.STATE.get(domain, 'retrolavagem')?.items || [];
+      const wells = _hasCisternasWidget() ? [] : _cisternasOf(domain, 'CISTERNA_ENTRADA');
+      if (retro.length || wells.length) return [...(groupData?.items || []), ...retro, ...wells];
     }
     return groupData?.items || [];
   }
@@ -1858,7 +1888,7 @@ function getItemsFromState(domain, labelWidget) {
   if (lwLower === 'área comum' || lwLower === 'areacomum' || lwLower === 'area comum') {
     LogHelper.log(`[TELEMETRY] Getting all areacomum items: ${areacomumData.count} items`);
     // ED-1354: CISTERNA (sem _ENTRADA) aparece na coluna Área Comum da água
-    if (domain === 'water') {
+    if (domain === 'water' && !_hasCisternasWidget()) {
       const wells = _cisternasOf(domain, 'CISTERNA');
       if (wells.length) return [...areacomumData.items, ...wells];
     }
@@ -2368,7 +2398,8 @@ function applyFilters(enriched, searchTerm, selectedIds, sortMode, alarmFilter) 
 
 function recomputePercentages(visible) {
   // ED-1354: poço na coluna Entrada mostra nível (M.C.A), não volume — fora da soma e do %
-  const groupSum = visible.reduce((acc, x) => acc + (x._isWell ? 0 : x.value || 0), 0);
+  // Retrolavagem (virtual = Entrada − Σ consumos): fora da soma; % = fração da Entrada
+  const groupSum = visible.reduce((acc, x) => acc + (x._isWell || x._isRetrolavagem ? 0 : x.value || 0), 0);
   const updated = visible.map((x) => ({
     ...x,
     perc: x._isWell ? x.perc : groupSum > 0 ? (x.value / groupSum) * 100 : 0,
@@ -2377,6 +2408,15 @@ function recomputePercentages(visible) {
 }
 
 /** ===================== ED-1354: POÇOS (bombas BOMBA_POCO + solenoide) ===================== **/
+/**
+ * Widget dedicado "Poços / Cisternas" presente no dashboard? (contador global — cada instância
+ * do TELEMETRY com esse label soma 1 no onInit e subtrai no onDestroy). Com ele, os poços saem
+ * das colunas Entrada / Área Comum.
+ */
+function _hasCisternasWidget() {
+  return (window.__myioCisternasWidgets || 0) > 0;
+}
+
 /** Cisternas de um profile exato (CISTERNA_ENTRADA → coluna Entrada; CISTERNA → Área Comum). */
 function _cisternasOf(domain, profile) {
   return (window.STATE.get(domain, 'caixadagua')?.items || []).filter(
@@ -3976,7 +4016,65 @@ function _getExportCustomerName() {
   return null;
 }
 
+/** Widget de devices *_MANUAL (labelWidget com a palavra "MANUAL") */
+function _isManualWidget() {
+  return mapLabelWidgetToStateGroup(self.ctx?.settings?.labelWidget || '') === 'manual';
+}
+
+/** "+" nos widgets "…MANUAL": cadastro simples (etiqueta + identificador) no asset *_DEVICES_MANUAIS */
+function _openManualDeviceModal() {
+  const open = window.MyIOUtils?.openManualDeviceModal || window.MyIOLibrary?.openManualDeviceModal;
+  if (typeof open !== 'function') {
+    console.error('[TELEMETRY] openManualDeviceModal unavailable — update the MyIO library bundle');
+    return;
+  }
+  const customerId = window.MyIOUtils?.customerTB_ID || self.ctx?.currentUser?.customerId || '';
+  open({
+    domain: WIDGET_DOMAIN === 'water' ? 'water' : 'energy',
+    customerId,
+    token: () => getTbToken(),
+    showTechnicalDetails: window.MyIOUtils?.SuperAdmin === true,
+    // o alias do ThingsBoard só enxerga o device novo após recarregar o dashboard
+    onCreated: () => window.location.reload(),
+  });
+}
+
+/** "Importar dados": planilha horária → API /import do Ingestion (runbook TELEMETRY-SHEET-IMPORT) */
+function _openTelemetryImportModal() {
+  const open = window.MyIOUtils?.openTelemetryImportModal || window.MyIOLibrary?.openTelemetryImportModal;
+  const buildAuth = window.MyIOUtils?.buildMyioIngestionAuth || window.MyIOLibrary?.buildMyioIngestionAuth;
+  if (typeof open !== 'function' || typeof buildAuth !== 'function') {
+    console.error('[TELEMETRY] openTelemetryImportModal unavailable — update the MyIO library bundle');
+    return;
+  }
+  const creds = window.MyIOOrchestrator?.getCredentials?.() || {};
+  const dataApiHost = window.MyIOUtils?.getDataApiHost?.();
+  if (!creds.CUSTOMER_ING_ID || !creds.CLIENT_ID || !creds.CLIENT_SECRET || !dataApiHost) {
+    window.MyIOUtils?.MyIOToast?.error?.('Importação indisponível: credenciais do Ingestion não configuradas.', 5000);
+    return;
+  }
+  const auth = buildAuth({ dataApiHost, clientId: creds.CLIENT_ID, clientSecret: creds.CLIENT_SECRET });
+  const devices = (STATE.itemsBase || []).map((it) => ({
+    label: it.label || it.entityLabel || it.identifier || '',
+    identifier: it.identifier || '',
+    centralId: it.centralId || null,
+    slaveId: it.slaveId ?? null,
+  }));
+  open({
+    domain: WIDGET_DOMAIN === 'water' ? 'water' : 'energy',
+    customerId: creds.CUSTOMER_ING_ID,
+    customerName: window.MyIOUtils?.customerName || '',
+    devices,
+    api: { baseUrl: dataApiHost, getToken: () => auth.getToken() },
+    showTechnicalDetails: window.MyIOUtils?.SuperAdmin === true,
+  });
+}
+
 function _openPresetupModal() {
+  if (_isManualWidget()) {
+    _openManualDeviceModal();
+    return;
+  }
   const lib = window.MyIOUtils;
   if (!lib?.createPresetupGateway) {
     console.error('[TELEMETRY] createPresetupGateway unavailable via MyIOUtils');
@@ -4095,24 +4193,10 @@ function _openPresetupConfigPrompt(s, prefillClientId, prefillClientSecret, onCo
   const csVal = (prefillClientSecret || '').replace(/"/g, '&quot;');
   const hasCredentials = !!(prefillClientId && prefillClientSecret);
 
-  const overlay = document.createElement('div');
-  overlay.style.cssText =
-    'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;';
-
-  const card = document.createElement('div');
-  card.style.cssText =
-    'background:#fff;border-radius:12px;padding:28px 28px 24px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:inherit;';
-
-  card.innerHTML = `
-    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:20px;">
-      <svg style="flex-shrink:0;margin-top:2px;" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#c0392b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="#c0392b" stroke="none"/>
-      </svg>
-      <div>
-        <p style="margin:0 0 4px;font-weight:600;color:#222;font-size:14px;">Configuração do Gateway</p>
-        <p style="margin:0;font-size:12.5px;color:#666;line-height:1.5;">Selecione ou informe o Gateway ID para continuar.${hasCredentials ? ' Credenciais carregadas automaticamente.' : ''}</p>
-      </div>
-    </div>
+  const hintText = `Selecione ou informe o Gateway ID para continuar.${
+    hasCredentials ? ' Credenciais carregadas automaticamente.' : ''
+  }`;
+  const fieldsHtml = `
     <div style="display:flex;flex-direction:column;gap:12px;">
       ${gatewayField}
       <label style="${labelStyle}">Client ID${hasCredentials ? ' <span style="color:#16a34a;font-weight:400;">(preenchido)</span>' : ''}
@@ -4123,29 +4207,11 @@ function _openPresetupConfigPrompt(s, prefillClientId, prefillClientSecret, onCo
         <input id="_pscs" type="password" value="${csVal}" placeholder="client_secret"
           style="${inputStyle}${hasCredentials ? 'background:#f0fdf4;border-color:#86efac;' : ''}" />
       </label>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
-      <button id="_psCancelBtn" style="padding:8px 18px;border:1px solid #ddd;border-radius:7px;background:#f5f5f5;color:#555;font-size:13px;cursor:pointer;">Cancelar</button>
-      <button id="_psConfirmBtn" style="padding:8px 20px;border:none;border-radius:7px;background:#3e1a7d;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Continuar</button>
     </div>`;
 
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
-
-  // Show/hide custom input when "Outro…" selected
-  const gwSelect = card.querySelector('#_psgw');
-  if (gwSelect && gwSelect.tagName === 'SELECT') {
-    gwSelect.addEventListener('change', () => {
-      const wrap = card.querySelector('#_psgwCustomWrap');
-      if (wrap) wrap.style.display = gwSelect.value === '__outro__' ? 'block' : 'none';
-    });
-  }
-
-  card.querySelector('#_psCancelBtn').onclick = () => overlay.remove();
-  card.querySelector('#_psConfirmBtn').onclick = () => {
+  // Valida e confirma; `card` = elemento que contém os campos. true = pode fechar.
+  const tryConfirm = (card) => {
+    const gwSelect = card.querySelector('#_psgw');
     let gw;
     if (gwSelect && gwSelect.tagName === 'SELECT') {
       gw =
@@ -4165,17 +4231,78 @@ function _openPresetupConfigPrompt(s, prefillClientId, prefillClientSecret, onCo
       }
       if (!ci) card.querySelector('#_psci').style.borderColor = '#c0392b';
       if (!cs) card.querySelector('#_pscs').style.borderColor = '#c0392b';
-      return;
+      return false;
     }
-    overlay.remove();
     onConfirm(gw, ci, cs);
+    return true;
   };
 
-  // Focus first incomplete field
-  setTimeout(() => {
-    const firstEmpty = card.querySelector('select,input');
-    if (firstEmpty) firstEmpty.focus();
-  }, 50);
+  // Mostra/esconde o input manual quando "Outro…" é selecionado; foca o primeiro campo
+  const wireFields = (card) => {
+    const gwSelect = card.querySelector('#_psgw');
+    if (gwSelect && gwSelect.tagName === 'SELECT') {
+      gwSelect.addEventListener('change', () => {
+        const wrap = card.querySelector('#_psgwCustomWrap');
+        if (wrap) wrap.style.display = gwSelect.value === '__outro__' ? 'block' : 'none';
+      });
+    }
+    setTimeout(() => {
+      const firstEmpty = card.querySelector('select,input');
+      if (firstEmpty) firstEmpty.focus();
+    }, 50);
+  };
+
+  // Padrão SettingsModalView (ModalHeader + footer) via lib; fallback = card inline antigo
+  const openStd = window.MyIOUtils?.openStandardModal || window.MyIOLibrary?.openStandardModal;
+  if (typeof openStd === 'function') {
+    const modal = openStd({
+      icon: '🛰️',
+      title: 'Configuração do Gateway',
+      width: 480,
+      bodyHtml: `<p style="margin:0 0 16px;font-size:13px;color:#6b7280;line-height:1.5;">${hintText}</p>${fieldsHtml}`,
+      buttons: [
+        { label: 'Cancelar', value: 'cancel', variant: 'secondary' },
+        { label: 'Continuar', value: 'continue', variant: 'primary', closeOnClick: false },
+      ],
+      onButton: (v) => {
+        if (v === 'continue' && tryConfirm(modal.getBodyEl())) modal.close();
+      },
+    });
+    wireFields(modal.getBodyEl());
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText =
+    'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;';
+
+  const card = document.createElement('div');
+  card.style.cssText =
+    'background:#fff;border-radius:12px;padding:28px 28px 24px;width:min(480px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:inherit;';
+
+  card.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:20px;">
+      <div>
+        <p style="margin:0 0 4px;font-weight:600;color:#222;font-size:14px;">Configuração do Gateway</p>
+        <p style="margin:0;font-size:12.5px;color:#666;line-height:1.5;">${hintText}</p>
+      </div>
+    </div>
+    ${fieldsHtml}
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+      <button id="_psCancelBtn" style="padding:8px 18px;border:1px solid #ddd;border-radius:7px;background:#f5f5f5;color:#555;font-size:13px;cursor:pointer;">Cancelar</button>
+      <button id="_psConfirmBtn" style="padding:8px 20px;border:none;border-radius:7px;background:#3e1a7d;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Continuar</button>
+    </div>`;
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+  card.querySelector('#_psCancelBtn').onclick = () => overlay.remove();
+  card.querySelector('#_psConfirmBtn').onclick = () => {
+    if (tryConfirm(card)) overlay.remove();
+  };
+  wireFields(card);
 }
 
 /** ===================== UI BINDINGS ===================== **/
@@ -4262,6 +4389,8 @@ function bindHeader() {
 
   // Presetup button
   $root().on('click', '#btnPresetup', _openPresetupModal);
+  // Importar dados (widget de dispositivos manuais)
+  $root().on('click', '#btnImportData', _openTelemetryImportModal);
 }
 
 // ============================================================
@@ -5552,6 +5681,11 @@ function normalizeLabel(str) {
  */
 function emitTelemetryUpdate() {
   try {
+    // *_MANUAL: widget de devices manuais não alimenta totais do HEADER/MAIN
+    // ED-1354: idem para o widget "Poços / Cisternas" (nível em M.C.A, não m³)
+    const _grp = mapLabelWidgetToStateGroup(self.ctx?.settings?.labelWidget || '');
+    if (_grp === 'manual' || _grp === 'cisternas') return;
+
     // Determinar tipo de widget pelo datasource alias
     const widgetType = detectWidgetType();
 
@@ -6331,6 +6465,12 @@ self.onInit = async function () {
   // RFC-0152: Build per-widget export key so multiple TELEMETRY instances don't share the buffer
   const _lwGroup = mapLabelWidgetToStateGroup(self.ctx.settings?.labelWidget || '') || WIDGET_DOMAIN;
   _exportKey = `_deviceDataExport_${WIDGET_DOMAIN}_${_lwGroup}`;
+  // ED-1354: widget "Poços / Cisternas" — avisa Entrada/Área Comum para tirarem os poços
+  if (_lwGroup === 'cisternas' && !_cisternasRegistered) {
+    _cisternasRegistered = true;
+    window.__myioCisternasWidgets = (window.__myioCisternasWidgets || 0) + 1;
+    window.dispatchEvent(new CustomEvent('myio:cisternas-widget-changed'));
+  }
   LogHelper.log(`[TELEMETRY] Configured EARLY: domain=${WIDGET_DOMAIN}, exportKey=${_exportKey}`);
 
   // Show temperature info icon for temperature domain
@@ -6942,6 +7082,7 @@ self.onInit = async function () {
         // ED-1354: poço (CISTERNA) + bombas BOMBA_POCO / solenoides vinculadas
         pumpBindings: item.pumpBindings || null,
         _isWell: /^CISTERNA(_ENTRADA)?$/.test(String(item.deviceProfile || '').toUpperCase()),
+        _isRetrolavagem: !!item._isRetrolavagem,
         // Per-device exclude_groups_totals (drives the v5 "excluded" beige bg + marker)
         excludeGroupsTotals: item.excludeGroupsTotals || null,
         // RFC-0183: GCDR device UUID for AlarmServiceOrchestrator badge lookup
@@ -7089,7 +7230,15 @@ self.onInit = async function () {
   // Show #btnPresetup, #btnDownloadDeviceMap and #btnSyncGCDR only for MyIO users (@myio.com.br)
   function _applyPresetupVisibility(isSuperAdmin) {
     const btn = $root().find('#btnPresetup')[0];
-    if (btn) btn.style.display = isSuperAdmin ? '' : 'none';
+    // Widget "…MANUAL": o "+" cria device manual e fica visível para todos os usuários
+    if (btn) btn.style.display = isSuperAdmin || _isManualWidget() ? '' : 'none';
+    if (btn && _isManualWidget()) {
+      btn.title = WIDGET_DOMAIN === 'water' ? 'Novo hidrômetro manual' : 'Novo medidor de energia manual';
+      btn.setAttribute('aria-label', btn.title);
+    }
+    // "Importar dados" (planilha → Ingestion): só no widget de dispositivos manuais
+    const btnImport = $root().find('#btnImportData')[0];
+    if (btnImport) btnImport.style.display = _isManualWidget() ? '' : 'none';
     // RFC-0152: Device map download button — visible only for @myio.com.br
     const btnDl = (_filterModalElement || $root()[0])?.querySelector('#btnDownloadDeviceMap');
     if (btnDl) btnDl.style.display = isSuperAdmin ? 'inline-flex' : 'none';
@@ -7420,6 +7569,11 @@ self.onResize = function () {
   _syncWidgetContainerHeight();
 };
 self.onDestroy = function () {
+  if (_cisternasRegistered) {
+    _cisternasRegistered = false;
+    window.__myioCisternasWidgets = Math.max(0, (window.__myioCisternasWidgets || 1) - 1);
+    window.dispatchEvent(new CustomEvent('myio:cisternas-widget-changed'));
+  }
   if (dateUpdateHandler) {
     window.removeEventListener('myio:update-date', dateUpdateHandler);
     LogHelper.log("[DeviceCards] Event listener 'myio:update-date' removido.");
