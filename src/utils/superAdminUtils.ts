@@ -3,7 +3,7 @@
  *
  * Functions to detect SuperAdmin status for users in the MYIO platform.
  * - SuperAdmin MYIO: Users with @myio.com.br email (except alarme@ and alarmes@)
- * - SuperAdmin Holding: Users with isUserAdmin=true on their customer entity
+ * - SuperAdmin Holding: Users with isHolding=true AND isUserAdmin=true on their USER entity
  */
 
 import type { UserInfo } from '../components/premium-modals/settings/annotations/types';
@@ -120,6 +120,10 @@ export async function detectSuperAdminMyio(jwtToken?: string, tbBaseUrl?: string
 // ============================================
 
 /**
+ * @deprecated isUserAdmin no CUSTOMER dá admin a todos os usuários do customer.
+ * Use `detectHoldingUserAdmin` (atributos do USER). Mantido só por compatibilidade
+ * do export público; nenhum código interno chama mais.
+ *
  * Detect if current user is a SuperAdmin Holding
  * SuperAdmin Holding = user with isUserAdmin=true attribute on their customer entity
  *
@@ -282,10 +286,13 @@ export async function getAnnotationPermissions(
   isSuperAdminMyio: boolean;
   isSuperAdminHolding: boolean;
 }> {
+  // Holding admin vem dos atributos do USUÁRIO (isHolding + isUserAdmin), nunca do
+  // customer. `customerId` fica na assinatura só por compatibilidade.
+  void customerId;
   const [currentUser, isSuperAdminMyio, isSuperAdminHolding] = await Promise.all([
     fetchCurrentUserInfo(jwtToken, tbBaseUrl),
     detectSuperAdminMyio(jwtToken, tbBaseUrl),
-    customerId ? detectSuperAdminHolding(customerId, jwtToken, tbBaseUrl) : Promise.resolve(false),
+    detectHoldingUserAdmin(jwtToken, tbBaseUrl),
   ]);
 
   return {

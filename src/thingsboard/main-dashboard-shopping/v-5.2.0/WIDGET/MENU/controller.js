@@ -468,10 +468,11 @@ self.onInit = function () {
         LogHelper.log('[MENU] User is TENANT_ADMIN - granting admin access without attributes check');
         isUserAdmin = true;
       } else {
-        // Busca atributos do CUSTOMER (pode dar 400/404 quando não existem atributos)
+        // isUserAdmin é permissão do USUÁRIO (USER SERVER_SCOPE), nunca do CUSTOMER:
+        // no customer a flag liberava admin a todos os usuários do shopping.
         try {
           const attrRes = await fetch(
-            `/api/plugins/telemetry/CUSTOMER/${user.customerId.id}/values/attributes/SERVER_SCOPE`,
+            `/api/plugins/telemetry/USER/${user.id.id}/values/attributes/SERVER_SCOPE?keys=isUserAdmin`,
             {
               method: 'GET',
               headers: buildAuthHeaders(),
@@ -487,14 +488,14 @@ self.onInit = function () {
             if (Array.isArray(userAttributes)) {
               for (const attr of userAttributes) {
                 if (attr && attr.key === 'isUserAdmin') {
-                  isUserAdmin = !!attr.value;
+                  isUserAdmin = attr.value === true || attr.value === 'true';
                   break;
                 }
               }
             }
           } else if (attrRes.status === 400 || attrRes.status === 404) {
             // Sem atributos → segue fluxo normal
-            LogHelper.warn('[MENU] CUSTOMER attributes not found (400/404). Proceeding without admin.');
+            LogHelper.warn('[MENU] USER attributes not found (400/404). Proceeding without admin.');
           } else if (attrRes.status === 401) {
             // token expirado durante a segunda chamada
             localStorage.removeItem('jwt_token');
