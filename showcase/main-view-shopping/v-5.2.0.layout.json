@@ -29,7 +29,7 @@
       ["connectionStatus", "TIME_SERIES"]
     ],
     "energyExtra": [["consumption", "TIME_SERIES"], ["deviceMapInstaneousPower", "ATTRIBUTE"]],
-    "waterExtra": [["pulses", "TIME_SERIES"], ["volume", "TIME_SERIES"], ["water_level", "TIME_SERIES"], ["water_percentage", "TIME_SERIES"], ["litersPerPulse", "ATTRIBUTE"]],
+    "waterExtra": [["pulses", "TIME_SERIES"], ["volume", "TIME_SERIES"], ["water_level", "TIME_SERIES"], ["water_percentage", "TIME_SERIES"], ["litersPerPulse", "ATTRIBUTE"], ["pumpBindings", "ATTRIBUTE"]],
     "temperatureExtra": [["temperature", "TIME_SERIES"], ["offSetTemperature", "ATTRIBUTE"]],
     "reportList": [["ingestionId", "ATTRIBUTE"], ["identifier", "ATTRIBUTE"], ["label", "ENTITY_FIELD"]]
   },

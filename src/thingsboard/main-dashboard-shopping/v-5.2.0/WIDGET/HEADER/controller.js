@@ -678,6 +678,15 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         return;
       }
 
+      // Aba "Disp. Manuais": datas/Carregar ativos, sem relatório (manuais não entram em relatórios)
+      if (domain === 'manual') {
+        if (inputRange) inputRange.disabled = false;
+        if (btnLoad) btnLoad.disabled = false;
+        if (btnForceRefresh) btnForceRefresh.disabled = false;
+        if (btnGen) btnGen.style.display = 'none';
+        return;
+      }
+
       // Read enableReportButton flag from MAIN_VIEW (default: false = hidden)
       const enableReportButton = window.MyIOUtils?.enableReportButton ?? false;
 
@@ -743,7 +752,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // RFC-0045 FIX: Emit period when domain changes to energy or water
       // RFC-0138 FIX: Always re-emit dates on domain switch to ensure sync
       // This ensures orchestrator has currentPeriod set correctly when switching domains
-      if (tab === 'energy' || tab === 'water') {
+      if (tab === 'energy' || tab === 'water' || tab === 'manual') {
         // Wait for dateRangePicker to be ready
         setTimeout(() => {
           if (self.__range.start && self.__range.end) {
@@ -2834,7 +2843,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
         return;
       }
 
-      if (currentDomain.value !== 'energy' && currentDomain.value !== 'water') {
+      if (
+        currentDomain.value !== 'energy' &&
+        currentDomain.value !== 'water' &&
+        currentDomain.value !== 'manual'
+      ) {
         LogHelper.warn(`[HEADER] ⚠️ Cannot load - domain ${currentDomain.value} not supported`);
         if (MyIOToast) {
           MyIOToast.warning(`Domínio "${currentDomain.value}" não suporta carregamento de dados.`, 5000);
@@ -2859,7 +2872,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       // RFC-0137: Use force=true to bypass cooldown when user explicitly clicks "Carregar"
       try {
         const orchestrator = window.MyIOOrchestrator;
-        if (orchestrator?.showGlobalBusy) {
+        // aba manual: hidratação silenciosa de energia + água (sem busy por domínio)
+        if (orchestrator?.showGlobalBusy && currentDomain.value !== 'manual') {
           orchestrator.showGlobalBusy(currentDomain.value, 'Carregando dados...', 25000, { force: true });
           LogHelper.log(`[HEADER] RFC-0137: Showing busy overlay for ${currentDomain.value} (force=true)`);
         }
@@ -3101,6 +3115,11 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
             );
           }
         }
+
+        // *_MANUAL (ex.: 3F_MEDIDOR_MANUAL) não entra em nenhum relatório
+        itemsListTB = (itemsListTB || []).filter(
+          (item) => !/_MANUAL$/i.test(String(item?.deviceProfile || item?.deviceType || '').trim())
+        );
 
         const _openAllReport = window.MyIOUtils?.openDashboardPopupAllReport;
         if (typeof _openAllReport !== 'function') {

@@ -8,6 +8,14 @@ import {
   WaterTankModalI18n
 } from './types';
 import { createDateRangePicker, type DateRangeControl } from '../../createDateRangePicker';
+import {
+  ensureEquipmentIndicatorStyles,
+  escapeHtml,
+  renderEquipmentShortcutHTML,
+  renderEquipmentTilesHTML,
+} from '../../well-pumps/equipmentIndicators';
+import type { EquipmentIndicator } from '../../well-pumps/types';
+import { deviceIcons } from '../../../utils/devices/deviceIcons';
 
 // Verbose logs are OPT-IN: silent unless the host dashboard sets
 // window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
@@ -120,6 +128,10 @@ export class WaterTankModalView {
    * Get tank image URL based on level percentage (same logic as device card)
    */
   private getTankImageUrl(percentage: number): string {
+    // ED-1354: poço/cisterna usa o próprio ícone (mesmo do card), não a caixa d'água por faixa de nível
+    if (/^CISTERNA(_ENTRADA)?$/.test(String(this.config.params.deviceType || '').toUpperCase())) {
+      return deviceIcons.CISTERNA;
+    }
     if (percentage >= 70) {
       return "https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq"; // 70-100%
     } else if (percentage >= 40) {
@@ -179,6 +191,8 @@ export class WaterTankModalView {
       `;
       document.head.appendChild(style);
     }
+
+    if (params.equipmentIndicators?.length || params.headerActions?.length) ensureEquipmentIndicatorStyles();
 
     // Create overlay
     this.overlay = document.createElement('div');
@@ -253,6 +267,7 @@ export class WaterTankModalView {
           line-height: 2;
         ">💧 ${title}</h2>
         <div style="display: flex; gap: 4px; align-items: center;">
+          ${this.renderHeaderActions()}
           <button class="myio-water-tank-modal-close" title="${this.i18n.close}" style="
             background: none;
             border: none;
@@ -266,6 +281,55 @@ export class WaterTankModalView {
         </div>
       </div>
     `;
+  }
+
+  /**
+   * ED-1354: botões extras do header (ex.: atalho "Bombas B1 B2 S")
+   */
+  private renderHeaderActions(): string {
+    const actions = this.config.params.headerActions || [];
+    return actions
+      .map((a, i) => {
+        const content = a.indicators
+          ? renderEquipmentShortcutHTML(a.indicators, a.label)
+          : `<span>${escapeHtml(a.label)}</span>`;
+        return `<button type="button" class="myio-eq-shortcut" data-header-action="${i}" title="${escapeHtml(a.title || a.label)}">${content}</button>`;
+      })
+      .join('');
+  }
+
+  /**
+   * ED-1354: B1/B2/S sob o ícone do reservatório
+   */
+  private renderEquipmentTiles(): string {
+    const indicators = this.config.params.equipmentIndicators;
+    if (!indicators?.length) return '';
+    return `<div class="myio-water-tank-equipment">${renderEquipmentTilesHTML(indicators)}</div>`;
+  }
+
+  /**
+   * ED-1354: atualiza tiles e mini-badges dos atalhos sem re-renderizar a modal
+   */
+  public updateEquipmentIndicators(indicators: EquipmentIndicator[]): void {
+    const { params } = this.config;
+    params.equipmentIndicators = indicators;
+    if (!this.modal) return;
+    ensureEquipmentIndicatorStyles();
+
+    const tiles = this.modal.querySelector('.myio-water-tank-equipment');
+    if (tiles) {
+      tiles.innerHTML = renderEquipmentTilesHTML(indicators);
+    } else {
+      const img = this.modal.querySelector('.myio-water-tank-tank-panel img');
+      img?.insertAdjacentHTML('afterend', this.renderEquipmentTiles());
+    }
+
+    (params.headerActions || []).forEach((a, i) => {
+      if (!a.indicators) return;
+      a.indicators = indicators;
+      const btn = this.modal!.querySelector(`[data-header-action="${i}"]`);
+      if (btn) btn.innerHTML = renderEquipmentShortcutHTML(indicators, a.label);
+    });
   }
 
   /**
@@ -437,6 +501,7 @@ export class WaterTankModalView {
           height: auto;
           filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
         "/>
+        ${this.renderEquipmentTiles()}
         <div style="
           font-size: 42px;
           font-weight: 700;
@@ -947,6 +1012,19 @@ export class WaterTankModalView {
     if (closeBtn) {
       closeBtn.addEventListener('click', () => this.config.onClose());
     }
+
+    // ED-1354: header actions (header não é re-renderizado em updateData → bind único)
+    this.modal.querySelectorAll<HTMLElement>('[data-header-action]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const action = this.config.params.headerActions?.[Number(btn.dataset.headerAction)];
+        try {
+          action?.onClick();
+        } catch (err) {
+          console.warn('[WaterTankModal] headerAction falhou:', err);
+        }
+      });
+    });
 
     // Export button
     const exportBtn = this.modal.querySelector('.myio-water-tank-export-btn');

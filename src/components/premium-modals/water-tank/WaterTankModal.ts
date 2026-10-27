@@ -10,6 +10,7 @@ import {
   TelemetryApiConfig,
   ThingsBoardTelemetryResponse
 } from './types';
+import type { EquipmentIndicator } from '../../well-pumps/types';
 
 // Verbose logs are OPT-IN: silent unless the host dashboard sets
 // window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
@@ -306,7 +307,7 @@ export class WaterTankModal {
   /**
    * Show the modal
    */
-  public async show(): Promise<{ close: () => void }> {
+  public async show(): Promise<{ close: () => void; updateEquipmentIndicators: (indicators: EquipmentIndicator[]) => void }> {
     try {
       dbg('[WaterTankModal] Initializing modal...');
 
@@ -349,7 +350,9 @@ export class WaterTankModal {
       dbg('[WaterTankModal] Modal opened successfully');
 
       return {
-        close: () => this.close()
+        close: () => this.close(),
+        // ED-1354: host atualiza B1/B2/S (tiles + atalho) sem reabrir a modal
+        updateEquipmentIndicators: (indicators: EquipmentIndicator[]) => this.view?.updateEquipmentIndicators(indicators)
       };
 
     } catch (error) {

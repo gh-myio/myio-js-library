@@ -17,11 +17,13 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveGroup,
   DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
+  filterWellAutomationItems,
 } from '../src/utils/devices/deviceClassificationProfile';
+import type { ClassifiableItem } from '../src/utils/devices/deviceClassificationProfile';
 
 const OCULTOS_PATTERNS = ['ARQUIVADO', 'SEM_DADOS', 'DESATIVADO', 'REMOVIDO', 'INATIVO'];
 
-interface Item {
+interface Item extends ClassifiableItem {
   deviceProfile?: string | null;
   identifier?: string | null;
   label?: string | null;
@@ -127,5 +129,33 @@ describe('RFC-0207 follow-up #2 — domain isolation', () => {
     } as typeof DEFAULT_DEVICE_CLASSIFICATION_PROFILE;
     const hydro: Item = { deviceProfile: 'HIDROMETRO', identifier: 'L-9' };
     expect(resolveGroup(hydro, energyOnly, 'water').group).toBe('lojas');
+  });
+});
+
+describe('ED-1354 — exclude well automation rows before normal grouping', () => {
+  it('filters only exact BOMBA_POCO/SOLENOIDE profiles for water and energy', () => {
+    const rows: Item[] = [
+      { deviceProfile: 'BOMBA_POCO', identifier: 'B1', label: 'Bomba do poço' },
+      { deviceProfile: 'solenoide', identifier: 'S', label: 'Solenoide' },
+      { deviceProfile: 'BOMBA_POCO_EXTRA', identifier: 'B1X' },
+      { deviceProfile: 'SOLENOIDE_AUX', identifier: 'SX' },
+      { deviceProfile: 'MOTOR', identifier: 'M1', label: 'BOMBA_POCO' },
+      { deviceProfile: 'HIDROMETRO_SHOPPING', identifier: 'SABESP' },
+    ];
+
+    for (const domain of ['water', 'energy'] as const) {
+      const filtered = filterWellAutomationItems(rows);
+      expect(filtered.map((item) => item.deviceProfile)).toEqual([
+        'BOMBA_POCO_EXTRA',
+        'SOLENOIDE_AUX',
+        'MOTOR',
+        'HIDROMETRO_SHOPPING',
+      ]);
+      const groups = filtered.map((item) =>
+        resolveGroup(item, DEFAULT_DEVICE_CLASSIFICATION_PROFILE, domain).group
+      );
+      expect(groups).toHaveLength(filtered.length);
+      expect(filtered.some((item) => ['BOMBA_POCO', 'SOLENOIDE'].includes(String(item.deviceProfile).toUpperCase()))).toBe(false);
+    }
   });
 });

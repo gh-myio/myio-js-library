@@ -75,6 +75,12 @@
         <div id="sc-auth" class="no">🔒 sem JWT</div>
         <div id="sc-envtab" class="sc-envtab"></div>
         <div id="sc-fields"><span style="opacity:.7">carregando settingsSchema.json do MAIN_VIEW…</span></div>
+        <fieldset id="sc-sim-fs"><legend>🧪 ED-1354 · Poços (simulado)</legend><div class="sc-fs-body">
+          <div class="sc-checkbox"><input type="checkbox" id="sc-sim-wells" /><label for="sc-sim-wells" style="margin:0">Injetar hidrômetro principal Sabesp + Poço 3/4 (CISTERNA_ENTRADA) + B1/B2 + S compartilhada</label></div>
+          <div style="opacity:.7;margin:4px 0">Vale no próximo ▶ Montar. Os widgets reais resolvem o S pelas cisternas; telemetria (<code>consumption</code> W / <code>state</code> on/off / nível) é servida localmente. Polling 10 s.</div>
+          <div style="display:flex;gap:4px;margin-top:4px"><button type="button" data-sim-toggle="b1">B1</button><button type="button" data-sim-toggle="b2">B2</button><button type="button" data-sim-toggle="s">S</button></div>
+          <div class="sc-checkbox" style="margin-top:5px"><input type="checkbox" id="sc-sim-s-no-telemetry" /><label for="sc-sim-s-no-telemetry" style="margin:0">Simular ausência de telemetria do S (indicador SEM LEITURA)</label></div>
+        </div></fieldset>
         <fieldset id="sc-widgets-fs"><legend>Widgets montados</legend><div class="sc-fs-body" id="sc-widgets">—</div></fieldset>
         <div style="opacity:.6;margin-top:8px">
           Widgets, templates, CSS e schemas são lidos de <code>src/…/v-5.2.0/WIDGET/</code>; o layout vem de <code>v-5.2.0.layout.json</code>.
@@ -230,6 +236,95 @@
   const _xhrOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (method, url, ...rest) { return _xhrOpen.call(this, method, typeof url === 'string' && url.startsWith('/api/') ? tbBase() + url : url, ...rest); };
 
+  /* ---------- ED-1354: poços simulados (2 CISTERNA_ENTRADA + bombas BOMBA_POCO + solenoide) ----------
+   * Rows sintéticas no alias da água + telemetria servida localmente para os ids sim-*. Os widgets
+   * reais (MAIN_VIEW/TELEMETRY) consomem como se viessem do TB: pumpBindings, consumption (W), state (on/off). */
+  const SIM = (() => {
+    const H = 3600000, t0 = Date.now();
+    const ids = { p3: 'sim-poco-3', p4: 'sim-poco-4', b1: 'sim-bomba-poco-3', b2: 'sim-bomba-poco-4', s: 'sim-solenoide-sabesp', sabesp: 'sim-hidrometro-principal-sabesp' };
+    const rated = { b1: 7400, b2: 5500 };
+    const series = {
+      b1: [[t0 - 22 * H, '7380'], [t0 - 19.5 * H, '0'], [t0 - 8 * H, '7412'], [t0 - 6.5 * H, '0'], [t0 - 47 * 60000, '7395']],
+      b2: [[t0 - 21 * H, '5480'], [t0 - 18 * H, '0'], [t0 - 5.2 * H, '5530'], [t0 - 3 * H, '0']],
+      s: [[t0 - 23 * H, 'on'], [t0 - 16 * H, 'off'], [t0 - 2 * H, 'on']],
+    };
+    const wells = { [ids.p3]: { label: 'POÇO 3', level: 312, perc: 0.72 }, [ids.p4]: { label: 'POÇO 4', level: 188, perc: 0.41 } };
+    // cada cisterna declara só as SUAS bombas (o poço é a própria cisterna); a solenoide da Sabesp é compartilhada
+    const bindings = (wellId) => JSON.stringify({
+      pumps: wellId === ids.p3
+        ? [{ tbId: ids.b1, gcdrId: 'sim-gcdr-b1', code: 'B1', label: 'Bomba Poço 3', thresholdW: 20 }]
+        : [{ tbId: ids.b2, gcdrId: 'sim-gcdr-b2', code: 'B2', label: 'Bomba Poço 4', thresholdW: 20 }],
+      valves: [{ tbId: ids.s, gcdrId: 'sim-gcdr-s', code: 'S', label: 'Solenoide Sabesp' }],
+    });
+    const on = () => { try { return localStorage.getItem('sc-sim-wells') === '1'; } catch { return false; } };
+    const valveTelemetryAvailable = () => { try { return localStorage.getItem('sc-sim-s-no-telemetry') !== '1'; } catch { return true; } };
+    function rows() {
+      const now = Date.now();
+      const out = [];
+      Object.entries(wells).forEach(([id, w]) => {
+        const ds = { type: 'entity', aliasName: 'allhidrosdevices', name: 'allhidrosdevices', entityId: id, entityType: 'DEVICE', entityName: `${w.label} (SIM)`, entityLabel: w.label };
+        const add = (name, type, v) => out.push({ datasource: ds, dataKey: { name, type, label: name }, data: [[now, v]] });
+        add('deviceType', 'attribute', 'CISTERNA_ENTRADA'); add('deviceProfile', 'attribute', 'CISTERNA_ENTRADA');
+        add('identifier', 'attribute', w.label); add('label', 'entityField', w.label);
+        add('centralName', 'attribute', 'Central Simulada'); add('lastActivityTime', 'attribute', now);
+        add('connectionStatus', 'timeseries', 'online');
+        add('water_level', 'timeseries', w.level); add('water_percentage', 'timeseries', w.perc);
+        add('pumpBindings', 'attribute', bindings(id));
+      });
+      const sabespDs = { type: 'entity', aliasName: 'allhidrosdevices', name: 'allhidrosdevices', entityId: ids.sabesp, entityType: 'DEVICE', entityName: 'Hidrômetro Principal Sabesp (SIM)', entityLabel: 'Hidrômetro Principal Sabesp (SIM)' };
+      const addSabesp = (name, type, value) => out.push({ datasource: sabespDs, dataKey: { name, type, label: name }, data: [[now, value]] });
+      addSabesp('deviceType', 'attribute', 'HIDROMETRO_SHOPPING');
+      addSabesp('deviceProfile', 'attribute', 'HIDROMETRO_SHOPPING');
+      addSabesp('identifier', 'attribute', 'SABESP-PRINCIPAL-SIM');
+      addSabesp('label', 'entityField', 'Hidrômetro Principal Sabesp (SIM)');
+      addSabesp('centralName', 'attribute', 'Central Simulada');
+      addSabesp('lastActivityTime', 'attribute', now);
+      addSabesp('connectionStatus', 'timeseries', 'online');
+      addSabesp('pulses', 'timeseries', '12345');
+      addSabesp('litersPerPulse', 'attribute', '1');
+      return out;
+    }
+    function toggle(k) {
+      const s = series[k], last = s[s.length - 1][1];
+      const next = k === 's' ? (last === 'on' ? 'off' : 'on') : Number(last) > 0 ? '0' : String(Math.round(rated[k] * (0.97 + Math.random() * 0.06)));
+      s.push([Date.now(), next]);
+      log('info', `SIM ${k === 's' ? 'S state' : k.toUpperCase() + ' consumption'} = ${next}`);
+    }
+    /** Resposta TB /values/timeseries para um id sim-* (null = não é simulado). */
+    function respond(url) {
+      const m = /\/DEVICE\/(sim-[\w-]+)\/values\/timeseries/.exec(url);
+      if (!m) return null;
+      const id = decodeURIComponent(m[1]);
+      const qs = new URL(url, location.origin).searchParams;
+      const keys = (qs.get('keys') || '').split(',');
+      const start = Number(qs.get('startTs') || 0), end = Math.min(Number(qs.get('endTs') || Date.now()), Date.now());
+      const desc = qs.get('orderBy') === 'DESC', limit = Number(qs.get('limit') || 5000);
+      const body = {};
+      const pick = (pts) => { let r = pts.filter(([ts]) => ts >= start && ts <= end); if (desc) r = r.reverse(); return r.slice(0, limit).map(([ts, value]) => ({ ts, value })); };
+      const key = Object.keys(ids).find((k) => ids[k] === id);
+      if (key === 'b1' || key === 'b2') { if (keys.includes('consumption')) body.consumption = pick(series[key]); }
+      else if (key === 's') { if (keys.includes('state')) body.state = valveTelemetryAvailable() ? pick(series.s) : []; }
+      else if (wells[id]) {
+        const w = wells[id], lvl = [], pct = [];
+        for (let ts = end; ts >= Math.max(start, end - 30 * 24 * H); ts -= 30 * 60000) {
+          const k2 = (end - ts) / H, p = Math.min(0.98, Math.max(0.08, w.perc + 0.18 * Math.sin(k2 / 3.2) - 0.06 * Math.sin(k2 / 0.9)));
+          pct.push({ ts, value: p.toFixed(4) }); lvl.push({ ts, value: String(Math.round((p / w.perc) * w.level)) });
+        }
+        keys.forEach((k3) => { if (k3 === 'water_level') body.water_level = lvl; if (k3 === 'water_percentage') body.water_percentage = pct; });
+      }
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return { on, rows, toggle, respond, valveTelemetryAvailable };
+  })();
+  {
+    const prevFetch = window.fetch;
+    window.fetch = (input, init) => {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      const sim = SIM.on() ? SIM.respond(url) : null;
+      return sim ? Promise.resolve(sim) : prevFetch(input, init);
+    };
+  }
+
   const jwt = () => localStorage.getItem('jwt_token') || '';
   async function tbApi(path, body) {
     const r = await _fetch(tbBase() + path, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', 'X-Authorization': 'Bearer ' + jwt() }, body: body ? JSON.stringify(body) : undefined });
@@ -238,7 +333,14 @@
   }
 
   /* ---------- entity aliases → datasource rows (ctx.data shape) ---------- */
-  const domainOfType = (t) => { const u = String(t || '').toUpperCase(); return u.includes('HIDROMETRO') ? 'water' : u.includes('TERMOSTATO') ? 'temperature' : 'energy'; };
+  // ED-1354: tanques/cisternas são água; bombas de poço e solenoides não entram em nenhum alias
+  // (o MAIN_VIEW lê o estado deles por REST via pumpBindings — em energia virariam "Bombas Hidráulicas")
+  const domainOfType = (t) => {
+    const u = String(t || '').toUpperCase();
+    if (u === 'BOMBA_POCO' || u === 'SOLENOIDE') return 'none';
+    if (u.includes('HIDROMETRO') || u === 'CAIXA_DAGUA' || u === 'TANK' || u.startsWith('CISTERNA')) return 'water';
+    return u.includes('TERMOSTATO') ? 'temperature' : 'energy';
+  };
   let DEVICE_TYPES = null;
   async function deviceTypes() {
     if (!DEVICE_TYPES) DEVICE_TYPES = (await tbApi('/api/device/types')).map((x) => x.type || x);
@@ -286,6 +388,7 @@
     for (const ds of def.datasources || []) {
       const r = await resolveAlias(ds.alias, ds.keys, customerId);
       rows.push(...r);
+      if (ds.alias === 'allhidrosdevices' && SIM.on()) rows.push(...SIM.rows());
       datasources.push({ type: 'entity', aliasName: ds.alias, name: ds.alias, dataKeys: keyList(ds.keys).map((k) => ({ name: k.name, type: k.type.toLowerCase(), label: k.name })) });
     }
     return { rows, datasources };
@@ -586,6 +689,24 @@
   document.getElementById('sc-toggle').onclick = () => { const c = document.body.classList.toggle('console-collapsed'); document.getElementById('sc-toggle').textContent = c ? '⟨' : '⟩'; setTimeout(onResize, 250); };
   document.getElementById('sc-log-toggle').onclick = () => { const l = document.getElementById('sc-log'); l.hidden = !l.hidden; };
   document.querySelector('#sc-widgets-fs legend').onclick = () => document.getElementById('sc-widgets-fs').classList.toggle('collapsed');
+  // ED-1354: poços simulados
+  {
+    const chk = document.getElementById('sc-sim-wells');
+    const noValveTelemetry = document.getElementById('sc-sim-s-no-telemetry');
+    chk.checked = SIM.on();
+    noValveTelemetry.checked = !SIM.valveTelemetryAvailable();
+    const apply = () => {
+      window.__myioWellEquipmentSimulated = chk.checked;
+      window.__myioWellEquipmentRefreshMs = chk.checked ? 10000 : undefined;
+    };
+    apply();
+    chk.onchange = () => { try { localStorage.setItem('sc-sim-wells', chk.checked ? '1' : '0'); } catch {} apply(); log('info', `poços simulados: ${chk.checked ? 'ON' : 'OFF'} (vale no próximo Montar)`); };
+    noValveTelemetry.onchange = () => {
+      try { localStorage.setItem('sc-sim-s-no-telemetry', noValveTelemetry.checked ? '1' : '0'); } catch {}
+      log('info', `telemetria S: ${noValveTelemetry.checked ? 'ausente' : 'disponível'} (atualiza no próximo polling)`);
+    };
+    document.querySelectorAll('[data-sim-toggle]').forEach((b) => { b.onclick = () => SIM.toggle(b.dataset.simToggle); });
+  }
 
   window.addEventListener('load', async () => {
     try { LAYOUT = await (await _fetch(`${LAYOUT_URL}?${bust()}`)).json(); } catch (e) { log('err', 'layout: ' + e.message); return; }

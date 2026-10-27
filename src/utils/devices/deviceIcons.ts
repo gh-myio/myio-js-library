@@ -30,6 +30,7 @@ export const DeviceIconType = {
   BOMBA_CAG: 'BOMBA_CAG',
   BOMBA_INCENDIO: 'BOMBA_INCENDIO',
   BOMBA: 'BOMBA',
+  BOMBA_POCO: 'BOMBA_POCO',
   MEDIDOR_3F: '3F_MEDIDOR',
   RELOGIO: 'RELOGIO',
   ENTRADA: 'ENTRADA',
@@ -41,6 +42,8 @@ export const DeviceIconType = {
   HIDROMETRO_AREA_COMUM: 'HIDROMETRO_AREA_COMUM',
   HIDROMETRO_SHOPPING: 'HIDROMETRO_SHOPPING',
   CAIXA_DAGUA: 'CAIXA_DAGUA',
+  CISTERNA: 'CISTERNA',
+  CISTERNA_ENTRADA: 'CISTERNA_ENTRADA',
   TERMOSTATO: 'TERMOSTATO',
   COMPRESSOR: 'COMPRESSOR',
   VENTILADOR: 'VENTILADOR',
@@ -77,6 +80,39 @@ const BOX_ICON_SVG =
 /** `data:` URI of the BOX placeholder — usable anywhere a hosted icon URL is. */
 export const BOX_ICON_DATA_URI = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(BOX_ICON_SVG);
 
+/**
+ * CISTERNA (ED-1354, poço/cisterna): mesma linguagem do ícone TANK (cilindro azul em faixas,
+ * contorno escuro, tampa) com o que a diferencia da caixa d'água — a solenoide na entrada
+ * (esquerda) e as duas bombas de recalque ligadas ao reservatório (direita). Inline até
+ * existir arte hospedada.
+ */
+const CISTERNA_ICON_SVG =
+  // width/height explícitos: sem tamanho intrínseco o <img> do card (.device-image, height auto) renderiza 0×0
+  '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none" stroke-linejoin="round" stroke-linecap="round">' +
+  // tubulações (contorno escuro + miolo cinza): entrada pela solenoide e recalque das 2 bombas
+  '<path d="M3 36h24M66 40h10M66 66h10" stroke="#0B3B5C" stroke-width="7"/>' +
+  '<path d="M3 36h24M66 40h10M66 66h10" stroke="#B0BEC5" stroke-width="3.5"/>' +
+  // corpo do cilindro (água em faixas, como o TANK)
+  '<path d="M26 28v46c0 3.3 9 6 20 6s20-2.7 20-6V28" fill="#29B6F6"/>' +
+  '<path d="M26 44c0 3.3 9 6 20 6s20-2.7 20-6v15c0 3.3-9 6-20 6s-20-2.7-20-6z" fill="#4FC3F7"/>' +
+  '<path d="M26 44c0 3.3 9 6 20 6s20-2.7 20-6M26 59c0 3.3 9 6 20 6s20-2.7 20-6" stroke="#0B3B5C" stroke-width="2.5"/>' +
+  '<path d="M26 28v46c0 3.3 9 6 20 6s20-2.7 20-6V28" stroke="#0B3B5C" stroke-width="3.5"/>' +
+  // tampa
+  '<ellipse cx="46" cy="28" rx="20" ry="6" fill="#81D4FA" stroke="#0B3B5C" stroke-width="3.5"/>' +
+  // solenoide: válvula (gravata) + bobina
+  '<path d="M14 36v-9" stroke="#0B3B5C" stroke-width="2.5"/>' +
+  '<rect x="8.5" y="17" width="11" height="9" rx="2" fill="#FFB300" stroke="#0B3B5C" stroke-width="2.5"/>' +
+  '<path d="M8 30l12 12V30L8 42z" fill="#29B6F6" stroke="#0B3B5C" stroke-width="2.5"/>' +
+  // bombas (símbolo ISO: círculo + triângulo apontando p/ a descarga, no reservatório)
+  '<circle cx="83" cy="40" r="9" fill="#ECEFF1" stroke="#0B3B5C" stroke-width="3"/>' +
+  '<path d="M87 35v10l-8-5z" fill="#0B3B5C"/>' +
+  '<circle cx="83" cy="66" r="9" fill="#ECEFF1" stroke="#0B3B5C" stroke-width="3"/>' +
+  '<path d="M87 61v10l-8-5z" fill="#0B3B5C"/>' +
+  '</svg>';
+
+/** `data:` URI do ícone CISTERNA. */
+export const CISTERNA_ICON_DATA_URI = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(CISTERNA_ICON_SVG);
+
 /** Static URL map (current opaque-token strategy). */
 export const deviceIcons: Record<DeviceIconType, string> = {
   ESCADA_ROLANTE:        'https://dashboard.myio-bas.com/api/images/public/EJ997iB2HD1AYYUHwIloyQOOszeqb2jp',
@@ -86,6 +122,8 @@ export const deviceIcons: Record<DeviceIconType, string> = {
   BOMBA_CAG:             'https://dashboard.myio-bas.com/api/images/public/rbO2wQb6iKBtX0Ec04DFDcO3Qg04EOoD',
   BOMBA_INCENDIO:        'https://dashboard.myio-bas.com/api/images/public/YJkELCk9kluQSM6QXaFINX6byQWI7vbB',
   BOMBA:                 'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
+  // BOMBA_POCO (ED-1354): bomba de poço artesiano — sem arte própria ainda, usa a do MOTOR/BOMBA.
+  BOMBA_POCO:            'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
   '3F_MEDIDOR':          'https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k',
   RELOGIO:               'https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB',
   ENTRADA:               'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
@@ -100,6 +138,10 @@ export const deviceIcons: Record<DeviceIconType, string> = {
   HIDROMETRO_AREA_COMUM: 'https://dashboard.myio-bas.com/api/images/public/IbEhjsvixAxwKg1ntGGZc5xZwwvGKv2t',
   HIDROMETRO_SHOPPING:   'https://dashboard.myio-bas.com/api/images/public/OIMmvN4ZTKYDvrpPGYY5agqMRoSaWNTI',
   CAIXA_DAGUA:           'https://dashboard.myio-bas.com/api/images/public/3t6WVhMQJFsrKA8bSZmrngDsNPkZV7fq',
+  // CISTERNA (ED-1354): poço/cisterna (nível + bombas BOMBA_POCO + solenoides) — SVG inline no estilo do TANK.
+  CISTERNA:              CISTERNA_ICON_DATA_URI,
+  // CISTERNA_ENTRADA: mesma arte — o sufixo só decide a coluna (Entrada × Área Comum)
+  CISTERNA_ENTRADA:      CISTERNA_ICON_DATA_URI,
   TERMOSTATO:            'https://dashboard.myio-bas.com/api/images/public/rtCcq6kZZVCD7wgJywxEurRZwR8LA7Q7',
   // COMPRESSOR shares FANCOIL art; VENTILADOR shares MOTOR/BOMBA art (single static icons, no on/off variation).
   COMPRESSOR:            'https://dashboard.myio-bas.com/api/images/public/4BWMuVIFHnsfqatiV86DmTrOB7IF0X8Y',
@@ -122,6 +164,7 @@ export const deviceIconLabels: Record<DeviceIconType, string> = {
   BOMBA_CAG:             'Bomba CAG',
   BOMBA_INCENDIO:        'Bomba Incêndio',
   BOMBA:                 'Bomba',
+  BOMBA_POCO:            'Bomba de Poço',
   '3F_MEDIDOR':          'Medidor 3F',
   RELOGIO:               'Relógio',
   ENTRADA:               'Entrada',
@@ -133,6 +176,8 @@ export const deviceIconLabels: Record<DeviceIconType, string> = {
   HIDROMETRO_AREA_COMUM: 'Hidrômetro Área Comum',
   HIDROMETRO_SHOPPING:   'Hidrômetro Shopping',
   CAIXA_DAGUA:           "Caixa d'Água",
+  CISTERNA:              'Cisterna',
+  CISTERNA_ENTRADA:      'Cisterna (Entrada)',
   TERMOSTATO:            'Termostato',
   COMPRESSOR:            'Compressor',
   VENTILADOR:            'Ventilador',

@@ -37,7 +37,7 @@ export class SettingsController {
       deviceType: params.deviceType, // Pass deviceType for conditional rendering
       deviceProfile: params.deviceProfile, // RFC-0076: Pass deviceProfile for 3F_MEDIDOR fallback
       customerName: params.customerName, // RFC-0077: Pass customer/shopping name for display
-      customerId: params.customerId, // RFC-0080: Pass customerId for fetching GLOBAL mapInstantaneousPower
+      customerId: params.customerId || (window as any).MyIOUtils?.customerTB_ID || undefined, // Shared customer context for settings tabs
       deviceId: params.deviceId, // RFC-0077: Pass deviceId for Power Limits feature
       jwtToken: params.jwtToken, // RFC-0077: Pass jwtToken for API calls
       tbBaseUrl: params.api?.tbBaseUrl, // Pass tbBaseUrl for superAdmin API calls

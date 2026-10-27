@@ -1,4 +1,16 @@
 // water-tank/types.ts - Types for openDashboardPopupWaterTank component
+import type { EquipmentIndicator } from '../../well-pumps/types';
+
+/**
+ * ED-1354: botão extra no header da modal (ex.: atalho "Bombas B1 B2 S" — o host
+ * decide quem vê, p.ex. só @myio). Com `indicators`, o botão mostra mini-badges de estado.
+ */
+export interface WaterTankHeaderAction {
+  label: string;
+  title?: string;
+  indicators?: EquipmentIndicator[];
+  onClick: () => void;
+}
 
 /**
  * Options for opening the water tank detail modal
@@ -57,6 +69,12 @@ export interface OpenDashboardPopupWaterTankOptions {
     showExport?: boolean;              // Show CSV export button (default: true)
     showLevelIndicator?: boolean;      // Show visual level indicator (default: true)
   };
+
+  // ========================================
+  // ED-1354: EQUIPAMENTOS DO POÇO
+  // ========================================
+  equipmentIndicators?: EquipmentIndicator[]; // B1/B2/S sob o ícone do reservatório (visível a todos)
+  headerActions?: WaterTankHeaderAction[];     // botões extras no header, antes do ×
 
   // ========================================
   // EVENT HOOKS

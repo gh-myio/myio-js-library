@@ -36,6 +36,21 @@ export interface ClassifiableItem {
   [key: string]: unknown;
 }
 
+const WELL_AUTOMATION_PROFILES = new Set(['BOMBA_POCO', 'SOLENOIDE']);
+
+/**
+ * Remove well automation devices from ordinary Shopping water/energy rows.
+ * Matching is intentionally exact and profile-only; labels and other profiles
+ * remain untouched.
+ */
+export function filterWellAutomationItems<T extends ClassifiableItem>(
+  items: readonly T[] | null | undefined
+): T[] {
+  return (items || []).filter(
+    (item) => !WELL_AUTOMATION_PROFILES.has(String(item?.deviceProfile || '').trim().toUpperCase())
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Result types
 // ---------------------------------------------------------------------------

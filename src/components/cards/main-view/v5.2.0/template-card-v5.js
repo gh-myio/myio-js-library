@@ -40,6 +40,7 @@ import {
   getStaticDeviceImage,
   getTypesByCategory,
 } from '../../../../utils/devices/deviceTypeConfig';
+import { createEquipmentIndicatorStrip } from '../../../well-pumps/equipmentIndicators';
 
 // ============================================
 // CONSTANTS
@@ -87,6 +88,8 @@ export function renderCardComponentV5({
   // Decimal places for the % badge. Resolved at render time so it can be changed
   // without rebuilding the lib: this prop > window.MyIOUtils.percentDecimals > 2.
   percentDecimals,
+  // ED-1354: clique na coluna B1/B2/S (entityObject.equipmentIndicators) — ex.: abre a modal das bombas
+  handleActionEquipment,
 }) {
   const {
     entityId,
@@ -130,12 +133,18 @@ export function renderCardComponentV5({
     // Card já desenhado, telemetria (valor/status) ainda chegando → spinner no valor, sem selo,
     // status neutro (não marca offline nem pisca enquanto carrega)
     dataLoading = false,
+    // ED-1354: indicadores B1/B2/S (bombas MOTOR + solenoide) no card do poço
+    equipmentIndicators,
   } = entityObject;
-  const deviceStatus = dataLoading ? 'loading' : rawDeviceStatus;
-
   // deviceProfile é a autoridade; o campo legado deviceType (quando presente em
   // payloads antigos) serve só de último recurso de exibição.
-  const deviceType = deviceProfile || legacyDeviceType || '';
+  const rawProfile = String(deviceProfile || legacyDeviceType || '');
+  // Device "*_MANUAL" (ex.: 3F_MEDIDOR_MANUAL, HIDROMETRO_MANUAL): leitura lançada à mão, sem
+  // telemetria de conexão → ignora as verificações de conectividade (nunca offline/sem info/
+  // conexão fraca, sem piscar) e usa o tipo base p/ categoria, ícone e unidade.
+  const isManualDevice = /_MANUAL$/i.test(rawProfile);
+  const deviceType = isManualDevice ? rawProfile.replace(/_MANUAL$/i, '') : rawProfile;
+  const deviceStatus = dataLoading ? 'loading' : isManualDevice ? 'power_on' : rawDeviceStatus;
 
   /*********************************************************
    * MyIO Global Toast Manager
@@ -342,7 +351,9 @@ export function renderCardComponentV5({
 
   // For TANK devices, waterPercentage is 0-1, so multiply by 100
   // For other devices, perc is already 0-100
-  const isTankDevice = deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA';
+  // ED-1354: CISTERNA / CISTERNA_ENTRADA = poço/cisterna (nível em M.C.A, como a caixa d'água)
+  const isTankDevice =
+    deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA' || deviceType === 'CISTERNA' || deviceType === 'CISTERNA_ENTRADA';
   const percentageForDisplay = isTankDevice ? (waterPercentage || 0) * 100 : perc;
   // TANK: water_level chega em cm — a conversão p/ M.C.A (÷100) é só de exibição
   const tankLevelCm = isTankDevice ? Number(waterLevel ?? val) : null;
@@ -891,6 +902,16 @@ export function renderCardComponentV5({
 
   container.innerHTML = cardHTML;
   const enhancedCardElement = container.querySelector('.device-card-centered');
+
+  // ED-1354: coluna B1/B2/S à direita, na altura do ícone (verde = ligada, azul = aberta…)
+  if (Array.isArray(equipmentIndicators) && equipmentIndicators.length > 0 && enhancedCardElement) {
+    enhancedCardElement.appendChild(
+      createEquipmentIndicatorStrip(equipmentIndicators, {
+        onClick:
+          typeof handleActionEquipment === 'function' ? () => handleActionEquipment(entityObject) : undefined,
+      })
+    );
+  }
 
   // Subtle orange bottom line when the device is flagged in exclude_groups_totals.
   try {
