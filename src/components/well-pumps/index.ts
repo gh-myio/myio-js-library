@@ -21,6 +21,8 @@ export {
   dayStats as equipmentDayStats,
   timelineSegments as equipmentTimelineSegments,
   indicatorsFromModalData,
+  indicatorsFromSharedWellValves,
+  sharedWellValveIds,
 } from './equipmentState';
 export type {
   StateInterval,

@@ -5,7 +5,11 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { renderCardComponentV5 } from '../../../src/components/cards/main-view/v5.2.0/template-card-v5.js';
 import { WaterTankModalView } from '../../../src/components/premium-modals/water-tank/WaterTankModalView';
 import { renderWellPumpsBodyHTML } from '../../../src/components/well-pumps/WellPumpsModal';
-import { indicatorsFromModalData } from '../../../src/components/well-pumps/equipmentState';
+import {
+  indicatorsFromModalData,
+  indicatorsFromSharedWellValves,
+  sharedWellValveIds,
+} from '../../../src/components/well-pumps/equipmentState';
 import type { EquipmentIndicator } from '../../../src/components/well-pumps/types';
 
 const INDS: EquipmentIndicator[] = [
@@ -38,6 +42,61 @@ describe('card V5 — entityObject.equipmentIndicators', () => {
   it('sem indicadores → card inalterado', () => {
     const el = cardEl(renderCardComponentV5({ entityObject: wellEntity(), enableDragDrop: false }));
     expect(el.querySelector('.myio-eq-strip')).toBeNull();
+  });
+
+  it('card principal Sabesp reflete a solenoide compartilhada por tbId, inclusive SEM LEITURA', () => {
+    const unknownValve = {
+      tbId: 'sabesp-solenoid',
+      code: 'S',
+      label: 'Solenoide Sabesp',
+      history: null,
+    };
+    const unknown = indicatorsFromSharedWellValves([
+      { pumps: [], valves: [unknownValve, { ...unknownValve }, { ...unknownValve, tbId: 'local-valve' }] },
+      { pumps: [], valves: [{ ...unknownValve }] },
+    ]);
+    expect(unknown).toHaveLength(1);
+    expect(unknown[0].active).toBeNull();
+    expect(sharedWellValveIds([
+      { pumps: [], valves: [unknownValve, { ...unknownValve }, { ...unknownValve, tbId: 'local-valve' }] },
+      { pumps: [], valves: [{ ...unknownValve }] },
+    ])).toEqual(['sabesp-solenoid']);
+    expect(indicatorsFromSharedWellValves([
+      { pumps: [], valves: [unknownValve, { ...unknownValve, tbId: 'local-valve' }] },
+    ])).toEqual([]);
+
+    const principalCard = (equipmentIndicators: EquipmentIndicator[]) =>
+      cardEl(
+        renderCardComponentV5({
+          entityObject: {
+            ...wellEntity({
+              entityId: 'sabesp-water-entry',
+              labelOrName: 'Hidrômetro principal',
+              deviceProfile: 'HIDROMETRO_SHOPPING',
+              equipmentIndicators,
+            }),
+          },
+          enableDragDrop: false,
+        })
+      );
+    const card = principalCard(unknown);
+    expect(card.querySelector('.myio-eq-b.unk')?.getAttribute('data-code')).toBe('S');
+
+    const open = indicatorsFromSharedWellValves([
+      {
+        pumps: [],
+        valves: [
+          { ...unknownValve, history: [[Date.now() - 1000, null] as [number, null]] },
+          { ...unknownValve, tbId: 'local-valve', history: [[Date.now() - 1000, null] as [number, null]] },
+        ],
+      },
+      {
+        pumps: [],
+        valves: [{ ...unknownValve, history: [[Date.now() - 1000, null] as [number, null]] }],
+      },
+    ]);
+    const updatedCard = principalCard(open);
+    expect(updatedCard.querySelector('.myio-eq-b.open')?.getAttribute('data-code')).toBe('S');
   });
 
   it('com indicadores → coluna B1/B2/S; clique chama handleActionEquipment com o entityObject', () => {

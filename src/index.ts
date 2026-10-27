@@ -212,6 +212,7 @@ export {
   DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
   resolveGroup,
   resolveCategory,
+  filterWellAutomationItems,
   validateProfile,
   normalizeProfile,
   resolveActiveProfile,
@@ -589,6 +590,8 @@ export {
   PUMP_POWER_KEY,
   VALVE_STATE_KEYS,
   indicatorsFromModalData,
+  indicatorsFromSharedWellValves,
+  sharedWellValveIds,
 } from './components/well-pumps';
 export type {
   StateInterval,
