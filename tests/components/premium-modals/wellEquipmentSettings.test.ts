@@ -8,6 +8,7 @@ const catalog = [
   { id: { id: 'pump-2' }, name: 'Pump two' },
   { id: { id: 'valve-1' }, name: 'Solenoid one' },
   { id: { id: 'wrong-1' }, name: 'Wrong profile' },
+  { id: { id: 'cistern-pump-1' }, name: 'Cistern pump' },
 ];
 const equipmentAttributes: Record<string, Array<{ key: string; value: unknown }>> = {
   'pump-1': [
@@ -20,6 +21,7 @@ const equipmentAttributes: Record<string, Array<{ key: string; value: unknown }>
     { key: 'gcdrDeviceId', value: 'gcdr-valve-1' },
   ],
   'wrong-1': [{ key: 'deviceProfile', value: 'BOMBA_HIDRAULICA' }],
+  'cistern-pump-1': [{ key: 'deviceProfile', value: 'BOMBA_CISTERNA' }],
 };
 
 function response(body: unknown, ok = true, status = 200) {
@@ -123,6 +125,24 @@ describe('WellEquipmentTab', () => {
       },
     });
     expect(container.textContent).toContain('Vínculos salvos com sucesso.');
+  });
+
+  it('BOMBA_CISTERNA behaves like BOMBA_POCO: listed for B1/B2 (not S) and saved as a pump', async () => {
+    const { container, fetchMock, tab } = openTab();
+    await tab.init();
+    const opt = (sel: string) => container.querySelector(`${sel} [value="cistern-pump-1"]`);
+    expect(opt('#wet-b1-device')).not.toBeNull();
+    expect(opt('#wet-b2-device')).not.toBeNull();
+    expect(opt('#wet-s-device')).toBeNull();
+    select(container, '#wet-b1-device', 'pump-1');
+    select(container, '#wet-b2-device', 'cistern-pump-1');
+    await save(container);
+
+    const post = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+    expect(JSON.parse(String(post?.[1]?.body)).pumpBindings.pumps).toEqual([
+      { tbId: 'pump-1', gcdrId: 'gcdr-pump-1', code: 'B1', label: 'Pump one' },
+      { tbId: 'cistern-pump-1', code: 'B2', label: 'Cistern pump' },
+    ]);
   });
 
   it('saves full bindings with stable B1/B2/S codes and editable labels', async () => {

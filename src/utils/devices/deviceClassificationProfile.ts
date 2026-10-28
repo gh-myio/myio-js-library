@@ -36,7 +36,8 @@ export interface ClassifiableItem {
   [key: string]: unknown;
 }
 
-const WELL_AUTOMATION_PROFILES = new Set(['BOMBA_POCO', 'SOLENOIDE']);
+// BOMBA_CISTERNA = mesmo comportamento de BOMBA_POCO.
+const WELL_AUTOMATION_PROFILES = new Set(['BOMBA_POCO', 'BOMBA_CISTERNA', 'SOLENOIDE']);
 
 /**
  * Remove well automation devices from ordinary Shopping water/energy rows.

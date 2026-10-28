@@ -158,4 +158,13 @@ describe('ED-1354 — exclude well automation rows before normal grouping', () =
       expect(filtered.some((item) => ['BOMBA_POCO', 'SOLENOIDE'].includes(String(item.deviceProfile).toUpperCase()))).toBe(false);
     }
   });
+
+  it('BOMBA_CISTERNA is filtered exactly like BOMBA_POCO', () => {
+    const rows: Item[] = [
+      { deviceProfile: 'BOMBA_CISTERNA', identifier: 'B1' },
+      { deviceProfile: ' bomba_cisterna ', identifier: 'B2' },
+      { deviceProfile: 'BOMBA_CISTERNA_AUX', identifier: 'BX' },
+    ];
+    expect(filterWellAutomationItems(rows).map((item) => item.identifier)).toEqual(['BX']);
+  });
 });
