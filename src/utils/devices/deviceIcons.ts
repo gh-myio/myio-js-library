@@ -31,6 +31,7 @@ export const DeviceIconType = {
   BOMBA_INCENDIO: 'BOMBA_INCENDIO',
   BOMBA: 'BOMBA',
   BOMBA_POCO: 'BOMBA_POCO',
+  BOMBA_CISTERNA: 'BOMBA_CISTERNA',
   MEDIDOR_3F: '3F_MEDIDOR',
   RELOGIO: 'RELOGIO',
   ENTRADA: 'ENTRADA',
@@ -124,6 +125,8 @@ export const deviceIcons: Record<DeviceIconType, string> = {
   BOMBA:                 'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
   // BOMBA_POCO (ED-1354): bomba de poço artesiano — sem arte própria ainda, usa a do MOTOR/BOMBA.
   BOMBA_POCO:            'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
+  // BOMBA_CISTERNA: mesmo comportamento/arte de BOMBA_POCO.
+  BOMBA_CISTERNA:        'https://dashboard.myio-bas.com/api/images/public/Rge8Q3t0CP5PW8XyTn9bBK9aVP6uzSTT',
   '3F_MEDIDOR':          'https://dashboard.myio-bas.com/api/images/public/f9Ce4meybsdaAhAkUlAfy5ei3I4kcN4k',
   RELOGIO:               'https://dashboard.myio-bas.com/api/images/public/ljHZostWg0G5AfKiyM8oZixWRIIGRASB',
   ENTRADA:               'https://dashboard.myio-bas.com/api/images/public/TQHPFqiejMW6lOSVsb8Pi85WtC0QKOLU',
@@ -165,6 +168,7 @@ export const deviceIconLabels: Record<DeviceIconType, string> = {
   BOMBA_INCENDIO:        'Bomba Incêndio',
   BOMBA:                 'Bomba',
   BOMBA_POCO:            'Bomba de Poço',
+  BOMBA_CISTERNA:        'Bomba de Cisterna',
   '3F_MEDIDOR':          'Medidor 3F',
   RELOGIO:               'Relógio',
   ENTRADA:               'Entrada',

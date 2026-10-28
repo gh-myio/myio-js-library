@@ -75,6 +75,7 @@ export const DEVICE_TYPE_CONFIG: Record<string, DeviceTypeConfigEntry> = {
   CISTERNA: { category: 'water', image: deviceIcons.CISTERNA },
   CISTERNA_ENTRADA: { category: 'water', image: deviceIcons.CISTERNA_ENTRADA },
   BOMBA_POCO: { category: 'energy', image: deviceIcons.BOMBA_POCO }, // ED-1354: bomba do poço (consumption W)
+  BOMBA_CISTERNA: { category: 'energy', image: deviceIcons.BOMBA_CISTERNA }, // mesmo comportamento de BOMBA_POCO
 
   // Tank devices (dynamic images based on level)
   TANK: { category: 'tank', image: null },

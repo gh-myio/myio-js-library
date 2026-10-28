@@ -1290,7 +1290,7 @@ function _publishDeviceStatusOptions() {
   window.dispatchEvent(new CustomEvent('myio:device-status-options', { detail }));
 }
 
-// ── ED-1354: Automação dos poços — bombas (BOMBA_POCO) + solenoide (SOLENOIDE) ───────
+// ── ED-1354: Automação dos poços — bombas (BOMBA_POCO ou BOMBA_CISTERNA, mesmo comportamento) + solenoide (SOLENOIDE) ───────
 // Poço = device de nível com deviceProfile CISTERNA_ENTRADA (coluna Entrada da água) ou CISTERNA
 // (coluna Área Comum), lido como CAIXA_DAGUA (water_level/water_percentage) e fora dos totais em m³.
 // N bombas + M solenoides DESTA cisterna no atributo SERVER_SCOPE `pumpBindings` (JSON):
@@ -1313,7 +1313,8 @@ function _filterWellAutomationItems(domain, items) {
   if (typeof filter === 'function') return filter(items);
   // Keep the defensive boundary effective with an older library bundle too.
   return (items || []).filter(
-    (item) => !['BOMBA_POCO', 'SOLENOIDE'].includes(String(item?.deviceProfile || '').trim().toUpperCase())
+    (item) =>
+      !['BOMBA_POCO', 'BOMBA_CISTERNA', 'SOLENOIDE'].includes(String(item?.deviceProfile || '').trim().toUpperCase())
   );
 }
 

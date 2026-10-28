@@ -22,10 +22,15 @@ export interface WellEquipmentBindings {
 
 interface EquipmentOption {
   tbId: string;
-  profile: 'BOMBA_POCO' | 'SOLENOIDE';
+  profile: 'BOMBA_POCO' | 'BOMBA_CISTERNA' | 'SOLENOIDE';
   label: string;
   gcdrId?: string;
 }
+
+/** BOMBA_POCO e BOMBA_CISTERNA têm o mesmo comportamento: ambos servem para B1/B2. */
+const PUMP_EQUIPMENT_PROFILES = new Set<string>(['BOMBA_POCO', 'BOMBA_CISTERNA']);
+type EquipmentKind = 'pump' | 'valve';
+const kindOf = (profile: string): EquipmentKind => (PUMP_EQUIPMENT_PROFILES.has(profile) ? 'pump' : 'valve');
 
 interface TbDevice {
   id?: { id?: string } | string;
@@ -159,10 +164,10 @@ export class WellEquipmentTab {
         try {
           const attributes = await this.fetchAttributes(item.tbId, ATTRIBUTE_KEYS);
           const profile = String(attributes.get('deviceProfile') || '').toUpperCase();
-          if (profile !== 'BOMBA_POCO' && profile !== 'SOLENOIDE') continue;
+          if (!PUMP_EQUIPMENT_PROFILES.has(profile) && profile !== 'SOLENOIDE') continue;
           matching.push({
             tbId: item.tbId,
-            profile,
+            profile: profile as EquipmentOption['profile'],
             label: String(item.device.label || item.device.name || item.tbId),
             gcdrId: attributes.get('gcdrDeviceId') == null ? undefined : String(attributes.get('gcdrDeviceId')),
           });
@@ -177,8 +182,8 @@ export class WellEquipmentTab {
   }
 
   private render(): void {
-    const options = (profile: EquipmentOption['profile'], code: 'B1' | 'B2' | 'S', existing?: WellEquipmentBinding) => {
-      const eligible = this.equipment.filter((item) => item.profile === profile);
+    const options = (kind: EquipmentKind, code: 'B1' | 'B2' | 'S', existing?: WellEquipmentBinding) => {
+      const eligible = this.equipment.filter((item) => kindOf(item.profile) === kind);
       const missing = existing && !eligible.some((item) => item.tbId === existing.tbId)
         ? `<option value="${escapeHtml(existing.tbId)}" selected data-unavailable="true">Vínculo atual indisponível — ${escapeHtml(existing.label)}</option>`
         : '';
@@ -197,9 +202,9 @@ export class WellEquipmentTab {
       <section class="wet-tab">
         <p>Configure as bombas e o solenoide associados a este poço. O mesmo equipamento pode ser usado em outros poços.</p>
         <div class="wet-grid">
-          <label for="wet-b1-device">Bomba B1</label>${options('BOMBA_POCO', 'B1', binding(this.bindings.pumps, 'B1'))}${labelInput('B1', binding(this.bindings.pumps, 'B1'))}
-          <label for="wet-b2-device">Bomba B2</label>${options('BOMBA_POCO', 'B2', binding(this.bindings.pumps, 'B2'))}${labelInput('B2', binding(this.bindings.pumps, 'B2'))}
-          <label for="wet-s-device">Solenoide S</label>${options('SOLENOIDE', 'S', binding(this.bindings.valves, 'S'))}${labelInput('S', binding(this.bindings.valves, 'S'))}
+          <label for="wet-b1-device">Bomba B1</label>${options('pump', 'B1', binding(this.bindings.pumps, 'B1'))}${labelInput('B1', binding(this.bindings.pumps, 'B1'))}
+          <label for="wet-b2-device">Bomba B2</label>${options('pump', 'B2', binding(this.bindings.pumps, 'B2'))}${labelInput('B2', binding(this.bindings.pumps, 'B2'))}
+          <label for="wet-s-device">Solenoide S</label>${options('valve', 'S', binding(this.bindings.valves, 'S'))}${labelInput('S', binding(this.bindings.valves, 'S'))}
         </div>
         <p id="wet-message" class="wet-message" role="status" aria-live="polite"></p>
         <button type="button" id="wet-save" ${this.loaded ? '' : 'disabled'}>Salvar vínculos</button>
@@ -239,10 +244,10 @@ export class WellEquipmentTab {
       return;
     }
 
-    const selected: Array<{ id: string; profile: EquipmentOption['profile']; code: WellEquipmentBinding['code'] }> = [
-      ...(b1 ? [{ id: b1, profile: 'BOMBA_POCO' as const, code: 'B1' as const }] : []),
-      ...(b2 ? [{ id: b2, profile: 'BOMBA_POCO' as const, code: 'B2' as const }] : []),
-      ...(solenoid ? [{ id: solenoid, profile: 'SOLENOIDE' as const, code: 'S' as const }] : []),
+    const selected: Array<{ id: string; kind: EquipmentKind; code: WellEquipmentBinding['code'] }> = [
+      ...(b1 ? [{ id: b1, kind: 'pump' as const, code: 'B1' as const }] : []),
+      ...(b2 ? [{ id: b2, kind: 'pump' as const, code: 'B2' as const }] : []),
+      ...(solenoid ? [{ id: solenoid, kind: 'valve' as const, code: 'S' as const }] : []),
     ];
     for (const item of selected) {
       const current = item.code === 'S'
@@ -251,7 +256,7 @@ export class WellEquipmentTab {
       const unchangedUnavailableBinding = current?.tbId === item.id &&
         !this.equipment.some((equipment) => equipment.tbId === item.id);
       if (!unchangedUnavailableBinding &&
-          !this.equipment.some((equipment) => equipment.tbId === item.id && equipment.profile === item.profile)) {
+          !this.equipment.some((equipment) => equipment.tbId === item.id && kindOf(equipment.profile) === item.kind)) {
         this.showMessage(`O equipamento selecionado para ${item.code} não pertence ao catálogo válido.`, true);
         return;
       }
