@@ -1317,6 +1317,29 @@ function _filterWellAutomationItems(domain, items) {
   );
 }
 
+/** RFC-0108: carrega `measurementDisplaySettings` (CUSTOMER SERVER_SCOPE) e propaga aos widgets. */
+async function _loadMeasurementDisplaySettings(customerId) {
+  const jwt = localStorage.getItem('jwt_token');
+  if (!customerId || !jwt) return;
+  try {
+    const res = await fetch(
+      `/api/plugins/telemetry/CUSTOMER/${customerId}/values/attributes/SERVER_SCOPE?keys=measurementDisplaySettings`,
+      { headers: { 'X-Authorization': `Bearer ${jwt}` } }
+    );
+    if (!res.ok) return;
+    const attrs = await res.json();
+    let settings = Array.isArray(attrs) ? attrs.find((a) => a.key === 'measurementDisplaySettings')?.value : null;
+    if (typeof settings === 'string') settings = JSON.parse(settings);
+    if (!settings || typeof settings !== 'object') return;
+    window.MyIOUtils?.updateMeasurementSettings?.(settings);
+    if (window.MyIOOrchestrator) window.MyIOOrchestrator.measurementDisplaySettings = settings;
+    window.dispatchEvent(new CustomEvent('myio:measurement-settings-updated', { detail: settings }));
+    LogHelper.log('[MAIN_VIEW] RFC-0108: measurementDisplaySettings do customer aplicado:', settings);
+  } catch (err) {
+    LogHelper.warn('[MAIN_VIEW] RFC-0108: falha ao ler measurementDisplaySettings (usando default):', err);
+  }
+}
+
 function _parsePumpBindings(raw) {
   if (!raw) return null;
   try {
@@ -2525,6 +2548,11 @@ Object.assign(window.MyIOUtils, {
     if (window.MyIOOrchestrator) {
       window.MyIOOrchestrator.customerTB_ID = customerTB_ID;
     }
+
+    // RFC-0108: Config. Medidas salva no CUSTOMER — sem esta leitura só valia na sessão
+    // em que foi salva (ao recarregar voltava ao default). Não bloqueia o onInit:
+    // TELEMETRY/FOOTER/TELEMETRY_INFO re-renderizam no evento.
+    _loadMeasurementDisplaySettings(customerTB_ID);
 
     // RFC-0178: alarmsApiBaseUrl from settings (URL config); alarms auth uses gcdrApiKey (SERVER_SCOPE)
     const alarmsApiBaseUrl = self.ctx.settings?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
