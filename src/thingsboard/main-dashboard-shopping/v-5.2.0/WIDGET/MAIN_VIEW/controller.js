@@ -1378,15 +1378,21 @@ async function _fetchTbSeriesWithPrior(deviceId, keys, startTs, endTs) {
 /** Placeholder (estado desconhecido) enquanto a primeira leitura não chega. */
 function _wellPlaceholder(bindings) {
   return {
-    pumps: bindings.pumps.map((p) => ({ ...p, deviceProfile: 'BOMBA_POCO', history: null })),
-    valves: bindings.valves.map((v) => ({ ...v, deviceProfile: 'SOLENOIDE', history: null })),
+    pumps: (bindings.pumps || []).map((p) => ({ ...p, id: p.tbId, deviceProfile: 'BOMBA_POCO', history: null })),
+    valves: (bindings.valves || []).map((v) => ({ ...v, id: v.tbId, deviceProfile: 'SOLENOIDE', history: null })),
   };
 }
 
-function _getWellEquipment(tbId) {
+/**
+ * `pumpBindings` (opcional): bindings do card. O TELEMETRY pode renderizar antes de
+ * `_syncWellEquipment` registrar o poço — com ele, o card já mostra SEM LEITURA em vez
+ * de esconder a coluna B1/B2/S.
+ */
+function _getWellEquipment(tbId, pumpBindings) {
   const well = _wellEquipment.wells.find((w) => String(w.tbId || w.id) === String(tbId));
-  if (!well) return null;
-  const data = _wellEquipment.byWell.get(String(tbId)) || _wellPlaceholder(well.pumpBindings);
+  const bindings = well?.pumpBindings || pumpBindings;
+  if (!bindings) return null;
+  const data = _wellEquipment.byWell.get(String(tbId)) || _wellPlaceholder(bindings);
   const lib = window.MyIOLibrary;
   return {
     data,

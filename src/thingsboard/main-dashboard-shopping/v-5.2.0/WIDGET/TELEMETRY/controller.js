@@ -2425,29 +2425,9 @@ function _cisternasOf(domain, profile) {
 }
 function _wellEquipmentOf(it) {
   if (!it || !it.pumpBindings) return null;
-  const equipment = window.MyIOOrchestrator?.getWellEquipment?.(it.tbId || it.id);
-  if (equipment) return equipment;
-
-  // The telemetry widget can render before MAIN_VIEW finishes registering its
-  // polling state. Keep configured equipment visible as "sem leitura" instead
-  // of hiding the entire indicator column during that first render.
-  const bindings = it.pumpBindings;
-  const placeholder = {
-    pumps: (bindings.pumps || []).map((pump) => ({
-      ...pump,
-      id: pump.tbId,
-      deviceProfile: 'BOMBA_POCO',
-      history: null,
-    })),
-    valves: (bindings.valves || []).map((valve) => ({
-      ...valve,
-      id: valve.tbId,
-      deviceProfile: 'SOLENOIDE',
-      history: null,
-    })),
-  };
-  const indicators = window.MyIOLibrary?.indicatorsFromModalData?.(placeholder);
-  return Array.isArray(indicators) ? { data: placeholder, indicators, simulated: false } : null;
+  // pumpBindings: MAIN_VIEW devolve placeholder SEM LEITURA mesmo antes de registrar o poço
+  // (o card pode renderizar antes de _syncWellEquipment).
+  return window.MyIOOrchestrator?.getWellEquipment?.(it.tbId || it.id, it.pumpBindings) || null;
 }
 
 let _warnedAmbiguousSabespCard = false;
