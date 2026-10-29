@@ -8239,7 +8239,10 @@ const MyIOOrchestrator = (() => {
           const deviceProfile = String(meta.deviceProfile || '').toUpperCase();
           // RFC-0107: Detect tank devices by profile TANK/CAIXA_DAGUA
           // OR water_level/water_percentage data; hidrometers by profile.
-          const hasWaterLevelData = meta.waterLevel !== undefined || meta.waterPercentage !== undefined;
+          // Só conta como dado de nível se houver leitura real (ts > 0): com water_level /
+          // water_percentage no datasource, TODO hidrômetro recebe a key com valor null e
+          // virava tanque (saía de Lojas/Área Comum).
+          const hasWaterLevelData = !!(meta.waterLevelTs || meta.waterPercentageTs);
           // ED-1354: CISTERNA / CISTERNA_ENTRADA (poço) é lido como tanque (water_level/water_percentage)
           const isTankByType =
             deviceProfile === 'TANK' ||
