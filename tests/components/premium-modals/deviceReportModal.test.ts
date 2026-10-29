@@ -112,6 +112,53 @@ describe('DeviceReportModal — temperatura', () => {
   });
 });
 
+describe('DeviceReportModal — nível de tanque (water_level, ED-1360)', () => {
+  const levelParams: DeviceReportModalParams = { ...baseParams, domain: 'water_level' };
+
+  it('1d: média do nível por dia, rótulos "Nível (%)" e dia sem leitura = noData', () => {
+    const modal = new DeviceReportModal(levelParams) as any;
+    const rows = modal.processApiResponse(
+      [
+        {
+          deviceId: 'dev-1',
+          consumption: [
+            { timestamp: '2026-10-02T00:00:00-03:00', value: 60 },
+            { timestamp: '2026-10-02T00:00:00-03:00', value: 80 },
+            { timestamp: '2026-10-04T00:00:00-03:00', value: 50 },
+          ],
+        },
+      ],
+      ['2026-10-02', '2026-10-03', '2026-10-04']
+    );
+    expect(rows).toEqual([
+      { date: '2026-10-02', consumption: 70 },
+      { date: '2026-10-03', consumption: 0, noData: true },
+      { date: '2026-10-04', consumption: 50 },
+    ]);
+
+    modal.data = rows;
+    const byLabel = Object.fromEntries(modal.computeKpis().map((k: any) => [k.label, k]));
+    expect(byLabel['Média (%)'].value).toBe('60,00 %');
+    expect(byLabel['Dia com Maior Nível (%)'].value).toBe('70,00');
+    expect(byLabel['Dia com Menor Nível (%)'].value).toBe('50,00');
+    expect(byLabel['Dias sem Leitura'].value).toBe('1');
+    expect(modal.exportColumnOptions().valueLabel).toBe('Nível (%)');
+  });
+
+  it('painel direito: ranking de nível em %, sem textos de temperatura', () => {
+    const modal = new DeviceReportModal(levelParams) as any;
+    modal.data = [
+      { date: '2026-10-01', consumption: 55 },
+      { date: '2026-10-02', consumption: 90 },
+    ];
+    const el = document.createElement('div');
+    modal.renderTemperatureRanking(el);
+    expect(el.textContent).toContain('Dias com maior nível (média do dia)');
+    expect(el.textContent).toMatch(/Escala [\d,]+–[\d,]+ %/);
+    expect(el.textContent).not.toContain('°C');
+  });
+});
+
 describe('DeviceReportModal — header', () => {
   it('mostra o nome do device (sutil) com botão copiar, sem customer (já está no footer)', () => {
     const modal = new DeviceReportModal({ ...baseParams, deviceName: 'Temperatura <Loteria> L2' });

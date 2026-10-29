@@ -17,15 +17,19 @@ import { renderTemperatureBarsPng } from '../internal/temperatureBarsPng';
 import type { ModalFooterInstance } from '../footer-modal';
 
 // Domain configuration
-type Domain = 'energy' | 'water' | 'temperature';
+type Domain = 'energy' | 'water' | 'temperature' | 'water_level';
 
 interface DomainConfig {
   endpoint: string;     // API endpoint path
-  unit: string;         // Display unit (kWh, m³, °C)
+  unit: string;         // Display unit (kWh, m³, °C, %)
   label: string;        // Column label
   formatter: (value: number) => string; // Value formatter
   summaryType: 'total' | 'average'; // How to summarize the data
   summaryLabel: string; // Label for the summary (e.g., "Total", "Média")
+  measureLabel: string; // KPIs "Dia com Maior <measureLabel>"
+  // Domínios 'average': títulos do ranking (painel da direita + PDF)
+  rankingDayTitle?: string;
+  rankingHourTitle?: string;
 }
 
 const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
@@ -35,7 +39,8 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
     label: 'Consumo (kWh)',
     formatter: (v) => fmtPt(v),
     summaryType: 'total',
-    summaryLabel: 'Total'
+    summaryLabel: 'Total',
+    measureLabel: 'Consumo'
   },
   water: {
     endpoint: 'water',
@@ -43,7 +48,8 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
     label: 'Consumo (m³)',
     formatter: (v) => fmtPt(v),
     summaryType: 'total',
-    summaryLabel: 'Total'
+    summaryLabel: 'Total',
+    measureLabel: 'Consumo'
   },
   temperature: {
     endpoint: 'temperature',
@@ -51,7 +57,23 @@ const DOMAIN_CONFIG: Record<Domain, DomainConfig> = {
     label: 'Temperatura (°C)',
     formatter: (v) => fmtPt(v),
     summaryType: 'average',
-    summaryLabel: 'Média'
+    summaryLabel: 'Média',
+    measureLabel: 'Temperatura',
+    rankingDayTitle: 'Dias mais quentes (média do dia)',
+    rankingHourTitle: 'Horas mais quentes'
+  },
+  // Nível de tanque/caixa/cisterna — não existe no Ingestion; o chamador injeta um
+  // `fetcher` que lê o timeseries do ThingsBoard (water_percentage × 100).
+  water_level: {
+    endpoint: 'water_level',
+    unit: '%',
+    label: 'Nível (%)',
+    formatter: (v) => fmtPt(v),
+    summaryType: 'average',
+    summaryLabel: 'Média',
+    measureLabel: 'Nível',
+    rankingDayTitle: 'Dias com maior nível (média do dia)',
+    rankingHourTitle: 'Horas com maior nível'
   }
 };
 
@@ -785,12 +807,12 @@ export class DeviceReportModal {
     kpis.push(
       {
         value: maxRow ? fmt(maxRow.consumption) : '—',
-        label: `${rowLabel} com Maior ${isTemperature ? 'Temperatura' : 'Consumo'} (${unit})`,
+        label: `${rowLabel} com Maior ${this.domainConfig.measureLabel} (${unit})`,
         ...(maxRow ? { sub: this.formatDate(maxRow.date) } : {}),
       },
       {
         value: minRow ? fmt(minRow.consumption) : '—',
-        label: `${rowLabel} com Menor ${isTemperature ? 'Temperatura' : 'Consumo'} (${unit})`,
+        label: `${rowLabel} com Menor ${this.domainConfig.measureLabel} (${unit})`,
         ...(minRow ? { sub: this.formatDate(minRow.date) } : {}),
       }
     );
@@ -858,16 +880,17 @@ export class DeviceReportModal {
         <span style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${r ? this.domainConfig.formatter(r.consumption) : '—'}</span>
       </div>`;
 
+    const unit = this.domainConfig.unit;
     const title = isHourly
-      ? `Horas mais quentes${ranked.length > TOP_HOURS ? ` (top ${TOP_HOURS})` : ''}`
-      : 'Dias mais quentes (média do dia)';
+      ? `${this.domainConfig.rankingHourTitle}${ranked.length > TOP_HOURS ? ` (top ${TOP_HOURS})` : ''}`
+      : this.domainConfig.rankingDayTitle;
     container.innerHTML = `
       <div style="border:1px solid var(--myio-border,#e5e7eb);border-radius:10px;padding:12px 14px;max-height:620px;overflow-y:auto;">
         <div style="font-weight:700;font-size:14px;margin-bottom:2px;">${title}</div>
         <div style="font-size:11px;color:var(--myio-text-muted,#6b7280);margin-bottom:10px;">
-          Escala ${this.domainConfig.formatter(lo)}–${this.domainConfig.formatter(hi)} °C${
+          Escala ${this.domainConfig.formatter(lo)}–${this.domainConfig.formatter(hi)} ${unit}${
             hasIdeal
-              ? ` · <span style="color:#16a34a;">faixa ideal ${this.domainConfig.formatter(Number(ideal!.min))}–${this.domainConfig.formatter(Number(ideal!.max))} °C</span>`
+              ? ` · <span style="color:#16a34a;">faixa ideal ${this.domainConfig.formatter(Number(ideal!.min))}–${this.domainConfig.formatter(Number(ideal!.max))} ${unit}</span>`
               : ''
           }
         </div>
@@ -1135,10 +1158,11 @@ export class DeviceReportModal {
         ],
         ideal: this.params.temperatureIdealRange ?? null,
         accent: this.resolveAccentHex(),
+        unit: this.domainConfig.unit,
       });
       const title = isHourly
-        ? `Horas mais quentes${ranked.length > 24 ? ' (top 24)' : ''}`
-        : 'Dias mais quentes (média do dia)';
+        ? `${this.domainConfig.rankingHourTitle}${ranked.length > 24 ? ' (top 24)' : ''}`
+        : this.domainConfig.rankingDayTitle;
       return png ? { ...png, title } : null;
     }
     const chartPng = await this.participationChart?.toPngDataUrl?.().catch(() => null);

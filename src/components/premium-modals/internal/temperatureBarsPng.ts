@@ -16,6 +16,8 @@ export interface TemperatureBarsPngOptions {
   ideal?: { min: number; max: number } | null;
   /** Cor das barras dentro da faixa ideal (accent do dashboard). */
   accent?: string;
+  /** Unidade da escala (default °C; o relatório de nível usa %). */
+  unit?: string;
 }
 
 export function renderTemperatureBarsPng(
@@ -59,8 +61,9 @@ export function renderTemperatureBarsPng(
   ctx.fillStyle = '#6b7280';
   ctx.font = '20px Helvetica, Arial, sans-serif';
   ctx.textBaseline = 'middle';
-  const scale = `Escala ${fmt(lo)}–${fmt(hi)} °C`;
-  ctx.fillText(ideal ? `${scale}   ·   faixa ideal ${fmt(ideal.min)}–${fmt(ideal.max)} °C` : scale, 16, 26);
+  const unit = opts.unit || '°C';
+  const scale = `Escala ${fmt(lo)}–${fmt(hi)} ${unit}`;
+  ctx.fillText(ideal ? `${scale}   ·   faixa ideal ${fmt(ideal.min)}–${fmt(ideal.max)} ${unit}` : scale, 16, 26);
 
   opts.items.forEach((item, i) => {
     const y = TOP + i * ROW;
