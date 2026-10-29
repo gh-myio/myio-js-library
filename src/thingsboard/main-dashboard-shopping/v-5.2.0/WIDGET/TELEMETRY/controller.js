@@ -3590,6 +3590,56 @@ function renderList(visible) {
 
           // deviceProfile apenas (deviceType em desuso)
           const deviceType = it.deviceProfile || entityObject.deviceType;
+
+          // ED-1360: tanque/caixa/cisterna não existe no Ingestion (403 "Access denied to this
+          // device") — o nível vem do timeseries do TB (water_percentage 0–1 → %). Média por
+          // hora/dia feita pela modal; 1d = data civil de São Paulo.
+          if (deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA' || /^CISTERNA(_ENTRADA)?$/.test(deviceType || '')) {
+            const tbId = it.tbId || it.id;
+            const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
+            const spDate = (ts) => new Date(ts - SP_OFFSET_MS).toISOString().slice(0, 10);
+
+            const levelFetcher = async ({ startISO, endISO, granularity }) => {
+              const token = await getTbToken();
+              const url =
+                `/api/plugins/telemetry/DEVICE/${tbId}/values/timeseries?keys=water_percentage` +
+                `&startTs=${new Date(startISO).getTime()}&endTs=${new Date(endISO).getTime()}&limit=50000&agg=NONE`;
+              const res = await fetch(url, { headers: { 'X-Authorization': `Bearer ${token}` } });
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const body = await res.json();
+              const points = (body.water_percentage || [])
+                .map((p) => ({ ts: Number(p.ts), value: Number(p.value) * 100 }))
+                .filter((p) => Number.isFinite(p.ts) && Number.isFinite(p.value));
+              return [
+                {
+                  deviceId: tbId,
+                  consumption: points.map((p) => ({
+                    timestamp: granularity === '1h' ? new Date(p.ts).toISOString() : `${spDate(p.ts)}T00:00:00-03:00`,
+                    value: p.value,
+                  })),
+                },
+              ];
+            };
+
+            await MyIO.openDashboardPopupReport({
+              ingestionId: it.ingestionId,
+              deviceId: tbId,
+              identifier: it.identifier,
+              label: it.label,
+              deviceName: it.entityName || '',
+              domain: 'water_level',
+              theme: window.MyIOUtils?.theme || undefined,
+              customerName: it.customerName || window.MyIOOrchestrator?.customerName || '',
+              fetcher: levelFetcher,
+              api: {
+                dataApiBaseUrl: window.MyIOUtils?.getDataApiHost?.(),
+                clientId: CLIENT_ID,
+                clientSecret: CLIENT_SECRET,
+              },
+            });
+            return;
+          }
+
           const isTermostatoDevice = String(deviceType || '').startsWith('TERMOSTATO');
 
           // Temperatura: relatório SEMPRE do Ingestion (a chave `temperature` no TB pode estar

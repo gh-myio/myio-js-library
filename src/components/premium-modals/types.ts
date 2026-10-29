@@ -81,7 +81,8 @@ export interface OpenDeviceReportParams {
   deviceId?: string;
   identifier?: string;    // NEW: replaces deviceLabel (device identifier/code)
   label?: string;         // NEW: replaces storeLabel (human-readable name)
-  domain?: 'energy' | 'water' | 'temperature'; // NEW: data domain (default: 'energy')
+  // 'water_level' = nível de tanque/caixa/cisterna (%) — dados do TB, exige `fetcher`
+  domain?: 'energy' | 'water' | 'temperature' | 'water_level'; // NEW: data domain (default: 'energy')
   granularity?: '1d' | '1h'; // API data granularity (default: '1d')
   ui?: BaseUiCfg;
   api: BaseApiCfg;
