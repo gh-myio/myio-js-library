@@ -2,7 +2,7 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-10-20",
+    "generatedAt": "2026-10-29",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
@@ -66,10 +66,10 @@
       "over": false,
       "tickets": [
         {
-          "key": "ED-1325",
+          "key": "ED-1368",
           "type": "Tarefa",
-          "summary": "QA — GCDR: fluxo de usuário de ponta a ponta (cadastro → magic link → aprovação → aguardando perfil → acesso com escopo, funções e funcionalidades)",
-          "updated": "2026-10-20"
+          "summary": "[QA] [TABOÃO] 1. Automação dos poços",
+          "updated": "2026-10-28"
         }
       ]
     },

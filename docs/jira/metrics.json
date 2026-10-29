@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-10-20",
-    "today": "2026-10-20",
+    "generatedAt": "2026-10-29",
+    "today": "2026-10-29",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -694,7 +694,7 @@
       "end": "2026-09-21",
       "complete": "",
       "state": "future",
-      "scope": 59,
+      "scope": 63,
       "done": 30,
       "burndown": [
         {
@@ -750,6 +750,11 @@
         {
           "date": "2026-10-20",
           "remaining": 29,
+          "ideal": 0
+        },
+        {
+          "date": "2026-10-29",
+          "remaining": 33,
           "ideal": 0
         }
       ],
@@ -3556,6 +3561,54 @@
       "type": "Bug",
       "priority": "Lowest",
       "date": "2026-10-20"
+    },
+    {
+      "key": "ED-1359",
+      "summary": "SmartHospital - Ajuste de valor no gerador QT4",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-10-26"
+    },
+    {
+      "key": "ED-1126",
+      "summary": "Shopping Macaé | Alteração de LUC em lote",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Low",
+      "date": "2026-10-26"
+    },
+    {
+      "key": "ED-1227",
+      "summary": "West Plaza - Gap de consumo do Chiller - ",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-10-26"
+    },
+    {
+      "key": "ED-1287",
+      "summary": "Campinas - notificação de alarme com falha",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-10-26"
+    },
+    {
+      "key": "ED-1308",
+      "summary": "TrensRJ (Supervia) - Restore de central nova no CCO",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-10-26"
+    },
+    {
+      "key": "ED-1355",
+      "summary": "Shopping Rio Poty - Resync de entrada de energia",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-10-27"
     }
   ]
 }

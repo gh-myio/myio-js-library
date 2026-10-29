@@ -11,36 +11,36 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-10-20",
+    "generatedAt": "2026-10-29",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 29,
-    "backlogOpen": 584,
-    "total": 613
+    "sprintOpen": 33,
+    "backlogOpen": 587,
+    "total": 620
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "PENDENTE": 7,
+        "PENDENTE": 8,
         "EM REVISÃO": 4,
-        "Itens Novos": 15,
+        "Itens Novos": 18,
         "Em Andamento": 3
       },
       "byType": {
         "Bug": 6,
-        "Tarefa": 23
+        "Tarefa": 27
       },
       "byPriority": {
-        "Medium": 15,
+        "Medium": 17,
         "Highest": 8,
         "Low": 1,
-        "High": 5
+        "High": 7
       },
       "byAssignee": {
-        "Rodrigo Lago": 19,
-        "Letícia Camargo": 6,
+        "Rodrigo Lago": 22,
+        "Letícia Camargo": 7,
         "Victor Hugo da Silva": 3,
         "Luiz Guilherme Martinho Sampaio Ito": 1
       },
@@ -52,29 +52,31 @@
         "Souza Aguiar": 1,
         "Shopping da Ilha / SDI": 1,
         "Campinas": 2,
-        "Central / Firmware / HW": 3
+        "Central / Firmware / HW": 3,
+        "Taboão": 3,
+        "Ilha Plaza": 1
       }
     },
     "backlog": {
       "byStatus": {
-        "Itens Novos": 174,
-        "EM REVISÃO": 9,
-        "PENDENTE": 396,
+        "Itens Novos": 177,
+        "EM REVISÃO": 10,
+        "PENDENTE": 395,
         "Em Andamento": 5
       },
       "byType": {
-        "Tarefa": 443,
-        "Subtarefa": 90,
+        "Tarefa": 442,
+        "Subtarefa": 94,
         "Bug": 51
       },
       "byPriority": {
-        "High": 17,
+        "High": 21,
         "Medium": 558,
-        "Low": 7,
+        "Low": 6,
         "Highest": 2
       },
       "byAssignee": {
-        "Rodrigo Lago": 122,
+        "Rodrigo Lago": 125,
         "Letícia Camargo": 25,
         "Luiz Guilherme Martinho Sampaio Ito": 386,
         "Leticia Saraiva": 5,
@@ -93,13 +95,14 @@
         "Mestre Álvaro": 2,
         "Campinas": 3,
         "Rio Poty": 2,
-        "Macaé": 1,
         "Moxuara": 1,
         "BAS": 10,
-        "West Plaza": 2,
+        "West Plaza": 1,
         "Melicidade": 2,
         "Shopping da Ilha / SDI": 5,
-        "TrensRJ": 2
+        "TrensRJ": 2,
+        "Ilha Plaza": 1,
+        "Taboão": 4
       }
     }
   },
@@ -265,11 +268,11 @@
       "summary": "QA — GCDR: fluxo de usuário de ponta a ponta (cadastro → magic link → aprovação → aguardando perfil → acesso com escopo, funções e funcionalidades)",
       "type": "Tarefa",
       "sub": false,
-      "status": "Em Andamento",
+      "status": "PENDENTE",
       "cat": "indeterminate",
       "priority": "Highest",
       "assignee": "Letícia Camargo",
-      "updated": "2026-10-20",
+      "updated": "2026-10-28",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -480,6 +483,58 @@
       "updated": "2026-10-19",
       "group": "Central / Firmware / HW",
       "kind": "theme"
+    },
+    {
+      "key": "ED-1354",
+      "summary": "[TABOÃO] Automação dos poços: indicadores de bombas (MOTOR) e solenoide no card de poço + modais",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-27",
+      "group": "Taboão",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1356",
+      "summary": "[ILHA PLAZA AL2] Restore de central: AL2 condenada → \"CEntral Rodrigo Citta 5\" realocada como Central Ilha Plaza AL2 - 2026-10-22",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-22",
+      "group": "Ilha Plaza",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1361",
+      "summary": "[TABOÃO] Dashboard Shopping Taboão — 4 alterações validadas pela Allos (poços, retrolavagem, cards virtuais, tarifação)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-27",
+      "group": "Taboão",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1368",
+      "summary": "[QA] [TABOÃO] 1. Automação dos poços",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Letícia Camargo",
+      "updated": "2026-10-28",
+      "group": "Taboão",
+      "kind": "unit"
     }
   ],
   "backlog": [
@@ -5957,19 +6012,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1126",
-      "summary": "Shopping Macaé | Alteração de LUC em lote",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Low",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-08-14",
-      "group": "Macaé",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1128",
       "summary": "Moxuara - Gaps de consumo de água",
       "type": "Tarefa",
@@ -6592,19 +6634,6 @@
       "updated": "2026-09-04",
       "group": "GCDR / Plataforma",
       "kind": "theme"
-    },
-    {
-      "key": "ED-1227",
-      "summary": "West Plaza - Gap de consumo do Chiller - ",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-08",
-      "group": "West Plaza",
-      "kind": "unit"
     },
     {
       "key": "ED-1231",
@@ -7556,19 +7585,6 @@
       "kind": "unit"
     },
     {
-      "key": "ED-1287",
-      "summary": "Campinas - notificação de alarme com falha",
-      "type": "Bug",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-29",
-      "group": "Campinas",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1286",
       "summary": "Tela de login — melhorias de UI (paridade com o login do GCDR)",
       "type": "Subtarefa",
@@ -7859,11 +7875,11 @@
       "summary": "Central — novo build: script e API para instalar, desinstalar e consultar o Modbus (node-red-contrib-myio-modbus)",
       "type": "Tarefa",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
       "priority": "Low",
       "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "updated": "2026-10-01",
+      "updated": "2026-10-28",
       "group": "Central / Firmware / HW",
       "kind": "theme"
     },
@@ -7892,19 +7908,6 @@
       "updated": "2026-10-01",
       "group": "Outros",
       "kind": "other"
-    },
-    {
-      "key": "ED-1308",
-      "summary": "TrensRJ (Supervia) - Restore de central nova no CCO",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-01",
-      "group": "TrensRJ",
-      "kind": "unit"
     },
     {
       "key": "ED-1309",
@@ -8074,6 +8077,97 @@
       "updated": "2026-10-20",
       "group": "Outros",
       "kind": "other"
+    },
+    {
+      "key": "ED-1357",
+      "summary": "Ilha Plaza - Restore de central AL2",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-22",
+      "group": "Ilha Plaza",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1358",
+      "summary": "TrensRJ - Restore da Central Estação Deodoro",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-23",
+      "group": "TrensRJ",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1360",
+      "summary": "Campinas Shopping - Relatório de caixa d'água sem exibição",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-26",
+      "group": "Campinas",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1362",
+      "summary": "[TABOÃO] 1. Automação dos poços — B1/B2/S nos cards de poço, modal de bombas e widget Poços / Cisternas",
+      "type": "Subtarefa",
+      "sub": true,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-28",
+      "group": "Taboão",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1363",
+      "summary": "[TABOÃO] 2. Retrolavagem — card virtual com o consumo da retrolavagem (entrada − saída) e alerta de leitura inconsistente",
+      "type": "Subtarefa",
+      "sub": true,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-27",
+      "group": "Taboão",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1364",
+      "summary": "[TABOÃO] 3. Cards virtuais — medições sem medidor MYIO com valores informados pelo shopping (CSV, mês fechado)",
+      "type": "Subtarefa",
+      "sub": true,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-27",
+      "group": "Taboão",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1365",
+      "summary": "[TABOÃO] 4. Tarifação dos lojistas — grupos de tarifa, exceção por loja, vigência mensal, histórico e extrato por loja (PDF + planilha)",
+      "type": "Subtarefa",
+      "sub": true,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-27",
+      "group": "Taboão",
+      "kind": "unit"
     }
   ]
 }
