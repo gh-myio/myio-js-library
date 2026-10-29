@@ -3167,6 +3167,9 @@ function renderList(visible) {
       LogHelper.warn('[TELEMETRY] MyIOAuth not initialized yet, skipping token cache');
     }
 
+    // ED-1360: o relatório de tanque reaproveita a modal do card (dados do TB)
+    let openDeviceDashboard = null;
+
     const $card = MyIO.renderCardComponentV5({
       entityObject,
       useNewComponents: true, // Habilitar novos componentes
@@ -3188,7 +3191,7 @@ function renderList(visible) {
             }
           : undefined,
 
-      handleActionDashboard: async () => {
+      handleActionDashboard: (openDeviceDashboard = async () => {
         const jwtToken = await getTbToken();
         const MyIOToast = window.MyIOUtils?.MyIOToast;
 
@@ -3582,14 +3585,21 @@ function renderList(visible) {
             alert(_friendlyMsg);
           }
         }
-      },
+      }),
 
       handleActionReport: async () => {
+        // deviceProfile apenas (deviceType em desuso)
+        const deviceType = it.deviceProfile || entityObject.deviceType;
+
+        // ED-1360: tanque/caixa/cisterna não existe no Ingestion (403 "Access denied to this
+        // device") — o nível vem do TB, então o relatório é a modal de nível com período.
+        if (deviceType === 'TANK' || deviceType === 'CAIXA_DAGUA' || /^CISTERNA(_ENTRADA)?$/.test(deviceType || '')) {
+          return openDeviceDashboard();
+        }
+
         try {
           showBusy(); // mensagem fixa
 
-          // deviceProfile apenas (deviceType em desuso)
-          const deviceType = it.deviceProfile || entityObject.deviceType;
           const isTermostatoDevice = String(deviceType || '').startsWith('TERMOSTATO');
 
           // Temperatura: relatório SEMPRE do Ingestion (a chave `temperature` no TB pode estar
