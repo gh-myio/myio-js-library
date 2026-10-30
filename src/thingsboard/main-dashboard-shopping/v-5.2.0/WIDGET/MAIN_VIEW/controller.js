@@ -145,9 +145,12 @@ window.MyIOUtils.getFreshTbToken = async function getFreshTbToken(minValidityMs 
 // Keep-alive: a cada 5 min, renova se faltar < 10 min — mantém válido o jwt_token que
 // TODOS os widgets (e as modais da lib que recebem o token) leem do localStorage.
 if (!window.__myioTbTokenKeepAlive) {
-  window.__myioTbTokenKeepAlive = setInterval(() => {
-    window.MyIOUtils.getFreshTbToken(10 * 60 * 1000);
-  }, 5 * 60 * 1000);
+  window.__myioTbTokenKeepAlive = setInterval(
+    () => {
+      window.MyIOUtils.getFreshTbToken(10 * 60 * 1000);
+    },
+    5 * 60 * 1000
+  );
 }
 
 // RFC-0233: per-user feature visibility resolver (`restrict_view`). Reads
@@ -286,9 +289,7 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
       configurable: true,
       enumerable: false,
       get() {
-        return typeof window !== 'undefined' && window.MyIOLibrary
-          ? window.MyIOLibrary[name]
-          : undefined;
+        return typeof window !== 'undefined' && window.MyIOLibrary ? window.MyIOLibrary[name] : undefined;
       },
     });
   }
@@ -977,9 +978,10 @@ Object.assign(window.MyIOUtils, {
               }),
               new Promise((r) => setTimeout(() => r([]), 4000)),
             ]);
-            orchItems = (Array.isArray(fetched) && fetched.length)
-              ? fetched
-              : (window.MyIOOrchestratorData?.[domain]?.items || []);
+            orchItems =
+              Array.isArray(fetched) && fetched.length
+                ? fetched
+                : window.MyIOOrchestratorData?.[domain]?.items || [];
           } catch (err) {
             LogHelper.warn('[MyIOUtils] fetchGoalsDayTotals: hydrate falhou —', err.message);
           }
@@ -987,7 +989,9 @@ Object.assign(window.MyIOUtils, {
         if (orchItems.length > 0) {
           const validIds = new Set(orchItems.flatMap((it) => [it.ingestionId, it.id].filter(Boolean)));
           const filtered = json.filter((dv) => validIds.has(dv.id) || validIds.has(dv.ingestionId));
-          LogHelper.log(`[MyIOUtils] fetchGoalsDayTotals (${domain}): ${json.length} → ${filtered.length} após curação`);
+          LogHelper.log(
+            `[MyIOUtils] fetchGoalsDayTotals (${domain}): ${json.length} → ${filtered.length} após curação`
+          );
           return filtered;
         }
       }
@@ -1002,7 +1006,14 @@ Object.assign(window.MyIOUtils, {
    * não /devices/totals). Evita as N requests por dia do GoalsModal.
    * @returns {Promise<Array<{timestamp: string, value: number}>>} série agregada por timestamp.
    */
-  fetchGoalsConsumptionSeries: async (custId, domain, startTs, endTs, granularity = '1d', profileId = null) => {
+  fetchGoalsConsumptionSeries: async (
+    custId,
+    domain,
+    startTs,
+    endTs,
+    granularity = '1d',
+    profileId = null
+  ) => {
     try {
       const creds = window.MyIOOrchestrator?.getCredentials?.();
       if (!creds?.CLIENT_ID || !creds?.CLIENT_SECRET) {
@@ -1064,8 +1075,7 @@ Object.assign(window.MyIOUtils, {
       const token = await myIOAuth.getToken();
       if (!token) return [];
       let tempItems =
-        window.MyIOOrchestratorData?.temperature?.items ||
-        window.STATE?.temperature?.items || [];
+        window.MyIOOrchestratorData?.temperature?.items || window.STATE?.temperature?.items || [];
       if (!tempItems.length && window.MyIOOrchestrator?.hydrateDomain) {
         try {
           const fetched = await Promise.race([
@@ -1076,9 +1086,10 @@ Object.assign(window.MyIOUtils, {
             }),
             new Promise((r) => setTimeout(() => r([]), 4000)),
           ]);
-          tempItems = (Array.isArray(fetched) && fetched.length)
-            ? fetched
-            : (window.MyIOOrchestratorData?.temperature?.items || []);
+          tempItems =
+            Array.isArray(fetched) && fetched.length
+              ? fetched
+              : window.MyIOOrchestratorData?.temperature?.items || [];
         } catch (err) {
           LogHelper.warn('[MyIOUtils] fetchGoalsTemperature: hydrate falhou —', err.message);
         }
@@ -1163,11 +1174,15 @@ async function _fetchAndCacheGoalsData(urls) {
 // demais chamadas GCDR deste controller — sem o tenant a API responde 401). Falhas silenciosas.
 async function _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, gcdrTenantId) {
   if (!gcdrApiBaseUrl || !gcdrCustomerId || !gcdrApiKey) {
-    LogHelper.warn('[MAIN_VIEW] Goals GCDR: credenciais ausentes (gcdrApiBaseUrl/gcdrCustomerId/gcdrApiKey).');
+    LogHelper.warn(
+      '[MAIN_VIEW] Goals GCDR: credenciais ausentes (gcdrApiBaseUrl/gcdrCustomerId/gcdrApiKey).'
+    );
     return;
   }
   // gcdrApiBaseUrl pode ou não trazer /api/v1 — normaliza e anexa o path do contrato.
-  const root = String(gcdrApiBaseUrl).replace(/\/+$/, '').replace(/\/api\/v1$/, '');
+  const root = String(gcdrApiBaseUrl)
+    .replace(/\/+$/, '')
+    .replace(/\/api\/v1$/, '');
   const year = new Date().getFullYear();
   const DOMAIN_MAP = { energy: 'ENERGY', water: 'WATER', temperature: 'TEMPERATURE' };
   window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
@@ -1305,7 +1320,14 @@ function _publishDeviceStatusOptions() {
 // (window.__myioWellEquipmentRefreshMs: override p/ showcase/diagnóstico)
 const WELL_EQUIPMENT_REFRESH_MS = Number(window.__myioWellEquipmentRefreshMs) || 60000;
 const WELL_EQUIPMENT_WINDOW_MS = 24 * 3600000;
-const _wellEquipment = { wells: [], byWell: new Map(), timer: null, inflight: null, lastFetch: 0, signature: '' };
+const _wellEquipment = {
+  wells: [],
+  byWell: new Map(),
+  timer: null,
+  inflight: null,
+  lastFetch: 0,
+  signature: '',
+};
 
 function _filterWellAutomationItems(domain, items) {
   if (domain !== 'water' && domain !== 'energy') return items || [];
@@ -1314,7 +1336,11 @@ function _filterWellAutomationItems(domain, items) {
   // Keep the defensive boundary effective with an older library bundle too.
   return (items || []).filter(
     (item) =>
-      !['BOMBA_POCO', 'BOMBA_CISTERNA', 'SOLENOIDE'].includes(String(item?.deviceProfile || '').trim().toUpperCase())
+      !['BOMBA_POCO', 'BOMBA_CISTERNA', 'SOLENOIDE'].includes(
+        String(item?.deviceProfile || '')
+          .trim()
+          .toUpperCase()
+      )
   );
 }
 
@@ -1329,7 +1355,9 @@ async function _loadMeasurementDisplaySettings(customerId) {
     );
     if (!res.ok) return;
     const attrs = await res.json();
-    let settings = Array.isArray(attrs) ? attrs.find((a) => a.key === 'measurementDisplaySettings')?.value : null;
+    let settings = Array.isArray(attrs)
+      ? attrs.find((a) => a.key === 'measurementDisplaySettings')?.value
+      : null;
     if (typeof settings === 'string') settings = JSON.parse(settings);
     if (!settings || typeof settings !== 'object') return;
     window.MyIOUtils?.updateMeasurementSettings?.(settings);
@@ -1379,8 +1407,18 @@ async function _fetchTbSeriesWithPrior(deviceId, keys, startTs, endTs) {
 /** Placeholder (estado desconhecido) enquanto a primeira leitura não chega. */
 function _wellPlaceholder(bindings) {
   return {
-    pumps: (bindings.pumps || []).map((p) => ({ ...p, id: p.tbId, deviceProfile: 'BOMBA_POCO', history: null })),
-    valves: (bindings.valves || []).map((v) => ({ ...v, id: v.tbId, deviceProfile: 'SOLENOIDE', history: null })),
+    pumps: (bindings.pumps || []).map((p) => ({
+      ...p,
+      id: p.tbId,
+      deviceProfile: 'BOMBA_POCO',
+      history: null,
+    })),
+    valves: (bindings.valves || []).map((v) => ({
+      ...v,
+      id: v.tbId,
+      deviceProfile: 'SOLENOIDE',
+      history: null,
+    })),
   };
 }
 
@@ -1406,7 +1444,9 @@ async function _refreshWellEquipment() {
   const lib = window.MyIOLibrary;
   if (!_wellEquipment.wells.length) return;
   if (!lib?.pumpHistoryFromConsumption || !lib?.valveHistoryFromTelemetry || !lib?.latestPowerKw) {
-    LogHelper.error('[MAIN_VIEW] ED-1354: well-equipment helpers unavailable; update the MyIO library bundle');
+    LogHelper.error(
+      '[MAIN_VIEW] ED-1354: well-equipment helpers unavailable; update the MyIO library bundle'
+    );
     return;
   }
   const endTs = Date.now();
@@ -1471,7 +1511,9 @@ function _syncWellEquipment(wells) {
     _wellEquipment.timer = null;
     return;
   }
-  const signature = _wellEquipment.wells.map((w) => `${w.tbId || w.id}:${JSON.stringify(w.pumpBindings)}`).join('|');
+  const signature = _wellEquipment.wells
+    .map((w) => `${w.tbId || w.id}:${JSON.stringify(w.pumpBindings)}`)
+    .join('|');
   const run = () => {
     if (_wellEquipment.inflight) return _wellEquipment.inflight;
     _wellEquipment.inflight = _refreshWellEquipment()
@@ -1481,7 +1523,10 @@ function _syncWellEquipment(wells) {
       });
     return _wellEquipment.inflight;
   };
-  if (signature !== _wellEquipment.signature || Date.now() - _wellEquipment.lastFetch > WELL_EQUIPMENT_REFRESH_MS / 2) {
+  if (
+    signature !== _wellEquipment.signature ||
+    Date.now() - _wellEquipment.lastFetch > WELL_EQUIPMENT_REFRESH_MS / 2
+  ) {
     _wellEquipment.signature = signature;
     run();
   }
@@ -1496,11 +1541,12 @@ function _syncWellEquipment(wells) {
 
 // ⚠️ TEMPORÁRIO (teste): credenciais admin no código. Mover para um endpoint de backend antes
 // de liberar para clientes — o código do widget é legível por qualquer usuário do dashboard.
-const MANUAL_PROV_GCDR_API_KEY = ''; // vazio = gcdrApiKey do customer (SERVER_SCOPE)
-const MANUAL_PROV_GCDR_TENANT_ID = ''; // vazio = gcdrTenantId do customer
+const MANUAL_PROV_GCDR_API_KEY = 'd63cefba02940d7caf1ea09f9e3a703c4cf8947c8d96c444585cc8c95bf02a45'; // vazio = gcdrApiKey do customer (SERVER_SCOPE)
+const MANUAL_PROV_GCDR_TENANT_ID = '11111111-1111-1111-1111-111111111111'; // vazio = gcdrTenantId do customer
 const MANUAL_PROV_INGESTION_TOKEN = ''; // token admin (management.admin) já emitido; tem precedência
-const MANUAL_PROV_INGESTION_CLIENT_ID = ''; // ou credencial admin para emitir o token
-const MANUAL_PROV_INGESTION_CLIENT_SECRET = '';
+const MANUAL_PROV_INGESTION_CLIENT_ID = 'admin_mf78ojau_d2gj1m'; // ou credencial admin para emitir o token
+const MANUAL_PROV_INGESTION_CLIENT_SECRET =
+  'ILe2Jd4gYyci97A6rJbn3xCLvnK86cCw0tj0VOiYqVjJ6w2cACnalJtlmadjiZvV';
 const MANUAL_PROV_INGESTION_AUTH_URL = 'https://api.data.apps.myio-bas.com/api/v1/auth';
 const MANUAL_PROV_INGESTION_API = 'https://api.data.apps.myio-bas.com/api/v1/management';
 const MANUAL_PROV_CENTRAL_HOST = (uuid) => `https://${uuid}.y.myio.com.br`;
@@ -1521,7 +1567,11 @@ function _manualModbusAddr(slaveId) {
 async function _manualHttp(system, url, { method = 'GET', headers = {}, body } = {}) {
   const res = await fetch(url, {
     method,
-    headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...headers },
+    headers: {
+      Accept: 'application/json',
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...headers,
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await res.text().catch(() => '');
@@ -1533,7 +1583,9 @@ async function _manualHttp(system, url, { method = 'GET', headers = {}, body } =
   }
   if (!res.ok) {
     const msg = json?.error?.message || json?.message || json?.error || String(text).slice(0, 160);
-    const err = new Error(`${system} HTTP ${res.status}: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`);
+    const err = new Error(
+      `${system} HTTP ${res.status}: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`
+    );
     err.status = res.status;
     throw err;
   }
@@ -1557,7 +1609,8 @@ const _manualIngestionAuth = { token: null, expiresAt: 0 };
 async function _manualIngestionToken() {
   if (MANUAL_PROV_INGESTION_TOKEN) return MANUAL_PROV_INGESTION_TOKEN;
   if (!MANUAL_PROV_INGESTION_CLIENT_ID || !MANUAL_PROV_INGESTION_CLIENT_SECRET) return null;
-  if (_manualIngestionAuth.token && Date.now() < _manualIngestionAuth.expiresAt - 60000) return _manualIngestionAuth.token;
+  if (_manualIngestionAuth.token && Date.now() < _manualIngestionAuth.expiresAt - 60000)
+    return _manualIngestionAuth.token;
   const json = await _manualHttp('Ingestion auth', MANUAL_PROV_INGESTION_AUTH_URL, {
     method: 'POST',
     body: { client_id: MANUAL_PROV_INGESTION_CLIENT_ID, client_secret: MANUAL_PROV_INGESTION_CLIENT_SECRET },
@@ -1584,11 +1637,19 @@ function _manualCentral(uuid, method, path, body) {
 
 async function _manualTb(method, path, body) {
   const token = (await window.MyIOUtils?.getFreshTbToken?.()) || localStorage.getItem('jwt_token');
-  return _manualHttp('ThingsBoard', path, { method, body, headers: { 'X-Authorization': `Bearer ${token}` } });
+  return _manualHttp('ThingsBoard', path, {
+    method,
+    body,
+    headers: { 'X-Authorization': `Bearer ${token}` },
+  });
 }
 
 /** `"enable"` vem como texto JSON (com aspas) ou cru, conforme a versão da central. */
-const _manualMqttEnabled = (v) => String(v ?? '').replace(/"/g, '').trim().toLowerCase() === 'enable';
+const _manualMqttEnabled = (v) =>
+  String(v ?? '')
+    .replace(/"/g, '')
+    .trim()
+    .toLowerCase() === 'enable';
 
 async function _manualPlan({ domain, label, identifier }) {
   const lib = window.MyIOLibrary;
@@ -1598,7 +1659,9 @@ async function _manualPlan({ domain, label, identifier }) {
   const blockers = [];
   const warnings = [];
   if (typeof lib?.resolveManualDeviceName !== 'function') {
-    throw new Error('Biblioteca MyIO desatualizada (sem resolveManualDeviceName) — atualize a versão da lib.');
+    throw new Error(
+      'Biblioteca MyIO desatualizada (sem resolveManualDeviceName) — atualize a versão da lib.'
+    );
   }
 
   // 1. TB: nome reservado (sigla do asset *_DEVICES_MANUAIS + próximo NNN) — o mesmo nos 4 sistemas
@@ -1613,7 +1676,9 @@ async function _manualPlan({ domain, label, identifier }) {
   if (!orch.gcdrCustomerId) blockers.push('Customer sem gcdrCustomerId no ThingsBoard.');
   let tree = null;
   try {
-    tree = orch.gcdrCustomerId ? await _manualGcdr('GET', `/customers/${orch.gcdrCustomerId}/tree?deep=1`) : null;
+    tree = orch.gcdrCustomerId
+      ? await _manualGcdr('GET', `/customers/${orch.gcdrCustomerId}/tree?deep=1`)
+      : null;
     tree = tree?.tree ?? tree;
   } catch (e) {
     blockers.push(`Não foi possível ler o GCDR: ${e.message}`);
@@ -1625,9 +1690,13 @@ async function _manualPlan({ domain, label, identifier }) {
     .sort((a, b) => b.n - a.n)[0];
   if (tree && !central) blockers.push('Nenhuma central do customer no GCDR.');
   if (centrals.length > 1) {
-    warnings.push(`Customer com ${centrals.length} centrais — usando "${central?.name}" (a com mais devices).`);
+    warnings.push(
+      `Customer com ${centrals.length} centrais — usando "${central?.name}" (a com mais devices).`
+    );
   }
-  const gAsset = (tree?.assets || []).find((a) => String(a.name || '').toUpperCase() === assetName.toUpperCase());
+  const gAsset = (tree?.assets || []).find(
+    (a) => String(a.name || '').toUpperCase() === assetName.toUpperCase()
+  );
   if (tree && !gAsset) blockers.push(`Asset ${assetName} não existe no GCDR.`);
 
   // 3. Central: slaves atuais (o slaveId é o row id da central)
@@ -1652,7 +1721,10 @@ async function _manualPlan({ domain, label, identifier }) {
   let gatewayId = null;
   let ingestionAsset = null;
   if (!ingestionCustomerId) blockers.push('Customer sem ingestionId no ThingsBoard.');
-  if (!MANUAL_PROV_INGESTION_TOKEN && !(MANUAL_PROV_INGESTION_CLIENT_ID && MANUAL_PROV_INGESTION_CLIENT_SECRET)) {
+  if (
+    !MANUAL_PROV_INGESTION_TOKEN &&
+    !(MANUAL_PROV_INGESTION_CLIENT_ID && MANUAL_PROV_INGESTION_CLIENT_SECRET)
+  ) {
     blockers.push('Credencial admin do Ingestion não configurada no MAIN_VIEW (MANUAL_PROV_INGESTION_*).');
   } else if (central && ingestionCustomerId) {
     try {
@@ -1670,7 +1742,8 @@ async function _manualPlan({ domain, label, identifier }) {
       if (gatewayId) {
         const lk = await _manualIngestion('POST', '/devices/lookup', { pairs: [{ gatewayId, slaveId }] });
         const hit = (Array.isArray(lk) ? lk : []).find((p) => p.deviceId);
-        if (hit) blockers.push(`O Ingestion já tem um device no slave ${slaveId} desta central (${hit.deviceId}).`);
+        if (hit)
+          blockers.push(`O Ingestion já tem um device no slave ${slaveId} desta central (${hit.deviceId}).`);
       }
     } catch (e) {
       blockers.push(`Não foi possível ler o Ingestion: ${e.message}`);
@@ -1696,10 +1769,17 @@ async function _manualPlan({ domain, label, identifier }) {
       {
         key: 'ingestion',
         system: sys.ing,
-        title: ingestionAsset ? 'Criar device no gateway da central' : `Criar asset ${assetName} e o device no gateway`,
+        title: ingestionAsset
+          ? 'Criar device no gateway da central'
+          : `Criar asset ${assetName} e o device no gateway`,
         status: 'pending',
       },
-      { key: 'tb', system: sys.tb, title: 'Criar device com centralId, slaveId e ingestionId', status: 'pending' },
+      {
+        key: 'tb',
+        system: sys.tb,
+        title: 'Criar device com centralId, slaveId e ingestionId',
+        status: 'pending',
+      },
       {
         key: 'central',
         system: sys.central,
@@ -1748,7 +1828,10 @@ async function _manualApply(plan, onStep) {
         await u.run();
         set(u.key, { status: 'rolledback', message: 'desfeito' });
       } catch (e) {
-        set(u.key, { status: 'error', message: `falha ao desfazer: ${e.message} — remover manualmente (${u.id})` });
+        set(u.key, {
+          status: 'error',
+          message: `falha ao desfazer: ${e.message} — remover manualmente (${u.id})`,
+        });
       }
     }
   };
@@ -1767,18 +1850,33 @@ async function _manualApply(plan, onStep) {
       identifier: c.identifier,
       slaveId: c.slaveId,
       centralId: c.centralId,
-      metadata: { myioType: c.deviceProfile, channels: [], addr_low: c.addrLow, addr_high: c.addrHigh, manual: true },
+      metadata: {
+        myioType: c.deviceProfile,
+        channels: [],
+        addr_low: c.addrLow,
+        addr_high: c.addrHigh,
+        manual: true,
+      },
     });
     ids.gcdrDeviceId = g?.id || g?.device?.id;
-    if (!ids.gcdrDeviceId) throw Object.assign(new Error('GCDR não devolveu o id do device.'), { step: 'gcdr' });
-    undo.push({ key: 'gcdr', id: ids.gcdrDeviceId, run: () => _manualGcdr('DELETE', `/devices/${ids.gcdrDeviceId}`) });
+    if (!ids.gcdrDeviceId)
+      throw Object.assign(new Error('GCDR não devolveu o id do device.'), { step: 'gcdr' });
+    undo.push({
+      key: 'gcdr',
+      id: ids.gcdrDeviceId,
+      run: () => _manualGcdr('DELETE', `/devices/${ids.gcdrDeviceId}`),
+    });
     set('gcdr', { status: 'ok', message: ids.gcdrDeviceId });
 
     // 2. Ingestion — id gerado pelo cliente (como no presetup)
     set('ingestion', { status: 'running' });
     let assetId = c.ingestionAssetId;
     if (!assetId) {
-      const a = await _manualIngestion('POST', '/assets', { label: c.assetName, customerId: c.ingestionCustomerId, status: 'active' });
+      const a = await _manualIngestion('POST', '/assets', {
+        label: c.assetName,
+        customerId: c.ingestionCustomerId,
+        status: 'active',
+      });
       assetId = a?.id;
     }
     const ingestionId = crypto.randomUUID();
@@ -1793,7 +1891,11 @@ async function _manualApply(plan, onStep) {
       multipliers: {},
     });
     ids.ingestionId = d?.id || ingestionId;
-    undo.push({ key: 'ingestion', id: ids.ingestionId, run: () => _manualIngestion('DELETE', `/devices/${ids.ingestionId}`) });
+    undo.push({
+      key: 'ingestion',
+      id: ids.ingestionId,
+      run: () => _manualIngestion('DELETE', `/devices/${ids.ingestionId}`),
+    });
     set('ingestion', { status: 'ok', message: ids.ingestionId });
 
     // 3. ThingsBoard — nome fixo do plano + chaves dos outros sistemas
@@ -1815,7 +1917,11 @@ async function _manualApply(plan, onStep) {
       },
     });
     ids.tbDeviceId = tb.deviceId;
-    undo.push({ key: 'tb', id: ids.tbDeviceId, run: () => _manualTb('DELETE', `/api/device/${ids.tbDeviceId}`) });
+    undo.push({
+      key: 'tb',
+      id: ids.tbDeviceId,
+      run: () => _manualTb('DELETE', `/api/device/${ids.tbDeviceId}`),
+    });
     set('tb', { status: 'ok', message: ids.tbDeviceId });
 
     // 4. Central — falha aqui NÃO desfaz os outros (o device existe; a central fica pendente)
@@ -1848,11 +1954,18 @@ async function _manualApply(plan, onStep) {
         });
         set('central', { status: 'ok', message: `slave ${c.slaveId} (${c.addrLow}/${c.addrHigh})` });
       } catch (e) {
-        set('central', { status: 'error', message: `${e.message} — adicionar o slave depois (presetup → Centrais)` });
+        set('central', {
+          status: 'error',
+          message: `${e.message} — adicionar o slave depois (presetup → Centrais)`,
+        });
       } finally {
         if (paused) {
-          await _manualCentral(c.centralId, 'POST', '/api/setMqttSyncStatus', { intent: 'ENABLE' }).catch((e) =>
-            set('central', { status: 'error', message: `MQTT Sync NÃO foi retomado: ${e.message} — reativar na central` })
+          await _manualCentral(c.centralId, 'POST', '/api/setMqttSyncStatus', { intent: 'ENABLE' }).catch(
+            (e) =>
+              set('central', {
+                status: 'error',
+                message: `MQTT Sync NÃO foi retomado: ${e.message} — reativar na central`,
+              })
           );
         }
       }
@@ -2211,7 +2324,7 @@ function _rfc0234GcdrHeaders(extra) {
       'X-Tenant-ID': orch.gcdrTenantId || '',
       Accept: 'application/json',
     },
-    extra || {},
+    extra || {}
   );
 }
 
@@ -2362,7 +2475,8 @@ async function rfc0207SaveActiveProfile(nextProfile) {
     throw new Error('MyIOLibrary indisponível/desatualizada — atualize o bundle da biblioteca MyIO.');
   }
   const gcdrCustomerId = _rfc0234GcdrCustomerId();
-  if (!gcdrCustomerId) throw new Error('gcdrCustomerId indisponível — não é possível salvar o perfil no GCDR.');
+  if (!gcdrCustomerId)
+    throw new Error('gcdrCustomerId indisponível — não é possível salvar o perfil no GCDR.');
 
   const errors = MyIO.validateProfile(nextProfile);
   if (errors.length) {
@@ -2393,7 +2507,7 @@ async function rfc0207SaveActiveProfile(nextProfile) {
   if (!current) {
     const resolveRes = await fetch(
       `${base}/api/v1/entities/resolve?customerId=${encodeURIComponent(gcdrCustomerId)}&deep=all`,
-      { headers: _rfc0234GcdrHeaders() },
+      { headers: _rfc0234GcdrHeaders() }
     );
     if (!resolveRes.ok) throw new Error(`GCDR entities/resolve HTTP ${resolveRes.status}`);
     const json = await resolveRes.json();
@@ -2404,15 +2518,13 @@ async function rfc0207SaveActiveProfile(nextProfile) {
     };
   }
 
-  const previousEnergyRoot = current.roots.find(
-    (r) => r.entityType === 'GROUP' && r.entityKey === 'energy',
-  );
+  const previousEnergyRoot = current.roots.find((r) => r.entityType === 'GROUP' && r.entityKey === 'energy');
   const newEnergyRoot = MyIO.buildGcdrEnergyRoot(nextProfile.domains.energy, previousEnergyRoot);
   // Preserva TODO outro root (water/temperature/qualquer coisa que já exista)
   // byte-a-byte — este save edita SÓ energy; bulk-replace substitui a subtree
   // inteira do tipo GROUP, então omitir um root aqui apagaria os dados dele.
   const newRoots = current.roots.map((r) =>
-    r.entityType === 'GROUP' && r.entityKey === 'energy' ? newEnergyRoot : r,
+    r.entityType === 'GROUP' && r.entityKey === 'energy' ? newEnergyRoot : r
   );
   if (!previousEnergyRoot) newRoots.push(newEnergyRoot);
 
@@ -2422,7 +2534,7 @@ async function rfc0207SaveActiveProfile(nextProfile) {
       method: 'PUT',
       headers: _rfc0234GcdrHeaders({ 'Content-Type': 'application/json', 'If-Match': current.version }),
       body: JSON.stringify({ roots: newRoots }),
-    },
+    }
   );
   if (!bulkRes.ok) {
     const text = await bulkRes.text().catch(() => '');
@@ -2435,7 +2547,10 @@ async function rfc0207SaveActiveProfile(nextProfile) {
     roots: bulkJson?.data?.roots || newRoots,
     gcdrSource: 'customer',
   });
-  LogHelper.log('[MAIN_VIEW] RFC-0234: perfil persistido no GCDR (entities/bulk-replace) para', gcdrCustomerId);
+  LogHelper.log(
+    '[MAIN_VIEW] RFC-0234: perfil persistido no GCDR (entities/bulk-replace) para',
+    gcdrCustomerId
+  );
 
   // Aplica no motor só depois do store confirmar.
   const applied = MyIO.setActiveProfile(nextProfile, LogHelper);
@@ -2474,7 +2589,10 @@ async function rfc0234RevertActiveProfile() {
   }
   _rfc0234GcdrCache.delete(gcdrCustomerId);
   const customerId =
-    window.MyIOOrchestrator?.customerTB_ID || window.MyIOUtils?.customerTB_ID || self.ctx?.settings?.customerTB_ID || '';
+    window.MyIOOrchestrator?.customerTB_ID ||
+    window.MyIOUtils?.customerTB_ID ||
+    self.ctx?.settings?.customerTB_ID ||
+    '';
   return rfc0207LoadActiveProfile(customerId);
 }
 
@@ -2496,8 +2614,7 @@ function classifyDevice(item) {
   // exported via window.MyIOUtils for external consumers, but classifyDevice no
   // longer depends on them.
   const _resolveCategory =
-    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveCategory) ||
-    null;
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveCategory) || null;
   if (!_resolveCategory) {
     LogHelper.error(
       '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveCategory unavailable — classifyDevice degraded to "outros" (update the MyIO library bundle)'
@@ -3065,8 +3182,7 @@ Object.assign(window.MyIOUtils, {
       const theme = window.MyIOLibrary?.createMyIOTheme?.(themeSettings);
       if (theme) {
         window.MyIOUtils.theme = theme;
-        window.MyIOUtils.getTheme = (mode) =>
-          window.MyIOLibrary.createMyIOTheme(themeSettings, mode);
+        window.MyIOUtils.getTheme = (mode) => window.MyIOLibrary.createMyIOTheme(themeSettings, mode);
         theme.applyTo(document.documentElement);
         LogHelper.log('[Orchestrator] theme palette:', { mode: theme.mode, accent: theme.accent });
       } else {
@@ -3102,12 +3218,16 @@ Object.assign(window.MyIOUtils, {
 
     // Goals JSON URLs — carregados via settings, futuramente substituídos por chamada GCDR
     widgetSettings.goalsJsonUrls = {
-      energy:      self.ctx.settings?.goalsJsonUrls?.energy      || '',
-      water:       self.ctx.settings?.goalsJsonUrls?.water       || '',
+      energy: self.ctx.settings?.goalsJsonUrls?.energy || '',
+      water: self.ctx.settings?.goalsJsonUrls?.water || '',
       temperature: self.ctx.settings?.goalsJsonUrls?.temperature || '',
     };
     // Inicializa o cache global (não sobrescreve se já existir de run anterior)
-    window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
+    window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || {
+      energy: null,
+      water: null,
+      temperature: null,
+    };
     _fetchAndCacheGoalsData(widgetSettings.goalsJsonUrls);
     LogHelper.log('[Orchestrator] goalsJsonUrls configurados:', widgetSettings.goalsJsonUrls);
 
@@ -3125,10 +3245,10 @@ Object.assign(window.MyIOUtils, {
     // Ajuste da meta (RFC-0052 GCDR): a margem é gerida no servidor por
     // customer × domínio × ano — a API entrega adjustedValue em cada nó e o
     // GoalsModal o consome direto. O antigo goalsDelta (client-side) foi removido.
-    LogHelper.log(
-      '[Orchestrator] goals config:',
-      { defaultPeriodDays: window.MyIOUtils.goalsDefaultPeriodDays, throttle: window.MyIOUtils.goalsThrottle }
-    );
+    LogHelper.log('[Orchestrator] goals config:', {
+      defaultPeriodDays: window.MyIOUtils.goalsDefaultPeriodDays,
+      throttle: window.MyIOUtils.goalsThrottle,
+    });
 
     // RFC-0130: Load delay time settings from widget settings
     const delaySettings = {
@@ -3316,7 +3436,9 @@ Object.assign(window.MyIOUtils, {
           widgetSettings.domainsEnabled?.[domain] !== false && _isFV(['menu', domain]);
         const _activeDomain = ['energy', 'water', 'temperature', 'alarms'].find(_domainAllowed);
         if (!_activeDomain) {
-          LogHelper.warn('[MAIN_VIEW] applyDomainStateVisibility: no domain allowed (domainsEnabled + restrict_view) — leaving all state divs hidden.');
+          LogHelper.warn(
+            '[MAIN_VIEW] applyDomainStateVisibility: no domain allowed (domainsEnabled + restrict_view) — leaving all state divs hidden.'
+          );
         }
         const _activeStateId = _activeDomain ? STATE_BY_DOMAIN[_activeDomain] : null;
         const _stateDivs = self.ctx.$container[0].querySelectorAll('[data-content-state]');
@@ -3550,7 +3672,11 @@ Object.assign(window.MyIOUtils, {
 
         // RFC-0046: Goals (metas) vêm do GCDR. Popula window.MyIOUtils.goalsData para a
         // linha de meta do GoalsModal (MENU → Metas). Non-blocking.
-        window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || { energy: null, water: null, temperature: null };
+        window.MyIOUtils.goalsData = window.MyIOUtils.goalsData || {
+          energy: null,
+          water: null,
+          temperature: null,
+        };
         if (gcdrCustomerId && gcdrApiKey) {
           _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, gcdrTenantId);
 
@@ -4615,10 +4741,10 @@ function _buildAlarmServiceOrchestrator(alarms) {
       const jwt = localStorage.getItem('jwt_token');
       const customerTB_ID = self.ctx?.settings?.customerTB_ID;
       if (!jwt || !customerTB_ID) {
-        LogHelper.warn(
-          '[AnnotationServiceOrchestrator] missing jwt or customerTB_ID — skipping',
-          { hasJwt: !!jwt, hasCustomerId: !!customerTB_ID }
-        );
+        LogHelper.warn('[AnnotationServiceOrchestrator] missing jwt or customerTB_ID — skipping', {
+          hasJwt: !!jwt,
+          hasCustomerId: !!customerTB_ID,
+        });
         return;
       }
       const tbHost = window.location.origin;
@@ -5332,10 +5458,7 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
   // RFC-0234: transformadoresTotal is computed for display only — deliberately
   // NEVER added to grandTotal below. This is the load-bearing line that
   // implements "sem contabilizar no total de entrada em si."
-  const transformadoresTotal = transformadores.reduce(
-    (sum, item) => sum + (Number(item.value) || 0),
-    0
-  );
+  const transformadoresTotal = transformadores.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
 
   let grandTotal = lojasTotal + entradaTotal + areacomumTotal;
 
@@ -5365,8 +5488,7 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
   // lists were removed; sub-subcategorization (chiller/fancoil/cag…; iluminacao/
   // gerador…) stays local below.
   const _resolveCategory =
-    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveCategory) ||
-    null;
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.resolveCategory) || null;
   if (!_resolveCategory) {
     LogHelper.error(
       '[MAIN_VIEW] RFC-0207: MyIOLibrary.resolveCategory unavailable — breakdown subcategorization degraded to "outros" (update the MyIO library bundle)'
@@ -5420,14 +5542,9 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
   // devices sequer entram no breakdown. Um device pode estar nos dois; o
   // `exclude` do perfil vence por chegar primeiro.
   const _selectBreakdownItems =
-    (typeof window !== 'undefined' &&
-      window.MyIOLibrary &&
-      window.MyIOLibrary.selectBreakdownItems) ||
-    null;
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.selectBreakdownItems) || null;
   const _computeBaseGroupResidual =
-    (typeof window !== 'undefined' &&
-      window.MyIOLibrary &&
-      window.MyIOLibrary.computeBaseGroupResidual) ||
+    (typeof window !== 'undefined' && window.MyIOLibrary && window.MyIOLibrary.computeBaseGroupResidual) ||
     null;
   const _breakdownEntries = _selectBreakdownItems
     ? _selectBreakdownItems({ areacomum, entrada, lojas }, undefined, 'energy', {
@@ -5539,9 +5656,7 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
     0
   );
   const _hasClimatizacaoParent = climatizacaoParentItems.length > 0;
-  const climatizacaoTotal = _hasClimatizacaoParent
-    ? _climatizacaoParentTotal
-    : _climatizacaoChildrenTotal;
+  const climatizacaoTotal = _hasClimatizacaoParent ? _climatizacaoParentTotal : _climatizacaoChildrenTotal;
   const elevadoresTotal = elevadoresItems.reduce((sum, i) => sum + getValorEfetivo(i, 'elevadores'), 0);
   const escadasRolantesTotal = escadasRolantesItems.reduce(
     (sum, i) => sum + getValorEfetivo(i, 'escadas_rolantes'),
@@ -5633,8 +5748,7 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
           // Sem a lib no bundle não existe `selectBreakdownItems`, logo não existe
           // include cross-group — as duas fórmulas coincidem.
           const raw =
-            areacomumTotal -
-            (climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + outrosTotal);
+            areacomumTotal - (climatizacaoTotal + elevadoresTotal + escadasRolantesTotal + outrosTotal);
           return { residualRaw: raw, residual: Math.max(0, raw), negative: raw < 0 };
         })();
     const _areacomumResidual = _residualCalc.residual;
@@ -5742,11 +5856,7 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
         // climatização de fato (BOMBA_CAG/secundária/primária, que casam por 'BOMBA'
         // no texto e ficam em climatização via identifier CAG). Chamar de "Bombas
         // Hidráulicas" ficou enganoso — são bombas do sistema de água gelada.
-        bombasClimatizacao: buildCategorySummary(
-          bombaHidraulicaItems,
-          bombaHidraulicaTotal,
-          'Bombas'
-        ),
+        bombasClimatizacao: buildCategorySummary(bombaHidraulicaItems, bombaHidraulicaTotal, 'Bombas'),
         cag: buildCategorySummary(cagItemsFiltered, cagTotal, 'CAG'),
         hvacOutros: buildCategorySummary(hvacOutrosItems, hvacOutrosTotal, 'Outros HVAC'),
       },
@@ -6150,7 +6260,8 @@ function populateState(domain, rawItems, periodKey, manualItems) {
   }
   if (domain === 'water') {
     // Water domain: entrada, lojas, banheiros, areacomum, caixadagua
-    const { entrada, lojas, banheiros, areacomum, caixadagua, retrolavagem } = categorizeItemsByGroupWater(items);
+    const { entrada, lojas, banheiros, areacomum, caixadagua, retrolavagem } =
+      categorizeItemsByGroupWater(items);
     _applyRetrolavagemValues(retrolavagem, entrada, lojas, banheiros, areacomum);
 
     window.STATE[domain] = {
@@ -8173,7 +8284,9 @@ const MyIOOrchestrator = (() => {
     if (!window.MyIOOrchestrator?.credentialsSet) {
       await Promise.race([
         credentialsPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Credentials timeout after 10s')), 10000)),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Credentials timeout after 10s')), 10000)
+        ),
       ]);
     }
     const creds = window.MyIOOrchestrator?.getCredentials?.();
@@ -8228,7 +8341,8 @@ const MyIOOrchestrator = (() => {
     summaryCache.set(key, entry);
     promise.then(
       (r) => {
-        if (!r) summaryCache.delete(key); // sem suporte/credencial: não fixa o "null"
+        if (!r)
+          summaryCache.delete(key); // sem suporte/credencial: não fixa o "null"
         else entry.done = true;
       },
       () => summaryCache.delete(key) // erro: próxima navegação tenta de novo
@@ -8346,8 +8460,7 @@ const MyIOOrchestrator = (() => {
         }
 
         // Build metadata map from AllTempDevices datasource
-        const { byEntityId: metadataByEntityId } =
-          buildMetadataMapFromCtxData(domain);
+        const { byEntityId: metadataByEntityId } = buildMetadataMapFromCtxData(domain);
 
         if (metadataByEntityId.size === 0) {
           LogHelper.warn(`[Orchestrator] ⚠️ No temperature devices found in ctx.data`);
@@ -8454,12 +8567,16 @@ const MyIOOrchestrator = (() => {
                 await Promise.all(
                   devices.slice(i, i + BATCH).map(async (meta) => {
                     try {
-                      const url = new URL(`${getDataApiHost()}/telemetry/devices/${meta.ingestionId}/temperature`);
+                      const url = new URL(
+                        `${getDataApiHost()}/telemetry/devices/${meta.ingestionId}/temperature`
+                      );
                       url.searchParams.set('startTime', startIso);
                       url.searchParams.set('endTime', endIso);
                       url.searchParams.set('granularity', '1h');
                       url.searchParams.set('deep', '0');
-                      const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+                      const res = await fetch(url.toString(), {
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
                       if (!res.ok) {
                         if (res.status === 401 || res.status === 403) authFailed = true;
                         return;
@@ -8533,7 +8650,8 @@ const MyIOOrchestrator = (() => {
               lastTelemetryTs = apiRow.lastTs; // leitura REAL (série), não o last_telemetry_ts da rota
             }
           } else {
-            temperatureValue = meta.temperature === null || meta.temperature === undefined ? null : Number(meta.temperature);
+            temperatureValue =
+              meta.temperature === null || meta.temperature === undefined ? null : Number(meta.temperature);
           }
 
           // RFC-0111: Use centralized factory
@@ -9161,7 +9279,10 @@ const MyIOOrchestrator = (() => {
           LogHelper.log(`[Orchestrator] 📦 ${domain}: ${rows.length} devices do /summary`);
         }
       } catch (err) {
-        LogHelper.warn(`[Orchestrator] /summary ${domain} falhou — usando /devices/totals:`, err?.message || err);
+        LogHelper.warn(
+          `[Orchestrator] /summary ${domain} falhou — usando /devices/totals:`,
+          err?.message || err
+        );
       }
 
       if (!rows) {
@@ -9404,7 +9525,6 @@ const MyIOOrchestrator = (() => {
           // Release mutex
           sharedWidgetState.mutexMap.set(domain, false);
           LogHelper.log(`[Orchestrator] 🔓 Mutex released for ${domain}`);
-
         }
         // RFC-0107: Dispatch event to signal fetch completion (validação do contrato — também
         // na pré-montagem, para a validação fechar sem esperar o timeout)
@@ -9789,7 +9909,9 @@ const MyIOOrchestrator = (() => {
     // domainsEnabled so "Carregar" hydrates the right domain instead of skipping.
     if (!visibleTab) {
       visibleTab = firstEnabledDomain();
-      LogHelper.log(`[Orchestrator] RFC-0152c: visibleTab was unset — derived from domainsEnabled: ${visibleTab}`);
+      LogHelper.log(
+        `[Orchestrator] RFC-0152c: visibleTab was unset — derived from domainsEnabled: ${visibleTab}`
+      );
     }
 
     // RFC-0130: Check if period changed - if so, clear cache for this domain
@@ -10003,7 +10125,13 @@ const MyIOOrchestrator = (() => {
     if (ready) {
       window.dispatchEvent(
         new CustomEvent('myio:telemetry:provide-data', {
-          detail: { domain, periodKey: ready.periodKey, items: ready.items, _reemit: true, _triggeredBy: widgetId },
+          detail: {
+            domain,
+            periodKey: ready.periodKey,
+            items: ready.items,
+            _reemit: true,
+            _triggeredBy: widgetId,
+          },
         })
       );
       try {
@@ -10805,7 +10933,9 @@ function finalizeContractValidation(expectedCounts) {
       const detail = domains
         .map((d) => {
           const t = totals.find((x) => x.domain === d);
-          return t ? `${LABEL[d] || d} ${t.expected} contratados × ${t.actual} carregados` : `${LABEL[d] || d} (por grupo)`;
+          return t
+            ? `${LABEL[d] || d} ${t.expected} contratados × ${t.actual} carregados`
+            : `${LABEL[d] || d} (por grupo)`;
         })
         .join(' · ');
       Toast?.warning?.(`Contrato diferente do cadastro — ${detail}`, 12000);
