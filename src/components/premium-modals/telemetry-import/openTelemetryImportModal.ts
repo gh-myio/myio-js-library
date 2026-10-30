@@ -3,11 +3,15 @@
  * Fluxo do runbook TELEMETRY-SHEET-IMPORT: modelo → planilha → validação (tudo-ou-nada) →
  * importação (job assíncrono: acompanhar / cancelar). Shell padrão SettingsModalView
  * (`openStandardModal`) com stepper no estilo do Relatório de Demanda (dp2).
+ *
+ * Dois modelos de preenchimento (RFC-0240 §9): hora a hora (planilha) e acumulado por período
+ * (tela ou planilha; a lib distribui o total pelas horas). A API recebe o mesmo formato nos dois.
  */
 
 import { openStandardModal, type StandardModalInstance } from '../standard-modal';
 import {
   buildTemplateCsv,
+  parseDecimal,
   parseSheetFile,
   rowsFromTable,
   splitImportableDevices,
@@ -17,6 +21,16 @@ import {
   type ImportRow,
   type SheetIssue,
 } from './sheet';
+import {
+  accumulatedRows,
+  buildAccumulatedTemplateCsv,
+  dayCurve,
+  entriesFromTable,
+  ACCUMULATED_SOURCE_PREFIX,
+  DEFAULT_DISTRIBUTION_PROFILE,
+  type AccumulatedEntry,
+  type ImportModel,
+} from './accumulated';
 import {
   createTelemetryImportApi,
   ImportApiError,
@@ -127,6 +141,18 @@ function injectStyles(): void {
 .tlmi-progress > i { display: block; height: 100%; background: var(--tlmi-ac); transition: width 0.4s; }
 .tlmi-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
 .tlmi-tech { font-size: 11.5px; color: #6b7280; word-break: break-word; }
+.tlmi-models { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.tlmi-model { display: flex; gap: 10px; align-items: flex-start; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; cursor: pointer; }
+.tlmi-model[data-selected="1"] { border-color: var(--tlmi-ac); background: var(--tlmi-ac-soft); }
+.tlmi-model strong { display: block; font-size: 13.5px; }
+.tlmi-model span { font-size: 12.5px; color: #64748b; line-height: 1.4; }
+.tlmi-acc { max-height: 240px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+.tlmi-acc table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tlmi-acc th, .tlmi-acc td { padding: 6px 10px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+.tlmi-acc th { background: #f8fafc; position: sticky; top: 0; font-size: 12px; color: #64748b; }
+.tlmi-acc input { width: 130px; border: 1px solid #ddd; border-radius: 6px; padding: 6px 8px; font: inherit; }
+.tlmi-curve { display: flex; align-items: flex-end; gap: 2px; height: 56px; margin-top: 8px; }
+.tlmi-curve i { flex: 1; background: var(--tlmi-ac); opacity: 0.75; border-radius: 2px 2px 0 0; min-height: 2px; }
 `;
   document.head.appendChild(style);
 }
@@ -160,6 +186,13 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
 
   const s = {
     step: 1 as Step,
+    model: 'hourly' as ImportModel,
+    /** Acumulado: total digitado por device (índice em `importable`) */
+    formTotals: {} as Record<number, string>,
+    /** Acumulado: entradas vindas de planilha (null = preenchimento na tela) */
+    fileEntries: null as AccumulatedEntry[] | null,
+    fileErrors: [] as SheetIssue[],
+    acc: { devices: 0, total: 0, zeroEntries: 0 },
     period: defaultPeriod(now()),
     fileName: '',
     rows: [] as ImportRow[],
@@ -207,7 +240,8 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
   function stepper(): string {
     return `<div class="tlmi-stepper">${STEPS.map((st) => {
       const state = st.n === s.step ? 'current' : st.n < s.step ? 'done' : 'todo';
-      return `<div class="tlmi-step" data-state="${state}"><b>${state === 'done' ? '✓' : st.n}</b>${st.label}</div>`;
+      const label = st.n === 2 && s.model === 'accumulated' ? 'Valores' : st.label;
+      return `<div class="tlmi-step" data-state="${state}"><b>${state === 'done' ? '✓' : st.n}</b>${label}</div>`;
     }).join('')}</div>`;
   }
 
@@ -222,21 +256,42 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
           missingKey.slice(0, 5).map((d) => d.label).join(', ')
         )}${missingKey.length > 5 ? '…' : ''}</div>`
       : '';
-    return `
-      <div class="tlmi-card"><h3>Como funciona</h3>
-        <p class="tlmi-muted">1) Baixe o modelo com os dispositivos desta lista, uma linha por hora. 2) Preencha a coluna
+    const model = (value: ImportModel, title: string, hint: string) => `
+      <label class="tlmi-model" data-selected="${s.model === value ? 1 : 0}">
+        <input type="radio" name="tlmi-model" data-field="model" value="${value}" ${s.model === value ? 'checked' : ''} />
+        <div><strong>${title}</strong><span>${hint}</span></div>
+      </label>`;
+    const howTo =
+      s.model === 'accumulated'
+        ? `<p class="tlmi-muted">1) Escolha o período. 2) Informe o total de cada dispositivo (${txt.unit}), na tela ou em planilha.
+           3) O sistema distribui o total pelas horas, mantendo a soma exata. O total é o valor informado;
+           a <strong>curva por hora é estimada</strong>. Os valores <strong>substituem</strong> as leituras existentes no período.</p>`
+        : `<p class="tlmi-muted">1) Baixe o modelo com os dispositivos desta lista, uma linha por hora. 2) Preencha a coluna
         <strong>${VALUE_COLUMN[domain]}</strong> (${txt.unit}); apague ou deixe em branco as horas que não quer alterar.
         3) Envie a planilha: ela é validada por inteiro — qualquer linha inválida cancela a importação.
-        Os valores importados <strong>substituem</strong> as leituras existentes nas horas enviadas.</p>
+        Os valores importados <strong>substituem</strong> as leituras existentes nas horas enviadas.</p>`;
+    return `
+      <div class="tlmi-card"><h3>Como você quer preencher?</h3>
+        <div class="tlmi-models">
+          ${model('hourly', 'Hora a hora', 'Você tem o valor de cada hora.')}
+          ${model('accumulated', 'Acumulado por período', 'Você tem só o total do período.')}
+        </div>
+      </div>
+      <div class="tlmi-card"><h3>Como funciona</h3>
+        ${howTo}
       </div>
       ${warn}
-      <div class="tlmi-card"><h3>Modelo da planilha</h3>
+      <div class="tlmi-card"><h3>${s.model === 'accumulated' ? 'Período' : 'Modelo da planilha'}</h3>
         <div class="tlmi-row">
           <label class="tlmi-field">Início<input type="date" data-field="start" value="${esc(s.period.start)}" /></label>
           <label class="tlmi-field">Fim<input type="date" data-field="end" value="${esc(s.period.end)}" /></label>
           <button class="tlmi-btn" type="button" data-action="template" ${importable.length ? '' : 'disabled'}>⬇ Baixar modelo (CSV)</button>
         </div>
-        <p class="tlmi-muted" style="margin-top:8px">${importable.length} dispositivo(s) no modelo. Já tem a planilha preenchida? Clique em <strong>Avançar</strong>.</p>
+        <p class="tlmi-muted" style="margin-top:8px">${importable.length} dispositivo(s) no modelo. ${
+          s.model === 'accumulated'
+            ? 'Para digitar na tela, clique em <strong>Avançar</strong>.'
+            : 'Já tem a planilha preenchida? Clique em <strong>Avançar</strong>.'
+        }</p>
       </div>`;
   }
 
@@ -263,6 +318,66 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
       ${summary}`;
   }
 
+  function accSummaryHtml(): string {
+    if (!s.rows.length && !s.localErrors.length) {
+      return `<p class="tlmi-muted">Informe ao menos um total para ver a prévia.</p>`;
+    }
+    const hours = s.rows.length;
+    const curve = dayCurve(DEFAULT_DISTRIBUTION_PROFILE);
+    const peak = Math.max(...curve);
+    return `
+      <div class="tlmi-kpis">
+        <div class="tlmi-kpi"><span>Dispositivos</span><strong>${fmtNum(s.acc.devices)}</strong></div>
+        <div class="tlmi-kpi"><span>Horas geradas</span><strong>${fmtNum(hours)}</strong></div>
+        <div class="tlmi-kpi"><span>Total (${txt.unit})</span><strong>${fmtNum(s.acc.total, 3)}</strong></div>
+        <div class="tlmi-kpi"><span>Média por hora (${txt.unit})</span><strong>${fmtNum(hours ? s.acc.total / hours : 0, 3)}</strong></div>
+      </div>
+      ${
+        s.localErrors.length
+          ? `<div class="tlmi-banner err">Corrija os itens abaixo — nada foi importado.</div>${issuesTable(s.localErrors)}`
+          : ''
+      }
+      ${s.acc.zeroEntries ? `<div class="tlmi-banner warn">${fmtNum(s.acc.zeroEntries)} período(s) com total zero: todas as horas ficam zeradas.</div>` : ''}
+      ${
+        hours
+          ? `<div class="tlmi-card"><h3>Distribuição em um dia</h3>
+               <p class="tlmi-muted">${Math.round(DEFAULT_DISTRIBUTION_PROFILE.openShare * 100)}% do total no horário de funcionamento
+               (${DEFAULT_DISTRIBUTION_PROFILE.openHour}h às ${DEFAULT_DISTRIBUTION_PROFILE.closeHour}h). Curva estimada: não use para análise de pico de demanda.</p>
+               <div class="tlmi-curve" aria-hidden="true">${curve.map((w) => `<i style="height:${Math.round((w / peak) * 100)}%"></i>`).join('')}</div>
+             </div>`
+          : ''
+      }`;
+  }
+
+  function step2Accumulated(): string {
+    const fromFile = !!s.fileName && !s.parseError;
+    const form = fromFile
+      ? `<p class="tlmi-muted">Usando <strong>${esc(s.fileName)}</strong>.
+           <button class="tlmi-btn" type="button" data-action="use-form">Preencher na tela</button></p>`
+      : `<p class="tlmi-muted" style="margin-bottom:8px">Período: ${esc(s.period.start)} a ${esc(s.period.end)}. Deixe em branco o que não quer importar.</p>
+         <div class="tlmi-acc"><table><thead><tr><th>Dispositivo</th><th>Total (${txt.unit})</th></tr></thead><tbody>
+           ${importable
+             .map(
+               (d, i) => `<tr><td>${esc(d.label)}</td>
+                 <td><input inputmode="decimal" data-total="${i}" aria-label="Total de ${esc(d.label)}" value="${esc(s.formTotals[i] ?? '')}" /></td></tr>`
+             )
+             .join('')}
+         </tbody></table></div>`;
+    return `
+      <div class="tlmi-card"><h3>Totais por dispositivo</h3>${form}</div>
+      <div class="tlmi-card"><h3>Ou envie a planilha</h3>
+        <div class="tlmi-row" style="margin-bottom:10px">
+          <button class="tlmi-btn" type="button" data-action="template" ${importable.length ? '' : 'disabled'}>⬇ Baixar modelo (CSV)</button>
+        </div>
+        <label class="tlmi-drop" data-role="drop">
+          <input type="file" accept=".xlsx,.xls,.csv" data-field="file" hidden />
+          📄 Clique ou arraste a planilha aqui (.xlsx ou .csv)
+        </label>
+        ${s.parseError ? `<div class="tlmi-banner err" style="margin-top:10px">${esc(s.parseError)}</div>` : ''}
+      </div>
+      <div data-role="acc-summary" style="display:flex;flex-direction:column;gap:12px">${accSummaryHtml()}</div>`;
+  }
+
   function step3(): string {
     const v = s.validation;
     if (!v) return `${apiErrorBanner()}<div class="tlmi-card"><p class="tlmi-muted">${s.busy ? 'Validando…' : 'Aguardando validação.'}</p></div>`;
@@ -275,7 +390,8 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     const period = typeof p.period === 'string' ? p.period : p.period ? `${p.period.start || ''} → ${p.period.end || ''}` : '—';
     const devices = Array.isArray(p.devices) ? p.devices.length : p.devices;
     return `
-      <div class="tlmi-banner ok">Planilha válida. Confira o resumo antes de importar.</div>
+      <div class="tlmi-banner ok">${s.model === 'accumulated' ? 'Valores válidos' : 'Planilha válida'}. Confira o resumo antes de importar.</div>
+      ${s.model === 'accumulated' ? '<div class="tlmi-banner warn">Os valores por hora são estimados a partir do total informado.</div>' : ''}
       <div class="tlmi-kpis">
         <div class="tlmi-kpi"><span>Horas a gravar</span><strong>${fmtNum(p.targetSlots)}</strong></div>
         <div class="tlmi-kpi"><span>Dispositivos</span><strong>${fmtNum(devices)}</strong></div>
@@ -332,7 +448,8 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
 
   function render(): void {
     if (closed) return;
-    const body = s.step === 1 ? step1() : s.step === 2 ? step2() : s.step === 3 ? step3() : step4();
+    const step2Body = () => (s.model === 'accumulated' ? step2Accumulated() : step2());
+    const body = s.step === 1 ? step1() : s.step === 2 ? step2Body() : s.step === 3 ? step3() : step4();
     root.innerHTML = stepper() + body;
     syncFooter();
   }
@@ -343,7 +460,11 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     modal.setButton('back', { hidden: s.step === 1 || s.step === 4, disabled: s.busy });
     if (s.step === 1) modal.setButton('next', { label: 'Avançar', disabled: false, hidden: false });
     if (s.step === 2)
-      modal.setButton('next', { label: 'Validar planilha', disabled: s.busy || !s.rows.length || !!s.localErrors.length || !!s.parseError, hidden: false });
+      modal.setButton('next', {
+        label: s.model === 'accumulated' ? 'Validar' : 'Validar planilha',
+        disabled: s.busy || !s.rows.length || !!s.localErrors.length || !!s.parseError,
+        hidden: false,
+      });
     if (s.step === 3) {
       const real = v && v.valid ? Number(v.preview?.existingRealReadings || 0) : 0;
       modal.setButton('next', {
@@ -367,6 +488,7 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
   async function goNext(): Promise<void> {
     if (s.busy) return;
     if (s.step === 1) {
+      if (s.model === 'accumulated') recomputeAccumulated();
       s.step = 2;
       render();
     } else if (s.step === 2) {
@@ -380,17 +502,69 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
   }
 
   function downloadTemplate(): void {
-    const { csv, rows } = buildTemplateCsv(domain, importable, s.period.start, s.period.end, now());
+    const { csv, rows } =
+      s.model === 'accumulated'
+        ? buildAccumulatedTemplateCsv(domain, importable, s.period.start, s.period.end)
+        : buildTemplateCsv(domain, importable, s.period.start, s.period.end, now());
     if (!rows) return;
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     const who = (params.customerName || 'shopping').replace(/[^\w-]+/g, '_');
-    a.download = `importacao-${domain === 'energy' ? 'energia' : 'agua'}-${who}-${s.period.start}_${s.period.end}.csv`;
+    const kind = s.model === 'accumulated' ? '-acumulado' : '';
+    a.download = `importacao${kind}-${domain === 'energy' ? 'energia' : 'agua'}-${who}-${s.period.start}_${s.period.end}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  /** Entradas do formulário: uma por device com total preenchido, no período da etapa 1. */
+  function formEntries(): { entries: AccumulatedEntry[]; errors: SheetIssue[] } {
+    const entries: AccumulatedEntry[] = [];
+    const errors: SheetIssue[] = [];
+    importable.forEach((d, i) => {
+      const total = parseDecimal(s.formTotals[i] ?? '');
+      if (total === null) return;
+      if (Number.isNaN(total) || total < 0) {
+        errors.push({ line: i + 1, reason: `${d.label}: total deve ser número ≥ 0` });
+        return;
+      }
+      entries.push({
+        line: i + 1,
+        gateway_id: String(d.centralId),
+        slave_id: Number(d.slaveId),
+        device_name: d.label,
+        start: s.period.start,
+        end: s.period.end,
+        total,
+      });
+    });
+    return { entries, errors };
+  }
+
+  function recomputeAccumulated(): void {
+    const src = s.fileEntries ? { entries: s.fileEntries, errors: s.fileErrors } : formEntries();
+    const r = accumulatedRows(domain, src.entries, DEFAULT_DISTRIBUTION_PROFILE, now());
+    s.rows = r.rows;
+    s.localErrors = [...src.errors, ...r.errors];
+    s.acc = { devices: r.devices, total: r.total, zeroEntries: r.zeroEntries };
+    s.validation = null;
+  }
+
+  /** Só a prévia: redesenhar a etapa inteira tiraria o foco do campo em digitação. */
+  function refreshAccSummary(): void {
+    const el = root.querySelector<HTMLElement>('[data-role="acc-summary"]');
+    if (el) el.innerHTML = accSummaryHtml();
+    syncFooter();
+  }
+
+  function resetAccumulatedSource(): void {
+    s.fileName = '';
+    s.parseError = '';
+    s.fileEntries = null;
+    s.fileErrors = [];
+    s.skippedEmpty = 0;
   }
 
   async function loadFile(file: File | undefined): Promise<void> {
@@ -403,10 +577,18 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     s.validation = null;
     try {
       const table = await parseSheetFile(file);
-      const r = rowsFromTable(domain, table);
-      s.rows = r.rows;
-      s.localErrors = r.errors;
-      s.skippedEmpty = r.skippedEmpty;
+      if (s.model === 'accumulated') {
+        const r = entriesFromTable(domain, table);
+        s.fileEntries = r.entries;
+        s.fileErrors = r.errors;
+        s.skippedEmpty = r.skippedEmpty;
+        recomputeAccumulated();
+      } else {
+        const r = rowsFromTable(domain, table);
+        s.rows = r.rows;
+        s.localErrors = r.errors;
+        s.skippedEmpty = r.skippedEmpty;
+      }
     } catch (err) {
       s.parseError = (err as Error)?.message || 'Não foi possível ler a planilha.';
     }
@@ -420,7 +602,8 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     s.step = 3;
     render();
     try {
-      s.validation = await api.validate({ customerId: params.customerId, readingType: domain, rows: s.rows, sourceRef: s.fileName });
+      const sourceRef = s.model === 'accumulated' ? `${ACCUMULATED_SOURCE_PREFIX}:${s.fileName || 'tela'}` : s.fileName;
+      s.validation = await api.validate({ customerId: params.customerId, readingType: domain, rows: s.rows, sourceRef });
     } catch (err) {
       setError(err);
     } finally {
@@ -485,12 +668,32 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     if (!el) return;
     if (el.dataset.action === 'template') downloadTemplate();
     if (el.dataset.action === 'cancel') void cancelJob();
+    if (el.dataset.action === 'use-form') {
+      resetAccumulatedSource();
+      recomputeAccumulated();
+      render();
+    }
+  });
+  root.addEventListener('input', (e) => {
+    const t = e.target as HTMLInputElement;
+    if (t.dataset.total === undefined) return;
+    s.formTotals[Number(t.dataset.total)] = t.value;
+    recomputeAccumulated();
+    refreshAccSummary();
   });
   root.addEventListener('change', (e) => {
     const t = e.target as HTMLInputElement;
     if (t.dataset.field === 'start') s.period.start = t.value;
     if (t.dataset.field === 'end') s.period.end = t.value;
     if (t.dataset.field === 'file') void loadFile(t.files?.[0]);
+    if (t.dataset.field === 'model') {
+      s.model = t.value as ImportModel;
+      resetAccumulatedSource();
+      s.rows = [];
+      s.localErrors = [];
+      s.validation = null;
+      render();
+    }
     if (t.dataset.field === 'confirmReal') {
       s.confirmReal = t.checked;
       syncFooter();

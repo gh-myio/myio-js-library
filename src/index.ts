@@ -1409,6 +1409,10 @@ export {
   buildTemplateCsv,
   rowsFromTable,
   parseCsv,
+  buildAccumulatedTemplateCsv,
+  accumulatedRows,
+  distributeTotal,
+  DEFAULT_DISTRIBUTION_PROFILE,
 } from './components/premium-modals/telemetry-import';
 export type {
   OpenTelemetryImportModalParams,
@@ -1416,6 +1420,9 @@ export type {
   TelemetryImportApiConfig,
   ImportDevice,
   ImportRow,
+  AccumulatedEntry,
+  DistributionProfile,
+  ImportModel,
 } from './components/premium-modals/telemetry-import';
 // Devices *_MANUAL: modal "+" da aba Disp. Manuais (Shopping v-5.2.0)
 export {

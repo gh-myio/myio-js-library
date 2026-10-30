@@ -12,6 +12,12 @@ import {
   splitImportableDevices,
   createTelemetryImportApi,
   openTelemetryImportModal,
+  accumulatedRows,
+  buildAccumulatedTemplateCsv,
+  closedHoursInPeriod,
+  distributeTotal,
+  entriesFromTable,
+  type AccumulatedEntry,
   type TelemetryImportApi,
 } from '../../../src/components/premium-modals/telemetry-import';
 
@@ -90,6 +96,125 @@ describe('sheet', () => {
   it('rowsFromTable: coluna obrigatória ausente', () => {
     const r = rowsFromTable('water', [['gateway_id', 'slave_id', 'date', 'hour', 'value_kwh']]);
     expect(r.errors[0].reason).toContain('value_m3');
+  });
+});
+
+describe('acumulado por período (RFC-0240 §9)', () => {
+  const entry = (over: Partial<AccumulatedEntry> = {}): AccumulatedEntry => ({
+    line: 2,
+    gateway_id: GW,
+    slave_id: 3,
+    start: '2026-09-01',
+    end: '2026-09-30',
+    total: 693.4,
+    ...over,
+  });
+  const milli = (rows: Array<{ value_kwh?: number }>) => rows.reduce((a, r) => a + Math.round((r.value_kwh || 0) * 1000), 0);
+
+  it('closedHoursInPeriod: só horas fechadas (hoje até a hora anterior)', () => {
+    expect(closedHoursInPeriod('2026-09-01', '2026-09-30', NOW).length).toBe(720);
+    // NOW = 26/10 10:30 em São Paulo: 25/10 inteiro + 00h..09h de 26/10
+    const slots = closedHoursInPeriod('2026-10-25', '2026-10-26', NOW);
+    expect(slots.length).toBe(34);
+    expect(slots.at(-1)).toEqual({ date: '2026-10-26', hour: 9 });
+  });
+
+  it('distributeTotal: soma EXATA em vários totais, sem valor negativo', () => {
+    const slots = closedHoursInPeriod('2026-09-01', '2026-09-30', NOW);
+    for (const total of [693.4, 0.001, 0.007, 1, 1234567.891, 33.333]) {
+      const parts = distributeTotal(total, slots);
+      expect(parts.length).toBe(720);
+      expect(parts.reduce((a, v) => a + Math.round(v * 1000), 0)).toBe(Math.round(total * 1000));
+      expect(parts.every((v) => v >= 0)).toBe(true);
+    }
+  });
+
+  it('distributeTotal: 85% no horário de funcionamento (10h–22h)', () => {
+    const slots = closedHoursInPeriod('2026-09-01', '2026-09-01', NOW);
+    const parts = distributeTotal(100, slots);
+    const open = parts.filter((_, i) => slots[i].hour >= 10 && slots[i].hour < 22);
+    expect(open.reduce((a, v) => a + Math.round(v * 1000), 0)).toBe(85000);
+    expect(parts[12]).toBeGreaterThan(parts[3]);
+  });
+
+  it('distributeTotal: período só com horas de um grupo fica uniforme, sem perder o total', () => {
+    const parts = distributeTotal(10, [
+      { date: '2026-09-01', hour: 1 },
+      { date: '2026-09-01', hour: 2 },
+    ]);
+    expect(parts).toEqual([5, 5]);
+    expect(distributeTotal(10, [])).toEqual([]);
+  });
+
+  it('accumulatedRows: gera o mesmo formato do modelo hora a hora, com soma exata', () => {
+    const r = accumulatedRows('energy', [entry()], undefined, NOW);
+    expect(r.errors).toEqual([]);
+    expect(r.rows.length).toBe(720);
+    expect(r.devices).toBe(1);
+    expect(r.total).toBe(693.4);
+    expect(milli(r.rows)).toBe(693400);
+    expect(r.rows[0]).toEqual({ line: 2, gateway_id: GW, slave_id: 3, date: '2026-09-01', hour: '00:00', value_kwh: expect.any(Number) });
+    const water = accumulatedRows('water', [entry({ total: 10 })], undefined, NOW);
+    expect(water.rows[0].value_m3).toBeDefined();
+    expect(water.rows[0].value_kwh).toBeUndefined();
+  });
+
+  it('accumulatedRows: rejeita início > fim, fim no futuro e período sobreposto', () => {
+    const r = accumulatedRows(
+      'energy',
+      [
+        entry({ line: 2, start: '2026-09-10', end: '2026-09-01' }),
+        entry({ line: 3, end: '2026-10-27' }),
+        entry({ line: 4 }),
+        entry({ line: 5, start: '2026-09-30', end: '2026-10-02' }),
+        entry({ line: 6, start: '2026-10-01', end: '2026-10-02' }),
+      ],
+      undefined,
+      NOW
+    );
+    expect(r.errors.map((e) => e.line)).toEqual([2, 3, 5]);
+    expect(r.errors[1].reason).toContain('futuro');
+    expect(r.errors[2].reason).toContain('sobreposto ao da linha 4');
+    expect(r.rows.length).toBe(720 + 48); // linhas 4 e 6
+  });
+
+  it('accumulatedRows: total zero é aceito e contado; limite de linhas vira erro', () => {
+    const zero = accumulatedRows('energy', [entry({ total: 0 })], undefined, NOW);
+    expect(zero.errors).toEqual([]);
+    expect(zero.zeroEntries).toBe(1);
+    expect(zero.rows.every((r) => r.value_kwh === 0)).toBe(true);
+    const many = Array.from({ length: 7 }, (_, i) => entry({ line: i + 2, slave_id: i + 1 }));
+    const big = accumulatedRows('energy', many, undefined, NOW);
+    expect(big.rows.length).toBe(5040);
+    expect(big.errors[0].reason).toContain('Máximo de 5000 horas');
+  });
+
+  it('modelo CSV: uma linha por device e parse de volta', () => {
+    const { csv, rows } = buildAccumulatedTemplateCsv('energy', DEVICES, '2026-09-01', '2026-09-30');
+    expect(rows).toBe(1); // "Sem central" fica fora
+    const lines = csv.replace('﻿', '').trim().split('\r\n');
+    expect(lines[0]).toBe('gateway_id;slave_id;device_name;start_date;end_date;total_kwh');
+    expect(lines[1]).toBe(`${GW};3;Loja A;2026-09-01;2026-09-30;`);
+    const table = parseCsv(csv.replace(/;\r\n$/, ';693,4\r\n'));
+    const r = entriesFromTable('energy', table);
+    expect(r.errors).toEqual([]);
+    expect(r.entries).toEqual([
+      { line: 2, gateway_id: GW, slave_id: 3, device_name: 'Loja A', start: '2026-09-01', end: '2026-09-30', total: 693.4 },
+    ]);
+  });
+
+  it('entriesFromTable: total vazio é ignorado; erros por linha; coluna ausente', () => {
+    const header = ['gateway_id', 'slave_id', 'start_date', 'end_date', 'total_kwh'];
+    const r = entriesFromTable('energy', [
+      header,
+      [GW, '3', '2026-09-01', '2026-09-30', ''],
+      ['x', '0', 'ontem', '2026-09-30', '-1'],
+      ['', '', '', '', ''],
+    ]);
+    expect(r.skippedEmpty).toBe(1);
+    expect(r.errors[0].line).toBe(3);
+    expect(r.errors[0].reason).toMatch(/gateway_id ou slave_id inválido.*início inválido.*total deve ser/);
+    expect(entriesFromTable('water', [header]).errors[0].reason).toContain('total_m3');
   });
 });
 
@@ -189,6 +314,102 @@ describe('openTelemetryImportModal', () => {
     btn('next').click(); // Concluir
     expect(onCompleted).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed' }));
     expect(document.querySelector('.myio-stdmodal')).toBeNull();
+  });
+
+  describe('modelo acumulado', () => {
+    const pick = () => {
+      const radio = document.querySelector<HTMLInputElement>('input[data-field="model"][value="accumulated"]')!;
+      radio.checked = true;
+      radio.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    const setPeriod = (start: string, end: string) => {
+      for (const [field, value] of [['start', start], ['end', end]]) {
+        const el = document.querySelector<HTMLInputElement>(`input[data-field="${field}"]`)!;
+        el.value = value;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    };
+    const typeTotal = (v: string) => {
+      const el = document.querySelector<HTMLInputElement>('input[data-total="0"]')!;
+      el.value = v;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return el;
+    };
+
+    it('escolhe o modelo, digita o total na tela, vê a prévia e valida com sourceRef acumulado', async () => {
+      const api = fakeApi();
+      openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+      pick();
+      setPeriod('2026-09-01', '2026-09-30');
+      expect(document.querySelector('.tlmi')!.textContent).toContain('curva por hora é estimada');
+      btn('next').click();
+      await flush();
+      expect(document.querySelector('.tlmi-stepper')!.textContent).toContain('Valores');
+      expect(btn('next').disabled).toBe(true); // sem total
+      const input = typeTotal('693,4');
+      expect(document.activeElement === input || document.contains(input)).toBe(true); // não redesenha o campo
+      const text = document.querySelector('[data-role="acc-summary"]')!.textContent!;
+      expect(text).toContain('Horas geradas720');
+      expect(text).toContain('693,400');
+      expect(text).toContain('não use para análise de pico de demanda');
+      expect(btn('next').disabled).toBe(false);
+      expect(btn('next').textContent).toBe('Validar');
+      btn('next').click();
+      await flush();
+      const arg = (api.validate as any).mock.calls[0][0];
+      expect(arg.rows.length).toBe(720);
+      expect(arg.sourceRef).toBe('acumulado:tela');
+      expect(document.querySelector('.tlmi')!.textContent).toContain('estimados a partir do total');
+    });
+
+    it('total inválido na tela bloqueia o envio', async () => {
+      const api = fakeApi();
+      openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+      pick();
+      btn('next').click();
+      await flush();
+      typeTotal('abc');
+      expect(document.querySelector('.tlmi-errors')!.textContent).toContain('Loja A: total deve ser número');
+      expect(btn('next').disabled).toBe(true);
+    });
+
+    it('planilha de acumulado: usa as entradas do arquivo e permite voltar para a tela', async () => {
+      const api = fakeApi();
+      openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+      pick();
+      btn('next').click();
+      await flush();
+      await upload(`gateway_id;slave_id;start_date;end_date;total_kwh\n${GW};3;2026-09-01;2026-09-30;100\n`);
+      expect(document.querySelector('[data-role="acc-summary"]')!.textContent).toContain('Horas geradas720');
+      expect(document.querySelector('.tlmi')!.textContent).toContain('Usando dados.csv');
+      btn('next').click();
+      await flush();
+      expect((api.validate as any).mock.calls[0][0].sourceRef).toBe('acumulado:dados.csv');
+      btn('back').click();
+      await flush();
+      document.querySelector<HTMLButtonElement>('[data-action="use-form"]')!.click();
+      expect(document.querySelector('input[data-total="0"]')).not.toBeNull();
+      expect(btn('next').disabled).toBe(true);
+    });
+
+    it('voltar para hora a hora limpa o que foi calculado', async () => {
+      const api = fakeApi();
+      openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+      pick();
+      setPeriod('2026-09-01', '2026-09-30');
+      btn('next').click();
+      await flush();
+      typeTotal('10');
+      btn('back').click();
+      const radio = document.querySelector<HTMLInputElement>('input[data-field="model"][value="hourly"]')!;
+      radio.checked = true;
+      radio.dispatchEvent(new Event('change', { bubbles: true }));
+      btn('next').click();
+      await flush();
+      expect(document.querySelector('[data-role="acc-summary"]')).toBeNull();
+      expect(btn('next').textContent).toBe('Validar planilha');
+      expect(btn('next').disabled).toBe(true);
+    });
   });
 
   it('erros locais bloqueiam o envio (nada vai para a API)', async () => {

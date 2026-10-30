@@ -50,20 +50,22 @@ export const MAX_IMPORT_ROWS = 5000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
+/** Device com a chave da planilha: central (UUID) + slave inteiro ≥ 1. */
+export function isImportableKey(d: ImportDevice): boolean {
+  const slave = Number(d?.slaveId);
+  return !!d?.centralId && UUID_RE.test(String(d.centralId)) && Number.isInteger(slave) && slave >= 1;
+}
+
 /** Devices aptos (têm central + slave) e os que ficam de fora. */
 export function splitImportableDevices(devices: ImportDevice[]): { ok: ImportDevice[]; missingKey: ImportDevice[] } {
   const ok: ImportDevice[] = [];
   const missingKey: ImportDevice[] = [];
-  for (const d of devices || []) {
-    const slave = Number(d?.slaveId);
-    if (d?.centralId && UUID_RE.test(String(d.centralId)) && Number.isInteger(slave) && slave >= 1) ok.push(d);
-    else missingKey.push(d);
-  }
+  for (const d of devices || []) (isImportableKey(d) ? ok : missingKey).push(d);
   return { ok, missingKey };
 }
 
 /** Datas YYYY-MM-DD de start..end (inclusive). */
-function daysBetween(start: string, end: string): string[] {
+export function daysBetween(start: string, end: string): string[] {
   const out: string[] = [];
   const [y1, m1, d1] = start.split('-').map(Number);
   const [y2, m2, d2] = end.split('-').map(Number);
@@ -77,7 +79,7 @@ function daysBetween(start: string, end: string): string[] {
 }
 
 /** "Agora" em America/Sao_Paulo (UTC-03:00 fixo) como {date, hour}. */
-function nowSaoPaulo(now: number): { date: string; hour: number } {
+export function nowSaoPaulo(now: number): { date: string; hour: number } {
   const d = new Date(now - 3 * 3600 * 1000);
   return { date: `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`, hour: d.getUTCHours() };
 }

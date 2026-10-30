@@ -134,3 +134,52 @@ same exposure discussed in PR #152.
    the central (runbook §2.1 / §2.4). Re-import from GCDR before any Run All.
 5. **Several centrals.** Today the plan picks the central with the most devices. A selector may be
    needed for customers with more than one central.
+
+## 9. Import models
+
+"Importar dados" has two filling models. Both produce the same hourly rows, so the Ingestion API
+(`POST /import/validate`) has a single format. The backend does not exist yet: see
+`clientes/MYIO/ingestion/FEEDBACK-IMPORTACAO-PLANILHA-TELEMETRIA-2026-10-30.md`.
+
+| | **Hora a hora** | **Acumulado por período** |
+|---|---|---|
+| User provides | the value of each hour | start, end and total of each device |
+| Input | spreadsheet | on-screen form or spreadsheet |
+| Template columns | `gateway_id;slave_id;device_name;date;hour;value_kwh\|value_m3;…` | `gateway_id;slave_id;device_name;start_date;end_date;total_kwh\|total_m3` |
+| Hourly values | real | **estimated**; only the total is real |
+| `sourceRef` | file name | `acumulado:<file name or "tela">` |
+
+### 9.1 Distribution (`telemetry-import/accumulated.ts`)
+
+- **Slots:** closed hours of the period, São Paulo time.
+- **Profile:** `DEFAULT_DISTRIBUTION_PROFILE = { openHour: 10, closeHour: 22, openShare: 0.85 }`.
+  85% of the total goes to opening hours and 15% to the others, evenly inside each group. It is
+  fixed for now and is a parameter so it can become a per-customer setting.
+- **Only one group in the period:** uniform across the slots.
+- **Exact sum:** the math runs on integer thousandths with the largest-remainder method, so the sum
+  of the hours is exactly the informed total, rounded to 3 decimals.
+
+### 9.2 Rules
+
+| Case | Result |
+|---|---|
+| Start after end | error |
+| End in the future | error: the total must be of a closed period |
+| Period longer than 366 days | error |
+| Overlapping periods of the same device | error on the later line |
+| Period with no closed hours | error |
+| Negative or non-numeric total | error |
+| Empty total | ignored |
+| Total zero | accepted, with a warning: every hour is written as 0 |
+| More than 5,000 generated hours | error |
+
+Any error blocks the upload. Existing readings in the period are replaced, so
+`existingRealReadings` and `confirmReplaceReal` from the validate step apply.
+
+### 9.3 Limits and caveats
+
+- **Volume:** one device in 30 days is 720 hours, so 5,000 rows cover about 6 devices per month.
+- **Estimated data:** the hourly curve must not feed peak-demand analysis. The UI says so in the
+  preview and in the validation step, and `sourceRef` marks the import. Whether reports can tell
+  these readings apart depends on the Ingestion storing that mark.
+- **Device manual has no history,** so a per-device historical profile is not an option yet.
