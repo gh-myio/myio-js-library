@@ -1656,8 +1656,9 @@ async function _manualPlan({ domain, label, identifier }) {
     blockers.push('Credencial admin do Ingestion não configurada no MAIN_VIEW (MANUAL_PROV_INGESTION_*).');
   } else if (central && ingestionCustomerId) {
     try {
-      const gw = await _manualIngestion('GET', `/gateways/lookup?hardwareUuid=${encodeURIComponent(central.id)}`);
-      gatewayId = gw?.id || gw?.gatewayId || (Array.isArray(gw) ? gw[0]?.id : null) || null;
+      // id do gateway = uuid da central (runbook §1.1); /gateways/lookup responde 404 em produção
+      const gw = await _manualIngestion('GET', `/gateways/${encodeURIComponent(central.id)}`);
+      gatewayId = gw?.id || null;
       if (!gatewayId) blockers.push(`Central ${central.id} não existe como gateway no Ingestion.`);
       const assets = await _manualIngestion(
         'GET',
@@ -1682,6 +1683,8 @@ async function _manualPlan({ domain, label, identifier }) {
       { label: 'Nome', value: tbName.name },
       { label: 'Etiqueta', value: label },
       { label: 'Identificador', value: identifier },
+    ],
+    details: [
       { label: 'Tipo', value: tbName.deviceProfile },
       { label: 'Central', value: central ? `${central.name || ''} (${central.id})` : '—' },
       { label: 'slaveId', value: String(slaveId) },
@@ -10443,7 +10446,6 @@ const MyIOOrchestrator = (() => {
 if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
   // Merge real implementation with stub
   Object.assign(window.MyIOOrchestrator, MyIOOrchestrator);
-  window.MyIOOrchestrator.manualDeviceProvisioner = _manualDeviceProvisioner; // RFC-0240
 
   // Mark as ready
   window.MyIOOrchestrator.isReady = true;
@@ -10512,6 +10514,10 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
 
   // RFC-0107: Contract loading will be initialized from self.onInit after customerTB_ID is set
 }
+
+// RFC-0240: fora do if/else — no carregamento normal ainda não há stub (ele nasce no onInit),
+// então é o ramo "fallback" que publica o orquestrador.
+window.MyIOOrchestrator.manualDeviceProvisioner = _manualDeviceProvisioner;
 
 /**
  * RFC-0107: Initializes the contract loading modal and fetches device counts

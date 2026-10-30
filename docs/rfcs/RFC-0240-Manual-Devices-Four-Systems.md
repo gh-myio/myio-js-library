@@ -57,10 +57,11 @@ Out of scope: editing or deleting manual devices, and devices on customers with 
 | 1 | ThingsBoard | asset `*_DEVICES_MANUAIS`, next free `NNN` | no asset (error) |
 | 2 | GCDR | `GET /api/v1/customers/{gcdrCustomerId}/tree?deep=1` → central, asset with the same name, used slaveIds | no `gcdrCustomerId`, no central, no asset with the TB asset name |
 | 3 | Central | `GET https://<uuid>.y.myio.com.br/api/state` → slaves | never; an unreachable central becomes a warning and its step is `skipped` |
-| 4 | Ingestion | `GET /gateways/lookup?hardwareUuid=<uuid>`, `GET /assets?customerId=&search=<asset>`, `POST /devices/lookup {pairs:[{gatewayId, slaveId}]}` | no admin credential, no `ingestionId` on the TB customer, no gateway, or the pair is already used |
+| 4 | Ingestion | `GET /gateways/<uuid>` (the gateway id is the central uuid; `/gateways/lookup` answers 404 in production), `GET /assets?customerId=&search=<asset>`, `POST /devices/lookup {pairs:[{gatewayId, slaveId}]}` | no admin credential, no `ingestionId` on the TB customer, no gateway, or the pair is already used |
 
-The modal shows: name, label, identifier, type, central, slaveId, Modbus address, asset, the four
-steps, blockers and warnings. **Criar** is disabled while there is a blocker.
+The modal shows name, label, identifier, blockers and warnings. Type, central, slaveId, Modbus
+address, asset and the four steps stay collapsed under **Ver mais detalhes**; they open by themselves
+only when something fails. **Criar** is disabled while there is a blocker.
 
 ### 4.2 Apply
 

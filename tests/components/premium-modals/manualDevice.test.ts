@@ -301,10 +301,8 @@ describe('openManualDeviceModal com provisioner (RFC-0240)', () => {
   const body = () => document.querySelector('.myio-stdmodal__body')!;
 
   const PLAN: ManualProvisionPlan = {
-    summary: [
-      { label: 'Nome', value: '3F STB_LOJA_001_MANUAL' },
-      { label: 'slaveId', value: '323' },
-    ],
+    summary: [{ label: 'Nome', value: '3F STB_LOJA_001_MANUAL' }],
+    details: [{ label: 'slaveId', value: '323' }],
     steps: [
       { key: 'gcdr', system: 'GCDR', title: 'Criar device', status: 'pending' },
       { key: 'central', system: 'Central', title: 'Adicionar slave 323', status: 'pending' },
@@ -343,7 +341,13 @@ describe('openManualDeviceModal com provisioner (RFC-0240)', () => {
     expect(apply).not.toHaveBeenCalled();
     expect(body().textContent).toContain('Nada foi gravado ainda');
     expect(body().textContent).toContain('3F STB_LOJA_001_MANUAL');
-    expect(body().textContent).toContain('Adicionar slave 323');
+    // dados técnicos e passos ficam recolhidos em "Ver mais detalhes"
+    const more = body().querySelector<HTMLDetailsElement>('details.myio-manualdev__more')!;
+    expect(more.open).toBe(false);
+    expect(more.querySelector('summary')!.textContent).toBe('Ver mais detalhes');
+    expect(more.textContent).toContain('slaveId');
+    expect(more.textContent).toContain('Adicionar slave 323');
+    expect(body().querySelector('.myio-manualdev > .myio-manualdev__steps')).toBeNull();
 
     btn('Criar').click();
     await flush();
@@ -387,6 +391,7 @@ describe('openManualDeviceModal com provisioner (RFC-0240)', () => {
     await flush();
     expect(body().textContent).toContain('A central ficou pendente.');
     expect(body().textContent).toContain('timeout');
+    expect(body().querySelector<HTMLDetailsElement>('details.myio-manualdev__more')!.open).toBe(true); // erro: abre
     expect(btn('Concluir')).toBeTruthy();
   });
 

@@ -35,8 +35,11 @@ export interface ManualProvisionStep {
 }
 
 export interface ManualProvisionPlan {
-  /** Pares rótulo/valor exibidos antes de criar (nome, central, slaveId, endereço, …) */
+  /** O que o usuário confere antes de criar (nome, etiqueta, identificador) */
   summary: Array<{ label: string; value: string }>;
+  /** Dados técnicos (tipo, central, slaveId, endereço, asset) — recolhidos em "Ver mais detalhes" */
+  details?: Array<{ label: string; value: string }>;
+  /** Passos por sistema — recolhidos junto com `details` */
   steps: ManualProvisionStep[];
   /** Impedem a criação (o botão Criar fica desabilitado) */
   blockers?: string[];
@@ -128,6 +131,10 @@ function injectStyles(): void {
 .myio-manualdev__step-msg { display: block; font-size: 11.5px; color: #6b7280; word-break: break-word; }
 .myio-manualdev__step[data-status="error"] .myio-manualdev__step-msg { color: #991b1b; }
 .myio-manualdev__step[data-status="warn"] .myio-manualdev__step-msg { color: #92400e; }
+.myio-manualdev__more { font-size: 13px; }
+.myio-manualdev__more > summary { cursor: pointer; color: #3e1a7d; font-weight: 500; font-size: 13px; }
+.myio-manualdev__more[open] > summary { margin-bottom: 10px; }
+.myio-manualdev__more > .myio-manualdev__summary { margin-bottom: 10px; }
 .myio-manualdev__note { margin: 0; font-size: 12.5px; border-radius: 6px; padding: 8px 10px; }
 .myio-manualdev__note--warn { color: #92400e; background: #fef3c7; }
 .myio-manualdev__note--block { color: #991b1b; background: #fee2e2; }
@@ -209,29 +216,41 @@ function notesHtml(plan: ManualProvisionPlan): string {
   return [...block, ...warn].join('');
 }
 
+function rowsHtml(rows: Array<{ label: string; value: string }>): string {
+  return `<table class="myio-manualdev__summary"><tbody>${rows
+    .map((r) => `<tr><th>${escapeHtml(r.label)}</th><td>${escapeHtml(r.value)}</td></tr>`)
+    .join('')}</tbody></table>`;
+}
+
+/** Dados técnicos ficam recolhidos: o usuário final só vê o que preencheu. */
+function moreHtml(inner: string, open = false): string {
+  return `<details class="myio-manualdev__more"${open ? ' open' : ''}>
+    <summary>Ver mais detalhes</summary>
+    ${inner}
+  </details>`;
+}
+
 function planHtml(plan: ManualProvisionPlan): string {
   return `
     <div class="myio-manualdev">
       <p class="myio-manualdev__hint">Revise o que será criado. Nada foi gravado ainda.</p>
-      <table class="myio-manualdev__summary"><tbody>${plan.summary
-        .map((r) => `<tr><th>${escapeHtml(r.label)}</th><td>${escapeHtml(r.value)}</td></tr>`)
-        .join('')}</tbody></table>
-      ${stepsHtml(plan.steps)}
+      ${rowsHtml(plan.summary)}
       ${notesHtml(plan)}
+      ${moreHtml(`${plan.details?.length ? rowsHtml(plan.details) : ''}${stepsHtml(plan.steps)}`)}
     </div>`;
 }
 
-function progressHtml(steps: ManualProvisionStep[], message?: string, ok?: boolean): string {
+function progressHtml(steps: ManualProvisionStep[], message?: string, ok?: boolean, open = false): string {
   return `
     <div class="myio-manualdev">
       ${
         ok === undefined
-          ? '<p class="myio-manualdev__hint">Criando nos sistemas… não feche esta janela.</p>'
+          ? '<p class="myio-manualdev__hint">Criando o dispositivo… não feche esta janela.</p>'
           : `<p class="myio-manualdev__note ${ok ? 'myio-manualdev__note--warn' : 'myio-manualdev__note--block'}" role="status">${escapeHtml(
               message || (ok ? 'Concluído com avisos.' : 'Não foi possível concluir.')
             )}</p>`
       }
-      ${stepsHtml(steps)}
+      ${moreHtml(stepsHtml(steps), open)}
     </div>`;
 }
 
@@ -420,11 +439,13 @@ function openProvisionedModal(params: OpenManualDeviceModalParams, provisioner: 
     modal.setButton('cancel', { hidden: true });
     modal.setButton('next', { disabled: true, label: 'Criando…' });
 
+    // Mantém o "Ver mais detalhes" como o usuário deixou entre um passo e outro
+    const moreOpen = () => !!modal.getBodyEl().querySelector<HTMLDetailsElement>('.myio-manualdev__more')?.open;
     const onStep = (step: ManualProvisionStep) => {
       const i = steps.findIndex((s) => s.key === step.key);
       if (i >= 0) steps[i] = { ...steps[i], ...step };
       else steps.push(step);
-      modal.setBodyHtml(progressHtml(steps));
+      modal.setBodyHtml(progressHtml(steps, undefined, undefined, moreOpen()));
     };
 
     try {
@@ -438,8 +459,8 @@ function openProvisionedModal(params: OpenManualDeviceModalParams, provisioner: 
     modal.setBodyHtml(
       clean && outcome.result
         ? successHtml(domain, outcome.result, !!params.showTechnicalDetails) +
-            (params.showTechnicalDetails ? stepsHtml(finalSteps) : '')
-        : progressHtml(finalSteps, outcome.message, outcome.ok)
+            (params.showTechnicalDetails ? moreHtml(stepsHtml(finalSteps)) : '')
+        : progressHtml(finalSteps, outcome.message, outcome.ok, true) // algo deu errado: já mostra os passos
     );
     modal.setButton('next', { disabled: false, label: outcome.ok ? 'Concluir' : 'Fechar' });
   }
