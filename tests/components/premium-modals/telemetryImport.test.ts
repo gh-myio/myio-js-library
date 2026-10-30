@@ -24,10 +24,15 @@ const DEVICES = [
 const NOW = Date.UTC(2026, 9, 26, 13, 30);
 
 describe('sheet', () => {
-  it('splitImportableDevices: só devices com central (UUID) + slave 1–247', () => {
+  it('splitImportableDevices: só devices com central (UUID) + slave ≥ 1', () => {
     const { ok, missingKey } = splitImportableDevices(DEVICES);
     expect(ok.map((d) => d.label)).toEqual(['Loja A']);
     expect(missingKey.map((d) => d.label)).toEqual(['Sem central']);
+  });
+
+  it('splitImportableDevices: slaveId acima de 247 (banco Modbus 249) entra no modelo', () => {
+    const { ok } = splitImportableDevices([{ label: 'Manual 323', centralId: GW, slaveId: 323 }]);
+    expect(ok.map((d) => d.label)).toEqual(['Manual 323']);
   });
 
   it('buildTemplateCsv: uma linha por hora FECHADA, separador ; + BOM, colunas do domínio', () => {
@@ -69,7 +74,7 @@ describe('sheet', () => {
       [GW, '3', 'Loja A', '2026-10-25', '00:00', '1,5', ''],
       [GW, '3', 'Loja A', '2026-10-25', '01:00', '', ''], // em branco → ignorada
       [GW, '3', 'Loja A', '2026-10-25', '02:30', '2', ''], // hora inválida
-      ['x', '300', 'Loja A', '2026-10-25', '03:00', '-1', ''], // vários erros
+      ['x', '0', 'Loja A', '2026-10-25', '03:00', '-1', ''], // vários erros (slave 0 inválido; > 247 é válido)
       [GW, '3', 'Loja A', '25/10/2026', '00:00', '9', ''], // duplicada (mesma data/hora da linha 2)
       ['', '', '', '', '', '', ''], // linha vazia
     ];

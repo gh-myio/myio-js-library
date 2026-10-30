@@ -9,7 +9,9 @@ import {
   nextManualSeq,
   ManualDeviceError,
   openManualDeviceModal,
+  resolveManualDeviceName,
 } from '../../../src/components/premium-modals/manual-device';
+import type { ManualProvisionPlan, ManualProvisionStep } from '../../../src/components/premium-modals/manual-device';
 
 const CID = 'cust-1';
 const ASSET = { id: { id: 'asset-1', entityType: 'ASSET' }, name: 'ASSET_STB_DEVICES_MANUAIS' };
@@ -226,5 +228,185 @@ describe('openManualDeviceModal', () => {
     expect(err.textContent).toContain('Falha na API (403).');
     expect(err.querySelector('.myio-manualdev__detail')!.textContent).toContain('/api/relation');
     expect(btn('Criar').disabled).toBe(false);
+  });
+});
+
+// RFC-0240: nome reservado pelo plano (mesmo nos 4 sistemas) + chaves dos outros sistemas no TB
+describe('createManualDevice / resolveManualDeviceName (RFC-0240)', () => {
+  it('resolveManualDeviceName: reserva o próximo nome sem criar nada', async () => {
+    const { calls, fetchImpl } = mockTb({ existing: [{ name: '3F STB_LOJA_002_MANUAL' }] });
+    const r = await resolveManualDeviceName({ domain: 'energy', customerId: CID, token: 't', fetchImpl });
+    expect(r).toEqual({
+      name: '3F STB_LOJA_003_MANUAL',
+      sigla: 'STB',
+      seq: 3,
+      assetId: 'asset-1',
+      assetName: 'ASSET_STB_DEVICES_MANUAIS',
+      deviceProfile: '3F_MEDIDOR_MANUAL',
+    });
+    expect(calls.every((c) => c.method === 'GET')).toBe(true);
+  });
+
+  it('nome fixo + extraAttributes: grava as chaves dos outros sistemas junto com profile/identifier', async () => {
+    const { calls, fetchImpl } = mockTb();
+    const r = await createManualDevice({
+      domain: 'water',
+      label: 'Quiosque',
+      identifier: 'STBQ01',
+      customerId: CID,
+      token: 't',
+      fetchImpl,
+      name: 'Hidr. STB_LOJA_007_MANUAL',
+      extraAttributes: { centralId: 'c-uuid', slaveId: 323, ingestionId: 'ing-1', gcdrDeviceId: 'g-1' },
+    });
+    expect(r.name).toBe('Hidr. STB_LOJA_007_MANUAL');
+    expect(calls.some((c) => c.method === 'GET' && c.url.includes(`/api/customer/${CID}/devices`))).toBe(false);
+    const attrs = calls.find((c) => c.url.includes('/attributes/SERVER_SCOPE'))!.body;
+    expect(attrs).toEqual({
+      centralId: 'c-uuid',
+      slaveId: 323,
+      ingestionId: 'ing-1',
+      gcdrDeviceId: 'g-1',
+      deviceProfile: 'HIDROMETRO_MANUAL',
+      identifier: 'STBQ01',
+    });
+  });
+
+  it('nome fixo já existente: erro claro, sem tentar outro número', async () => {
+    const { calls, fetchImpl } = mockTb({ dupNames: ['3F STB_LOJA_001_MANUAL'] });
+    await expect(
+      createManualDevice({
+        domain: 'energy',
+        label: 'X',
+        identifier: 'Y',
+        customerId: CID,
+        token: 't',
+        fetchImpl,
+        name: '3F STB_LOJA_001_MANUAL',
+      })
+    ).rejects.toThrow('Já existe um dispositivo chamado 3F STB_LOJA_001_MANUAL');
+    expect(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/api/device')).length).toBe(1);
+  });
+});
+
+describe('openManualDeviceModal com provisioner (RFC-0240)', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+  const btn = (label: string) =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>('.myio-stdmodal__btn')).find((b) => b.textContent === label)!;
+  const input = (name: string) => document.querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
+  const body = () => document.querySelector('.myio-stdmodal__body')!;
+
+  const PLAN: ManualProvisionPlan = {
+    summary: [
+      { label: 'Nome', value: '3F STB_LOJA_001_MANUAL' },
+      { label: 'slaveId', value: '323' },
+    ],
+    steps: [
+      { key: 'gcdr', system: 'GCDR', title: 'Criar device', status: 'pending' },
+      { key: 'central', system: 'Central', title: 'Adicionar slave 323', status: 'pending' },
+    ],
+  };
+
+  const RESULT = {
+    deviceId: 'tb-1',
+    name: '3F STB_LOJA_001_MANUAL',
+    label: 'Burger King',
+    identifier: 'STB09999',
+    deviceProfile: '3F_MEDIDOR_MANUAL',
+    assetId: '',
+    assetName: 'ASSET_STB_DEVICES_MANUAIS',
+  };
+
+  const fill = () => {
+    input('label').value = 'Burger King';
+    input('identifier').value = 'STB09999';
+  };
+
+  it('Revisar mostra o plano sem gravar; Criar aplica, mostra o progresso e conclui', async () => {
+    const plan = vi.fn(async () => PLAN);
+    const apply = vi.fn(async (_p: ManualProvisionPlan, onStep: (s: ManualProvisionStep) => void) => {
+      onStep({ key: 'gcdr', system: 'GCDR', title: 'Criar device', status: 'ok', message: 'g-1' });
+      onStep({ key: 'central', system: 'Central', title: 'Adicionar slave 323', status: 'ok' });
+      return { ok: true, steps: [], result: RESULT };
+    });
+    const onCreated = vi.fn();
+    openManualDeviceModal({ domain: 'energy', customerId: CID, token: 't', provisioner: { plan, apply }, onCreated });
+
+    fill();
+    btn('Revisar').click();
+    await flush();
+    expect(plan).toHaveBeenCalledWith({ domain: 'energy', label: 'Burger King', identifier: 'STB09999' });
+    expect(apply).not.toHaveBeenCalled();
+    expect(body().textContent).toContain('Nada foi gravado ainda');
+    expect(body().textContent).toContain('3F STB_LOJA_001_MANUAL');
+    expect(body().textContent).toContain('Adicionar slave 323');
+
+    btn('Criar').click();
+    await flush();
+    await flush();
+    expect(apply).toHaveBeenCalledWith(PLAN, expect.any(Function));
+    expect(body().textContent).toContain('Medidor de energia criado');
+    btn('Concluir').click();
+    expect(onCreated).toHaveBeenCalledWith(RESULT);
+  });
+
+  it('bloqueio no plano: Criar fica desabilitado; Voltar mantém o formulário', async () => {
+    const plan = vi.fn(async () => ({ ...PLAN, blockers: ['Asset X não existe no GCDR.'] }));
+    const apply = vi.fn();
+    openManualDeviceModal({ domain: 'energy', customerId: CID, token: 't', provisioner: { plan, apply } });
+    fill();
+    btn('Revisar').click();
+    await flush();
+    expect(body().textContent).toContain('Asset X não existe no GCDR.');
+    expect(btn('Criar').disabled).toBe(true);
+    btn('Voltar').click();
+    expect(input('label').value).toBe('Burger King');
+  });
+
+  it('central pendente: mostra a mensagem e os passos, com Concluir', async () => {
+    const plan = vi.fn(async () => PLAN);
+    const apply = vi.fn(async () => ({
+      ok: true,
+      message: 'Criado no GCDR, Ingestion e ThingsBoard. A central ficou pendente.',
+      steps: [
+        { key: 'gcdr', system: 'GCDR', title: 'Criar device', status: 'ok' as const },
+        { key: 'central', system: 'Central', title: 'Adicionar slave 323', status: 'error' as const, message: 'timeout' },
+      ],
+      result: RESULT,
+    }));
+    openManualDeviceModal({ domain: 'energy', customerId: CID, token: 't', provisioner: { plan, apply } });
+    fill();
+    btn('Revisar').click();
+    await flush();
+    btn('Criar').click();
+    await flush();
+    await flush();
+    expect(body().textContent).toContain('A central ficou pendente.');
+    expect(body().textContent).toContain('timeout');
+    expect(btn('Concluir')).toBeTruthy();
+  });
+
+  it('falha com rollback: mensagem de erro e botão Fechar', async () => {
+    const plan = vi.fn(async () => PLAN);
+    const apply = vi.fn(async () => ({
+      ok: false,
+      message: 'Nada foi criado: Ingestion HTTP 500',
+      steps: [{ key: 'gcdr', system: 'GCDR', title: 'Criar device', status: 'rolledback' as const, message: 'desfeito' }],
+    }));
+    const onCreated = vi.fn();
+    openManualDeviceModal({ domain: 'energy', customerId: CID, token: 't', provisioner: { plan, apply }, onCreated });
+    fill();
+    btn('Revisar').click();
+    await flush();
+    btn('Criar').click();
+    await flush();
+    await flush();
+    expect(body().textContent).toContain('Nada foi criado: Ingestion HTTP 500');
+    btn('Fechar').click();
+    expect(onCreated).not.toHaveBeenCalled();
   });
 });

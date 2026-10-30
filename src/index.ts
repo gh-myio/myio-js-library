@@ -1421,6 +1421,7 @@ export type {
 export {
   openManualDeviceModal,
   createManualDevice,
+  resolveManualDeviceName,
   manualDeviceName,
   siglaFromManualAsset,
   nextManualSeq,
@@ -1432,7 +1433,13 @@ export type {
   ManualDeviceDomain,
   CreateManualDeviceParams,
   CreateManualDeviceResult,
+  ResolveManualDeviceNameParams,
+  ResolvedManualDeviceName,
   OpenManualDeviceModalParams,
+  ManualDeviceProvisioner,
+  ManualProvisionPlan,
+  ManualProvisionStep,
+  ManualProvisionResult,
 } from './components/premium-modals/manual-device';
 export type {
   ConfirmDialogParams,

@@ -41,6 +41,24 @@ export interface CreateManualDeviceParams {
   baseUrl?: string;
   /** Injeção para testes; default window.fetch */
   fetchImpl?: typeof fetch;
+  /**
+   * RFC-0240: nome já reservado pelo plano (o mesmo usado no GCDR/Ingestion/Central). Com nome fixo
+   * não há retry de numeração — nome duplicado vira erro, para os 4 sistemas não divergirem.
+   */
+  name?: string;
+  /** RFC-0240: atributos SERVER_SCOPE extras (centralId, slaveId, ingestionId, gcdrDeviceId, …) */
+  extraAttributes?: Record<string, unknown>;
+}
+
+export type ResolveManualDeviceNameParams = Omit<CreateManualDeviceParams, 'label' | 'identifier' | 'name' | 'extraAttributes'>;
+
+export interface ResolvedManualDeviceName {
+  name: string;
+  sigla: string;
+  seq: number;
+  assetId: string;
+  assetName: string;
+  deviceProfile: string;
 }
 
 export interface CreateManualDeviceResult {
@@ -88,22 +106,14 @@ export function nextManualSeq(domain: ManualDeviceDomain, sigla: string, existin
   return max + 1;
 }
 
-export async function createManualDevice(params: CreateManualDeviceParams): Promise<CreateManualDeviceResult> {
-  const domain = params.domain;
-  const profile = MANUAL_DEVICE_PROFILES[domain];
-  if (!profile) throw new ManualDeviceError(`Domínio inválido: ${domain}`);
-  const label = String(params.label || '').trim();
-  const identifier = String(params.identifier || '').trim();
-  if (!label) throw new ManualDeviceError('Informe a etiqueta.');
-  if (!identifier) throw new ManualDeviceError('Informe o identificador.');
-  if (!params.customerId) throw new ManualDeviceError('Cliente não identificado.');
+type TbApi = (method: string, path: string, body?: unknown, okStatuses?: number[]) => Promise<any>;
 
+async function buildTbApi(params: ResolveManualDeviceNameParams): Promise<TbApi> {
   const base = params.baseUrl ?? '';
   const doFetch = params.fetchImpl ?? fetch.bind(window);
   const tokenValue = typeof params.token === 'function' ? await params.token() : params.token;
   const headers = { 'X-Authorization': `Bearer ${tokenValue}`, 'Content-Type': 'application/json' };
-
-  const api = async (method: string, path: string, body?: unknown, okStatuses: number[] = []) => {
+  return async (method, path, body, okStatuses = []) => {
     const res = await doFetch(`${base}${path}`, {
       method,
       headers,
@@ -116,9 +126,10 @@ export async function createManualDevice(params: CreateManualDeviceParams): Prom
     const text = await res.text().catch(() => '');
     return text ? JSON.parse(text) : null;
   };
-  const cid = encodeURIComponent(params.customerId);
+}
 
-  // 1. asset *_DEVICES_MANUAIS do customer
+async function findManualAsset(api: TbApi, customerId: string): Promise<{ asset: any; sigla: string }> {
+  const cid = encodeURIComponent(customerId);
   const assets = await api('GET', `/api/customer/${cid}/assets?pageSize=100&page=0&textSearch=MANUAIS`);
   const asset = (assets?.data || []).find((a: any) =>
     String(a?.name || '')
@@ -131,8 +142,6 @@ export async function createManualDevice(params: CreateManualDeviceParams): Prom
       `nenhum asset do customer termina em ${MANUAL_ASSET_SUFFIX}`
     );
   }
-
-  // 2. nome automático: sigla do asset + próximo sequencial livre do tipo
   const sigla = siglaFromManualAsset(asset.name);
   if (!sigla) {
     throw new ManualDeviceError(
@@ -140,12 +149,57 @@ export async function createManualDevice(params: CreateManualDeviceParams): Prom
       `não foi possível extrair a sigla de "${asset.name}"`
     );
   }
+  return { asset, sigla };
+}
+
+async function existingManualNames(api: TbApi, customerId: string, sigla: string): Promise<string[]> {
   const existing = await api(
     'GET',
-    `/api/customer/${cid}/devices?pageSize=1000&page=0&textSearch=${encodeURIComponent(`${sigla}_LOJA_`)}`
+    `/api/customer/${encodeURIComponent(customerId)}/devices?pageSize=1000&page=0&textSearch=${encodeURIComponent(`${sigla}_LOJA_`)}`
   );
-  const existingNames: string[] = (existing?.data || []).map((d: any) => String(d?.name || ''));
-  let seq = nextManualSeq(domain, sigla, existingNames);
+  return (existing?.data || []).map((d: any) => String(d?.name || ''));
+}
+
+/**
+ * RFC-0240: reserva (sem criar) o nome do próximo device manual — asset *_DEVICES_MANUAIS,
+ * sigla e próximo NNN livre no TB. O plano usa este nome nos 4 sistemas.
+ */
+export async function resolveManualDeviceName(params: ResolveManualDeviceNameParams): Promise<ResolvedManualDeviceName> {
+  const profile = MANUAL_DEVICE_PROFILES[params.domain];
+  if (!profile) throw new ManualDeviceError(`Domínio inválido: ${params.domain}`);
+  if (!params.customerId) throw new ManualDeviceError('Cliente não identificado.');
+  const api = await buildTbApi(params);
+  const { asset, sigla } = await findManualAsset(api, params.customerId);
+  const seq = nextManualSeq(params.domain, sigla, await existingManualNames(api, params.customerId, sigla));
+  return {
+    name: manualDeviceName(params.domain, sigla, seq),
+    sigla,
+    seq,
+    assetId: asset.id.id,
+    assetName: asset.name,
+    deviceProfile: profile,
+  };
+}
+
+export async function createManualDevice(params: CreateManualDeviceParams): Promise<CreateManualDeviceResult> {
+  const domain = params.domain;
+  const profile = MANUAL_DEVICE_PROFILES[domain];
+  if (!profile) throw new ManualDeviceError(`Domínio inválido: ${domain}`);
+  const label = String(params.label || '').trim();
+  const identifier = String(params.identifier || '').trim();
+  if (!label) throw new ManualDeviceError('Informe a etiqueta.');
+  if (!identifier) throw new ManualDeviceError('Informe o identificador.');
+  if (!params.customerId) throw new ManualDeviceError('Cliente não identificado.');
+
+  const api = await buildTbApi(params);
+  const cid = encodeURIComponent(params.customerId);
+
+  // 1. asset *_DEVICES_MANUAIS do customer
+  const { asset, sigla } = await findManualAsset(api, params.customerId);
+
+  // 2. nome automático: sigla do asset + próximo sequencial livre do tipo (ou o nome fixo do plano)
+  const fixedName = String(params.name || '').trim();
+  let seq = fixedName ? 0 : nextManualSeq(domain, sigla, await existingManualNames(api, params.customerId, sigla));
 
   // 3. device profile (id); sem acesso à lista → TB resolve pelo `type`
   let deviceProfileId: { id: string; entityType: 'DEVICE_PROFILE' } | undefined;
@@ -158,7 +212,7 @@ export async function createManualDevice(params: CreateManualDeviceParams): Prom
   }
 
   // 4. device — nome duplicado (outro usuário criou no meio tempo) → tenta o próximo número
-  let name = manualDeviceName(domain, sigla, seq);
+  let name = fixedName || manualDeviceName(domain, sigla, seq);
   let created: any = null;
   for (let attempt = 0; ; attempt++) {
     try {
@@ -171,6 +225,9 @@ export async function createManualDevice(params: CreateManualDeviceParams): Prom
       break;
     } catch (err) {
       const dup = /already exists|já existe/i.test((err as ManualDeviceError)?.detail || '');
+      if (fixedName && dup) {
+        throw new ManualDeviceError(`Já existe um dispositivo chamado ${fixedName} no ThingsBoard.`, (err as ManualDeviceError)?.detail);
+      }
       if (!dup || attempt >= 4) throw err;
       seq += 1;
       name = manualDeviceName(domain, sigla, seq);
@@ -197,6 +254,7 @@ export async function createManualDevice(params: CreateManualDeviceParams): Prom
     });
     // 7. atributos lidos pelo dashboard (deviceProfile é a autoridade de classificação)
     await api('POST', `/api/plugins/telemetry/DEVICE/${deviceId}/attributes/SERVER_SCOPE`, {
+      ...(params.extraAttributes || {}),
       deviceProfile: profile,
       identifier,
     });

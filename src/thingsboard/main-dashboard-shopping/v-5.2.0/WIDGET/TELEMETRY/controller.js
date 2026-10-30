@@ -4081,10 +4081,17 @@ function _openManualDeviceModal() {
     return;
   }
   const customerId = window.MyIOUtils?.customerTB_ID || self.ctx?.currentUser?.customerId || '';
+  // RFC-0240: o MAIN_VIEW cria nos 4 sistemas (GCDR → Ingestion → TB → Central)
+  const provisioner = window.MyIOOrchestrator?.manualDeviceProvisioner;
+  if (!provisioner) {
+    window.MyIOUtils?.MyIOToast?.error?.('Cadastro indisponível: atualize o widget MAIN_VIEW do dashboard.', 5000);
+    return;
+  }
   open({
     domain: WIDGET_DOMAIN === 'water' ? 'water' : 'energy',
     customerId,
     token: () => getTbToken(),
+    provisioner,
     showTechnicalDetails: window.MyIOUtils?.SuperAdmin === true,
     // o alias do ThingsBoard só enxerga o device novo após recarregar o dashboard
     onCreated: () => window.location.reload(),

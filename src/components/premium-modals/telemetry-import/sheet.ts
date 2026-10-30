@@ -56,7 +56,7 @@ export function splitImportableDevices(devices: ImportDevice[]): { ok: ImportDev
   const missingKey: ImportDevice[] = [];
   for (const d of devices || []) {
     const slave = Number(d?.slaveId);
-    if (d?.centralId && UUID_RE.test(String(d.centralId)) && Number.isInteger(slave) && slave >= 1 && slave <= 247) ok.push(d);
+    if (d?.centralId && UUID_RE.test(String(d.centralId)) && Number.isInteger(slave) && slave >= 1) ok.push(d);
     else missingKey.push(d);
   }
   return { ok, missingKey };
@@ -216,7 +216,8 @@ export function rowsFromTable(domain: ImportDomain, table: unknown[][]): RowsFro
     }
     const lineErrors: string[] = [];
     if (!UUID_RE.test(gw)) lineErrors.push('gateway_id inválido');
-    if (!Number.isInteger(slave) || slave < 1 || slave > 247) lineErrors.push('slave_id deve ser inteiro de 1 a 247');
+    // slaveId = row id da central (≥ 254 vive no banco Modbus 249 — RFC-0240 / runbook presetup §A.2)
+    if (!Number.isInteger(slave) || slave < 1) lineErrors.push('slave_id deve ser inteiro maior ou igual a 1');
     if (!date) lineErrors.push('data inválida (use AAAA-MM-DD)');
     if (!hour) lineErrors.push('hora inválida (use HH:00)');
     if (Number.isNaN(value) || (value as number) < 0) lineErrors.push('valor deve ser número ≥ 0');

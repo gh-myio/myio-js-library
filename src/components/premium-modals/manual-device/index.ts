@@ -1,5 +1,6 @@
 export {
   createManualDevice,
+  resolveManualDeviceName,
   manualDeviceName,
   siglaFromManualAsset,
   nextManualSeq,
@@ -11,6 +12,14 @@ export type {
   ManualDeviceDomain,
   CreateManualDeviceParams,
   CreateManualDeviceResult,
+  ResolveManualDeviceNameParams,
+  ResolvedManualDeviceName,
 } from './createManualDevice';
 export { openManualDeviceModal } from './openManualDeviceModal';
-export type { OpenManualDeviceModalParams } from './openManualDeviceModal';
+export type {
+  OpenManualDeviceModalParams,
+  ManualDeviceProvisioner,
+  ManualProvisionPlan,
+  ManualProvisionStep,
+  ManualProvisionResult,
+} from './openManualDeviceModal';

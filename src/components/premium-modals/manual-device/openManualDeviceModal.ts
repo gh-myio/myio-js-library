@@ -18,12 +18,54 @@ import {
   type ManualDeviceDomain,
 } from './createManualDevice';
 
+// ── RFC-0240: criação nos 4 sistemas (TB, GCDR, Ingestion, Central) ────────────
+// O modal só desenha; quem fala com os sistemas é o host (MAIN_VIEW), injetado em `provisioner`.
+
+export type ManualProvisionStatus = 'pending' | 'running' | 'ok' | 'warn' | 'error' | 'skipped' | 'rolledback';
+
+export interface ManualProvisionStep {
+  key: string;
+  /** Rótulo curto do sistema (ThingsBoard, GCDR, Ingestion, Central, …) */
+  system: string;
+  /** O que o passo faz, em uma linha */
+  title: string;
+  status: ManualProvisionStatus;
+  /** Resultado / motivo (id criado, erro, aviso) */
+  message?: string;
+}
+
+export interface ManualProvisionPlan {
+  /** Pares rótulo/valor exibidos antes de criar (nome, central, slaveId, endereço, …) */
+  summary: Array<{ label: string; value: string }>;
+  steps: ManualProvisionStep[];
+  /** Impedem a criação (o botão Criar fica desabilitado) */
+  blockers?: string[];
+  warnings?: string[];
+  /** Estado opaco do host, devolvido em apply() */
+  context?: unknown;
+}
+
+export interface ManualProvisionResult {
+  ok: boolean;
+  steps: ManualProvisionStep[];
+  /** Mensagem final (sucesso parcial / erro) */
+  message?: string;
+  result?: CreateManualDeviceResult;
+}
+
+export interface ManualDeviceProvisioner {
+  plan(input: { domain: ManualDeviceDomain; label: string; identifier: string }): Promise<ManualProvisionPlan>;
+  apply(plan: ManualProvisionPlan, onStep: (step: ManualProvisionStep) => void): Promise<ManualProvisionResult>;
+}
+
 export interface OpenManualDeviceModalParams extends Omit<CreateManualDeviceParams, 'label' | 'identifier'> {
   /** Usuário MyIO: mostra detalhes técnicos (nome do device, profile, asset, erro bruto) */
   showTechnicalDetails?: boolean;
   /** Chamado após criar com sucesso (ex.: recarregar o dashboard) */
   onCreated?: (result: CreateManualDeviceResult) => void;
   container?: HTMLElement;
+  /** RFC-0240: cria nos 4 sistemas (plano → criar). Sem ele, cria só no ThingsBoard. */
+  provisioner?: ManualDeviceProvisioner;
 }
 
 const DOMAIN_TEXT: Record<ManualDeviceDomain, { title: string; icon: string; noun: string }> = {
@@ -77,6 +119,18 @@ function injectStyles(): void {
   border: 1px dashed #e5e7eb; border-radius: 6px; padding: 8px 10px; line-height: 1.6;
 }
 .myio-manualdev__tech code { font-size: 11.5px; color: #374151; }
+.myio-manualdev__summary { width: 100%; border-collapse: collapse; font-size: 13px; }
+.myio-manualdev__summary th { text-align: left; font-weight: 500; color: #6b7280; padding: 4px 8px 4px 0; width: 42%; vertical-align: top; }
+.myio-manualdev__summary td { color: #111827; padding: 4px 0; word-break: break-word; }
+.myio-manualdev__steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.myio-manualdev__step { display: grid; grid-template-columns: 22px 92px 1fr; gap: 8px; align-items: start; font-size: 13px; }
+.myio-manualdev__step-sys { font-weight: 600; color: #3e1a7d; }
+.myio-manualdev__step-msg { display: block; font-size: 11.5px; color: #6b7280; word-break: break-word; }
+.myio-manualdev__step[data-status="error"] .myio-manualdev__step-msg { color: #991b1b; }
+.myio-manualdev__step[data-status="warn"] .myio-manualdev__step-msg { color: #92400e; }
+.myio-manualdev__note { margin: 0; font-size: 12.5px; border-radius: 6px; padding: 8px 10px; }
+.myio-manualdev__note--warn { color: #92400e; background: #fef3c7; }
+.myio-manualdev__note--block { color: #991b1b; background: #fee2e2; }
 `;
   document.head.appendChild(style);
 }
@@ -127,10 +181,65 @@ function successHtml(domain: ManualDeviceDomain, r: CreateManualDeviceResult, te
     </div>`;
 }
 
+const STEP_ICON: Record<ManualProvisionStatus, string> = {
+  pending: '○',
+  running: '⏳',
+  ok: '✅',
+  warn: '⚠️',
+  error: '❌',
+  skipped: '⏭️',
+  rolledback: '↩️',
+};
+
+function stepsHtml(steps: ManualProvisionStep[]): string {
+  return `<ol class="myio-manualdev__steps">${steps
+    .map(
+      (s) => `<li class="myio-manualdev__step" data-status="${escapeHtml(s.status)}">
+        <span aria-hidden="true">${STEP_ICON[s.status] || '○'}</span>
+        <span class="myio-manualdev__step-sys">${escapeHtml(s.system)}</span>
+        <span>${escapeHtml(s.title)}${s.message ? `<small class="myio-manualdev__step-msg">${escapeHtml(s.message)}</small>` : ''}</span>
+      </li>`
+    )
+    .join('')}</ol>`;
+}
+
+function notesHtml(plan: ManualProvisionPlan): string {
+  const block = (plan.blockers || []).map((b) => `<p class="myio-manualdev__note myio-manualdev__note--block" role="alert">⛔ ${escapeHtml(b)}</p>`);
+  const warn = (plan.warnings || []).map((w) => `<p class="myio-manualdev__note myio-manualdev__note--warn">⚠️ ${escapeHtml(w)}</p>`);
+  return [...block, ...warn].join('');
+}
+
+function planHtml(plan: ManualProvisionPlan): string {
+  return `
+    <div class="myio-manualdev">
+      <p class="myio-manualdev__hint">Revise o que será criado. Nada foi gravado ainda.</p>
+      <table class="myio-manualdev__summary"><tbody>${plan.summary
+        .map((r) => `<tr><th>${escapeHtml(r.label)}</th><td>${escapeHtml(r.value)}</td></tr>`)
+        .join('')}</tbody></table>
+      ${stepsHtml(plan.steps)}
+      ${notesHtml(plan)}
+    </div>`;
+}
+
+function progressHtml(steps: ManualProvisionStep[], message?: string, ok?: boolean): string {
+  return `
+    <div class="myio-manualdev">
+      ${
+        ok === undefined
+          ? '<p class="myio-manualdev__hint">Criando nos sistemas… não feche esta janela.</p>'
+          : `<p class="myio-manualdev__note ${ok ? 'myio-manualdev__note--warn' : 'myio-manualdev__note--block'}" role="status">${escapeHtml(
+              message || (ok ? 'Concluído com avisos.' : 'Não foi possível concluir.')
+            )}</p>`
+      }
+      ${stepsHtml(steps)}
+    </div>`;
+}
+
 export function openManualDeviceModal(params: OpenManualDeviceModalParams): StandardModalInstance {
   const domain = params.domain;
   if (!MANUAL_DEVICE_PROFILES[domain]) throw new Error(`[openManualDeviceModal] domínio inválido: ${domain}`);
   injectStyles();
+  if (params.provisioner) return openProvisionedModal(params, params.provisioner);
 
   const values = { label: '', identifier: '' };
   let busy = false;
@@ -206,6 +315,133 @@ export function openManualDeviceModal(params: OpenManualDeviceModalParams): Stan
     } finally {
       busy = false;
     }
+  }
+
+  return modal;
+}
+
+/**
+ * RFC-0240: formulário → "Revisar" (plano por sistema, nada gravado) → "Criar" (progresso
+ * passo a passo) → resultado. O host decide a ordem, as chamadas e o rollback.
+ */
+function openProvisionedModal(params: OpenManualDeviceModalParams, provisioner: ManualDeviceProvisioner): StandardModalInstance {
+  const domain = params.domain;
+  const values = { label: '', identifier: '' };
+  let phase: 'form' | 'planning' | 'plan' | 'applying' | 'done' = 'form';
+  let plan: ManualProvisionPlan | null = null;
+  let outcome: ManualProvisionResult | null = null;
+
+  const modal = openStandardModal({
+    title: DOMAIN_TEXT[domain].title,
+    icon: DOMAIN_TEXT[domain].icon,
+    bodyHtml: formHtml(domain, values),
+    width: 560,
+    container: params.container,
+    buttons: [
+      { label: 'Cancelar', value: 'cancel', variant: 'secondary' },
+      { label: 'Voltar', value: 'back', variant: 'secondary', closeOnClick: false },
+      { label: 'Revisar', value: 'next', variant: 'primary', closeOnClick: false },
+    ],
+    onButton: (v) => {
+      if (v === 'back' && phase === 'plan') return showForm();
+      if (v !== 'next') return;
+      if (phase === 'form') return void review();
+      if (phase === 'plan') return void apply();
+      if (phase === 'done') {
+        modal.close();
+        if (outcome?.result) params.onCreated?.(outcome.result);
+      }
+    },
+  });
+  modal.setButton('back', { hidden: true });
+
+  const bindForm = (focus = true) => {
+    const form = modal.getBodyEl().querySelector('form');
+    form?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      void review();
+    });
+    if (focus) form?.querySelector<HTMLInputElement>('input[name="label"]')?.focus();
+  };
+  bindForm();
+
+  function showForm(error?: string, detail?: string): void {
+    phase = 'form';
+    modal.setBodyHtml(formHtml(domain, values, error, detail));
+    bindForm();
+    modal.setButton('back', { hidden: true });
+    modal.setButton('cancel', { disabled: false, hidden: false });
+    modal.setButton('next', { disabled: false, label: 'Revisar' });
+  }
+
+  const errorText = (err: unknown) => {
+    const msg = err instanceof ManualDeviceError ? err.message : 'Não foi possível montar o plano.';
+    const detail = params.showTechnicalDetails
+      ? (err instanceof ManualDeviceError ? err.detail : String((err as Error)?.message || err)) || undefined
+      : undefined;
+    return { msg, detail };
+  };
+
+  async function review(): Promise<void> {
+    if (phase !== 'form') return;
+    const body = modal.getBodyEl();
+    values.label = (body.querySelector<HTMLInputElement>('input[name="label"]')?.value || '').trim();
+    values.identifier = (body.querySelector<HTMLInputElement>('input[name="identifier"]')?.value || '').trim();
+    const missing = !values.label ? 'label' : !values.identifier ? 'identifier' : null;
+    if (missing) {
+      showForm(missing === 'label' ? 'Informe a etiqueta.' : 'Informe o identificador.');
+      const input = modal.getBodyEl().querySelector<HTMLInputElement>(`input[name="${missing}"]`);
+      input?.setAttribute('aria-invalid', 'true');
+      input?.focus();
+      return;
+    }
+
+    phase = 'planning';
+    modal.setButton('next', { disabled: true, label: 'Revisando…' });
+    body.querySelectorAll<HTMLInputElement>('input').forEach((i) => (i.disabled = true));
+    try {
+      plan = await provisioner.plan({ domain, label: values.label, identifier: values.identifier });
+      phase = 'plan';
+      modal.setBodyHtml(planHtml(plan));
+      modal.setButton('back', { hidden: false, disabled: false });
+      modal.setButton('next', { disabled: !!plan.blockers?.length, label: 'Criar' });
+    } catch (err) {
+      const { msg, detail } = errorText(err);
+      showForm(msg, detail);
+    }
+  }
+
+  async function apply(): Promise<void> {
+    if (phase !== 'plan' || !plan || plan.blockers?.length) return;
+    phase = 'applying';
+    const steps = plan.steps.map((s) => ({ ...s }));
+    modal.setBodyHtml(progressHtml(steps));
+    modal.setButton('back', { hidden: true });
+    modal.setButton('cancel', { hidden: true });
+    modal.setButton('next', { disabled: true, label: 'Criando…' });
+
+    const onStep = (step: ManualProvisionStep) => {
+      const i = steps.findIndex((s) => s.key === step.key);
+      if (i >= 0) steps[i] = { ...steps[i], ...step };
+      else steps.push(step);
+      modal.setBodyHtml(progressHtml(steps));
+    };
+
+    try {
+      outcome = await provisioner.apply(plan, onStep);
+    } catch (err) {
+      outcome = { ok: false, steps, message: errorText(err).msg };
+    }
+    phase = 'done';
+    const finalSteps = outcome.steps?.length ? outcome.steps : steps;
+    const clean = outcome.ok && finalSteps.every((s) => s.status === 'ok');
+    modal.setBodyHtml(
+      clean && outcome.result
+        ? successHtml(domain, outcome.result, !!params.showTechnicalDetails) +
+            (params.showTechnicalDetails ? stepsHtml(finalSteps) : '')
+        : progressHtml(finalSteps, outcome.message, outcome.ok)
+    );
+    modal.setButton('next', { disabled: false, label: outcome.ok ? 'Concluir' : 'Fechar' });
   }
 
   return modal;

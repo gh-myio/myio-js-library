@@ -1488,6 +1488,401 @@ function _syncWellEquipment(wells) {
   if (!_wellEquipment.timer) _wellEquipment.timer = setInterval(run, WELL_EQUIPMENT_REFRESH_MS);
 }
 
+// ============================================================================
+// RFC-0240: device manual criado nos 4 sistemas — GCDR → Ingestion → ThingsBoard → Central
+// (mesma ordem e identidade (central, slaveId) do Run All do presetup). O TELEMETRY chama
+// via MyIOOrchestrator.manualDeviceProvisioner = { plan, apply }; o modal da lib só desenha.
+// ============================================================================
+
+// ⚠️ TEMPORÁRIO (teste): credenciais admin no código. Mover para um endpoint de backend antes
+// de liberar para clientes — o código do widget é legível por qualquer usuário do dashboard.
+const MANUAL_PROV_GCDR_API_KEY = ''; // vazio = gcdrApiKey do customer (SERVER_SCOPE)
+const MANUAL_PROV_GCDR_TENANT_ID = ''; // vazio = gcdrTenantId do customer
+const MANUAL_PROV_INGESTION_TOKEN = ''; // token admin (management.admin) já emitido; tem precedência
+const MANUAL_PROV_INGESTION_CLIENT_ID = ''; // ou credencial admin para emitir o token
+const MANUAL_PROV_INGESTION_CLIENT_SECRET = '';
+const MANUAL_PROV_INGESTION_AUTH_URL = 'https://api.data.apps.myio-bas.com/api/v1/auth';
+const MANUAL_PROV_INGESTION_API = 'https://api.data.apps.myio-bas.com/api/v1/management';
+const MANUAL_PROV_CENTRAL_HOST = (uuid) => `https://${uuid}.y.myio.com.br`;
+
+const MANUAL_PROV_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Hidrômetro na central = `outlet` com Fonte (presença) + Vazão (pulsos) — lib/device-channels.ts do presetup
+const MANUAL_PROV_WATER_CHANNELS = [
+  { channel: 0, name: 'Fonte', type: 'presence_sensor', config: { remoteInput: true, pulses: 1 } },
+  { channel: 1, name: 'Vazão', type: 'flow_sensor', config: { countingPulseOnPower: true, pulses: 1 } },
+];
+
+/** Endereço Modbus do slaveId (presetup lib/utils.ts: addr_low 1–253, addr_high 248 + bloco de 253). */
+function _manualModbusAddr(slaveId) {
+  const n = Math.trunc(Number(slaveId));
+  return { addrLow: ((n - 1) % 253) + 1, addrHigh: 248 + Math.floor((n - 1) / 253) };
+}
+
+async function _manualHttp(system, url, { method = 'GET', headers = {}, body } = {}) {
+  const res = await fetch(url, {
+    method,
+    headers: { Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...headers },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text().catch(() => '');
+  let json = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = text;
+  }
+  if (!res.ok) {
+    const msg = json?.error?.message || json?.message || json?.error || String(text).slice(0, 160);
+    const err = new Error(`${system} HTTP ${res.status}: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`);
+    err.status = res.status;
+    throw err;
+  }
+  return json;
+}
+
+function _manualGcdr(method, path, body) {
+  const o = window.MyIOOrchestrator || {};
+  const base = String(o.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com').replace(/\/api\/v1\/?$/, '');
+  return _manualHttp('GCDR', `${base}/api/v1${path}`, {
+    method,
+    body,
+    headers: {
+      'X-API-Key': MANUAL_PROV_GCDR_API_KEY || o.gcdrApiKey || '',
+      'X-Tenant-ID': MANUAL_PROV_GCDR_TENANT_ID || o.gcdrTenantId || '',
+    },
+  }).then((r) => r?.data ?? r);
+}
+
+const _manualIngestionAuth = { token: null, expiresAt: 0 };
+async function _manualIngestionToken() {
+  if (MANUAL_PROV_INGESTION_TOKEN) return MANUAL_PROV_INGESTION_TOKEN;
+  if (!MANUAL_PROV_INGESTION_CLIENT_ID || !MANUAL_PROV_INGESTION_CLIENT_SECRET) return null;
+  if (_manualIngestionAuth.token && Date.now() < _manualIngestionAuth.expiresAt - 60000) return _manualIngestionAuth.token;
+  const json = await _manualHttp('Ingestion auth', MANUAL_PROV_INGESTION_AUTH_URL, {
+    method: 'POST',
+    body: { client_id: MANUAL_PROV_INGESTION_CLIENT_ID, client_secret: MANUAL_PROV_INGESTION_CLIENT_SECRET },
+  });
+  _manualIngestionAuth.token = json?.access_token || null;
+  _manualIngestionAuth.expiresAt = Date.now() + Number(json?.expires_in || 0) * 1000;
+  return _manualIngestionAuth.token;
+}
+
+async function _manualIngestion(method, path, body) {
+  const token = await _manualIngestionToken();
+  if (!token) throw new Error('Ingestion: credencial admin não configurada no MAIN_VIEW.');
+  const r = await _manualHttp('Ingestion', `${MANUAL_PROV_INGESTION_API}${path}`, {
+    method,
+    body,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return r?.data ?? r;
+}
+
+function _manualCentral(uuid, method, path, body) {
+  return _manualHttp('Central', `${MANUAL_PROV_CENTRAL_HOST(uuid)}${path}`, { method, body });
+}
+
+async function _manualTb(method, path, body) {
+  const token = (await window.MyIOUtils?.getFreshTbToken?.()) || localStorage.getItem('jwt_token');
+  return _manualHttp('ThingsBoard', path, { method, body, headers: { 'X-Authorization': `Bearer ${token}` } });
+}
+
+/** `"enable"` vem como texto JSON (com aspas) ou cru, conforme a versão da central. */
+const _manualMqttEnabled = (v) => String(v ?? '').replace(/"/g, '').trim().toLowerCase() === 'enable';
+
+async function _manualPlan({ domain, label, identifier }) {
+  const lib = window.MyIOLibrary;
+  const orch = window.MyIOOrchestrator || {};
+  const customerTB_ID = widgetSettings.customerTB_ID || orch.customerTB_ID;
+  const ingestionCustomerId = orch.getCredentials?.()?.CUSTOMER_ING_ID || '';
+  const blockers = [];
+  const warnings = [];
+  if (typeof lib?.resolveManualDeviceName !== 'function') {
+    throw new Error('Biblioteca MyIO desatualizada (sem resolveManualDeviceName) — atualize a versão da lib.');
+  }
+
+  // 1. TB: nome reservado (sigla do asset *_DEVICES_MANUAIS + próximo NNN) — o mesmo nos 4 sistemas
+  const tbName = await lib.resolveManualDeviceName({
+    domain,
+    customerId: customerTB_ID,
+    token: () => window.MyIOUtils?.getFreshTbToken?.() || localStorage.getItem('jwt_token'),
+  });
+  const assetName = tbName.assetName;
+
+  // 2. GCDR: central, asset de mesmo nome e slaveIds já usados
+  if (!orch.gcdrCustomerId) blockers.push('Customer sem gcdrCustomerId no ThingsBoard.');
+  let tree = null;
+  try {
+    tree = orch.gcdrCustomerId ? await _manualGcdr('GET', `/customers/${orch.gcdrCustomerId}/tree?deep=1`) : null;
+    tree = tree?.tree ?? tree;
+  } catch (e) {
+    blockers.push(`Não foi possível ler o GCDR: ${e.message}`);
+  }
+  const gDevices = tree?.devices || [];
+  const centrals = (tree?.centrals || []).filter((c) => MANUAL_PROV_UUID_RE.test(String(c.id || '')));
+  const central = centrals
+    .map((c) => ({ ...c, n: gDevices.filter((d) => d.centralId === c.id).length }))
+    .sort((a, b) => b.n - a.n)[0];
+  if (tree && !central) blockers.push('Nenhuma central do customer no GCDR.');
+  if (centrals.length > 1) {
+    warnings.push(`Customer com ${centrals.length} centrais — usando "${central?.name}" (a com mais devices).`);
+  }
+  const gAsset = (tree?.assets || []).find((a) => String(a.name || '').toUpperCase() === assetName.toUpperCase());
+  if (tree && !gAsset) blockers.push(`Asset ${assetName} não existe no GCDR.`);
+
+  // 3. Central: slaves atuais (o slaveId é o row id da central)
+  let centralSlaves = null;
+  if (central) {
+    try {
+      const state = await _manualCentral(central.id, 'GET', '/api/state');
+      centralSlaves = state?.slaves || [];
+    } catch (e) {
+      warnings.push(`Central inacessível (${e.message}) — o passo da central ficará pendente.`);
+    }
+  }
+
+  const usedIds = [
+    ...gDevices.filter((d) => d.centralId === central?.id).map((d) => Number(d.slaveId)),
+    ...(centralSlaves || []).map((s) => Number(s.id)),
+  ].filter((n) => Number.isInteger(n) && n > 0);
+  const slaveId = (usedIds.length ? Math.max(...usedIds) : 0) + 1;
+  const { addrLow, addrHigh } = _manualModbusAddr(slaveId);
+
+  // 4. Ingestion: customer, gateway (= uuid da central), asset e par (gateway, slaveId) livre
+  let gatewayId = null;
+  let ingestionAsset = null;
+  if (!ingestionCustomerId) blockers.push('Customer sem ingestionId no ThingsBoard.');
+  if (!MANUAL_PROV_INGESTION_TOKEN && !(MANUAL_PROV_INGESTION_CLIENT_ID && MANUAL_PROV_INGESTION_CLIENT_SECRET)) {
+    blockers.push('Credencial admin do Ingestion não configurada no MAIN_VIEW (MANUAL_PROV_INGESTION_*).');
+  } else if (central && ingestionCustomerId) {
+    try {
+      const gw = await _manualIngestion('GET', `/gateways/lookup?hardwareUuid=${encodeURIComponent(central.id)}`);
+      gatewayId = gw?.id || gw?.gatewayId || (Array.isArray(gw) ? gw[0]?.id : null) || null;
+      if (!gatewayId) blockers.push(`Central ${central.id} não existe como gateway no Ingestion.`);
+      const assets = await _manualIngestion(
+        'GET',
+        `/assets?customerId=${encodeURIComponent(ingestionCustomerId)}&search=${encodeURIComponent(assetName)}&limit=50`
+      );
+      ingestionAsset = (Array.isArray(assets) ? assets : assets?.items || []).find(
+        (a) => String(a.label || a.name || '').toUpperCase() === assetName.toUpperCase()
+      );
+      if (gatewayId) {
+        const lk = await _manualIngestion('POST', '/devices/lookup', { pairs: [{ gatewayId, slaveId }] });
+        const hit = (Array.isArray(lk) ? lk : []).find((p) => p.deviceId);
+        if (hit) blockers.push(`O Ingestion já tem um device no slave ${slaveId} desta central (${hit.deviceId}).`);
+      }
+    } catch (e) {
+      blockers.push(`Não foi possível ler o Ingestion: ${e.message}`);
+    }
+  }
+
+  const sys = { gcdr: 'GCDR', ing: 'Ingestion', tb: 'ThingsBoard', central: 'Central' };
+  return {
+    summary: [
+      { label: 'Nome', value: tbName.name },
+      { label: 'Etiqueta', value: label },
+      { label: 'Identificador', value: identifier },
+      { label: 'Tipo', value: tbName.deviceProfile },
+      { label: 'Central', value: central ? `${central.name || ''} (${central.id})` : '—' },
+      { label: 'slaveId', value: String(slaveId) },
+      { label: 'Endereço Modbus', value: `${addrLow} / ${addrHigh}` },
+      { label: 'Asset', value: assetName },
+    ],
+    steps: [
+      { key: 'gcdr', system: sys.gcdr, title: 'Criar device (fonte da verdade)', status: 'pending' },
+      {
+        key: 'ingestion',
+        system: sys.ing,
+        title: ingestionAsset ? 'Criar device no gateway da central' : `Criar asset ${assetName} e o device no gateway`,
+        status: 'pending',
+      },
+      { key: 'tb', system: sys.tb, title: 'Criar device com centralId, slaveId e ingestionId', status: 'pending' },
+      {
+        key: 'central',
+        system: sys.central,
+        title: `Adicionar slave ${slaveId} (${domain === 'water' ? 'outlet + 2 canais' : 'three_phase_sensor'})`,
+        status: centralSlaves ? 'pending' : 'skipped',
+        message: centralSlaves ? undefined : 'central inacessível no plano',
+      },
+    ],
+    blockers,
+    warnings,
+    context: {
+      domain,
+      label,
+      identifier,
+      customerTB_ID,
+      ingestionCustomerId,
+      name: tbName.name,
+      deviceProfile: tbName.deviceProfile,
+      assetName,
+      gcdrAssetId: gAsset?.id || null,
+      centralId: central?.id || null,
+      centralReachable: !!centralSlaves,
+      gatewayId,
+      ingestionAssetId: ingestionAsset?.id || null,
+      slaveId,
+      addrLow,
+      addrHigh,
+    },
+  };
+}
+
+async function _manualApply(plan, onStep) {
+  const c = plan.context;
+  const steps = plan.steps.map((s) => ({ ...s }));
+  const set = (key, patch) => {
+    const i = steps.findIndex((s) => s.key === key);
+    steps[i] = { ...steps[i], ...patch };
+    onStep(steps[i]);
+  };
+  const undo = []; // rollback em ordem inversa se GCDR/Ingestion/TB falhar
+  const ids = { gcdrDeviceId: null, ingestionId: null, tbDeviceId: null };
+
+  const rollback = async () => {
+    for (const u of undo.reverse()) {
+      try {
+        await u.run();
+        set(u.key, { status: 'rolledback', message: 'desfeito' });
+      } catch (e) {
+        set(u.key, { status: 'error', message: `falha ao desfazer: ${e.message} — remover manualmente (${u.id})` });
+      }
+    }
+  };
+
+  try {
+    // 1. GCDR (fonte da verdade) — falha aqui aborta tudo
+    set('gcdr', { status: 'running' });
+    const g = await _manualGcdr('POST', '/devices', {
+      assetId: c.gcdrAssetId,
+      name: c.name,
+      type: 'METER',
+      deviceType: c.deviceProfile,
+      deviceProfile: c.deviceProfile,
+      label: c.label,
+      displayName: c.label,
+      identifier: c.identifier,
+      slaveId: c.slaveId,
+      centralId: c.centralId,
+      metadata: { myioType: c.deviceProfile, channels: [], addr_low: c.addrLow, addr_high: c.addrHigh, manual: true },
+    });
+    ids.gcdrDeviceId = g?.id || g?.device?.id;
+    if (!ids.gcdrDeviceId) throw Object.assign(new Error('GCDR não devolveu o id do device.'), { step: 'gcdr' });
+    undo.push({ key: 'gcdr', id: ids.gcdrDeviceId, run: () => _manualGcdr('DELETE', `/devices/${ids.gcdrDeviceId}`) });
+    set('gcdr', { status: 'ok', message: ids.gcdrDeviceId });
+
+    // 2. Ingestion — id gerado pelo cliente (como no presetup)
+    set('ingestion', { status: 'running' });
+    let assetId = c.ingestionAssetId;
+    if (!assetId) {
+      const a = await _manualIngestion('POST', '/assets', { label: c.assetName, customerId: c.ingestionCustomerId, status: 'active' });
+      assetId = a?.id;
+    }
+    const ingestionId = crypto.randomUUID();
+    const d = await _manualIngestion('POST', '/devices', {
+      id: ingestionId,
+      name: c.name,
+      deviceType: c.domain === 'water' ? 'water' : 'energy',
+      customerId: c.ingestionCustomerId,
+      assetId,
+      gatewayId: c.gatewayId,
+      slaveId: c.slaveId,
+      multipliers: {},
+    });
+    ids.ingestionId = d?.id || ingestionId;
+    undo.push({ key: 'ingestion', id: ids.ingestionId, run: () => _manualIngestion('DELETE', `/devices/${ids.ingestionId}`) });
+    set('ingestion', { status: 'ok', message: ids.ingestionId });
+
+    // 3. ThingsBoard — nome fixo do plano + chaves dos outros sistemas
+    set('tb', { status: 'running' });
+    const tb = await window.MyIOLibrary.createManualDevice({
+      domain: c.domain,
+      label: c.label,
+      identifier: c.identifier,
+      customerId: c.customerTB_ID,
+      token: () => window.MyIOUtils?.getFreshTbToken?.() || localStorage.getItem('jwt_token'),
+      name: c.name,
+      extraAttributes: {
+        centralId: c.centralId,
+        slaveId: c.slaveId,
+        addrLow: c.addrLow,
+        addrHigh: c.addrHigh,
+        ingestionId: ids.ingestionId,
+        gcdrDeviceId: ids.gcdrDeviceId,
+      },
+    });
+    ids.tbDeviceId = tb.deviceId;
+    undo.push({ key: 'tb', id: ids.tbDeviceId, run: () => _manualTb('DELETE', `/api/device/${ids.tbDeviceId}`) });
+    set('tb', { status: 'ok', message: ids.tbDeviceId });
+
+    // 4. Central — falha aqui NÃO desfaz os outros (o device existe; a central fica pendente)
+    if (c.centralReachable) {
+      set('central', { status: 'running' });
+      let paused = false;
+      try {
+        const state = await _manualCentral(c.centralId, 'GET', '/api/state');
+        const taken = (state?.slaves || []).find((s) => Number(s.id) === c.slaveId);
+        if (taken) throw new Error(`slave ${c.slaveId} já ocupado na central ("${taken.name}")`);
+        const st = await _manualCentral(c.centralId, 'GET', '/api/mqttSyncStatus').catch(() => null);
+        if (_manualMqttEnabled(st)) {
+          await _manualCentral(c.centralId, 'POST', '/api/setMqttSyncStatus', { intent: 'DISABLE' });
+          paused = true;
+        }
+        await _manualCentral(c.centralId, 'POST', '/api/provision', {
+          devices: [
+            {
+              name: c.name,
+              type: c.domain === 'water' ? 'outlet' : 'three_phase_sensor',
+              addr_low: c.addrLow,
+              addr_high: c.addrHigh,
+              hierarchyPath: [window.MyIOUtils?.customerName || '', c.assetName],
+              slave_id: c.slaveId,
+              channels: c.domain === 'water' ? MANUAL_PROV_WATER_CHANNELS : [],
+            },
+          ],
+          remove: [],
+          rename: [],
+        });
+        set('central', { status: 'ok', message: `slave ${c.slaveId} (${c.addrLow}/${c.addrHigh})` });
+      } catch (e) {
+        set('central', { status: 'error', message: `${e.message} — adicionar o slave depois (presetup → Centrais)` });
+      } finally {
+        if (paused) {
+          await _manualCentral(c.centralId, 'POST', '/api/setMqttSyncStatus', { intent: 'ENABLE' }).catch((e) =>
+            set('central', { status: 'error', message: `MQTT Sync NÃO foi retomado: ${e.message} — reativar na central` })
+          );
+        }
+      }
+    }
+  } catch (err) {
+    const failed = steps.find((s) => s.status === 'running');
+    if (failed) set(failed.key, { status: 'error', message: err.message });
+    steps.filter((s) => s.status === 'pending').forEach((s) => set(s.key, { status: 'skipped' }));
+    await rollback();
+    LogHelper.error('[MAIN_VIEW] RFC-0240 manual device: falhou e foi desfeito', err);
+    return { ok: false, steps, message: `Nada foi criado: ${err.message}` };
+  }
+
+  const centralStep = steps.find((s) => s.key === 'central');
+  const centralOk = centralStep?.status === 'ok';
+  return {
+    ok: true,
+    steps,
+    message: centralOk ? undefined : 'Criado no GCDR, Ingestion e ThingsBoard. A central ficou pendente.',
+    result: {
+      deviceId: ids.tbDeviceId,
+      name: c.name,
+      label: c.label,
+      identifier: c.identifier,
+      deviceProfile: c.deviceProfile,
+      assetId: '',
+      assetName: c.assetName,
+    },
+  };
+}
+
+const _manualDeviceProvisioner = { plan: _manualPlan, apply: _manualApply };
+
 // RFC-0051.1: Global widget settings (will be populated in onInit)
 // IMPORTANT: customerTB_ID must NEVER be 'default' - it must always be a valid ThingsBoard ID
 let widgetSettings = {
@@ -2807,6 +3202,9 @@ Object.assign(window.MyIOUtils, {
         // Data access methods (will be populated later)
         getCurrentPeriod: () => null,
         getCredentials: () => null,
+
+        // RFC-0240: "+" da aba Disp. Manuais cria o device em GCDR, Ingestion, TB e Central
+        manualDeviceProvisioner: _manualDeviceProvisioner,
 
         // Credential management (will be populated later)
         setCredentials: async (_customerId, _clientId, _clientSecret) => {
@@ -10045,6 +10443,7 @@ const MyIOOrchestrator = (() => {
 if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
   // Merge real implementation with stub
   Object.assign(window.MyIOOrchestrator, MyIOOrchestrator);
+  window.MyIOOrchestrator.manualDeviceProvisioner = _manualDeviceProvisioner; // RFC-0240
 
   // Mark as ready
   window.MyIOOrchestrator.isReady = true;
