@@ -246,6 +246,15 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
     'openDashboardPopupReport',
     'openDashboardPopupSettings',
     'openSettingsHubModal',
+    // RFC-0241 — Metas e Tarifas (MENU usa só via MyIOUtils.openGoalsTariffs; demais widgets
+    // podem ler os símbolos de valoração em R$ pelo bridge)
+    'openGoalsTariffsHub',
+    'openGoalsPanel',
+    'openPricingPanel',
+    'createTariffApiClient',
+    'createTariffValuator',
+    'formatMoneyBRL',
+    'sumMoneyDecimals',
     'openTemperatureModal',
     'openTemperatureComparisonModal',
     'openTemperatureSettingsModal',
@@ -1212,6 +1221,166 @@ async function _fetchGoalsFromGCDR(gcdrApiBaseUrl, gcdrCustomerId, gcdrApiKey, g
     }
   }
 }
+
+// ── RFC-0241: Metas e Tarifas (card do hub ⚙️ Configurações do MENU) ─────────────
+// A MAIN é a dona: credenciais GCDR (lidas do orquestrador), chamadas da lib e eventos.
+// O MENU só renderiza o card e chama window.MyIOUtils.openGoalsTariffs() — nunca lê
+// credenciais nem window.MyIOLibrary. Gate de UX apenas: o GCDR é quem deve impor o
+// escopo de escrita da chave (RFC-0241 §6). Overrides de dev do simulador
+// (window.GCDR_CUSTOMER_API_KEY / localStorage 'gcdr_customer_api_key') NÃO são portados.
+const GOALS_TARIFFS_GOALS_DOMAIN = { energy: 'ENERGY', water: 'WATER', temperature: 'TEMPERATURE' };
+
+/** SuperAdmin (@myio.com.br) OU admin do usuário, estreitado por restrict_view (menu.settings.goalsTariffs). */
+function _computeCanManageGoalsTariffs() {
+  const u = window.MyIOUtils || {};
+  const eligible = u.SuperAdmin === true || u.UserAdmin === true;
+  const isFV = typeof u.isFeatureVisible === 'function' ? u.isFeatureVisible : () => true;
+  return eligible && isFV(['menu', 'settings', 'goalsTariffs']);
+}
+
+/** Credenciais GCDR publicadas pela MAIN no orquestrador (SERVER_SCOPE do customer). */
+function _goalsTariffsCreds() {
+  const o = window.MyIOOrchestrator || {};
+  return {
+    // Alguns customers salvam o host já com /api/v1 — os clientes da lib anexam o path.
+    baseUrl: String(o.gcdrApiBaseUrl || '')
+      .replace(/\/+$/, '')
+      .replace(/\/api\/v1$/, ''),
+    customerId: o.gcdrCustomerId || '',
+    tenantId: o.gcdrTenantId || '',
+    apiKey: o.gcdrApiKey || '',
+  };
+}
+
+/** Metas salvas → recarrega goalsData (GoalsModal) e avisa os widgets (mesmo evento do simulador). */
+async function _onGoalsTariffsGoalsSaved(writeResult) {
+  const c = _goalsTariffsCreds();
+  try {
+    await _fetchGoalsFromGCDR(c.baseUrl, c.customerId, c.apiKey, c.tenantId);
+  } catch (err) {
+    LogHelper.warn('[MAIN_VIEW] RFC-0241: recarga de metas falhou:', err?.message || err);
+  }
+  window.dispatchEvent(
+    new CustomEvent('myio:goals-updated', {
+      detail: { customerId: c.customerId, version: writeResult?.version ?? null, writeResult, ts: Date.now() },
+    })
+  );
+}
+
+function _openGoalsTariffsManage(tab) {
+  const Lib = window.MyIOLibrary;
+  const c = _goalsTariffsCreds();
+  Lib.openGoalsPanel({
+    customerId: c.customerId,
+    apiKey: c.apiKey,
+    baseUrl: c.baseUrl,
+    // Igual ao _fetchGoalsFromGCDR: com o tenant quando houver (F-4 da RFC-0241).
+    tenantId: c.tenantId || undefined,
+    domain: GOALS_TARIFFS_GOALS_DOMAIN[tab] || 'ENERGY',
+    locale: 'pt-BR',
+    theme: window.MyIOUtils?.theme || undefined,
+    onSaved: (writeResult) => {
+      LogHelper.log('[MAIN_VIEW] RFC-0241: metas salvas (GCDR) v', writeResult?.version);
+      _onGoalsTariffsGoalsSaved(writeResult);
+    },
+  });
+}
+
+function _openGoalsTariffsPricing(tab) {
+  const Lib = window.MyIOLibrary;
+  const c = _goalsTariffsCreds();
+  const handle = Lib.openPricingPanel({
+    customers: [
+      {
+        tbId: window.MyIOOrchestrator?.customerTB_ID || '',
+        gcdrCustomerId: c.customerId,
+        title: window.MyIOUtils?.customerName || 'Shopping',
+      },
+    ],
+    lockCustomer: true, // dashboard de um único shopping
+    currentUserEmail: window.MyIOUtils?.currentUserEmail || '',
+    // Permissão afirmada pela MAIN: admin do usuário não-@myio também edita (F-3).
+    allowed: _computeCanManageGoalsTariffs(),
+    domain: tab === 'water' ? 'water' : 'energy',
+    theme: window.MyIOUtils?.theme || undefined,
+    // Sempre com tariffApi (F-2): persistência real no GCDR, nunca o protótipo em localStorage.
+    tariffApi: { baseUrl: c.baseUrl, apiKey: c.apiKey, tenantId: c.tenantId || undefined },
+  });
+  // 'save' do painel é otimista (antes da escrita na API terminar): o evento informa a
+  // última entrada alterada; consumidores devem reler as tarifas no GCDR.
+  handle?.on?.('save', (entries) => {
+    const list = Array.isArray(entries) ? entries : [];
+    const last = list
+      .slice()
+      .sort((a, b) => String(b?.updatedAt || '').localeCompare(String(a?.updatedAt || '')))[0];
+    const yearSrc = last?.periodKey || last?.start || '';
+    window.dispatchEvent(
+      new CustomEvent('myio:tariffs-updated', {
+        detail: {
+          customerId: c.customerId,
+          domain: last?.domain || null,
+          category: last?.category || null,
+          year: /^\d{4}/.test(yearSrc) ? Number(yearSrc.slice(0, 4)) : null,
+          version: last?.version ?? null,
+          ts: Date.now(),
+        },
+      })
+    );
+  });
+}
+
+/**
+ * RFC-0241 §4.4 — abre o picker "🎯 Metas e Tarifas" (lib openGoalsTariffsHub).
+ * Retorna true quando o picker abriu. Definida no escopo do módulo (antes de qualquer
+ * await do onInit) e presa ao MyIOUtils — independe da ordem stub/fallback do orquestrador.
+ */
+window.MyIOUtils.openGoalsTariffs = function openGoalsTariffs(opts = {}) {
+  const Lib = window.MyIOLibrary;
+  // Defesa em profundidade (o MENU já esconde o card): ainda é só UX.
+  if (!_computeCanManageGoalsTariffs()) {
+    LogHelper.warn('[MAIN_VIEW] RFC-0241: openGoalsTariffs negado (usuário sem permissão).', opts?.source || '');
+    return false;
+  }
+  const c = _goalsTariffsCreds();
+  if (!c.customerId) {
+    toastError(
+      'Este shopping não está vinculado ao GCDR: defina o atributo gcdrCustomerId no customer (SERVER_SCOPE) — o GCDR Sync faz esse vínculo.'
+    );
+    return false;
+  }
+  if (!c.baseUrl || !c.apiKey) {
+    toastError(
+      'Configuração do GCDR ausente: defina o atributo gcdrApiKey no customer (SERVER_SCOPE) e o setting "GCDR API Base URL" do widget.'
+    );
+    return false;
+  }
+  if (typeof Lib?.openGoalsTariffsHub !== 'function') {
+    toastError('Metas e Tarifas indisponível — atualize a myio-js-library.');
+    return false;
+  }
+
+  const tab = window.MyIOOrchestrator?.getVisibleTab?.() || 'energy';
+  const AREA_LABEL = { manage: 'Gestão de Metas', compare: 'Metas × Consumo', tariffs: 'Tarifas' };
+  Lib.openGoalsTariffsHub({
+    entityLabel: 'shopping',
+    theme: window.MyIOUtils?.theme || undefined,
+    footer: { customerName: window.MyIOUtils?.customerName || '', libVersion: Lib.version },
+    handlers: {
+      manage: typeof Lib.openGoalsPanel === 'function' ? () => _openGoalsTariffsManage(tab) : undefined,
+      // Metas × Consumo: implementação única no MENU (openGoalsModal) — pedida por evento.
+      compare: () =>
+        window.dispatchEvent(new CustomEvent('myio:open-goals-modal', { detail: { source: 'goals-tariffs' } })),
+      tariffs: typeof Lib.openPricingPanel === 'function' ? () => _openGoalsTariffsPricing(tab) : undefined,
+    },
+    onError: (err, area) => {
+      LogHelper.error(`[MAIN_VIEW] RFC-0241: falha ao abrir ${area}:`, err);
+      toastError(`Falha ao abrir ${AREA_LABEL[area] || area}: ${err?.message || err}`);
+    },
+  });
+  LogHelper.log('[MAIN_VIEW] RFC-0241: Metas e Tarifas aberto', opts?.source || '');
+  return true;
+};
+// ── fim RFC-0241 (Metas e Tarifas) ──────────────────────────────────────────────
 
 // ── Filtro global "Status Disp." (GCDR device.status) ────────────────────────
 // HEADER escolhe TODOS | ATIVOS | INATIVOS (| DESCONHECIDOS, só se houver device sem
@@ -2906,6 +3075,8 @@ Object.assign(window.MyIOUtils, {
       window.MyIOUtils.SuperAdmin = false;
       window.MyIOUtils.currentUserEmail = null;
       window.MyIOUtils.HoldingAdmin = false;
+      window.MyIOUtils.UserAdmin = false; // RFC-0241
+      window.MyIOUtils.canManageGoalsTariffs = false;
       LogHelper.log('[MAIN_VIEW] SuperAdmin: false (no JWT token)');
       return;
     }
@@ -2925,6 +3096,8 @@ Object.assign(window.MyIOUtils, {
         window.MyIOUtils.SuperAdmin = false;
         window.MyIOUtils.currentUserEmail = null;
         window.MyIOUtils.HoldingAdmin = false;
+        window.MyIOUtils.UserAdmin = false; // RFC-0241
+        window.MyIOUtils.canManageGoalsTariffs = false;
         LogHelper.warn('[MAIN_VIEW] SuperAdmin: false (API error:', response.status, ')');
         return;
       }
@@ -2949,6 +3122,9 @@ Object.assign(window.MyIOUtils, {
       // "Identificador" field edit permission as SuperAdmin, for holding-level admins
       // whose email is not @myio.com.br (e.g. Soul Malls holding admins).
       let isHoldingAdmin = false;
+      // RFC-0241: isUserAdmin do USUÁRIO (USER SERVER_SCOPE — nunca do customer), lido do
+      // mesmo fetch abaixo; TENANT_ADMIN também é admin (espelha o MENU).
+      let isUserAdminAttr = false;
       // RFC-0233: restrict_view — parsed from the exact same USER SERVER_SCOPE
       // fetch already in flight for isHolding/isUserAdmin, so no new round-trip.
       let restrictView = null;
@@ -2969,7 +3145,8 @@ Object.assign(window.MyIOUtils, {
               const a = Array.isArray(attrs) ? attrs.find((x) => x.key === key) : null;
               return a?.value === true || a?.value === 'true';
             };
-            isHoldingAdmin = truthy('isHolding') && truthy('isUserAdmin');
+            isUserAdminAttr = truthy('isUserAdmin');
+            isHoldingAdmin = truthy('isHolding') && isUserAdminAttr;
 
             const rvAttr = Array.isArray(attrs) ? attrs.find((x) => x.key === 'restrict_view') : null;
             if (rvAttr && rvAttr.value != null) {
@@ -2992,6 +3169,14 @@ Object.assign(window.MyIOUtils, {
       window.MyIOUtils.featureVisibility = restrictView;
       LogHelper.log(`[MAIN_VIEW] RFC-0233 restrict_view: ${email} ->`, restrictView);
 
+      // RFC-0241: UserAdmin + permissão do card "Metas e Tarifas" (depois do restrict_view)
+      const isUserAdmin = user.authority === 'TENANT_ADMIN' || isUserAdminAttr;
+      window.MyIOUtils.UserAdmin = isUserAdmin;
+      window.MyIOUtils.canManageGoalsTariffs = _computeCanManageGoalsTariffs();
+      LogHelper.log(
+        `[MAIN_VIEW] RFC-0241: UserAdmin=${isUserAdmin} canManageGoalsTariffs=${window.MyIOUtils.canManageGoalsTariffs}`
+      );
+
       // RFC-0171: Dispatch event for other widgets (MENU, etc.)
       window.dispatchEvent(
         new CustomEvent('myio:user-info-ready', {
@@ -2999,6 +3184,8 @@ Object.assign(window.MyIOUtils, {
             email: email,
             isSuperAdmin: isSuperAdmin,
             isHoldingAdmin: isHoldingAdmin,
+            isUserAdmin: isUserAdmin,
+            canManageGoalsTariffs: window.MyIOUtils.canManageGoalsTariffs,
             ts: Date.now(),
           },
         })
@@ -3018,6 +3205,8 @@ Object.assign(window.MyIOUtils, {
       window.MyIOUtils.SuperAdmin = false;
       window.MyIOUtils.currentUserEmail = null;
       window.MyIOUtils.HoldingAdmin = false;
+      window.MyIOUtils.UserAdmin = false; // RFC-0241
+      window.MyIOUtils.canManageGoalsTariffs = false;
     }
   }
 

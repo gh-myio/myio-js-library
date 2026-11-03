@@ -178,3 +178,22 @@ export type {
   MoneyRenderRouting,
   GatedMoneyRenderers,
 } from './moneyRolloutGate';
+
+// RFC-0241 §5.3 — pure tariff valuator (consumption × hourly tariff → estimated R$).
+export {
+  createTariffValuator,
+  MONEY_HOURLY_MAX_DAYS,
+  TARIFF_DEFAULT_TIMEZONE,
+} from './tariffValuation';
+export type {
+  ValuationBucket,
+  DeviceSeries,
+  DeviceMoney,
+  DeviceMoneyState,
+  DeviceMoneyReason,
+  MoneySum,
+  ConsumptionGranularity,
+  GranularityDecision,
+  TariffValuatorOptions,
+  TariffValuator,
+} from './tariffValuation';

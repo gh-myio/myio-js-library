@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RFC-0241 · Metas e Tarifas</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Nunito', system-ui, sans-serif; margin: 0; background: #f5f6fa; color: #1e293b; }
+    main { max-width: 920px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    p.lead { margin: 0 0 18px; color: #64748b; font-size: 13px; }
+    section { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    section h2 { font-size: 15px; margin: 0 0 10px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    button { font: 700 13px 'Nunito', sans-serif; padding: 8px 14px; border-radius: 8px; border: 1px solid #3e1a7d; background: #3e1a7d; color: #fff; cursor: pointer; }
+    button.secondary { background: #fff; color: #3e1a7d; }
+    label { font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px; font-size: 12px; max-height: 260px; overflow: auto; white-space: pre-wrap; }
+    .note { font-size: 12px; color: #64748b; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>🎯 RFC-0241 — Metas e Tarifas (Shopping v-5.2.0)</h1>
+  <p class="lead">
+    Simula o fluxo MENU ⚙️ Configurações → card "Metas e Tarifas" → picker (Gestão de Metas · Metas × Consumo ·
+    Tarifas). O backend GCDR é <strong>mockado em memória</strong> (nenhuma requisição sai do navegador).
+    Rode <code>npm run build</code> antes.
+  </p>
+
+  <section>
+    <h2>1. Perfil do usuário</h2>
+    <div class="row">
+      <label><input type="radio" name="profile" value="myio" checked /> MyIO (@myio.com.br, sem isUserAdmin)</label>
+      <label><input type="radio" name="profile" value="admin" /> Admin do usuário (isUserAdmin, e-mail externo)</label>
+      <label><input type="radio" name="profile" value="user" /> Usuário comum</label>
+      <label><input type="checkbox" id="restrict" /> restrict_view menu.settings.goalsTariffs=false</label>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button id="btn-hub">⚙️ Abrir Configurações</button>
+      <button id="btn-gt" class="secondary">🎯 Abrir Metas e Tarifas direto</button>
+    </div>
+    <p class="note">Esperado: MyIO e Admin veem o card; usuário comum e restrict_view não veem (AC-01…AC-04).</p>
+  </section>
+
+  <section>
+    <h2>2. Valoração em R$ (createTariffValuator — Fase 4)</h2>
+    <div class="row"><button id="btn-val" class="secondary">Calcular exemplo (troca de tarifa no dia 15)</button></div>
+    <p class="note">Usa as tarifas salvas no mock (aba Tarifas) ou, sem tarifas, um exemplo fixo 0,80 → 0,95 R$/kWh.</p>
+  </section>
+
+  <section>
+    <h2>Eventos / log</h2>
+    <pre id="log"></pre>
+  </section>
+</main>
+
+<script src="../dist/myio-js-library.umd.js"></script>
+<script>
+  const logEl = document.getElementById('log');
+  const log = (...a) => {
+    logEl.textContent += a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ') + '\n';
+    logEl.scrollTop = logEl.scrollHeight;
+  };
+  const Lib = window.MyIOLibrary;
+  if (!Lib || typeof Lib.openGoalsTariffsHub !== 'function') {
+    log('❌ MyIOLibrary.openGoalsTariffsHub indisponível — rode "npm run build" primeiro.');
+  }
+
+  // ── Mock GCDR (goals + tariffs) em memória — nenhum fetch real ─────────────────
+  const store = { goals: {}, tariffs: {} };
+  const realFetch = window.fetch.bind(window);
+  window.fetch = async (input, init = {}) => {
+    const url = new URL(String(input), location.href);
+    if (!url.hostname.endsWith('gcdr.mock')) return realFetch(input, init);
+    const method = (init.method || 'GET').toUpperCase();
+    const json = (body, status = 200) =>
+      new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ETag: `"${body?.version ?? body?.data?.version ?? 0}"` } });
+    const q = url.searchParams;
+    if (url.pathname.endsWith('/tariffs')) {
+      const key = `${q.get('domain')}|${q.get('category')}|${q.get('year')}`;
+      const cur = store.tariffs[key] || { version: 0, tree: {} };
+      if (method === 'GET') return json(cur);
+      const body = init.body ? JSON.parse(init.body) : {};
+      const tree = cur.tree;
+      if (method === 'PATCH') {
+        for (const b of body.buckets || []) {
+          const [date, hh] = b.ref.split('T');
+          const mmdd = date.slice(5);
+          tree.daily = tree.daily || {};
+          const day = (tree.daily[mmdd] = tree.daily[mmdd] || {});
+          if (hh != null) { day.hourly = day.hourly || {}; day.hourly[String(Number(hh))] = { price: b.price }; }
+          else day.price = b.price;
+        }
+      } else if (method === 'PUT') {
+        store.tariffs[key] = { version: cur.version + 1, tree: { annual: body.annual } };
+        log(`[mock] PUT tarifa ${key}`);
+        return json({ version: cur.version + 1 });
+      }
+      store.tariffs[key] = { version: cur.version + 1, tree };
+      log(`[mock] ${method} tarifa ${key} → v${cur.version + 1}`);
+      return json({ version: cur.version + 1 });
+    }
+    if (url.pathname.endsWith('/goals') || url.pathname.includes('/goals/')) {
+      const key = `${q.get('domain')}|${q.get('year')}`;
+      const cur = store.goals[key] || { version: 0, tree: {} };
+      if (method === 'GET') return json({ success: true, data: { domain: q.get('domain'), year: Number(q.get('year')), version: cur.version, tree: cur.tree, history: [] } });
+      store.goals[key] = { version: cur.version + 1, tree: cur.tree };
+      log(`[mock] ${method} metas ${key} → v${cur.version + 1}`, init.headers?.['X-Tenant-ID'] ? '(com X-Tenant-ID)' : '');
+      return json({ success: true, data: { version: cur.version + 1 } });
+    }
+    return json({ error: { code: 'NOT_FOUND' } }, 404);
+  };
+
+  // ── Simula a MAIN_VIEW (dona) — mesma lógica de MyIOUtils.openGoalsTariffs ─────
+  const creds = { baseUrl: 'https://gcdr.mock', customerId: 'gc-demo', tenantId: 'tn-demo', apiKey: 'demo-key' };
+  function profile() {
+    const p = document.querySelector('input[name="profile"]:checked').value;
+    return {
+      SuperAdmin: p === 'myio',
+      UserAdmin: p === 'admin',
+      email: p === 'myio' ? 'operador@myio.com.br' : p === 'admin' ? 'admin@shopping.com.br' : 'loja@shopping.com.br',
+      restrict: document.getElementById('restrict').checked,
+    };
+  }
+  const canManage = () => { const u = profile(); return (u.SuperAdmin || u.UserAdmin) && !u.restrict; };
+
+  function openGoalsTariffs() {
+    if (!canManage()) { log('⛔ openGoalsTariffs negado (sem permissão)'); return; }
+    Lib.openGoalsTariffsHub({
+      entityLabel: 'shopping',
+      footer: { customerName: 'Shopping Demo', libVersion: Lib.version },
+      handlers: {
+        manage: () => Lib.openGoalsPanel({
+          customerId: creds.customerId, apiKey: creds.apiKey, baseUrl: creds.baseUrl, tenantId: creds.tenantId,
+          domain: 'ENERGY', locale: 'pt-BR',
+          onSaved: (r) => log('📢 myio:goals-updated', { customerId: creds.customerId, version: r?.version }),
+        }),
+        compare: () => log('📢 myio:open-goals-modal → MENU abriria o GoalsModal (Metas × Consumo)'),
+        tariffs: () => {
+          const h = Lib.openPricingPanel({
+            customers: [{ tbId: 'tb-demo', gcdrCustomerId: creds.customerId, title: 'Shopping Demo' }],
+            lockCustomer: true, currentUserEmail: profile().email, allowed: canManage(), domain: 'energy',
+            tariffApi: { baseUrl: creds.baseUrl, apiKey: creds.apiKey, tenantId: creds.tenantId },
+          });
+          h.on('save', () => log('📢 myio:tariffs-updated'));
+        },
+      },
+      onError: (err, area) => log(`❌ ${area}:`, String(err?.message || err)),
+    });
+  }
+
+  document.getElementById('btn-gt').addEventListener('click', openGoalsTariffs);
+  document.getElementById('btn-hub').addEventListener('click', () => {
+    const u = profile();
+    const noop = (n) => () => log(`(handler ${n})`);
+    Lib.openSettingsHubModal({
+      customerName: 'Shopping Demo',
+      isSuperAdmin: u.SuperAdmin,
+      handlers: {
+        temperature: noop('temperature'), contract: noop('contract'), measurement: noop('measurement'),
+        integration: noop('integration'), 'user-management': noop('user-management'),
+        'default-dashboard': noop('default-dashboard'), 'client-config': noop('client-config'),
+        'device-profile': noop('device-profile'),
+        'goals-tariffs': openGoalsTariffs,
+      },
+      permissions: { 'goals-tariffs': canManage() },
+    });
+  });
+
+  // ── Valoração (Fase 4) ──────────────────────────────────────────────────────
+  document.getElementById('btn-val').addEventListener('click', () => {
+    const year = 2026;
+    const saved = Object.entries(store.tariffs).filter(([k]) => k.startsWith('ENERGY|SPECIFIC|'));
+    const trees = saved.length
+      ? { SPECIFIC: saved.map(([k, v]) => ({ customerId: 'gc-demo', domain: 'ENERGY', category: 'SPECIFIC', year: Number(k.split('|')[2]), version: v.version, tree: v.tree })) }
+      : (() => {
+          const daily = {};
+          for (let d = 15; d <= 31; d++) daily[String(d).padStart(2, '0')] = { price: '0.950000' };
+          return { SPECIFIC: [{ customerId: 'gc-demo', domain: 'ENERGY', category: 'SPECIFIC', year, version: 1, tree: { monthly: { '07': { price: '0.800000', daily } } } }] };
+        })();
+    const v = Lib.createTariffValuator({ trees });
+    const start = Date.parse(`${year}-07-01T00:00:00-03:00`);
+    const buckets = Array.from({ length: 31 }, (_, i) => ({ startTs: start + i * 864e5, endTs: start + (i + 1) * 864e5, qty: i + 1 }));
+    const loja = v.valuate({ deviceKey: 'loja-101', category: 'SPECIFIC', buckets });
+    const semCat = v.valuate({ deviceKey: 'medidor-x', category: null, buckets });
+    log('Loja 101:', loja, '→', loja.state === 'complete' ? Lib.formatMoneyBRL(loja.amount) : 'kWh + chip de cobertura');
+    log('Medidor sem categoria:', semCat);
+    const total = v.sum([loja, semCat]);
+    log('Total do grupo:', total, total.state === 'complete' ? Lib.formatMoneyBRL(total.amount) : `→ físico + "Cobertura incompleta (${total.covered} de ${total.total})"`);
+  });
+</script>
+</body>
+</html>

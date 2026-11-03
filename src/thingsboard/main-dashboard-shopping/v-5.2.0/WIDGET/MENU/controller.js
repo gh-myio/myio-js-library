@@ -424,6 +424,10 @@ self.onInit = function () {
     return headers;
   }
 
+  // RFC-0241: usuário logado (preenchido por fetchUserInfo) — usado para criar o ⚙️ também
+  // para SuperAdmin sem isUserAdmin quando a MAIN resolver o perfil depois.
+  let _settingsUser = null;
+
   // Fetch and display user info
   fetchUserInfo();
 
@@ -520,6 +524,12 @@ self.onInit = function () {
         updateShoppingLabel();
       }
 
+      // RFC-0241: SuperAdmin (@myio.com.br) sem isUserAdmin também recebe o ⚙️ (card
+      // "Metas e Tarifas"). Checa já e de novo em myio:user-info-ready (a MAIN não aguarda
+      // detectSuperAdmin) — check-immediately-and-subscribe.
+      _settingsUser = user;
+      _ensureSettingsButtonForSuperAdmin();
+
       // (RFC-0181: reports intercept is handled inside changeDashboardState)
     } catch (err) {
       LogHelper.error('[MENU] Error fetching user info:', err);
@@ -583,6 +593,26 @@ self.onInit = function () {
     applyMenuFeatureVisibility();
     _applySettingsButtonVisibility();
   });
+
+  // RFC-0241: ⚙️ para SuperAdmin sem isUserAdmin (addSettingsMenuButton é idempotente).
+  function _ensureSettingsButtonForSuperAdmin() {
+    if (!_settingsUser || window.MyIOUtils?.SuperAdmin !== true) return;
+    addSettingsMenuButton(_settingsUser);
+    _applySettingsButtonVisibility();
+  }
+  // RFC-0241: "Metas × Consumo" do picker Metas e Tarifas — a MAIN pede por evento e o
+  // MENU reaproveita a implementação única do GoalsModal (openGoalsModal).
+  const _onOpenGoalsModalRequest = () => openGoalsModal();
+  window.addEventListener('myio:user-info-ready', _ensureSettingsButtonForSuperAdmin);
+  window.addEventListener('myio:open-goals-modal', _onOpenGoalsModalRequest);
+  (function wireGoalsTariffsTeardown() {
+    const oldDestroyGoalsTariffs = self.onDestroy;
+    self.onDestroy = function () {
+      if (typeof oldDestroyGoalsTariffs === 'function') oldDestroyGoalsTariffs();
+      window.removeEventListener('myio:user-info-ready', _ensureSettingsButtonForSuperAdmin);
+      window.removeEventListener('myio:open-goals-modal', _onOpenGoalsModalRequest);
+    };
+  })();
 
   scope.changeDashboardState = function (e, stateId, index) {
     e.preventDefault();
@@ -812,7 +842,12 @@ self.onInit = function () {
           'default-dashboard': () => openDefaultDashboardSettings(user),
           'client-config': () => openClientConfigModal(user),
           'device-profile': () => openDeviceProfileSettings(user),
+          // RFC-0241: Metas e Tarifas — orquestrado pela MAIN (credenciais ficam lá).
+          'goals-tariffs': () => window.MyIOUtils?.openGoalsTariffs?.({ source: 'settings-hub' }),
         },
+        // RFC-0241: card visível só p/ SuperAdmin ou admin do usuário (+ restrict_view),
+        // decidido pela MAIN em MyIOUtils.canManageGoalsTariffs.
+        permissions: { 'goals-tariffs': window.MyIOUtils?.canManageGoalsTariffs === true },
       });
       LogHelper.log('[MENU] Settings hub opened via lib openSettingsHubModal (RFC-0215)');
       return;

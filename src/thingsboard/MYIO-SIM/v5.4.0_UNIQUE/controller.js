@@ -3176,7 +3176,10 @@ body.filter-modal-open { overflow: hidden !important; }
   // Abre o GoalsPanel para um customer TB específico (shopping filho ou, em fallback,
   // o próprio customer do dashboard). Busca os attrs SERVER_SCOPE na hora — a chave
   // GCDR é per-customer, não pode reutilizar a do head office.
-  const openGoalsForCustomer = async (customerTbId, customerTitle) => {
+  // RFC-0241: credenciais GCDR de um shopping (compartilhado por Gestão de Metas e
+  // Tarifas). Resolve { gcdrCustomerId, gcdrApiKey, gcdrBaseUrl, gcdrTenantId } ou null
+  // (já com toast acionável).
+  const resolveShoppingGcdrCreds = async (customerTbId, customerTitle) => {
     const attrs = await fetchCustomerServerScopeAttrs(customerTbId).catch(() => ({}));
 
     // openGoalsPanel chama GET/PUT /customers/:id/goals no GCDR — o :id é o UUID do
@@ -3187,7 +3190,7 @@ body.filter-modal-open { overflow: hidden !important; }
       _goalsToastError(
         `"${customerTitle}" não está vinculado ao GCDR: defina o atributo gcdrCustomerId no customer (SERVER_SCOPE) — o GCDR Sync faz esse vínculo.`
       );
-      return;
+      return null;
     }
 
     // Metas vêm do GCDR (RFC-0046): auth via X-API-Key + base URL das settings
@@ -3212,8 +3215,15 @@ body.filter-modal-open { overflow: hidden !important; }
       _goalsToastError(
         `Configuração do GCDR ausente para "${customerTitle}": defina o atributo gcdrApiKey no customer (SERVER_SCOPE) ou o setting "GCDR API Key" do widget.`
       );
-      return;
+      return null;
     }
+    return { gcdrCustomerId, gcdrApiKey, gcdrBaseUrl, gcdrTenantId: attrs?.gcdrTenantId || '' };
+  };
+
+  const openGoalsForCustomer = async (customerTbId, customerTitle) => {
+    const creds = await resolveShoppingGcdrCreds(customerTbId, customerTitle);
+    if (!creds) return;
+    const { gcdrCustomerId, gcdrApiKey, gcdrBaseUrl } = creds;
 
     LogHelper.log('[MAIN_UNIQUE] Opening Goals Panel (GCDR):', { customerTitle, gcdrCustomerId });
 
@@ -3241,6 +3251,75 @@ body.filter-modal-open { overflow: hidden !important; }
         zIndex: 10000,
       },
     });
+  };
+
+  // RFC-0241: quem gerencia Metas e Tarifas = SuperAdmin (@myio.com.br) OU admin do
+  // usuário (TENANT_ADMIN ou isUserAdmin no USER SERVER_SCOPE — nunca do customer).
+  // Mesma regra do v-5.2.0 (MAIN_VIEW). Cacheado em MyIOUtils.UserAdmin; fail-closed.
+  const resolveCanManageGoalsTariffs = async () => {
+    window.MyIOUtils = window.MyIOUtils || {};
+    if (typeof window.MyIOUtils.UserAdmin !== 'boolean') {
+      let isUserAdmin = false;
+      try {
+        const headers = { 'Content-Type': 'application/json', 'X-Authorization': `Bearer ${getJwtToken()}` };
+        const uRes = await fetch('/api/auth/user', { headers, credentials: 'include' });
+        if (uRes.ok) {
+          const user = await uRes.json();
+          if (user?.authority === 'TENANT_ADMIN') {
+            isUserAdmin = true;
+          } else {
+            const userId = user?.id?.id || user?.id;
+            const aRes = userId
+              ? await fetch(`/api/plugins/telemetry/USER/${userId}/values/attributes/SERVER_SCOPE?keys=isUserAdmin`, {
+                  headers,
+                  credentials: 'include',
+                })
+              : null;
+            const attrs = aRes?.ok ? await aRes.json().catch(() => []) : [];
+            const a = Array.isArray(attrs) ? attrs.find((x) => x?.key === 'isUserAdmin') : null;
+            isUserAdmin = a?.value === true || a?.value === 'true';
+          }
+        }
+      } catch (err) {
+        LogHelper.warn('[MAIN_UNIQUE] RFC-0241: detecção de admin falhou (fail-closed):', err?.message || err);
+      }
+      window.MyIOUtils.UserAdmin = isUserAdmin;
+    }
+    window.MyIOUtils.canManageGoalsTariffs =
+      window.MyIOUtils.SuperAdmin === true || window.MyIOUtils.UserAdmin === true;
+    return window.MyIOUtils.canManageGoalsTariffs;
+  };
+
+  // RFC-0241: card "Tarifas" — painel de preços da lib com a API real de tarifas do GCDR
+  // (tariffApi), travado no shopping escolhido (a chave GCDR é per-shopping).
+  const openTariffsForCustomer = async (customerTbId, customerTitle) => {
+    if (typeof MyIOLibrary?.openPricingPanel !== 'function') {
+      _goalsToastError('Painel de tarifas indisponível — atualize a myio-js-library.');
+      return;
+    }
+    const creds = await resolveShoppingGcdrCreds(customerTbId, customerTitle);
+    if (!creds) return;
+    const gp = goalsPalette();
+    const handle = MyIOLibrary.openPricingPanel({
+      customers: [{ tbId: customerTbId, gcdrCustomerId: creds.gcdrCustomerId, title: customerTitle }],
+      lockCustomer: true,
+      currentUserEmail: window.MyIOUtils?.currentUserEmail || '',
+      allowed: window.MyIOUtils?.canManageGoalsTariffs === true,
+      domain: 'energy',
+      theme: { '--myio-brand-700': gp.accent, '--myio-brand-600': gp.accent, '--myio-accent-text': gp.accentText },
+      tariffApi: {
+        baseUrl: String(creds.gcdrBaseUrl).replace(/\/+$/, '').replace(/\/api\/v1$/, ''),
+        apiKey: creds.gcdrApiKey,
+        tenantId: creds.gcdrTenantId || undefined,
+      },
+    });
+    handle?.on?.('save', () =>
+      window.dispatchEvent(
+        new CustomEvent('myio:tariffs-updated', {
+          detail: { customerId: creds.gcdrCustomerId, ts: Date.now() },
+        })
+      )
+    );
   };
 
   // Seletor de shopping: overlay leve no padrão dos modais premium (Nunito, accent roxo).
@@ -7650,69 +7729,36 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
     })();
   };
 
-  // Escolha da área ao clicar em 🎯 Metas: Gestão (GoalsPanel por shopping) ou
-  // comparação Metas × Consumo de todos os shoppings. Resolve 'manage'|'compare'|null.
-  const pickGoalsArea = () =>
-    new Promise((resolve) => {
-      const prev = document.getElementById('myio-goals-area-picker');
-      if (prev) prev.remove();
-
-      const overlay = document.createElement('div');
-      overlay.id = 'myio-goals-area-picker';
-      overlay.style.cssText =
-        'position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;font-family:Nunito,system-ui,sans-serif;';
-      const cardStyle =
-        'flex:1;display:flex;flex-direction:column;gap:8px;padding:20px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer;text-align:left;transition:border-color .15s;';
-      overlay.innerHTML = `
-        <div role="dialog" aria-label="Metas" style="background:#fff;border-radius:12px;max-width:560px;width:calc(100% - 32px);box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden;">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:${goalsPalette().accent};color:${goalsPalette().accentText};">
-            <strong style="font:700 15px Nunito,sans-serif;">🎯 Metas de Consumo</strong>
-            <button type="button" data-close="1" aria-label="Fechar" style="border:0;background:transparent;color:#fff;font-size:18px;cursor:pointer;line-height:1;">✕</button>
-          </div>
-          <div style="display:flex;gap:12px;padding:18px;">
-            <button type="button" data-area="manage" style="${cardStyle}">
-              <span style="font-size:26px;">🛠️</span>
-              <strong style="font:700 14px Nunito,sans-serif;color:#1e293b;">Gestão de Metas</strong>
-              <span style="font:600 12px Nunito,sans-serif;color:#64748b;">Criar, atualizar e importar metas por ${_escHtml(_entSLow())} (planilha, histórico de versões).</span>
-            </button>
-            <button type="button" data-area="compare" style="${cardStyle}">
-              <span style="font-size:26px;">📊</span>
-              <strong style="font:700 14px Nunito,sans-serif;color:#1e293b;">Metas × Consumo</strong>
-              <span style="font:600 12px Nunito,sans-serif;color:#64748b;">Comparar o consumo real (${_escHtml(_entPLow())}) com as metas, num único painel.</span>
-            </button>
-          </div>
-        </div>`;
-
-      // Footer premium padrão (holding · hora · versão | Powered by MYIO)
-      let footer = null;
-      try {
-        footer = MyIOLibrary?.createModalFooter?.({
-          customerName: window.MyIOUtils?.customerName || '',
-          libVersion: { current: MyIOLibrary?.version },
-          themeMode: 'light',
-        });
-        if (footer?.element) overlay.querySelector('[role="dialog"]').appendChild(footer.element);
-      } catch (err) {
-        LogHelper.warn('[MAIN_UNIQUE] footer da escolha de Metas indisponível:', err?.message || err);
-      }
-
-      const done = (result) => {
-        footer?.destroy?.();
-        overlay.remove();
-        document.removeEventListener('keydown', onKey);
-        resolve(result);
-      };
-      const onKey = (e) => {
-        if (e.key === 'Escape') done(null);
-      };
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay || e.target.closest('[data-close]')) return done(null);
-        const btn = e.target.closest('[data-area]');
-        if (btn) done(btn.dataset.area);
-      });
-      document.addEventListener('keydown', onKey);
-      document.body.appendChild(overlay);
+  // RFC-0241: escolha da área ao clicar em 🎯 Metas — componente da lib
+  // (openGoalsTariffsHub, o mesmo do v-5.2.0): Gestão (GoalsPanel por shopping),
+  // Metas × Consumo de todos os shoppings e, p/ SuperAdmin ou admin do usuário, Tarifas.
+  const openGoalsTariffsPicker = (shoppings, canManageTariffs) => {
+    const gp = goalsPalette();
+    // Escolhe o shopping (direto quando há um só) e executa a ação.
+    const withShopping = async (fn) => {
+      const selected = shoppings.length === 1 ? shoppings[0] : await pickGoalsCustomer(shoppings);
+      if (selected) await fn(selected.tbId, selected.title);
+    };
+    MyIOLibrary.openGoalsTariffsHub({
+      title: canManageTariffs ? '🎯 Metas e Tarifas' : '🎯 Metas de Consumo',
+      entityLabel: _entSLow(),
+      descriptions: {
+        manage: `Criar, atualizar e importar metas por ${_entSLow()} (planilha, histórico de versões).`,
+        compare: `Comparar o consumo real (${_entPLow()}) com as metas, num único painel.`,
+      },
+      theme: { '--myio-brand-700': gp.accent, '--myio-accent-text': gp.accentText },
+      footer: { customerName: window.MyIOUtils?.customerName || '', libVersion: MyIOLibrary?.version },
+      handlers: {
+        manage: () => withShopping(openGoalsForCustomer),
+        compare: () => openGoalsCompare(shoppings),
+        tariffs: canManageTariffs ? () => withShopping(openTariffsForCustomer) : undefined,
+      },
+      onError: (err, area) => {
+        LogHelper.error(`[MAIN_UNIQUE] Metas e Tarifas (${area}) falhou:`, err);
+        _goalsToastError(`Erro ao abrir metas: ${err?.message || err}`);
+      },
     });
+  };
 
   window.addEventListener('myio:open-goals-panel', async () => {
     LogHelper.log('[MAIN_UNIQUE] Goals panel requested');
@@ -7742,18 +7788,11 @@ body.myio-gbt-dark .myio-gbt__empty{color:#64748b;}
         return;
       }
 
-      const area = await pickGoalsArea();
-      if (!area) return; // cancelado
-
-      if (area === 'compare') {
-        openGoalsCompare(shoppings);
+      if (typeof MyIOLibrary?.openGoalsTariffsHub !== 'function') {
+        _goalsToastError('Metas e Tarifas indisponível — atualize a myio-js-library.');
         return;
       }
-
-      const selected = shoppings.length === 1 ? shoppings[0] : await pickGoalsCustomer(shoppings);
-      if (!selected) return; // seleção cancelada
-
-      await openGoalsForCustomer(selected.tbId, selected.title);
+      openGoalsTariffsPicker(shoppings, await resolveCanManageGoalsTariffs());
     } catch (err) {
       LogHelper.error('[MAIN_UNIQUE] Error opening Goals Panel:', err);
       _goalsToastError(`Erro ao abrir metas: ${err?.message || err}`);
