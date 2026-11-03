@@ -217,6 +217,26 @@ describe('RFC-0241 MAIN_VIEW — openGoalsTariffs', () => {
   });
 });
 
+describe('RFC-0241 — v5.4.0_UNIQUE convergence (AC-10, static)', () => {
+  const UNIQUE_SRC = readFileSync(
+    resolve(process.cwd(), 'src/thingsboard/MYIO-SIM/v5.4.0_UNIQUE/controller.js'),
+    'utf8'
+  );
+  it('inline pickGoalsArea is gone; the lib hub is used with manage/compare/tariffs', () => {
+    expect(UNIQUE_SRC).not.toMatch(/pickGoalsArea/);
+    expect(UNIQUE_SRC).toMatch(/MyIOLibrary\.openGoalsTariffsHub\(/);
+    expect(UNIQUE_SRC).toMatch(/manage: \(\) => withShopping\(openGoalsForCustomer\)/);
+    expect(UNIQUE_SRC).toMatch(/compare: \(\) => openGoalsCompare\(shoppings\)/);
+    expect(UNIQUE_SRC).toMatch(/tariffs: canManageTariffs \? \(\) => withShopping\(openTariffsForCustomer\) : undefined/);
+  });
+  it('Tarifas card always passes tariffApi (no localStorage prototype)', () => {
+    const fnStart = UNIQUE_SRC.indexOf('const openTariffsForCustomer');
+    const fn = UNIQUE_SRC.slice(fnStart, UNIQUE_SRC.indexOf('// Seletor de shopping', fnStart));
+    expect(fn).toMatch(/tariffApi: \{/);
+    expect(fn).toMatch(/lockCustomer: true/);
+  });
+});
+
 describe('RFC-0241 — bridge & MENU static checks (AC-06)', () => {
   it('MAIN LIB_SYMBOLS exposes the new lib symbols', () => {
     for (const s of [
