@@ -1369,6 +1369,27 @@ async function _loadMeasurementDisplaySettings(customerId) {
   }
 }
 
+/**
+ * Retrolavagem: hidrômetros de entrada e de saída escolhidos na aba "Equipamentos da Retrolavagem"
+ * (SettingsModal), no atributo SERVER_SCOPE `retrolavagemBindings` do device virtual:
+ *   { version: 1, inputs: [{ tbId, label, gcdrId? }], outputs: [...] }  (até 10 de cada lado)
+ * null = sem vínculos → conta automática (Entrada − consumidores).
+ */
+function _parseRetrolavagemBindings(raw) {
+  if (!raw) return null;
+  try {
+    const b = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const side = (arr) => (Array.isArray(arr) ? arr.filter((d) => d && d.tbId).slice(0, 10) : []);
+    const inputs = side(b?.inputs);
+    const outputs = side(b?.outputs);
+    if (!inputs.length && !outputs.length) return null;
+    return { inputs, outputs };
+  } catch (e) {
+    LogHelper.warn('[MAIN_VIEW] retrolavagemBindings inválido:', e?.message);
+    return null;
+  }
+}
+
 function _parsePumpBindings(raw) {
   if (!raw) return null;
   try {
@@ -5298,20 +5319,44 @@ function categorizeItemsByGroupWater(items) {
 
 /**
  * Retrolavagem (HIDROMETRO_ENTRADA_RETROLAVAGEM): device virtual sem medição própria.
- * Valor = Σ Entrada (HIDROMETRO_SHOPPING / HIDROMETRO_ENTRADA) − Σ consumos (lojas + banheiros +
- * área comum), mínimo 0 — mesma conta dos "Pontos não mapeados". Só informativo: aparece na
- * coluna Entrada, fora dos totais em m³.
+ * - Com `retrolavagemBindings`: Σ hidrômetros de entrada − Σ hidrômetros de saída escolhidos na
+ *   aba "Equipamentos da Retrolavagem". `lookupItems` é a lista SEM o filtro de status do HEADER:
+ *   a retrolavagem não muda conforme o filtro.
+ * - Sem vínculos: Σ Entrada (HIDROMETRO_SHOPPING / HIDROMETRO_ENTRADA) − Σ consumos (lojas +
+ *   banheiros + área comum) — mesma conta dos "Pontos não mapeados".
+ * Mínimo 0 (diferença negativa = leitura inconsistente, sinalizada no item). Só informativo:
+ * aparece na coluna Entrada, fora dos totais em m³.
  */
-function _applyRetrolavagemValues(retrolavagem, entrada, lojas, banheiros, areacomum) {
+function _applyRetrolavagemValues(retrolavagem, entrada, lojas, banheiros, areacomum, lookupItems) {
   if (!retrolavagem.length) return;
   const sum = (arr) => arr.reduce((acc, it) => acc + (Number(it.value) || 0), 0);
-  const entradaTotal = sum(entrada);
-  const consumidores = sum(lojas) + sum(banheiros) + sum(areacomum);
-  const value = Math.max(0, entradaTotal - consumidores);
+  const byId = new Map((lookupItems || []).map((it) => [String(it.tbId || it.id), it]));
+  const autoEntrada = sum(entrada);
+  const autoValue = Math.max(0, autoEntrada - (sum(lojas) + sum(banheiros) + sum(areacomum)));
   retrolavagem.forEach((it) => {
+    const b = it.retrolavagemBindings;
+    let value = autoValue;
+    let base = autoEntrada;
+    if (b) {
+      const pick = (refs) => refs.map((r) => byId.get(String(r.tbId))).filter(Boolean);
+      const inputs = pick(b.inputs);
+      const outputs = pick(b.outputs);
+      const diff = sum(inputs) - sum(outputs);
+      base = sum(inputs);
+      value = Math.max(0, diff);
+      it._retrolavagemMode = 'bindings';
+      it._retrolavagemInputs = sum(inputs);
+      it._retrolavagemOutputs = sum(outputs);
+      // saída > entrada no período: leitura inconsistente (não vira valor negativo)
+      it._retrolavagemInconsistent = diff < 0;
+      // vínculo que não veio no datasource (device apagado, sem acesso, fora do alias)
+      it._retrolavagemMissing = b.inputs.length + b.outputs.length - inputs.length - outputs.length;
+    } else {
+      it._retrolavagemMode = 'auto';
+    }
     it.value = value;
     it.consumption = value;
-    it.perc = entradaTotal > 0 ? (value / entradaTotal) * 100 : 0;
+    it.perc = base > 0 ? (value / base) * 100 : 0;
     it.deviceStatus = 'power_on'; // virtual: sem conectividade a verificar
     it.connectionStatus = 'online';
     it._isVirtual = true;
@@ -6248,7 +6293,7 @@ function _splitManualItems(items) {
  * Populate window.STATE for a domain with categorized data
  * RFC-0106: Now supports both energy and water domains with specific categorization
  */
-function populateState(domain, rawItems, periodKey, manualItems) {
+function populateState(domain, rawItems, periodKey, manualItems, lookupItems) {
   // *_MANUAL: separados antes de qualquer agrupamento/total (ver _splitManualItems)
   const split = _splitManualItems(rawItems);
   const items = _filterWellAutomationItems(domain, split.regular);
@@ -6262,7 +6307,7 @@ function populateState(domain, rawItems, periodKey, manualItems) {
     // Water domain: entrada, lojas, banheiros, areacomum, caixadagua
     const { entrada, lojas, banheiros, areacomum, caixadagua, retrolavagem } =
       categorizeItemsByGroupWater(items);
-    _applyRetrolavagemValues(retrolavagem, entrada, lojas, banheiros, areacomum);
+    _applyRetrolavagemValues(retrolavagem, entrada, lojas, banheiros, areacomum, lookupItems || items);
 
     window.STATE[domain] = {
       entrada: buildGroupData(entrada),
@@ -7838,6 +7883,8 @@ const MyIOOrchestrator = (() => {
       gcdrSyncAt: meta.gcdrSyncAt || null,
       // ED-1354: bombas/solenoide vinculadas ao poço (null = não é poço automatizado)
       pumpBindings: meta.pumpBindings || null,
+      // Retrolavagem: hidrômetros de entrada/saída (null = conta automática)
+      retrolavagemBindings: meta.retrolavagemBindings || null,
       // ThingsBoard entity name (raw, before label override)
       entityName: meta.entityName || '',
 
@@ -8003,6 +8050,8 @@ const MyIOOrchestrator = (() => {
       else if (keyName === 'gcdrsyncat') meta.gcdrSyncAt = val;
       // ED-1354: poço → bombas (BOMBA_POCO) + solenoide (SERVER_SCOPE JSON)
       else if (keyName === 'pumpbindings') meta.pumpBindings = _parsePumpBindings(val);
+      // Retrolavagem → hidrômetros de entrada/saída (SERVER_SCOPE JSON)
+      else if (keyName === 'retrolavagembindings') meta.retrolavagemBindings = _parseRetrolavagemBindings(val);
       // Only override label if dataKey has a non-empty value
       // Otherwise keep the entityLabel/entityName fallback from initialization
       else if (keyName === 'label' && val && String(val).trim() !== '') meta.label = val;
@@ -9577,7 +9626,7 @@ const MyIOOrchestrator = (() => {
 
     // RFC-0106: Populate window.STATE with categorized data BEFORE emitting
     // This allows widgets to read directly from window.STATE instead of events
-    populateState(domain, items, pKey, manualItems);
+    populateState(domain, items, pKey, manualItems, regular);
 
     // RFC-0106 FIX: Store in MyIOOrchestratorData for late-initializing widgets
     // This ensures widgets that miss the event can still find the data

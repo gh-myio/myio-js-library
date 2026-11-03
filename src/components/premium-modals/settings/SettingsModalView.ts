@@ -7,6 +7,7 @@ import { AlarmsTab } from './alarms/AlarmsTab';
 import { ExclusionGroupsTab } from './exclusion-groups/ExclusionGroupsTab';
 import { DeviceProfileTab } from './device-profile/DeviceProfileTab';
 import { WellEquipmentTab } from './well-equipment/WellEquipmentTab';
+import { RetrolavagemTab, RETROLAVAGEM_PROFILE } from './retrolavagem/RetrolavagemTab';
 import { createTicketsTab } from './tickets/TicketsTab';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import { loadStoreSegmentCatalog, activitiesForSegment } from './commercialCatalog';
@@ -36,7 +37,8 @@ export class SettingsModalView {
   private exclusionGroupsTab: ExclusionGroupsTab | null = null;
   private deviceProfileTab: DeviceProfileTab | null = null;
   private wellEquipmentTab: WellEquipmentTab | null = null;
-  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'well-equipment' | 'incidents' = 'general';
+  private retrolavagemTab: RetrolavagemTab | null = null;
+  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'well-equipment' | 'retrolavagem' | 'incidents' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
   // RFC-0190: Exclude Groups Totals
@@ -95,6 +97,11 @@ export class SettingsModalView {
 
   private isWellEquipmentDevice(): boolean {
     return ['CISTERNA', 'CISTERNA_ENTRADA'].includes(String(this.config.deviceProfile || '').toUpperCase());
+  }
+
+  /** Retrolavagem virtual: escolhe os hidrômetros de entrada e de saída (aba só para SuperAdmin). */
+  private isRetrolavagemDevice(): boolean {
+    return String(this.config.deviceProfile || '').toUpperCase() === RETROLAVAGEM_PROFILE;
   }
 
   render(initialData: Record<string, any>): void {
@@ -162,6 +169,10 @@ export class SettingsModalView {
     // Well equipment bindings are limited to cisterns and MyIO SuperAdmins.
     if (this.isWellEquipmentDevice() && this.isSuperAdmin()) {
       this.initWellEquipmentTab();
+    }
+    // Retrolavagem: hidrômetros de entrada/saída (Σ entrada − Σ saída), só SuperAdmin.
+    if (this.isRetrolavagemDevice() && this.isSuperAdmin()) {
+      this.initRetrolavagemTab();
     }
     // RFC-0232: Incidentes tab (central + admin MyIO only) — search/devices
     // filters are plain sync listeners, the period picker loads its CDN deps async.
@@ -508,9 +519,46 @@ export class SettingsModalView {
     }
   }
 
+  private async initRetrolavagemTab(): Promise<void> {
+    const container = this.modal.querySelector('#retrolavagem-tab-content') as HTMLElement | null;
+    if (!container || !this.isRetrolavagemDevice() || !this.isSuperAdmin()) return;
+
+    const customerId = this.config.customerId || (window as any).MyIOUtils?.customerTB_ID;
+    const { deviceId, jwtToken, tbBaseUrl } = this.config;
+    if (!deviceId || !jwtToken || !customerId) {
+      container.innerHTML =
+        '<p class="rlt-state rlt-error" role="alert">Configuração da retrolavagem indisponível: deviceId, autenticação ou customerId não informado.</p>';
+      return;
+    }
+
+    try {
+      this.retrolavagemTab = new RetrolavagemTab({
+        container,
+        deviceId,
+        customerId,
+        jwtToken,
+        tbBaseUrl: tbBaseUrl ?? window.location.origin,
+      });
+      await this.retrolavagemTab.init();
+    } catch (error) {
+      console.error('[SettingsModalView] Failed to initialize RetrolavagemTab:', error);
+      container.innerHTML =
+        '<p class="rlt-state rlt-error" role="alert">Erro ao carregar os equipamentos da retrolavagem.</p>';
+    }
+  }
+
   // RFC-0104 / RFC-0180 / RFC-0198: Switch between tabs
   private switchTab(
-    tab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'well-equipment' | 'incidents'
+    tab:
+      | 'general'
+      | 'annotations'
+      | 'alarms'
+      | 'chamados'
+      | 'exclusion-groups'
+      | 'device-profile'
+      | 'well-equipment'
+      | 'retrolavagem'
+      | 'incidents'
   ): void {
     this.currentTab = tab;
 
@@ -528,6 +576,7 @@ export class SettingsModalView {
     const exclusionGroupsContent = this.modal.querySelector('#exclusion-groups-tab-content') as HTMLElement;
     const deviceProfileContent = this.modal.querySelector('#device-profile-tab-content') as HTMLElement;
     const wellEquipmentContent = this.modal.querySelector('#well-equipment-tab-content') as HTMLElement;
+    const retrolavagemContent = this.modal.querySelector('#retrolavagem-tab-content') as HTMLElement;
     const incidentsContent = this.modal.querySelector('#incidents-tab-content') as HTMLElement;
 
     if (generalContent) generalContent.style.display = tab === 'general' ? 'block' : 'none';
@@ -536,6 +585,7 @@ export class SettingsModalView {
     if (chamadosContent) chamadosContent.style.display = tab === 'chamados' ? 'block' : 'none';
     if (deviceProfileContent) deviceProfileContent.style.display = tab === 'device-profile' ? 'block' : 'none';
     if (wellEquipmentContent) wellEquipmentContent.style.display = tab === 'well-equipment' ? 'block' : 'none';
+    if (retrolavagemContent) retrolavagemContent.style.display = tab === 'retrolavagem' ? 'block' : 'none';
     if (exclusionGroupsContent) exclusionGroupsContent.style.display = tab === 'exclusion-groups' ? 'block' : 'none';
     if (incidentsContent) incidentsContent.style.display = tab === 'incidents' ? 'block' : 'none';
 
@@ -585,6 +635,11 @@ export class SettingsModalView {
     if (this.wellEquipmentTab) {
       this.wellEquipmentTab.destroy();
       this.wellEquipmentTab = null;
+    }
+
+    if (this.retrolavagemTab) {
+      this.retrolavagemTab.destroy();
+      this.retrolavagemTab = null;
     }
 
     // RFC-0232: Clean up the Incidentes tab's period picker (jQuery plugin instance)
@@ -810,6 +865,18 @@ export class SettingsModalView {
               </button>`
                 : ''
             }
+            ${
+              this.isRetrolavagemDevice() && this.isSuperAdmin()
+                ? `<button type="button" class="modal-tab" data-tab="retrolavagem">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12h7M14 12h7"></path>
+                  <path d="M7 8l-4 4 4 4"></path>
+                  <path d="M17 8l4 4-4 4"></path>
+                </svg>
+                Equipamentos da Retrolavagem
+              </button>`
+                : ''
+            }
             <!-- RFC-0232: Incidentes (interpolação) — central + admin MyIO only -->
             ${
               this.config.isGateway && this.isSuperAdmin()
@@ -876,6 +943,13 @@ export class SettingsModalView {
               this.isWellEquipmentDevice() && this.isSuperAdmin()
                 ? `<div id="well-equipment-tab-content" class="tab-content" style="display:none;">
                     <p class="wet-state">Carregando vínculos e equipamentos…</p>
+                  </div>`
+                : ''
+            }
+            ${
+              this.isRetrolavagemDevice() && this.isSuperAdmin()
+                ? `<div id="retrolavagem-tab-content" class="tab-content" style="display:none;">
+                    <p class="rlt-state">Carregando vínculos e hidrômetros…</p>
                   </div>`
                 : ''
             }
@@ -4240,6 +4314,7 @@ export class SettingsModalView {
           | 'exclusion-groups'
           | 'device-profile'
           | 'well-equipment'
+          | 'retrolavagem'
           | 'incidents';
         if (tab) {
           this.switchTab(tab);
