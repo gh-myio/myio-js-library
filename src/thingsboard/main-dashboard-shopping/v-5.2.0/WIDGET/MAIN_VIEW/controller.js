@@ -255,6 +255,12 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
     'createTariffValuator',
     'formatMoneyBRL',
     'sumMoneyDecimals',
+    // RFC-0241 Part B — modo R$ (helpers puros; o estado fica na MAIN)
+    'formatItemMoney',
+    'sumItemMoney',
+    'buildMoneyChipHTML',
+    'buildMoneyCoverageMarkerHTML',
+    'moneyCoverageTitle',
     'openTemperatureModal',
     'openTemperatureComparisonModal',
     'openTemperatureSettingsModal',
@@ -1381,6 +1387,406 @@ window.MyIOUtils.openGoalsTariffs = function openGoalsTariffs(opts = {}) {
   return true;
 };
 // ── fim RFC-0241 (Metas e Tarifas) ──────────────────────────────────────────────
+
+// ── RFC-0241 Part B: modo "R$ em vez de kWh/m³" ──────────────────────────────────
+// A MAIN é a dona: estado (MyIOUtils.valueDisplayMode), preferência por usuário × shopping
+// (localStorage, try/catch), valoração (lib valuateDomainMoney — "segmentos de preço
+// constante": 1 /devices/totals por segmento; período com preço único reaproveita os
+// totais já carregados → zero chamadas extras) e os eventos myio:value-display-mode-updated /
+// myio:money-valuation-ready. Os filhos leem MyIOUtils.getItemMoney / formatMoneyTotal e só
+// PEDEM a troca via MyIOUtils.setValueDisplayMode (a MAIN revalida a elegibilidade).
+// Público v1 (Q6): quem gerencia metas/tarifas (_computeCanManageGoalsTariffs). Temperatura
+// e Entrada (Q8) nunca são valoradas. Gráficos continuam em unidade física.
+const MONEY_DOMAINS = ['energy', 'water'];
+const MONEY_TARIFF_REFRESH_MS = 1500; // o 'save' do painel é otimista: relê depois da escrita
+const _moneyState = {
+  mode: 'physical', // efetivo
+  requested: null, // escolha da sessão (null = usar a salva)
+  available: false,
+  availabilityPromise: null,
+  rule: null, // moneyCategoryRule (SERVER_SCOPE do customer)
+  rev: 0, // muda a cada tariffs-updated / troca de regra → invalida resultados
+  results: { energy: null, water: null }, // { periodKey, rev, result }
+  running: { energy: null, water: null }, // { periodKey, rev, promise }
+  treeCache: new Map(), // `${rev}|${domain}|${category}|${year}` → Promise
+};
+window.MyIOUtils.valueDisplayMode = 'physical';
+window.MyIOUtils.moneyDisplayAvailable = false;
+
+const _moneyLib = () => window.MyIOLibrary || {};
+const _moneyBaseKey = (pKey) => String(pKey || '').split('_recalc_')[0];
+
+function _moneyEligible() {
+  return _computeCanManageGoalsTariffs();
+}
+
+function _moneyStorageKey() {
+  const user = window.MyIOUtils?.currentUserId || 'anon';
+  const cust = window.MyIOOrchestrator?.customerTB_ID || window.__myioCustomerTB_ID || 'default';
+  return `myio:value-display-mode:v1:${user}:${cust}`;
+}
+
+function _moneyReadStored() {
+  try {
+    return localStorage.getItem(_moneyStorageKey()) === 'money' ? 'money' : 'physical';
+  } catch {
+    return 'physical'; // modo privado / storage bloqueado
+  }
+}
+
+function _moneyWriteStored(mode) {
+  try {
+    localStorage.setItem(_moneyStorageKey(), mode);
+  } catch {
+    /* sem storage — vale só para esta sessão */
+  }
+}
+
+/** Atributo moneyCategoryRule do customer (Q3): grupo do dashboard → categoria tarifária. */
+function _moneySetCategoryRule(raw) {
+  const parse = _moneyLib().parseMoneyCategoryRule;
+  const next = raw != null && typeof parse === 'function' ? parse(raw) : null;
+  if (JSON.stringify(next) !== JSON.stringify(_moneyState.rule)) {
+    _moneyState.rule = next;
+    _moneyState.rev += 1;
+  }
+  LogHelper.log('[MAIN_VIEW] RFC-0241: moneyCategoryRule =', _moneyState.rule || '(ausente → dispositivos sem categoria)');
+}
+
+function _moneyTariffClient() {
+  const c = _goalsTariffsCreds();
+  const create = _moneyLib().createTariffApiClient;
+  if (!c.baseUrl || !c.customerId || !c.apiKey || typeof create !== 'function') return null;
+  return {
+    customerId: c.customerId,
+    client: create({ baseUrl: c.baseUrl, apiKey: c.apiKey, tenantId: c.tenantId || undefined }),
+  };
+}
+
+function _moneyCoverageSummary() {
+  const out = {};
+  MONEY_DOMAINS.forEach((d) => {
+    const r = _moneyState.results[d]?.result;
+    if (r) out[d] = r.coverage;
+  });
+  return out;
+}
+
+function _moneyBroadcastMode(source) {
+  window.MyIOUtils.valueDisplayMode = _moneyState.mode;
+  window.MyIOUtils.moneyDisplayAvailable = _moneyState.available;
+  const tab = window.MyIOOrchestrator?.getVisibleTab?.();
+  window.dispatchEvent(
+    new CustomEvent('myio:value-display-mode-updated', {
+      detail: {
+        mode: _moneyState.mode,
+        available: _moneyState.available,
+        eligible: _moneyEligible(),
+        periodKey: window.MyIOOrchestratorData?.[tab]?.periodKey || null,
+        coverage: _moneyCoverageSummary(),
+        source: source || 'main',
+        ts: Date.now(),
+      },
+    })
+  );
+}
+
+/** A API de tarifas respondeu (1 GET leve) → moneyDisplayAvailable. Só para usuários elegíveis. */
+function _moneyCheckAvailability(force = false) {
+  if (_moneyState.availabilityPromise && !force) return _moneyState.availabilityPromise;
+  const t = _moneyEligible() ? _moneyTariffClient() : null;
+  if (!t) {
+    _moneyState.available = false;
+    window.MyIOUtils.moneyDisplayAvailable = false;
+    return Promise.resolve(false);
+  }
+  _moneyState.availabilityPromise = t.client
+    .getTariff(
+      { customerId: t.customerId, domain: 'ENERGY', category: 'SPECIFIC', year: new Date().getFullYear() },
+      'year'
+    )
+    .then(() => true)
+    .catch((err) => {
+      LogHelper.warn('[MAIN_VIEW] RFC-0241: API de tarifas indisponível —', err?.code || err?.message || err);
+      return false;
+    })
+    .then((ok) => {
+      _moneyState.available = ok;
+      window.MyIOUtils.moneyDisplayAvailable = ok;
+      return ok;
+    });
+  return _moneyState.availabilityPromise;
+}
+
+function _moneyLoadTree(t, sel) {
+  const key = `${_moneyState.rev}|${sel.domain}|${sel.category}|${sel.year}`;
+  if (!_moneyState.treeCache.has(key)) {
+    const p = t.client.getTariff({ customerId: t.customerId, ...sel }, 'hour').catch((err) => {
+      LogHelper.warn(`[MAIN_VIEW] RFC-0241: tarifa ${sel.domain}/${sel.category}/${sel.year} falhou —`, err?.code || err);
+      _moneyState.treeCache.delete(key); // não fixa a falha no cache
+      return null;
+    });
+    _moneyState.treeCache.set(key, p);
+  }
+  return _moneyState.treeCache.get(key);
+}
+
+/** Devices valoráveis do domínio a partir do STATE (grupo RFC-0207) + totais do período. */
+function _moneyDevicesOf(domain) {
+  const st = window.STATE?.[domain] || {};
+  const devices = [];
+  const totals = new Map();
+  Object.keys(st).forEach((group) => {
+    if (group === 'summary' || group === 'manual' || group.startsWith('_')) return;
+    (st[group]?.items || []).forEach((it) => {
+      const key = it?.ingestionId ? String(it.ingestionId) : '';
+      if (!key) return;
+      devices.push({ key, group });
+      totals.set(key, Number(it.value) || 0);
+    });
+  });
+  return { devices, totals };
+}
+
+/** item.money nos itens publicados — só em modo R$ (modo físico: payload intocado, AC-11). */
+function _moneyAnnotate(domain, result) {
+  const data = window.MyIOOrchestratorData?.[domain];
+  const lists = [data?.items, data?.allItems];
+  lists.forEach((list) =>
+    (list || []).forEach((it) => {
+      if (!it) return;
+      const m = result && it.ingestionId ? result.byKey.get(String(it.ingestionId)) : null;
+      if (m) it.money = m;
+      else if ('money' in it) delete it.money;
+    })
+  );
+}
+
+function _moneyValuateDomain(domain) {
+  if (!MONEY_DOMAINS.includes(domain)) return Promise.resolve(null);
+  const Lib = _moneyLib();
+  const data = window.MyIOOrchestratorData?.[domain];
+  const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
+  const pKey = _moneyBaseKey(data?.periodKey);
+  if (!data?.items?.length || !period?.startISO || !period?.endISO || /:(loading|failed)$/.test(pKey)) {
+    return Promise.resolve(null);
+  }
+  const rev = _moneyState.rev;
+  const cached = _moneyState.results[domain];
+  if (cached && cached.periodKey === pKey && cached.rev === rev) return Promise.resolve(cached.result);
+  const running = _moneyState.running[domain];
+  if (running && running.periodKey === pKey && running.rev === rev) return running.promise;
+
+  const t = _moneyTariffClient();
+  if (!t || typeof Lib.valuateDomainMoney !== 'function') return Promise.resolve(null);
+
+  const { devices, totals } = _moneyDevicesOf(domain);
+  const custIng = window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID || '';
+  const fetchTotals = window.MyIOUtils?.fetchGoalsDayTotals;
+  const valueOf = (row) => Number(row?.total_value ?? row?.total_volume ?? row?.total_pulses ?? 0);
+
+  const promise = Lib.valuateDomainMoney({
+    domain,
+    startTs: Date.parse(period.startISO),
+    endTs: Date.parse(period.endISO),
+    devices,
+    rule: _moneyState.rule,
+    loadTree: (sel) => _moneyLoadTree(t, sel),
+    periodTotals: totals,
+    // Segmento de preço constante → /devices/totals (mesmo deep/filtros da MAIN)
+    fetchSegmentTotals:
+      custIng && typeof fetchTotals === 'function'
+        ? async (startTs, endTs) => {
+            const rows = await fetchTotals(custIng, domain, startTs, endTs, null);
+            const map = new Map();
+            (rows || []).forEach((row) => row?.id && map.set(String(row.id), valueOf(row)));
+            return map;
+          }
+        : undefined,
+  })
+    .then((result) => {
+      // Período/regra mudou durante o cálculo → descarta (a run nova publica)
+      if (_moneyBaseKey(window.MyIOOrchestratorData?.[domain]?.periodKey) !== pKey || _moneyState.rev !== rev) {
+        return null;
+      }
+      _moneyState.results[domain] = { periodKey: pKey, rev, result };
+      if (_moneyState.mode === 'money') _moneyAnnotate(domain, result);
+      LogHelper.log(
+        `[MAIN_VIEW] RFC-0241: ${domain} valorado — ${result.coverage.covered}/${result.coverage.total} completos, ` +
+          `${result.plan.segments.length} segmento(s), ${result.segmentFetches} chamada(s) extra(s)`
+      );
+      window.dispatchEvent(
+        new CustomEvent('myio:money-valuation-ready', {
+          detail: { domain, periodKey: pKey, coverage: result.coverage, ts: Date.now() },
+        })
+      );
+      return result;
+    })
+    .finally(() => {
+      if (_moneyState.running[domain]?.promise === promise) _moneyState.running[domain] = null;
+    });
+  _moneyState.running[domain] = { periodKey: pKey, rev, promise };
+  return promise;
+}
+
+/** Chamado pelo emitProvide (choke point): revalora o domínio em modo R$ (período novo, refresh). */
+function _moneyOnProvide(domain, pKey) {
+  if (_moneyState.mode !== 'money' || !MONEY_DOMAINS.includes(domain)) return;
+  if (/:(loading|failed)$/.test(String(pKey || ''))) return;
+  const cached = _moneyState.results[domain];
+  if (cached && cached.periodKey === _moneyBaseKey(pKey) && cached.rev === _moneyState.rev) {
+    _moneyAnnotate(domain, cached.result); // re-emit do mesmo período (filtro de status)
+    return;
+  }
+  _moneyValuateDomain(domain).catch((err) => LogHelper.warn('[MAIN_VIEW] RFC-0241: valoração falhou —', err));
+}
+
+/** Resultado vigente do domínio (null se outro período / outra revisão de tarifas). */
+function _moneyCurrentResult(domain) {
+  const r = _moneyState.results[domain];
+  if (!r || r.rev !== _moneyState.rev) return null;
+  if (r.periodKey !== _moneyBaseKey(window.MyIOOrchestratorData?.[domain]?.periodKey)) return null;
+  return r.result;
+}
+
+async function _moneyActivate(source) {
+  const busy = window.MyIOOrchestrator;
+  try {
+    busy?.showGlobalBusy?.('money', 'Calculando custo estimado…', 60000);
+  } catch {
+    /* busy é opcional */
+  }
+  try {
+    _moneyState.mode = 'money';
+    const loaded = MONEY_DOMAINS.filter((d) => window.MyIOOrchestratorData?.[d]?.items?.length);
+    const results = await Promise.all(loaded.map((d) => _moneyValuateDomain(d)));
+    loaded.forEach((d, i) => results[i] && _moneyAnnotate(d, results[i]));
+  } catch (err) {
+    LogHelper.error('[MAIN_VIEW] RFC-0241: falha ao ativar o modo R$ —', err);
+    _moneyState.mode = 'physical';
+    MONEY_DOMAINS.forEach((d) => _moneyAnnotate(d, null));
+    toastError('Não foi possível calcular o custo estimado agora. Exibindo kWh/m³.');
+  } finally {
+    try {
+      busy?.hideGlobalBusy?.('money');
+    } catch {
+      /* noop */
+    }
+  }
+  _moneyBroadcastMode(source);
+  return _moneyState.mode;
+}
+
+function _moneyDeactivate(source) {
+  _moneyState.mode = 'physical';
+  MONEY_DOMAINS.forEach((d) => _moneyAnnotate(d, null));
+  _moneyBroadcastMode(source);
+  return 'physical';
+}
+
+/** Reaplica a preferência salva/da sessão contra elegibilidade + disponibilidade (AC-17). */
+async function _moneyApplyPreference(source) {
+  await _moneyCheckAvailability();
+  const want = _moneyState.requested || _moneyReadStored();
+  const ok = want === 'money' && _moneyEligible() && _moneyState.available;
+  if (ok && _moneyState.mode !== 'money') return _moneyActivate(source);
+  if (!ok && _moneyState.mode === 'money') return _moneyDeactivate(source);
+  _moneyBroadcastMode(source); // HEADER descobre se mostra o controle
+  return _moneyState.mode;
+}
+
+/** Único escritor do modo. Filhos chamam isto — nunca disparam o evento -updated. */
+window.MyIOUtils.setValueDisplayMode = async function setValueDisplayMode(mode, opts = {}) {
+  const want = mode === 'money' ? 'money' : 'physical';
+  const source = opts?.source || 'unknown';
+  if (want === 'physical') {
+    _moneyState.requested = 'physical';
+    _moneyWriteStored('physical');
+    return _moneyDeactivate(source);
+  }
+  await _moneyCheckAvailability();
+  if (!_moneyEligible() || !_moneyState.available) {
+    LogHelper.warn('[MAIN_VIEW] RFC-0241: modo R$ negado (sem permissão ou API de tarifas indisponível).', source);
+    _moneyBroadcastMode(source);
+    return 'physical';
+  }
+  _moneyState.requested = 'money';
+  _moneyWriteStored('money');
+  return _moneyActivate(source);
+};
+
+window.MyIOUtils.getValueDisplayMode = () => _moneyState.mode;
+
+/** item.money do device (null = mostrar físico sem marcador: modo físico, temperatura, Entrada, ainda calculando). */
+window.MyIOUtils.getItemMoney = function getItemMoney(itemOrKey, domain) {
+  if (_moneyState.mode !== 'money' || !MONEY_DOMAINS.includes(domain)) return null;
+  const result = _moneyCurrentResult(domain);
+  if (!result) return null;
+  const key = typeof itemOrKey === 'string' ? itemOrKey : itemOrKey?.ingestionId;
+  return key ? result.byKey.get(String(key)) || null : null;
+};
+
+/**
+ * Total em R$ de um conjunto (cabeçalho de grupo, KPI, dock). null = modo físico / nada
+ * valorável. complete=true só quando TODOS os membros são 'complete' (senão: total físico +
+ * "Cobertura incompleta (n de m)").
+ */
+window.MyIOUtils.formatMoneyTotal = function formatMoneyTotal(items, domain) {
+  if (_moneyState.mode !== 'money' || !MONEY_DOMAINS.includes(domain) || !_moneyCurrentResult(domain)) return null;
+  const Lib = _moneyLib();
+  const list = (items || []).map((it) => window.MyIOUtils.getItemMoney(it, domain));
+  if (!list.length || list.every((m) => m == null)) return null;
+  const sum = Lib.sumItemMoney(list.map((m) => m || { state: 'missing' }));
+  const complete = sum.state === 'complete';
+  return {
+    complete,
+    amount: complete ? sum.amount : null,
+    text: complete ? Lib.formatMoneyBRL(sum.amount) : null,
+    covered: sum.covered,
+    total: sum.total,
+    markerHTML: complete ? '' : Lib.buildMoneyCoverageMarkerHTML(sum),
+  };
+};
+
+/** Texto do valor de UM device: R$ quando completo, senão o físico de sempre. */
+window.MyIOUtils.formatItemValue = function formatItemValue(item, domain) {
+  const brl = _moneyLib().formatItemMoney?.(window.MyIOUtils.getItemMoney(item, domain));
+  if (brl) return brl;
+  const v = Number(item?.value) || 0;
+  return domain === 'water' ? window.MyIOUtils.formatWaterWithSettings(v) : window.MyIOUtils.formatEnergyWithSettings(v);
+};
+
+/** params.money do AllReportModal (A6) — só em modo R$; físico continua a coluna principal. */
+window.MyIOUtils.getReportMoney = function getReportMoney(domain) {
+  const result = _moneyState.mode === 'money' ? _moneyCurrentResult(domain) : null;
+  const build = _moneyLib().buildReportMoneyConfig;
+  if (!result || typeof build !== 'function') return null;
+  const period = window.MyIOOrchestrator?.getCurrentPeriod?.();
+  return build(result, { period: period ? { startISO: period.startISO, endISO: period.endISO } : undefined });
+};
+
+// Tarifas salvas no painel → relê do GCDR e revalora sem recarregar a página (AC-18)
+let _moneyTariffTimer = null;
+window.addEventListener('myio:tariffs-updated', () => {
+  _moneyState.rev += 1;
+  _moneyState.treeCache.clear();
+  clearTimeout(_moneyTariffTimer);
+  _moneyTariffTimer = setTimeout(async () => {
+    if (!_moneyState.available) await _moneyCheckAvailability(true);
+    if (_moneyState.mode !== 'money') return _moneyApplyPreference('tariffs-updated');
+    const loaded = MONEY_DOMAINS.filter((d) => window.MyIOOrchestratorData?.[d]?.items?.length);
+    const results = await Promise.all(loaded.map((d) => _moneyValuateDomain(d).catch(() => null)));
+    loaded.forEach((d, i) => results[i] && _moneyAnnotate(d, results[i]));
+    _moneyBroadcastMode('tariffs-updated');
+  }, MONEY_TARIFF_REFRESH_MS);
+});
+
+// Usuário conhecido (detectSuperAdmin) → elegibilidade + preferência salva
+window.addEventListener('myio:user-info-ready', () => {
+  _moneyState.availabilityPromise = null;
+  _moneyApplyPreference('user-info').catch((err) => LogHelper.warn('[MAIN_VIEW] RFC-0241:', err));
+});
+// ── fim RFC-0241 Part B ─────────────────────────────────────────────────────────
 
 // ── Filtro global "Status Disp." (GCDR device.status) ────────────────────────
 // HEADER escolhe TODOS | ATIVOS | INATIVOS (| DESCONHECIDOS, só se houver device sem
@@ -3130,6 +3536,8 @@ Object.assign(window.MyIOUtils, {
       let restrictView = null;
       try {
         const userId = user.id?.id || user.id;
+        // RFC-0241 Part B: chave da preferência R$/kWh por usuário × shopping
+        window.MyIOUtils.currentUserId = userId || null;
         if (userId) {
           const attrResp = await fetch(
             `${tbBase}/api/plugins/telemetry/USER/${userId}/values/attributes/SERVER_SCOPE`,
@@ -3746,6 +4154,9 @@ Object.assign(window.MyIOUtils, {
             // Evaluate gate now (currentUserEmail may not be set yet; re-evaluated after user fetch)
             _applyTicketsGate();
 
+            // RFC-0241 Part B (Q3): regra opt-in grupo do dashboard → categoria tarifária
+            _moneySetCategoryRule(attrs?.moneyCategoryRule);
+
             // Exclusão de Grupos: read from CUSTOMER SERVER_SCOPE (saved by SettingsModal)
             const _rawExcludeGroups = attrs?.exclude_groups_totals;
             if (_rawExcludeGroups) {
@@ -3837,6 +4248,10 @@ Object.assign(window.MyIOUtils, {
             );
           }
         }
+        // RFC-0241 Part B: credenciais GCDR publicadas → (re)avalia disponibilidade do modo R$
+        _moneyState.availabilityPromise = null;
+        _moneyApplyPreference('credentials').catch((err) => LogHelper.warn('[MAIN_VIEW] RFC-0241:', err));
+
         if (!gcdrApiKey)
           LogHelper.warn('[MAIN_VIEW] gcdrApiKey não encontrado nos atributos SERVER_SCOPE do customer.');
         LogHelper.log('[MAIN_VIEW] RFC-0180: gcdrCustomerId:', gcdrCustomerId || '(empty)');
@@ -9869,6 +10284,9 @@ const MyIOOrchestrator = (() => {
     LogHelper.log(`[Orchestrator] 📡 Emitted provide-data for ${domain} with ${items.length} items`);
 
     if (_gcdrDeviceStatusIndex) _publishDeviceStatusOptions();
+
+    // RFC-0241 Part B: em modo R$ revalora o domínio (período novo / refresh). Modo físico: no-op.
+    _moneyOnProvide(domain, pKey);
   }
 
   // Re-emite todos os domínios já carregados a partir da lista completa, com periodKey
@@ -10884,6 +11302,17 @@ if (window.MyIOOrchestrator && !window.MyIOOrchestrator.isReady) {
 // RFC-0240: fora do if/else — no carregamento normal ainda não há stub (ele nasce no onInit),
 // então é o ramo "fallback" que publica o orquestrador.
 window.MyIOOrchestrator.manualDeviceProvisioner = _manualDeviceProvisioner;
+// RFC-0241 Part B (idem, fora do if/else): params.money do relatório (Reports Hub) + estado R$
+window.MyIOOrchestrator.getReportMoney = (domain) => window.MyIOUtils.getReportMoney(domain);
+Object.defineProperty(window.MyIOOrchestrator, 'moneyState', {
+  configurable: true,
+  enumerable: false,
+  get: () => ({
+    mode: _moneyState.mode,
+    periodKey: window.MyIOOrchestratorData?.[window.MyIOOrchestrator?.getVisibleTab?.()]?.periodKey || null,
+    byDomain: _moneyCoverageSummary(),
+  }),
+});
 
 /**
  * RFC-0107: Initializes the contract loading modal and fetches device counts

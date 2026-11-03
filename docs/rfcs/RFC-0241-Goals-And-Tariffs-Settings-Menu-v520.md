@@ -2,8 +2,10 @@
 
 - **Feature name:** `goals-tariffs-settings-v520` (hub item) + `value-display-mode` (global R$ toggle)
 - **Start date:** 2026-11-03
-- **Status:** **Draft — design only, not implemented.** Nothing described here exists in code yet.
-- **Branch:** none yet (to be cut from `desenv` when approved: `feat/rfc-0241-goals-tariffs-v520`)
+- **Status:** **rev. 2 (2026-11-03)** — Phases 1–4 merged in `desenv` (PR #161); Phase 0 findings recorded below;
+  Phase 5 (Part B, v-5.2.0) implemented, uncommitted, pending review. Owner said "go fase b", accepting the proposals
+  listed in [Phase 0 findings](#phase-0-findings-rev-2).
+- **Branch:** `feat/rfc-0241-goals-tariffs-v520` (Phases 1–4, merged); Phase 5 in a worktree on top of `desenv` `e4e99ac7`
 - **Jira:** none yet
 - **Related RFCs:** RFC-0222 (Pricing Panel), RFC-0228 (Financial Goals gap & rollout index, Track A), RFC-0225 / RFC-0227
   (Metas period KPI, compare modal, onboarding guide), RFC-0217 (CustomerGoalsCard), RFC-0215 (Settings hub in the
@@ -38,6 +40,50 @@ dock), computed by MAIN from the GCDR hourly tariffs (GCDR RFC-0054, client in R
 **honest**: a value is shown in R$ only when the tariff fully covers the period for that device's tariff
 category; otherwise the physical value stays, with an explicit coverage marker — never `R$ 0`, never a
 partial sum presented as a total (RFC-0228 A4 / DEC-6 / DEC-8 disciplines).
+
+## Phase 0 findings (rev. 2)
+
+Verified against production on 2026-11-03 (Phase 0 spikes, §8) and owner decisions taken when Part B was started.
+
+**Verified**
+
+- **GCDR envelope.** Every GCDR success body is `{ success: true, data: {...}, meta: {...} }`; errors are
+  `{ success: false, error: { message, code }, meta }`. Example (`GET /api/v1/customers/:id/tariffs`):
+  `{"success":true,"data":{"customerId":…,"domain":"ENERGY","category":"COMMON_AREA","year":2026,"unit":"kWh",
+  "currency":"BRL","tariffModel":"FLAT","timezone":"America/Sao_Paulo","version":0,"tree":{}},"meta":{…}}`.
+  **Bug fixed in rev. 2:** `tariffApiClient.ts` read `tree`/`version` from the top-level body, so saved tariffs
+  always loaded empty and the version drifted (409 on the 2nd save). The client now unwraps `body.data`
+  (`unwrapGcdrEnvelope`, bare shape still accepted) in `getTariff`, `write()` (PUT/PATCH) and `deleteTariff`;
+  `goalsMoneyClient.ts` does the same in its `readBody`. `GoalsPanel.js` already handled the envelope.
+- **Q2 — tariff API is live in production.** Reads work with the customer API key (`X-API-Key` + `X-Tenant-Id`).
+- **Q1 — GCDR enforces key scopes.** Writes need `tariffs:write` on the key: production answered
+  `401 API key does not have required scope: tariffs:write` for the customer key. The editors are therefore **not**
+  protected by the client gate alone; enabling tariff edits for a customer is a GCDR configuration action (grant the
+  scope to the right key), not a code change.
+- **Q10 — Ingestion shapes.**
+  - `GET /api/v1/telemetry/customers/{id}/{type}/devices/totals` **ignores `granularity`** and returns
+    `{ data: [ { id, name, slaveId, gatewayId, deviceType, total_value, metric, lastTelemetryTs, customerId,
+    customerName, assetId, assetName, profileId } ], summary: { totalDevices, totalValue, metric } }` — one period
+    total per device, no buckets.
+  - `GET /telemetry/customers/{id}/{type}?granularity=1h` returns **one customer-level series**
+    (`[{ id, name, type, consumption: [{ timestamp, value }] }]`), not per device.
+  - Per-device series exist only per device: `GET /telemetry/devices/{ingestionId}/{type}?startTime&endTime&
+    granularity=1d|1h&deep=0` → `[{ id, name, type, consumption: [{ timestamp, value }] }]`.
+  - Consequence: the §5.4 assumption ("`/devices/totals?granularity=` carries per-bucket values") is **false**.
+    §5.4 is rewritten around *constant-price segments* (below).
+
+**Owner decisions** (recorded as decided)
+
+| Q | Decision |
+|---|---|
+| Q3 | Opt-in customer rule: customer SERVER_SCOPE attribute `moneyCategoryRule`, e.g. `{"source":"classification","SPECIFIC":["lojas"],"COMMON_AREA":["*"]}`, maps the dashboard classification group to the tariff category (explicit group beats `"*"`). Without the rule devices are `uncategorized` (physical + coverage marker). |
+| Q5 | HEADER segmented control **"kWh/m³ \| R$"** next to the period picker. |
+| Q6 | Audience v1: only users who can manage goals/tariffs (SuperAdmin @myio or UserAdmin, narrowed by `restrict_view`) — reuses `_computeCanManageGoalsTariffs`. |
+| Q7 | Reuse `MyIOUtils.SuperAdmin` (excludes `alarme@`/`alarmes@`). |
+| Q8 | Entrada meters stay physical in v1 (never valued; the Área Comum residual is not valued either). |
+| Q9 | Keep the 31-day cap for any per-device series. |
+| Q11 | Keep the MENU "Metas" link. |
+| Q12 | v-5.4.0 is a follow-up, not part of this change. |
 
 ## Motivation
 
@@ -331,24 +377,38 @@ bucket (bucket is `1d` and the day has hourly nodes/bands), the bucket is marked
 multiply — never `Number(price)`, RFC-0228 A1 rule `tariffApiClient.ts:17-18`). Rounding happens **once**, at
 display (`formatMoneyBRL`), and parents are `round(Σ raw)` not `Σ round` (DEC-8, as `reportMoneyColumn.ts`).
 
-#### 5.4 Data flow in MAIN
+#### 5.4 Data flow in MAIN — "constant-price segments" (rev. 2)
 
-1. On mode `money` (and on every period change / `myio:tariffs-updated` while in `money`): load tariff trees for each
-   `(domain ∈ {ENERGY, WATER}) × (category ∈ {SPECIFIC, COMMON_AREA}) × (year ∈ years spanned by the period)` via
-   `createTariffApiClient` at `granularity=hour` — at most 2 × 2 × 2 = 8 GETs, cached by `(domain, category, year, version)`.
-2. Decide the consumption granularity: `1d` if no day in the period has intraday price variation; else `1h`, allowed
-   only when the period is ≤ 31 days (proposal; constant `MONEY_HOURLY_MAX_DAYS`); longer periods with intraday
-   tariffs → affected devices `state:'partial', reason:'intraday-tariff-long-period'`.
-3. Fetch per-device bucketed consumption with the existing `fetchGoalsDayTotals(ingestionId, domain, start, end, gran)`
-   (`MAIN_VIEW/controller.js:925-1000`). **Assumption:** the `/devices/totals?granularity=` response carries
-   per-bucket values per device; this must be verified against the Ingestion API before Phase B starts.
-4. Valuate and attach `item.money: DeviceMoney` in `emitProvide` (`:9548`) — the single choke point, so cards,
-   totals and the reports' `itemsList` all see the same numbers. Items are not mutated when mode is `physical`
-   (byte-identical payload).
-5. Emit `myio:money-valuation-ready`, then (if triggered by a mode change) `myio:value-display-mode-updated`.
+The rev. 1 plan (per-device hourly/daily series from `/devices/totals?granularity=`) is void: that endpoint ignores
+`granularity` (Phase 0, Q10). Valuation uses period totals split at price changes instead:
 
-Busy UX: the switch shows the existing MAIN busy spinner until step 5; on failure mode reverts to `physical`
-with a toast.
+1. On mode `money` (and on every period change / `myio:tariffs-updated` while in `money`), per domain
+   (`energy`, `water`): resolve each device's category with `moneyCategoryRule` (§5.5) and load the tariff tree of
+   every `(category × year spanned by the period)` via `createTariffApiClient` at `granularity=hour` (cached per
+   `(rev, domain, category, year)`; an empty tree = no tariff).
+2. **Plan** (`valuator.planSegments`): split the period at every point where the effective price of any category
+   changes (month/day overrides, year boundary, start/end of a tariff gap). A day whose price varies *inside* the
+   day (hourly bands) collapses into one `hourly` run — never one segment per hour.
+3. **Consumption per segment:** one `GET /devices/totals` per priced segment (startTime/endTime = segment, same
+   `deep` and curation MAIN already uses via `MyIOUtils.fetchGoalsDayTotals`). When the whole period is a single
+   priced segment (the common FLAT case) MAIN **reuses the period totals it already loaded → zero extra Ingestion
+   calls**. More than `MONEY_MAX_SEGMENT_FETCHES = 31` priced segments → no fetch, devices `partial`
+   (`too-many-segments`).
+4. **Value** (`valuator.valuatePlan`): device amount = Σ segment total × segment price (decimal strings, BigInt).
+   Segments with `hourly` bands → device `partial` (`needs-hourly`, tooltip "Tarifa horária ainda não suportada
+   nesta visão"); segments without tariff → `partial`/`missing`; a failed segment fetch → `partial` (`no-data`).
+   Never `R$ 0`. No per-device hourly fetching in v1 (reports value hourly rows exactly — see §5.7).
+5. Publish: `item.money` (`{ state: 'complete'|'partial'|'missing'|'uncategorized', amount?, currency:'BRL',
+   coverage, reason? }`) is attached to the published items (`MyIOOrchestratorData[d].items/allItems`) **only in money
+   mode** and removed when switching back (physical payload untouched, AC-11). Widgets read it through
+   `MyIOUtils.getItemMoney(item, domain)` (keyed by `ingestionId`, so the TELEMETRY item copies need no extra field);
+   a result for another period / tariff revision is never returned (stale → physical).
+6. Emit `myio:money-valuation-ready`, then (if triggered by a mode change) `myio:value-display-mode-updated`.
+
+Busy UX: the switch shows the existing MAIN busy spinner (`showGlobalBusy('money')`) until step 6; on failure the
+mode reverts to `physical` with a toast. Pure parts live in the library: `createTariffValuator().planSegments /
+valuatePlan`, `valuateDomainMoney`, `buildReportMoneyConfig` (`financial-goals/tariffValuation.ts`,
+`financial-goals/moneyDisplay.ts`).
 
 #### 5.5 Device tariff category
 
@@ -360,8 +420,10 @@ order:
 2. **Opt-in customer rule** (new customer SERVER_SCOPE attribute, e.g.
    `moneyCategoryRule = { "source": "classification", "SPECIFIC": ["lojas"], "COMMON_AREA": ["*"] }`): maps the
    dashboard's explicit RFC-0207/RFC-0128 group to a tariff category. This is a declared configuration, not name
-   inference, but it **does relax RFC-0228's "never inferred" discipline** for v-5.2.0 and therefore needs owner
-   approval (Unresolved Q3).
+   inference, but it **does relax RFC-0228's "never inferred" discipline** for v-5.2.0 — **approved by the owner
+   (rev. 2, Q3)**. Valued groups in v1: energy `lojas`, `areacomum`; water `lojas`, `areacomum`, `banheiros`
+   (`MONEY_CONVERTIBLE_GROUPS`). Entrada, transformadores, tanks/cisternas, retrolavagem and `*_MANUAL` are never
+   valued (Q8).
 3. Otherwise `uncategorized` → the device keeps physical units and counts against coverage.
 
 #### 5.6 Behaviour matrix
@@ -370,14 +432,14 @@ order:
 |---|---|---|---|
 | Tariff covers the full period, single price | `R$ x` ("Custo estimado") | `R$ Σ` | R$ plus physical value in secondary line |
 | Tariff changes inside the period (month boundary, day override) | exact piecewise sum (§5.3) | exact | shows "tarifa variável no período" |
-| Intraday bands, period ≤ 31 d | exact using `1h` series | exact | idem |
-| Intraday bands, period > 31 d | physical + chip "Tarifa parcial" | physical + "Cobertura incompleta" | reason text |
+| Intraday bands (any period) — **rev. 2** | physical + chip "Tarifa parcial" (`needs-hourly`) | physical + "Cobertura incompleta" | "Tarifa horária ainda não suportada nesta visão" (reports' hourly rows are exact) |
+| More than 31 price segments in the period — **rev. 2** | physical + "Tarifa parcial" (`too-many-segments`) | physical + "Cobertura incompleta" | "reduza o intervalo" |
 | No tariff for the device's category in part of the period | physical + "Tarifa parcial" | physical + "Cobertura incompleta (n de m)" | covered % |
 | No tariff at all for the category | physical + "Sem tarifa" | idem | link "Tarifas" for allowed users |
 | Device uncategorized | physical + "Sem categoria" | idem | — |
 | Mixed group (devices of both categories) | each device by its own category | `R$ Σ` only if **every** member is `complete` | per-category breakdown |
-| Entrada meters (RFC-0128 Entrada) | not convertible in v1 (mix of both categories) unless the customer rule maps Entrada to a category | Entrada total in R$ = Σ valued consumers + residual "Área Comum" valued at `COMMON_AREA` (only if all `complete`) | explains derivation |
-| Calculated "Área Comum" residual (RFC-0128) | n/a | residual qty × `COMMON_AREA` price, piecewise; requires per-bucket Entrada and consumer series | — |
+| Entrada meters (RFC-0128 Entrada) — **rev. 2 (Q8)** | physical, no chip (never valued in v1) | physical | — |
+| Calculated "Área Comum" residual (RFC-0128) / water "Pontos não mapeados" — **rev. 2** | n/a | physical; a total that includes the residual shows "Cobertura incompleta" | — |
 | Temperature domain | unchanged | unchanged | toggle disabled on that tab |
 | Tank / level devices (`tank`, water level) | unchanged (not consumption) | excluded | — |
 | `*_MANUAL` devices | valued like any device if they have consumption buckets | as above | — |
@@ -399,8 +461,8 @@ restricted to "Custo estimado", "Estimado R$", "Cobertura incompleta"; forbidden
 | **HEADER** | Hosts the "kWh/m³ \| R$" segmented control (proposal — Unresolved Q5); hidden when the user is not eligible or `moneyDisplayAvailable` is false; disabled on temperature/alarm tabs; calls `MyIOUtils.setValueDisplayMode`. |
 | **MENU** | Only the hub item (Part A). No value rendering. |
 | **ALARM** | No change. |
-| **Reports** (Reports Hub → AllReportModal) | Physical stays primary; when mode is `money`, MAIN passes `params.money` so the existing RFC-0228 A6 column is enabled (`AllReportModal.ts:168-196`). PDF/CSV export includes the R$ column with the "Custo estimado" header. |
-| **Charts / energy modal / GoalsModal** | Unchanged in v1 (physical). A small "valores físicos" note is shown in money mode. Money charts are a future possibility. |
+| **Reports** (Reports Hub → AllReportModal; HEADER "Relatório Consumo Geral") | **rev. 2.** Physical stays primary. In money mode MAIN passes `params.money = buildReportMoneyConfig(result, { period })` (via `MyIOOrchestrator.getReportMoney` → Reports Hub adapter, and `MyIOUtils.getReportMoney` in HEADER), enabling the RFC-0228 A6 column with header **"Custo estimado (R$)"** (the A6 default "Custo projetado (R$)" stays for RFC-0228 callers). **Exports** (previously screen-only): CSV (daily and hourly), PDF and XLS get the R$ column after the physical one; a non-complete row has an **empty** cell, the total is `round(Σ raw)` of exactly the rows shown (`totalFor(ids)`) and only when every row is complete, else "Cobertura incompleta (n de m)". **Consolidado** rows use MAIN's per-device period value; **Diário/Horário** rows (row expansion + hourly CSV) are valued per bucket with the pure valuator (`valuateBucket`) at the price effective at the row's timestamp — hourly bands are exact there (no extra fetch); the per-device subtotal is the sum of buckets only if all are complete. The report loading a different period than the dashboard → R$ withheld (`PERIOD_MISMATCH`). Physical-mode exports byte-identical (tested). |
+| **DeviceReportModal / charts / energy modal / GoalsModal** | Unchanged in v1 (physical). Money in the single-device report and money charts are **follow-ups**. |
 
 ### 6. Security and permissions
 
@@ -520,22 +582,29 @@ Phases 1–3 deliver value on their own (management) and can be released before 
 
 ## Unresolved questions
 
-1. **Write authorization in GCDR:** does the dashboard `gcdrApiKey` currently allow goal/tariff writes? If yes, does
-   the owner accept shipping the editors (Phases 1–3) before GCDR adds write scopes + user-bound auth?
-2. **Is the GCDR tariff API (RFC-0054 Phase 1) live in production**, and with which auth (customer key vs JWT)?
-3. **Device tariff category before GCDR B6:** approve the opt-in customer rule mapping classification groups to
-   `SPECIFIC`/`COMMON_AREA` (§5.5), or block Part B until B6?
-4. **Does `openGoalsPanel` need `X-Tenant-ID`** (F-4)?
-5. **Toggle placement:** HEADER segmented control (proposed) vs. MENU vs. inside the "Metas e Tarifas" modal.
-6. **Audience of the R$ display:** only operators (v1 proposal) or all users of customers that enable a flag
-   (e.g. customer SERVER_SCOPE `moneyDisplayEnabled`)? Are tariffs commercially sensitive for store tenants?
-7. **"@myio.com.br" rule:** reuse `SuperAdmin` (which excludes `alarme@`/`alarmes@`) or plain suffix match as stated?
-8. **Entrada meters and the Área Comum residual:** accept the derivation in §5.6, or show Entrada only in physical
-   units?
-9. **Hourly cap** (`MONEY_HOURLY_MAX_DAYS = 31`) and acceptable request volume for large shoppings.
-10. **Shape of `/devices/totals?granularity=`** per-bucket data (assumed in §5.4).
-11. Should the v-5.2.0 MENU "Metas" link (read-only `GoalsModal`) remain once the hub card exists?
-12. Should the money mode also apply to v-5.4.0 (`TelemetryGridShoppingView`) in the same PR or a follow-up?
+Resolved in rev. 2 (see [Phase 0 findings](#phase-0-findings-rev-2)):
+
+1. ~~Write authorization in GCDR~~ — **resolved:** GCDR enforces scopes; writes need `tariffs:write` on the key
+   (401 otherwise). Granting the scope is a GCDR configuration action per customer.
+2. ~~Is the tariff API live~~ — **resolved:** live in production; read with the customer key (`X-API-Key` +
+   `X-Tenant-Id`).
+3. ~~Device category before B6~~ — **decided:** opt-in `moneyCategoryRule`; without it devices are `uncategorized`.
+5. ~~Toggle placement~~ — **decided:** HEADER segmented control.
+6. ~~Audience~~ — **decided (v1):** same as goals/tariffs managers (`_computeCanManageGoalsTariffs`).
+7. ~~"@myio.com.br" rule~~ — **decided:** reuse `MyIOUtils.SuperAdmin`.
+8. ~~Entrada / Área Comum residual~~ — **decided:** physical in v1 (no derivation).
+9. ~~Hourly cap~~ — **decided:** keep 31 days for any per-device series; the dashboard itself does no per-device
+   hourly fetching in v1 (`MONEY_MAX_SEGMENT_FETCHES = 31` caps the segment calls).
+10. ~~Shape of `/devices/totals?granularity=`~~ — **resolved:** granularity ignored; see Q10 finding and §5.4 rev. 2.
+11. ~~MENU "Metas" link~~ — **decided:** keep.
+12. ~~v-5.4.0~~ — **decided:** follow-up.
+
+Still open:
+
+4. **Does `openGoalsPanel` need `X-Tenant-ID`** (F-4)? (Phase 2 passes it when present; not re-verified.)
+13. **Hourly-band tariffs on the dashboard:** v1 marks those devices `partial`. A server-side valuation endpoint or
+    per-device hourly series (≤ 31 days) would make them exact — to be decided when a customer uses bands.
+14. **Grant `tariffs:write`** to the key used by the dashboard (or move writes to a user-bound JWT, §6) — GCDR action.
 
 ## Future possibilities
 

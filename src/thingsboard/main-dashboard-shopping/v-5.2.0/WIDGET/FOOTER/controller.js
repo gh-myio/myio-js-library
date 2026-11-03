@@ -865,7 +865,13 @@ const footerController = {
     // RFC-0108: formata o total/média respeitando as preferências de medida do
     // usuário (kWh→MWh, m³→L, °C→°F), igual ao TELEMETRY. Já retorna com unidade.
     const totalsUnit = selected.find((e) => e && e.unit)?.unit;
-    const totals = this._formatValueWithUnit(displayValue, detectedType, totalsUnit);
+    let totals = this._formatValueWithUnit(displayValue, detectedType, totalsUnit);
+
+    // RFC-0241 Part B: modo R$ — total da seleção em R$ só se TODOS os selecionados forem
+    // 'complete' (fonte única MyIOUtils.getItemMoney); senão físico + "Cobertura incompleta".
+    const moneyTotal = this._moneyTotal(selected, detectedType);
+    if (moneyTotal?.complete) totals = moneyTotal.text;
+    else if (moneyTotal) totals = `${totals} · Cobertura incompleta (${moneyTotal.covered} de ${moneyTotal.total})`;
 
     LogHelper.log('[MyIO Footer] Rendering dock:', {
       count,
@@ -915,7 +921,10 @@ const footerController = {
           // RFC-0108: formata respeitando as preferências de medida do usuário
           // (kWh→MWh, m³→L, °C→°F) via _formatValueWithUnit — já vem com unidade.
           const chipUnitType = ent.icon || this.currentUnitType;
-          const formattedValue = typeof ent.lastValue === 'number'
+          const chipMoney = moneyTotal ? this._moneyChipText(ent, detectedType) : null; // RFC-0241 Part B
+          const formattedValue = chipMoney
+            ? chipMoney
+            : typeof ent.lastValue === 'number'
             ? this._formatValueWithUnit(ent.lastValue, chipUnitType, ent.unit)
             : 'Sem dados';
           value.textContent = formattedValue;
@@ -1041,6 +1050,27 @@ const footerController = {
     const step = firstChip ? firstChip.offsetWidth + gap : 180;
     const delta = direction === 'left' ? -step * 2 : step * 2;
     this.$dock.scrollBy({ left: delta, behavior: 'smooth' });
+  },
+
+  /**
+   * RFC-0241 Part B: total em R$ da seleção (null = modo físico / nada valorável).
+   * A seleção guarda o cardEntity (ingestionId); o valor vem de MyIOUtils.getItemMoney.
+   */
+  _moneyTotal(selected, unitType) {
+    const U = window.MyIOUtils;
+    if (unitType !== 'energy' && unitType !== 'water') return null;
+    if (U?.getValueDisplayMode?.() !== 'money' || typeof U?.formatMoneyTotal !== 'function') return null;
+    return U.formatMoneyTotal(
+      (selected || []).map((e) => ({ ingestionId: e?.ingestionId })),
+      unitType
+    );
+  },
+
+  /** RFC-0241 Part B: "R$ …" do chip quando o device tem custo estimado completo; senão null. */
+  _moneyChipText(ent, unitType) {
+    const U = window.MyIOUtils;
+    const m = U?.getItemMoney?.({ ingestionId: ent?.ingestionId }, unitType);
+    return (m && U?.formatItemMoney?.(m)) || null;
   },
 
   /**
@@ -1363,6 +1393,10 @@ const footerController = {
     // preferências de medida no MENU (mesmo comportamento do TELEMETRY).
     window.addEventListener('myio:measurement-settings-updated', this.boundRenderDock);
     LogHelper.log('[MyIO Footer] Registered listener for myio:measurement-settings-updated (RFC-0108)');
+
+    // 8. RFC-0241 Part B: kWh/m³ ↔ R$ e valoração pronta → re-renderiza o dock
+    window.addEventListener('myio:value-display-mode-updated', this.boundRenderDock);
+    window.addEventListener('myio:money-valuation-ready', this.boundRenderDock);
   },
 
   /**
@@ -1861,6 +1895,8 @@ const footerController = {
     // 3b. RFC-0108: remove listener de alteração de preferências de medida
     if (this.boundRenderDock) {
       window.removeEventListener('myio:measurement-settings-updated', this.boundRenderDock);
+      window.removeEventListener('myio:value-display-mode-updated', this.boundRenderDock); // RFC-0241
+      window.removeEventListener('myio:money-valuation-ready', this.boundRenderDock);
     }
 
     // 3. Limpa conteúdo (mas não remove elementos, pois são do template.html do ThingsBoard)

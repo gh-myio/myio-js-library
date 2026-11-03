@@ -34,6 +34,10 @@ import {
   type MoneyVarianceColumn,
 } from '../../financial-goals/moneyVariance';
 import { injectCoverageStyles } from '../../financial-goals/coverageStyles';
+// RFC-0241 Part B (rev. 2) — R$ nos exports e nas linhas Diário/Horário (valuateBucket).
+import { formatBRL as formatMoneyBRL } from '../../financial-goals/moneyFormat';
+import { roundMoney2, sumItemMoney } from '../../financial-goals/tariffValuation';
+import type { AllReportMoneyConfig } from '../types';
 import { DEFAULT_CLAMP_RANGE } from '../../temperature/utils';
 import { renderTemperatureBarsPng } from '../internal/temperatureBarsPng';
 
@@ -192,7 +196,7 @@ export class AllReportModal {
     this.debugEnabled = params.debug === 1;
 
     // RFC-0228 A6 — gate: no `money` config → disabled column (all HTML '' → byte-identical).
-    this.moneyColumn = createReportMoneyColumn(params.money ?? null);
+    this.moneyColumn = createReportMoneyColumn(this.activeMoney());
     if (this.moneyColumn.enabled && typeof document !== 'undefined') {
       // A4 coverage indicator (incomplete/unavailable total) needs its stylesheet.
       injectCoverageStyles(document);
@@ -222,6 +226,89 @@ export class AllReportModal {
         dataApiBaseUrl: params.api.dataApiBaseUrl,
       },
     });
+  }
+
+  /**
+   * RFC-0241 rev. 2 — the money config valid for the loaded period. When the caller
+   * declared the period its R$ were computed for (`money.period`) and the report loads a
+   * different one, per-device/total R$ are withheld (overlay `unavailable`) — never a
+   * dashboard-period R$ next to another period's kWh. Tolerance: 24 h per edge (the
+   * dashboard "until now" vs the picker's end of day).
+   */
+  private activeMoney(): AllReportMoneyConfig | null {
+    const m = this.params.money ?? null;
+    if (!m || !m.period || !this.exportPeriod?.startISO || !this.exportPeriod?.endISO) return m;
+    const DAY = 24 * 3600 * 1000;
+    const near = (a?: string | null, b?: string | null) => {
+      const x = Date.parse(String(a || ''));
+      const y = Date.parse(String(b || ''));
+      return Number.isFinite(x) && Number.isFinite(y) && Math.abs(x - y) <= DAY;
+    };
+    if (near(m.period.startISO, this.exportPeriod.startISO) && near(m.period.endISO, this.exportPeriod.endISO)) {
+      return m;
+    }
+    return {
+      ...m,
+      overlay: { state: 'unavailable', reason: 'PERIOD_MISMATCH' },
+      perDevice: {},
+      total: null,
+      totalFor: undefined,
+      valuateBucket: undefined,
+    };
+  }
+
+  /** RFC-0241 rev. 2 — R$ of one series bucket (Diário/Horário), or null when money is off. */
+  private bucketMoney(id: string, ts: number, gran: '1h' | '1d', qty: number): { state: string; amount?: string } | null {
+    const vb = this.moneyColumn.enabled ? this.activeMoney()?.valuateBucket : undefined;
+    if (!vb || this.isTemperature) return null;
+    const span = gran === '1h' ? 3600 * 1000 : 24 * 3600 * 1000;
+    return vb(id, ts, ts + span, qty) || { state: 'uncategorized' };
+  }
+
+  /** Money cell for CSV (comma decimal, 2dp) — '' when not complete (never 0). */
+  private csvMoney(amount: string | null | undefined): string {
+    const r = roundMoney2(amount ?? null);
+    return r ? r.replace('.', ',') : '';
+  }
+
+  /** Header of the R$ column (A6 default for RFC-0228 callers; Part B passes "Custo estimado (R$)"). */
+  private moneyHeaderLabel(): string {
+    return this.params.money?.headerLabel || 'Custo projetado (R$)';
+  }
+
+  /**
+   * CSV footer for the R$ column: the total (BigInt cents, DEC-8 row sum) only when every
+   * row has an amount; otherwise "Cobertura incompleta (n de m)" — never a partial sum.
+   */
+  private moneyTotalCsvRow(rows: StoreReading[]): string[] {
+    const label = `${this.moneyHeaderLabel()} — total`;
+    const amount = this.moneyTotalAmount(rows);
+    if (amount) return [label, '', this.csvMoney(amount)];
+    const covered = rows.filter((r) => this.rowMoney(r.id)).length;
+    return [label, '', `Cobertura incompleta (${covered} de ${rows.length})`];
+  }
+
+  /**
+   * Honest R$ total of `rows`: `totalFor(ids)` (round Σ raw of exactly these rows, RFC-0241)
+   * when provided, else the A6 resolution (backend total / 2dp row sum). null = incomplete.
+   */
+  private moneyTotalAmount(rows: StoreReading[]): string | null {
+    const m = this.activeMoney();
+    if (!m || !this.moneyColumn.enabled) return null;
+    if (typeof m.totalFor === 'function') {
+      if (m.overlay?.state !== 'available') return null;
+      const ids = rows.map((r) => r.id).filter((id): id is string => !!id);
+      return ids.length === rows.length ? m.totalFor(ids) : null;
+    }
+    const total = this.moneyColumn.resolveTotal(rows.map((r) => this.rowMoney(r.id)));
+    return total && total.kind === 'amount' ? total.amount : null;
+  }
+
+  /** Per-device period R$ (2dp string) of the loaded period, or null. */
+  private rowMoney(id: string | null | undefined): string | null {
+    if (!id) return null;
+    const v = this.activeMoney()?.perDevice?.[id];
+    return typeof v === 'string' && v.trim() ? v : null;
   }
 
   // Debug logging helper
@@ -701,6 +788,8 @@ export class AllReportModal {
       const { startISO, endISO } = this.dateRangePicker.getDates();
       this.debugLog('📅 Date range selected', { startISO, endISO });
       this.exportPeriod = { startISO, endISO };
+      // RFC-0241 rev. 2: R$ só para o período em que foram calculados
+      if (this.params.money) this.moneyColumn = createReportMoneyColumn(this.activeMoney());
       this.hourlySeriesCache = null;
       this.deviceSeriesCache.clear();
       this.temperatureStats.clear();
@@ -927,10 +1016,18 @@ export class AllReportModal {
   // the overlay is confidently priced (DEC-8), otherwise a coverage state label.
   private computeMoneyKpi(): { value: string; label: string; sub?: string } | null {
     if (!this.moneyColumn.enabled) return null;
-    const rowValues = this.data.map((r) => (r.id ? this.params.money?.perDevice?.[r.id] : null));
+    // RFC-0241 rev. 2: round(Σ raw) das linhas exibidas (totalFor) quando o caller o oferece
+    const money = this.activeMoney();
+    if (money && typeof money.totalFor === 'function') {
+      const label = money.headerLabel || 'Custo projetado (R$)';
+      if (money.overlay?.state !== 'available') return { value: 'Indisponível', label };
+      const amount = this.moneyTotalAmount(this.data);
+      return { value: amount ? formatMoneyBRL(amount) : 'Cobertura incompleta', label };
+    }
+    const rowValues = this.data.map((r) => (r.id ? this.activeMoney()?.perDevice?.[r.id] : null));
     const total = this.moneyColumn.resolveTotal(rowValues);
     if (!total) return null;
-    const label = this.params.money?.headerLabel || 'Custo projetado (R$)';
+    const label = this.activeMoney()?.headerLabel || 'Custo projetado (R$)';
     if (total.kind === 'amount') {
       return { value: total.formatted, label };
     }
@@ -1215,6 +1312,29 @@ export class AllReportModal {
       const valueLabel = this.isTemperature
         ? gran === '1h' ? 'Temperatura (°C)' : 'Média do dia (°C)'
         : this.domainConfig.label;
+      // RFC-0241 rev. 2: modo R$ — cada linha valorada pelo preço do seu horário/dia
+      // (faixa horária exata em Horário); subtotal só com todas as linhas completas.
+      if (this.bucketMoney(id, points[0].timestamp, gran, points[0].value)) {
+        const money = points.map((p) => this.bucketMoney(id, p.timestamp, gran, p.value));
+        const cell = (m: { state: string; amount?: string } | null) =>
+          m && m.state === 'complete' && m.amount
+            ? formatMoneyBRL(m.amount)
+            : `<span class="rp-muted" title="Sem custo estimado para este intervalo">—</span>`;
+        const sub = sumItemMoney(money as Array<{ state?: string; amount?: string }>);
+        const subCell =
+          sub.state === 'complete' && sub.amount
+            ? formatMoneyBRL(sub.amount)
+            : `<span class="rp-muted">Cobertura incompleta (${sub.covered} de ${sub.total})</span>`;
+        box.innerHTML = `
+        <table>
+          <thead><tr><th>${gran === '1h' ? 'Data/Hora' : 'Dia'}</th><th class="num">${valueLabel}</th><th class="num">${this.moneyHeaderLabel()}</th></tr></thead>
+          <tbody>${points
+            .map((p, i) => `<tr><td>${fmtTs(p.timestamp)}</td><td class="num">${fmtPt(p.value)}</td><td class="num" data-money-cell="1">${cell(money[i])}</td></tr>`)
+            .join('')}</tbody>
+          <tfoot><tr><td><strong>Subtotal</strong></td><td class="num"><strong>${fmtPt(points.reduce((s, p) => s + p.value, 0))}</strong></td><td class="num" data-money-subtotal="1"><strong>${subCell}</strong></td></tr></tfoot>
+        </table>`;
+        return;
+      }
       box.innerHTML = `
         <table>
           <thead><tr><th>${gran === '1h' ? 'Data/Hora' : 'Dia'}</th><th class="num">${valueLabel}</th></tr></thead>
@@ -1606,6 +1726,14 @@ export class AllReportModal {
       ...sortedData.map((row) => [row.identifier, row.name, row.consumption.toFixed(2).replace('.', ',')]),
     ];
 
+    // RFC-0241 rev. 2: modo R$ — coluna "Custo estimado (R$)" depois do físico (que segue
+    // primário); célula vazia quando incompleta; total só com todas as linhas completas.
+    if (this.moneyColumn.enabled) {
+      csvData[0].push(this.moneyHeaderLabel());
+      sortedData.forEach((row, i) => csvData[i + 1].push(this.csvMoney(this.rowMoney(row.id))));
+      csvData.push([], this.moneyTotalCsvRow(sortedData));
+    }
+
     const csvContent = toCsv(csvData);
     this.downloadCSV(csvContent, `relatorio-geral-lojas-${new Date().toISOString().split('T')[0]}.csv`);
   }
@@ -1704,16 +1832,33 @@ export class AllReportModal {
       const csvData: string[][] = [
         ['Identificador', 'Nome', 'Data/Hora', `Consumo (${this.domainConfig.unit})`],
       ];
+      // RFC-0241 rev. 2: modo R$ — cada hora valorada pelo preço daquela hora (faixas
+      // horárias exatas aqui, sem fetch extra); célula vazia quando não completa.
+      const withMoney = this.moneyColumn.enabled && !!this.activeMoney()?.valuateBucket;
+      if (withMoney) csvData[0].push(this.moneyHeaderLabel());
+      let moneyRows = 0;
+      let moneyComplete = 0;
       for (const row of sortedData) {
         const points = (row.id && series.get(row.id)) || [];
         for (const p of points) {
-          csvData.push([row.identifier, row.name, fmtTs(p.timestamp), p.value.toFixed(2).replace('.', ',')]);
+          const line = [row.identifier, row.name, fmtTs(p.timestamp), p.value.toFixed(2).replace('.', ',')];
+          if (withMoney) {
+            const m = this.bucketMoney(row.id!, p.timestamp, '1h', p.value);
+            const ok = m?.state === 'complete' ? this.csvMoney(m.amount) : '';
+            moneyRows += 1;
+            if (ok) moneyComplete += 1;
+            line.push(ok);
+          }
+          csvData.push(line);
         }
       }
 
       if (csvData.length === 1) {
         this.showError('Nenhum dado horário disponível para o período selecionado.');
         return;
+      }
+      if (withMoney && moneyComplete < moneyRows) {
+        csvData.push([], [`${this.moneyHeaderLabel()}`, '', '', '', `Cobertura incompleta (${moneyComplete} de ${moneyRows})`]);
       }
 
       const csvContent = toCsv(csvData);
@@ -1805,7 +1950,12 @@ export class AllReportModal {
         val: this.isTemperature && r.noData ? null : r.consumption,
         perc: this.isTemperature ? undefined : grandTotal > 0 ? (r.consumption / grandTotal) * 100 : 0,
       };
-      if (!this.isTemperature) return base;
+      if (!this.isTemperature) {
+        // RFC-0241 rev. 2: coluna R$ (vazia quando incompleta — nunca R$ 0)
+        if (!this.moneyColumn.enabled) return base;
+        const v = this.rowMoney(r.id);
+        return { ...base, extraCells: [v ? formatMoneyBRL(v) : ''] };
+      }
       const off = r.id && !r.noData ? this.temperatureOffsetFor(r.id) : 0;
       return {
         ...base,
@@ -1850,7 +2000,12 @@ export class AllReportModal {
 
   // Colunas do PDF/XLS = colunas da tela. Temperatura: Sensor | Média | Mín | Máx (sem %).
   private exportColumns() {
-    if (!this.isTemperature) return null;
+    if (!this.isTemperature) {
+      // RFC-0241 rev. 2: modo R$ — físico continua primário; R$ como coluna extra
+      return this.moneyColumn.enabled
+        ? { extraColumns: [{ label: this.moneyHeaderLabel(), pdfW: 40 }] }
+        : null;
+    }
     return {
       nameLabel: 'Sensor',
       valueLabel: 'Média (°C)',

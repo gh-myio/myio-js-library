@@ -1,7 +1,7 @@
 /**
  * RFC-0239 — Reports Hub public types.
  */
-import type { OpenAllReportParams, StoreItem } from '../types';
+import type { AllReportMoneyConfig, OpenAllReportParams, StoreItem } from '../types';
 import type { DemandPanelV2Params } from '../../demand-panel-v2/openDemandPanelV2';
 import type { MyIOThemePalette } from '../../theme/types';
 
@@ -72,6 +72,11 @@ export interface ReportsHubContext {
   };
   /** Demand Panel params minus `devices`, built at prepare; absent → 'demand-panel' unavailable. */
   getDemandPanelParams?(): DemandPanelParams | null;
+  /**
+   * RFC-0241 Part B — AllReportModal `params.money` when the dashboard is in R$ mode;
+   * `null`/absent → physical report, byte-identical.
+   */
+  getReportMoney?(domain: GroupReportDomain): AllReportMoneyConfig | null;
 }
 
 /** Synchronous: only mounts the destination. */
@@ -140,6 +145,8 @@ export interface ReportsHubOrchestrator {
   gcdrApiBaseUrl?: string;
   gcdrApiKey?: string;
   gcdrTenantId?: string;
+  /** RFC-0241 Part B — set by v-5.2.0 MAIN; returns `null` in physical mode. */
+  getReportMoney?(domain: string): AllReportMoneyConfig | null;
 }
 
 export interface DashboardAdapterOptions {

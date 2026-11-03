@@ -21,6 +21,23 @@
         />
       </label>
 
+      <!-- RFC-0241 Part B: exibir valores em kWh/m³ ou R$ (custo estimado) — oculto até a MAIN
+           confirmar usuário elegível + API de tarifas; desabilitado em temperatura/alarmes -->
+      <div
+        class="tbx-value-mode"
+        id="tbx-value-mode"
+        role="radiogroup"
+        aria-label="Exibir valores em"
+        style="display: none"
+      >
+        <button type="button" class="tbx-value-mode-opt is-active" data-mode="physical" role="radio" aria-checked="true" title="Exibir consumo em kWh / m³">
+          kWh/m³
+        </button>
+        <button type="button" class="tbx-value-mode-opt" data-mode="money" role="radio" aria-checked="false" title="Exibir custo estimado em R$ (tarifas do shopping)">
+          R$
+        </button>
+      </div>
+
       <!-- carregar -->
       <button class="tbx-btn tbx-btn-primary tbx-btn-icon-only" id="tbx-btn-load" title="Carregar" aria-label="Carregar">
         <span class="tbx-ico rotate" aria-hidden="true">⟲</span>

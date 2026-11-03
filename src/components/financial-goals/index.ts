@@ -183,7 +183,13 @@ export type {
 export {
   createTariffValuator,
   MONEY_HOURLY_MAX_DAYS,
+  MONEY_MAX_SEGMENT_FETCHES,
   TARIFF_DEFAULT_TIMEZONE,
+  toItemMoney,
+  sumItemMoney,
+  roundMoney2,
+  moneyStateChipLabel,
+  moneyReasonText,
 } from './tariffValuation';
 export type {
   ValuationBucket,
@@ -196,4 +202,39 @@ export type {
   GranularityDecision,
   TariffValuatorOptions,
   TariffValuator,
+  PricePlan,
+  PriceSegment,
+  SegmentCategoryState,
+  ItemMoney,
+  ItemMoneyState,
+  ItemMoneySum,
 } from './tariffValuation';
+
+// RFC-0241 Part B (rev. 2) — "R$ instead of kWh/m³" display mode helpers.
+export {
+  valuateDomainMoney,
+  buildReportMoneyConfig,
+  parseMoneyCategoryRule,
+  resolveMoneyCategory,
+  isMoneyConvertibleGroup,
+  MONEY_CONVERTIBLE_GROUPS,
+  valueDisplayModeStorageKey,
+  readValueDisplayMode,
+  writeValueDisplayMode,
+  resolveEffectiveDisplayMode,
+  formatItemMoney,
+  moneyCoverageTitle,
+  buildMoneyChipHTML,
+  buildMoneyCoverageMarkerHTML,
+  MONEY_ESTIMATE_LABEL,
+  MONEY_REPORT_HEADER,
+  MONEY_INCOMPLETE_LABEL,
+  VALUE_DISPLAY_MODE_STORAGE_PREFIX,
+} from './moneyDisplay';
+export type {
+  ValueDisplayMode,
+  MoneyCategoryRule,
+  MoneyDevice,
+  ValuateDomainOptions,
+  DomainMoneyResult,
+} from './moneyDisplay';

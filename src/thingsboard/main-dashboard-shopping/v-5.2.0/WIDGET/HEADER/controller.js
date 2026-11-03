@@ -830,6 +830,76 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       }
     });
 
+    // RFC-0241 Part B: controle "kWh/m³ | R$". A MAIN é a dona do modo — aqui só PEDIMOS a
+    // troca (MyIOUtils.setValueDisplayMode) e refletimos o evento myio:value-display-mode-updated.
+    // Oculto para quem não é elegível ou sem API de tarifas; desabilitado em temperatura/alarmes.
+    (function setupValueModeControl() {
+      const root = document.getElementById('tbx-value-mode');
+      if (!root) return;
+      const opts = Array.from(root.querySelectorAll('.tbx-value-mode-opt'));
+      let busy = false;
+      let lastState = { mode: 'physical', available: false, eligible: false };
+
+      const isMoneyTab = (tab) => tab === 'energy' || tab === 'water';
+      const render = () => {
+        const visible = lastState.eligible && lastState.available;
+        root.style.display = visible ? '' : 'none';
+        const disabled = !isMoneyTab(currentDomain.value);
+        root.classList.toggle('is-disabled', disabled);
+        root.classList.toggle('is-busy', busy);
+        root.title = disabled ? 'Temperatura não tem conversão monetária' : '';
+        opts.forEach((b) => {
+          const active = b.dataset.mode === lastState.mode;
+          b.classList.toggle('is-active', active);
+          b.setAttribute('aria-checked', String(active));
+          b.disabled = disabled || busy;
+        });
+      };
+
+      const readFromMain = () => {
+        const U = window.MyIOUtils || {};
+        lastState = {
+          mode: typeof U.getValueDisplayMode === 'function' ? U.getValueDisplayMode() : 'physical',
+          available: U.moneyDisplayAvailable === true,
+          eligible: U.canManageGoalsTariffs === true,
+        };
+      };
+
+      opts.forEach((b) =>
+        b.addEventListener('click', async () => {
+          const want = b.dataset.mode;
+          const set = window.MyIOUtils?.setValueDisplayMode;
+          if (busy || want === lastState.mode || typeof set !== 'function') return;
+          busy = true;
+          render();
+          try {
+            await set(want, { source: 'header' });
+          } catch (err) {
+            LogHelper.error('[HEADER] RFC-0241: troca de modo falhou:', err);
+          } finally {
+            busy = false;
+            readFromMain();
+            render();
+          }
+        })
+      );
+
+      window.addEventListener('myio:value-display-mode-updated', (ev) => {
+        const d = ev?.detail || {};
+        lastState = { mode: d.mode || 'physical', available: d.available === true, eligible: d.eligible === true };
+        render();
+      });
+      window.addEventListener('myio:user-info-ready', () => {
+        readFromMain();
+        render();
+      });
+      window.addEventListener('myio:dashboard-state', () => setTimeout(render, 0));
+
+      // A MAIN pode já ter publicado o estado antes deste onInit (check-immediately-and-subscribe)
+      readFromMain();
+      render();
+    })();
+
     // RFC-0130: Also listen for generic data-ready event
     window.addEventListener('myio:data-ready', () => {
       const domain = currentDomain.value;
@@ -3126,6 +3196,8 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           console.error('[HEADER] openDashboardPopupAllReport unavailable via MyIOUtils');
           throw new Error('openDashboardPopupAllReport unavailable');
         }
+        // RFC-0241 Part B: em modo R$ a MAIN entrega params.money (coluna "Custo estimado (R$)")
+        const reportMoney = window.MyIOUtils?.getReportMoney?.(domain) || null;
         _openAllReport({
           customerId: INGESTION_ID,
           domain: domain, // ← NEW: pass domain ('energy' or 'water')
@@ -3138,6 +3210,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           },
           itemsList: itemsListTB,
           ui: { theme: 'light' },
+          ...(reportMoney ? { money: reportMoney } : {}),
         });
       } catch (err) {
         LogHelper.error('[HEADER] Failed to open All-Report modal:', err);

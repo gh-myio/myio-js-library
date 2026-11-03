@@ -6,6 +6,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   TariffApiClient,
   TariffApiError,
+  unwrapGcdrEnvelope,
   type TariffSelector,
 } from '../../../src/components/pricing-panel/tariffApiClient';
 
@@ -161,5 +162,97 @@ describe('TariffApiClient — errors surface the stable code', () => {
       code: 'TARIFF_PRICE_INVALID',
       status: 422,
     });
+  });
+});
+
+describe('TariffApiClient — GCDR success envelope { success, data, meta } (RFC-0241 rev. 2)', () => {
+  const META = { requestId: 'r-1', timestamp: '2026-11-03T12:00:00Z' };
+
+  it('GET unwraps body.data (tree + version) — production shape', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        success: true,
+        data: {
+          customerId: 'cust-1',
+          domain: 'ENERGY',
+          category: 'SPECIFIC',
+          year: 2026,
+          unit: 'kWh',
+          currency: 'BRL',
+          tariffModel: 'FLAT',
+          timezone: 'America/Sao_Paulo',
+          version: 3,
+          tree: { annual: { price: '0.950000' } },
+        },
+        meta: META,
+      })
+    );
+    const resp = await makeClient(fetchMock as unknown as typeof fetch).getTariff(SEL);
+    expect(resp.version).toBe(3);
+    expect(resp.tree.annual?.price).toBe('0.950000');
+    expect(resp.unit).toBe('kWh');
+    expect(resp.tariffModel).toBe('FLAT');
+    expect(resp.timezone).toBe('America/Sao_Paulo');
+  });
+
+  it('GET of an empty (never-set) tariff in the envelope → version 0, empty tree', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ success: true, data: { version: 0, tree: {} }, meta: META }));
+    const resp = await makeClient(fetchMock as unknown as typeof fetch).getTariff(SEL);
+    expect(resp.version).toBe(0);
+    expect(resp.tree).toEqual({});
+  });
+
+  it('GET still accepts the bare shape (back-compat)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ version: 5, tree: { annual: { price: '1.000000' } } }));
+    const resp = await makeClient(fetchMock as unknown as typeof fetch).getTariff(SEL);
+    expect(resp.version).toBe(5);
+    expect(resp.tree.annual?.price).toBe('1.000000');
+  });
+
+  it('PUT/PATCH read the new version from body.data (no drift → no 409 on 2nd save)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { version: 4 }, meta: META }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { version: 9 }, meta: META }));
+    const client = makeClient(fetchMock as unknown as typeof fetch);
+    expect(await client.putTariff(SEL, { annual: { price: '1.000000' } }, 3)).toEqual({ version: 4 });
+    expect(
+      await client.patchTariff(SEL, [{ level: 'DAY', ref: '2026-01-01', price: '2.000000' }], 8)
+    ).toEqual({ version: 9 });
+  });
+
+  it('DELETE (bucket) reads the version from body.data', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ success: true, data: { version: 12 }, meta: META }));
+    const res = await makeClient(fetchMock as unknown as typeof fetch).deleteTariff(SEL, {
+      bucket: { level: 'DAY', ref: '2026-02-01' },
+      expectedVersion: 11,
+    });
+    expect(res).toEqual({ version: 12 });
+  });
+
+  it('error envelope { success:false, error } surfaces the stable code (e.g. missing tariffs:write scope)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(
+        { success: false, error: { code: 'INSUFFICIENT_SCOPE', message: 'missing scope' }, meta: META },
+        { status: 401 }
+      )
+    );
+    await expect(
+      makeClient(fetchMock as unknown as typeof fetch).putTariff(SEL, { annual: { price: '1.000000' } }, 0)
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_SCOPE', status: 401 });
+  });
+
+  it('unwrapGcdrEnvelope unwraps only success:true envelopes', () => {
+    expect(unwrapGcdrEnvelope({ success: true, data: { a: 1 }, meta: {} })).toEqual({ a: 1 });
+    expect(unwrapGcdrEnvelope({ a: 1 })).toEqual({ a: 1 });
+    const err = { success: false, error: { code: 'X' } };
+    expect(unwrapGcdrEnvelope(err)).toBe(err);
+    expect(unwrapGcdrEnvelope(null)).toBe(null);
   });
 });

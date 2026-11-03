@@ -213,3 +213,51 @@ describe('deleteBudget', () => {
     expect(JSON.parse(String(init.body)).expectedVersion).toBe(4);
   });
 });
+
+describe('GCDR success envelope { success, data, meta } (RFC-0241 rev. 2)', () => {
+  const META = { requestId: 'r-1' };
+
+  it('getGoalWithMoney unwraps body.data', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({
+        success: true,
+        data: { measure: 'QUANTITY', version: 6, unit: 'kWh', tree: { annual: { value: 10 } } },
+        meta: META,
+      })
+    );
+    const client = createGoalsMoneyClient({ baseUrl: BASE, apiKey: 'k', fetchImpl });
+    const res = await client.getGoalWithMoney({ customerId: 'c1', domain: 'ENERGY', year: 2026 });
+    expect(res.version).toBe(6);
+    expect(res.goal.unit).toBe('kWh');
+    expect(res.goal.tree).toEqual({ annual: { value: 10 } });
+  });
+
+  it('getBudget / putBudget / deleteBudget unwrap body.data', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ success: true, data: { currency: 'BRL', version: 2, tree: { annual: { value: '1.00' } } }, meta: META })
+      )
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { version: 3 }, meta: META }))
+      .mockResolvedValueOnce(jsonResponse({ success: true, data: { version: 4 }, meta: META }));
+    const client = createGoalsMoneyClient({ baseUrl: BASE, apiKey: 'k', fetchImpl });
+    const b = await client.getBudget({ customerId: 'c1', domain: 'ENERGY', year: 2026 });
+    expect(b.version).toBe(2);
+    expect(b.tree).toEqual({ annual: { value: '1.00' } });
+    const p = await client.putBudget({ customerId: 'c1', domain: 'ENERGY', year: 2026, tree: {}, expectedVersion: 2 });
+    expect(p.version).toBe(3);
+    const d = await client.deleteBudget({ customerId: 'c1', domain: 'ENERGY', year: 2026, expectedVersion: 3 });
+    expect(d.version).toBe(4);
+  });
+
+  it('error envelope still surfaces the stable code', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ success: false, error: { code: 'FORBIDDEN', message: 'x' }, meta: META }, { status: 403 })
+    );
+    const client = createGoalsMoneyClient({ baseUrl: BASE, apiKey: 'k', fetchImpl });
+    await expect(client.getBudget({ customerId: 'c1', domain: 'ENERGY', year: 2026 })).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      status: 403,
+    });
+  });
+});

@@ -1011,7 +1011,11 @@ function _groupFilterChangedHandler(ev) {
   });
   // ED-1354: poço (nível em M.C.A) não soma no total em m³
   const visibleSum = visibleItems.reduce((acc, x) => acc + (x._isWell || x._isRetrolavagem ? 0 : x.value || 0), 0);
-  renderHeader(visibleItems.length, visibleSum);
+  renderHeader(
+    visibleItems.length,
+    visibleSum,
+    visibleItems.filter((x) => !x._isWell && !x._isRetrolavagem)
+  );
 
   LogHelper.log(`[RFC-0196] Group filter applied for domain=${domain}:`, groupFilter);
 }
@@ -2997,8 +3001,27 @@ function hideTempInfoTooltip() {
 }
 
 /** ===================== RENDER ===================== **/
-function renderHeader(count, groupSum) {
+// RFC-0241 Part B: modo "R$ em vez de kWh/m³" (estado na MAIN; só energia/água)
+let _moneyHeaderTouched = false; // title do total foi alterado pelo modo R$ → limpar ao voltar
+function _isMoneyMode() {
+  return (
+    (WIDGET_DOMAIN === 'energy' || WIDGET_DOMAIN === 'water') &&
+    window.MyIOUtils?.getValueDisplayMode?.() === 'money' &&
+    typeof window.MyIOUtils?.getItemMoney === 'function'
+  );
+}
+
+function renderHeader(count, groupSum, items) {
   $count().text(`(${count})`);
+
+  // RFC-0241 Part B: total do grupo em R$ só quando TODOS os membros são 'complete';
+  // senão o total físico + "Cobertura incompleta (n de m)" (nunca R$ 0 / soma parcial).
+  const moneyTotal = _isMoneyMode() ? window.MyIOUtils.formatMoneyTotal?.(items || [], WIDGET_DOMAIN) : null;
+  if (moneyTotal?.complete) {
+    $total().text(moneyTotal.text).attr('title', 'Custo estimado');
+    _moneyHeaderTouched = true;
+    return;
+  }
 
   // RFC-0108: Format based on widget domain using MyIOUtils measurement settings
   let formattedTotal = groupSum.toFixed(2);
@@ -3020,6 +3043,13 @@ function renderHeader(count, groupSum) {
   }
 
   $total().text(formattedTotal);
+  if (moneyTotal) {
+    // incompleto: físico + marcador de cobertura
+    $total().append(moneyTotal.markerHTML).attr('title', 'Cobertura incompleta — total em unidade física');
+  } else if (_moneyHeaderTouched) {
+    $total().removeAttr('title');
+  }
+  _moneyHeaderTouched = !!moneyTotal;
 }
 
 function renderList(visible) {
@@ -3134,6 +3164,12 @@ function renderList(visible) {
       // ED-1354: B1/B2/S (bombas BOMBA_POCO + solenoide) no card do poço
       equipmentIndicators: _equipmentIndicatorsOf(it),
     };
+    // RFC-0241 Part B: modo R$ — o card mostra "Custo estimado" quando item.money é completo.
+    // Modo físico: entityObject inalterado (card byte-idêntico).
+    if (_isMoneyMode()) {
+      entityObject.displayMode = 'money';
+      entityObject.money = window.MyIOUtils.getItemMoney(it, WIDGET_DOMAIN);
+    }
 
     // DEBUG: Investigate why "Burguer king" card is rendering as offline
     if (it.label?.toUpperCase().includes('HEMOPA') || it.name?.includes('HIDR. SCMP110A')) {
@@ -4967,7 +5003,7 @@ function openFilterModal() {
       }>
       <span class="check-item-name">${escapeHtml(it.label || it.identifier || it.id)}</span>
       <span class="check-item-value" style="color:${_vColor};">${
-        _noRead ? 'sem leitura' : escapeHtml(_fmtDeviceValue(_v))
+        _noRead ? 'sem leitura' : escapeHtml(_isMoneyMode() ? window.MyIOUtils.formatItemValue(it, WIDGET_DOMAIN) : _fmtDeviceValue(_v))
       }</span>
       ${_isTemp ? '' : `<span class="check-item-pct">${_fmtPct(_v, _totalValue)}</span>`}
     `;
@@ -6328,7 +6364,11 @@ function reflowFromState() {
   });
   const { visible: withPerc, groupSum } = recomputePercentages(visible);
   STATE.lastVisible = withPerc;
-  renderHeader(withPerc.length, groupSum);
+  renderHeader(
+    withPerc.length,
+    groupSum,
+    withPerc.filter((x) => !x._isWell && !x._isRetrolavagem)
+  );
   renderList(withPerc);
   // Notify TELEMETRY_INFO to recalculate based on visible items
   _emitVisibleTotals(withPerc);
@@ -6833,6 +6873,21 @@ self.onInit = async function () {
       );
     }
   });
+
+  // RFC-0241 Part B: troca kWh/m³ ↔ R$ e valoração pronta (período novo, tarifas salvas)
+  // → redesenha cards/total do grupo a partir do STATE (mesmo caminho do RFC-0108).
+  const _onMoneyChange = (ev) => {
+    if (WIDGET_DOMAIN !== 'energy' && WIDGET_DOMAIN !== 'water') return;
+    const d = ev?.detail?.domain;
+    if (d && d !== WIDGET_DOMAIN) return; // money-valuation-ready de outro domínio
+    try {
+      if (STATE.itemsEnriched && STATE.itemsEnriched.length > 0) reflowFromState();
+    } catch (err) {
+      LogHelper.error(`[TELEMETRY ${WIDGET_DOMAIN}] ❌ RFC-0241 reflow falhou:`, err);
+    }
+  };
+  window.addEventListener('myio:value-display-mode-updated', _onMoneyChange);
+  window.addEventListener('myio:money-valuation-ready', _onMoneyChange);
 
   // Test if listener is working
   setTimeout(() => {
