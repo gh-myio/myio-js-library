@@ -148,8 +148,16 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   injectPricingPanelStyles(doc);
   doc.getElementById(MODAL_ID)?.remove();
 
-  const allowed = isPricingAllowed(params.currentUserEmail, isSuperAdmin());
+  // RFC-0241 — `allowed` explícito do caller (ex.: admin do usuário que não é
+  // @myio.com.br) substitui o gate padrão. Gate de UX apenas: o backend deve
+  // impor a autorização de escrita.
+  const allowed =
+    typeof params.allowed === 'boolean'
+      ? params.allowed
+      : isPricingAllowed(params.currentUserEmail, isSuperAdmin());
   const customers: PricingCustomerRef[] = params.customers || [];
+  // RFC-0241 — dashboard de um único shopping: esconde o seletor de customer.
+  const lockCustomer = params.lockCustomer === true && customers.length > 0;
 
   // RFC-0228 A1 — when a tariff API is configured, persistence goes through the
   // hourly-tariff adapter and localStorage is NOT the source of truth. When it is
@@ -265,7 +273,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
         <!-- TAB: Definir preços -->
         <div class="myio-pricing__panel" data-panel="define">
           <div class="myio-pricing__form">
-            <div class="myio-pricing__field myio-pricing__field--full">
+            <div class="myio-pricing__field myio-pricing__field--full" data-testid="pricing-customer-field"${lockCustomer ? ' style="display:none;"' : ''}>
               <label class="myio-pricing__label" for="myio-pricing-customer">Customer (shopping)</label>
               <select class="myio-pricing__select" id="myio-pricing-customer" data-testid="pricing-customer">
                 ${customerOptions}

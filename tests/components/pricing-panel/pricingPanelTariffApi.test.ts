@@ -95,6 +95,45 @@ describe('openPricingPanel — tariffApi gate ON', () => {
   });
 });
 
+describe('openPricingPanel — RFC-0241 allowed / lockCustomer', () => {
+  it('AC-08: caller-asserted allowed=true opens the editable panel for a non-MyIO admin, via tariffApi only', async () => {
+    const fetchMock = makeFetchMock();
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    openPricingPanel({
+      customers: CUSTOMERS,
+      currentUserEmail: 'admin@shopping.com.br',
+      allowed: true,
+      lockCustomer: true,
+      tariffApi: { baseUrl: 'https://gcdr.example', apiKey: 'test-key', year: 2026, fetchImpl: fetchMock as unknown as typeof fetch },
+    });
+    await flush();
+    expect(q('[data-testid="pricing-locked"]')).toBeNull();
+    expect(q('[data-testid="pricing-add"]')).not.toBeNull();
+    // lockCustomer hides the selector but keeps the single customer selected.
+    expect(q<HTMLElement>('[data-testid="pricing-customer-field"]').style.display).toBe('none');
+    expect(q<HTMLSelectElement>('[data-testid="pricing-customer"]').value).toBe('gc-1');
+    addMonth('2026-03', '0,90');
+    await flush();
+    expect(fetchMock.mock.calls.some((c) => c[1]?.method === 'PATCH')).toBe(true);
+    expect(setItem.mock.calls.filter((c) => String(c[0]).includes('pricing')).length).toBe(0);
+  });
+
+  it('caller-asserted allowed=false shows the locked view even for a MyIO user', () => {
+    openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br', allowed: false });
+    expect(q('[data-testid="pricing-locked"]')).not.toBeNull();
+  });
+
+  it('without allowed the built-in @myio.com.br gate still applies', () => {
+    openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'admin@shopping.com.br' });
+    expect(q('[data-testid="pricing-locked"]')).not.toBeNull();
+  });
+
+  it('customer selector stays visible without lockCustomer', () => {
+    openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    expect(q<HTMLElement>('[data-testid="pricing-customer-field"]').style.display).toBe('');
+  });
+});
+
 describe('openPricingPanel — tariffApi gate OFF (localStorage prototype unchanged)', () => {
   it('persists to localStorage and does not call fetch', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');

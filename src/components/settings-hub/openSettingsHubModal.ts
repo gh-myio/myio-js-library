@@ -10,12 +10,16 @@
  * Options are fixed (same ids, icons, labels and ordering as v-5.2.0
  * showSettingsModal); a card renders only when its handler is provided and,
  * for the MyIO-only options, when `isSuperAdmin` is true.
+ *
+ * RFC-0241: options flagged `requiresPermission` (today only 'goals-tariffs')
+ * additionally require the caller to assert `permissions[action] === true`.
  */
 
 export type SettingsHubAction =
   | 'temperature'
   | 'contract'
   | 'measurement'
+  | 'goals-tariffs'
   | 'integration'
   | 'user-management'
   | 'default-dashboard'
@@ -47,6 +51,12 @@ export interface OpenSettingsHubModalOptions {
    * (they read `window.MyIOUtils.theme` themselves).
    */
   theme?: SettingsHubThemeSource;
+  /**
+   * RFC-0241 — extra per-option permission asserted by the caller. Options
+   * flagged `requiresPermission` render only when their entry is `true`
+   * (default: hidden). UX gating only — the backend must enforce writes.
+   */
+  permissions?: Partial<Record<SettingsHubAction, boolean>>;
 }
 
 export interface SettingsHubModalHandle {
@@ -65,6 +75,8 @@ interface HubOptionDef {
   title: string;
   desc: string;
   superAdminOnly: boolean;
+  /** RFC-0241: rendered only when `permissions[action] === true`. */
+  requiresPermission?: boolean;
 }
 
 // Same cards, ordering and gating as v-5.2.0 MENU showSettingsModal (RFC-0108).
@@ -89,6 +101,15 @@ const HUB_OPTIONS: HubOptionDef[] = [
     title: 'Config. Medidas',
     desc: 'Unidades e casas decimais',
     superAdminOnly: false,
+  },
+  {
+    // RFC-0241 — MyIO (@myio.com.br) ou admin do usuário; gate via `permissions`.
+    action: 'goals-tariffs',
+    icon: '🎯',
+    title: 'Metas e Tarifas',
+    desc: 'Metas de consumo e tarifas (R$/kWh, R$/m³)',
+    superAdminOnly: false,
+    requiresPermission: true,
   },
   {
     action: 'integration',
@@ -293,7 +314,7 @@ function resolveHubThemeVars(explicit?: SettingsHubThemeSource): Record<string, 
 }
 
 export function openSettingsHubModal(options: OpenSettingsHubModalOptions): SettingsHubModalHandle {
-  const { customerName = '', isSuperAdmin = false, handlers } = options;
+  const { customerName = '', isSuperAdmin = false, handlers, permissions = {} } = options;
   const doc = options.targetDocument || resolveTopDocument();
 
   // Inject styles once per document.
@@ -308,7 +329,10 @@ export function openSettingsHubModal(options: OpenSettingsHubModalOptions): Sett
   doc.getElementById(MODAL_ID)?.remove();
 
   const visibleOptions = HUB_OPTIONS.filter(
-    (opt) => typeof handlers[opt.action] === 'function' && (!opt.superAdminOnly || isSuperAdmin)
+    (opt) =>
+      typeof handlers[opt.action] === 'function' &&
+      (!opt.superAdminOnly || isSuperAdmin) &&
+      (!opt.requiresPermission || permissions[opt.action] === true)
   );
 
   const cardsHtml = visibleOptions

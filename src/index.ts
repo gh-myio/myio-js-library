@@ -1152,6 +1152,16 @@ export type {
   SettingsHubModalHandle,
 } from './components/settings-hub';
 
+// RFC-0241: "🎯 Metas e Tarifas" area picker (Gestão de Metas · Metas × Consumo · Tarifas)
+export { openGoalsTariffsHub } from './components/goals-tariffs-hub';
+export type {
+  GoalsTariffsArea,
+  GoalsTariffsHandlers,
+  GoalsTariffsHubHandle,
+  GoalsTariffsThemeSource,
+  OpenGoalsTariffsHubOptions,
+} from './components/goals-tariffs-hub';
+
 // RFC-0222: Customer Energy/Water Pricing Panel (prototype — R$/kWh & R$/m³ per
 // customer × domain × category × period, with audit trail + KPI dashboard).
 // Prototype persistence (memory + localStorage + onSave); real GCDR persistence
@@ -1335,6 +1345,25 @@ export type {
   MoneyRenderAction,
   MoneyRenderRouting,
   GatedMoneyRenderers,
+} from './components/financial-goals';
+
+// RFC-0241 §5.3 — pure tariff valuator for the dashboard-wide R$ display mode.
+export {
+  createTariffValuator,
+  MONEY_HOURLY_MAX_DAYS,
+  TARIFF_DEFAULT_TIMEZONE,
+} from './components/financial-goals';
+export type {
+  ValuationBucket,
+  DeviceSeries as TariffDeviceSeries,
+  DeviceMoney,
+  DeviceMoneyState,
+  DeviceMoneyReason,
+  MoneySum,
+  ConsumptionGranularity,
+  GranularityDecision,
+  TariffValuatorOptions,
+  TariffValuator,
 } from './components/financial-goals';
 
 // RFC-0108: Measurement Setup Modal
