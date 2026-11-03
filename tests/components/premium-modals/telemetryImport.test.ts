@@ -11,6 +11,7 @@ import {
   parseDecimal,
   splitImportableDevices,
   createTelemetryImportApi,
+  importErrorMessage,
   openTelemetryImportModal,
   accumulatedRows,
   buildAccumulatedTemplateCsv,
@@ -231,11 +232,74 @@ describe('createTelemetryImportApi', () => {
     expect(init.headers.Authorization).toBe('Bearer tk');
   });
 
-  it('erros HTTP viram mensagens amigáveis (404 = não disponível; 403 = sem escopo)', async () => {
+  it('erros HTTP viram mensagens amigáveis (404 no validate = não disponível; no job = não encontrada; 403 = sem escopo)', async () => {
     const api404 = createTelemetryImportApi({ baseUrl: 'https://x', getToken: async () => 't', fetchImpl: (async () => mk(404, {})) as any });
-    await expect(api404.startJob({ validationId: 'v' })).rejects.toThrow('ainda não está disponível');
+    await expect(api404.validate({ customerId: 'c', readingType: 'energy', rows: [] })).rejects.toThrow('ainda não está disponível');
+    await expect(api404.startJob({ validationId: 'v' })).rejects.toThrow('Importação não encontrada');
     const api403 = createTelemetryImportApi({ baseUrl: 'https://x', getToken: async () => 't', fetchImpl: (async () => mk(403, {})) as any });
     await expect(api403.getJob('j')).rejects.toThrow('telemetry.import');
+  });
+
+  it('importErrorMessage: 400/403/409/413/429 conforme a resposta do Ingestion', () => {
+    expect(importErrorMessage(400, '/validate', { error: 'BAD_REQUEST', message: 'rows vazio' })).toContain('rows vazio');
+    expect(importErrorMessage(403, '/validate', { message: 'Required scopes not present in token' })).toContain('escopo');
+    expect(importErrorMessage(403, '/validate', { message: 'Access denied to this customer' })).toContain('deste cliente');
+    expect(importErrorMessage(409, '/jobs', { error: 'GATEWAY_BUSY', message: 'Gateway busy' })).toContain('central está ocupada');
+    expect(importErrorMessage(409, '/jobs', { error: 'NOT_REVERTABLE', message: 'Job cannot be reverted' })).toContain('não pode ser desfeita');
+    expect(importErrorMessage(409, '/jobs', { error: 'OUTRO', message: 'texto da API' })).toBe('texto da API');
+    expect(importErrorMessage(413, '/validate', null)).toContain('5.000');
+    expect(importErrorMessage(429, '/jobs', null)).toContain('Aguarde um minuto');
+    expect(importErrorMessage(401, '/jobs', null)).toContain('expirada');
+  });
+
+  it('401 e 403 de escopo: pede token novo UMA vez e repete; sem refreshToken não repete', async () => {
+    const tokens: string[] = [];
+    let n = 0;
+    const fetchImpl = vi.fn(async (_u: string, init: any) => {
+      tokens.push(init.headers.Authorization);
+      n++;
+      return n === 1 ? mk(403, { error: 'Forbidden', message: 'Required scopes not present in token' }) : mk(200, { jobId: 'j', status: 'queued' });
+    });
+    const api = createTelemetryImportApi({
+      baseUrl: 'https://x',
+      getToken: async () => 'velho',
+      refreshToken: async () => 'novo',
+      fetchImpl: fetchImpl as any,
+    });
+    await expect(api.startJob({ validationId: 'v' })).resolves.toEqual({ jobId: 'j', status: 'queued' });
+    expect(tokens).toEqual(['Bearer velho', 'Bearer novo']);
+
+    const always401 = vi.fn(async () => mk(401, { message: 'expired' }));
+    const api2 = createTelemetryImportApi({ baseUrl: 'https://x', getToken: async () => 't', refreshToken: async () => 't2', fetchImpl: always401 as any });
+    await expect(api2.getJob('j')).rejects.toThrow('expirada');
+    expect(always401).toHaveBeenCalledTimes(2);
+
+    const noRefresh = vi.fn(async () => mk(401, {}));
+    const api3 = createTelemetryImportApi({ baseUrl: 'https://x', getToken: async () => 't', fetchImpl: noRefresh as any });
+    await expect(api3.getJob('j')).rejects.toThrow('expirada');
+    expect(noRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('falha de rede (Failed to fetch) vira mensagem clara; revert chama /jobs/:id/revert', async () => {
+    const down = createTelemetryImportApi({
+      baseUrl: 'https://x',
+      getToken: async () => 't',
+      fetchImpl: (async () => {
+        throw new TypeError('Failed to fetch');
+      }) as any,
+    });
+    await expect(down.validate({ customerId: 'c', readingType: 'energy', rows: [] })).rejects.toThrow('Não foi possível falar com a API');
+    const urls: string[] = [];
+    const api = createTelemetryImportApi({
+      baseUrl: 'https://x',
+      getToken: async () => 't',
+      fetchImpl: (async (u: string) => {
+        urls.push(u);
+        return mk(200, { status: 'reverting' });
+      }) as any,
+    });
+    await expect(api.revertJob('job 1')).resolves.toEqual({ jobId: 'job 1', status: 'reverting' });
+    expect(urls).toEqual(['https://x/import/jobs/job%201/revert']);
   });
 });
 
@@ -279,6 +343,10 @@ describe('openTelemetryImportModal', () => {
         return polls < 2 ? { status: 'executing', progress: 50, deleted: 2, inserted: 1 } : { status: 'completed', progress: 100, deleted: 2, inserted: 2, refreshStatus: 'started' };
       }),
       cancelJob: vi.fn(async () => ({ status: 'cancelled' })),
+      revertJob: vi.fn(async () => {
+        calls.push('revert');
+        return { status: 'reverting' };
+      }),
       ...over,
     } as any;
   }
@@ -455,5 +523,61 @@ describe('openTelemetryImportModal', () => {
     await flush();
     expect(api.cancelJob).toHaveBeenCalledWith('job-1');
     expect(document.querySelector('.tlmi')!.textContent).toContain('Importação cancelada');
+  });
+
+  it('prévia: período em hora de São Paulo e aviso de reativa quando a planilha não traz a coluna', async () => {
+    const api = fakeApi({
+      validate: vi.fn(async () => ({
+        valid: true as const,
+        validationId: 'v',
+        preview: {
+          targetSlots: 2,
+          existingReadingsInTarget: 2,
+          existingRealReadings: 0,
+          period: { start: '2026-10-25T03:00:00.000Z', end: '2026-10-25T04:00:00.000Z' },
+        },
+      })),
+    });
+    openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+    btn('next').click();
+    await flush();
+    await upload(SHEET);
+    btn('next').click();
+    await flush();
+    const text = document.querySelector('.tlmi')!.textContent!;
+    expect(text).toContain('25/10/2026 00:00 até a hora de 25/10/2026 01:00');
+    expect(text).toContain('não traz energia reativa');
+  });
+
+  it('desfazer importação: pede confirmação, chama o revert e acompanha até "reverted"', async () => {
+    let polls = 0;
+    const api = fakeApi({
+      validate: vi.fn(async () => ({ valid: true as const, validationId: 'v', preview: { targetSlots: 2 } })),
+      getJob: vi.fn(async () => {
+        polls++;
+        return polls === 1 ? { status: 'completed', progress: 100, inserted: 2, refreshStatus: 'started' } : { status: 'reverted', progress: 100 };
+      }),
+    });
+    openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, pollMs: 1, now: () => NOW });
+    btn('next').click();
+    await flush();
+    await upload(SHEET);
+    btn('next').click();
+    await flush();
+    btn('next').click(); // importa
+    await flush(10);
+    expect(document.querySelector('.tlmi')!.textContent).toContain('Importação concluída');
+    expect(document.querySelector('.tlmi')!.textContent).toContain('sem comunicação no status');
+    const revert = () => document.querySelector<HTMLButtonElement>('[data-action="revert"]')!;
+    revert().click(); // 1º clique: só pede confirmação
+    expect(api.revertJob).not.toHaveBeenCalled();
+    expect(revert().textContent).toContain('Confirmar');
+    revert().click();
+    await flush(10);
+    await new Promise((r) => setTimeout(r, 20));
+    await flush(10);
+    expect(api.revertJob).toHaveBeenCalledWith('job-1');
+    expect(document.querySelector('.tlmi')!.textContent).toContain('Importação desfeita');
+    expect(document.querySelector('[data-action="revert"]')).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 export { openTelemetryImportModal } from './openTelemetryImportModal';
 export type { OpenTelemetryImportModalParams } from './openTelemetryImportModal';
-export { createTelemetryImportApi, ImportApiError, TERMINAL_JOB_STATUSES } from './importApi';
+export { createTelemetryImportApi, importErrorMessage, ImportApiError, TERMINAL_JOB_STATUSES } from './importApi';
 export type {
   TelemetryImportApi,
   TelemetryImportApiConfig,

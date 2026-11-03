@@ -53,7 +53,7 @@ export interface OpenTelemetryImportModalParams {
   customerName?: string;
   /** Usuário MyIO: mostra detalhes técnicos dos erros */
   showTechnicalDetails?: boolean;
-  /** Intervalo do acompanhamento do job (ms). Default 5000. */
+  /** Intervalo do acompanhamento do job (ms). Default 2500 (o Ingestion sugere 2–3 s). */
   pollMs?: number;
   /** Chamado quando a importação termina com sucesso */
   onCompleted?: (job: ImportJob) => void;
@@ -82,8 +82,18 @@ const JOB_STATUS_TEXT: Record<string, string> = {
   completed: 'Concluída',
   failed: 'Falhou',
   cancelled: 'Cancelada',
-  reverted: 'Revertida',
+  reverting: 'Desfazendo',
+  reverted: 'Desfeita',
 };
+
+/** ISO em UTC → "dd/mm/aaaa HH:00" em São Paulo (UTC-03:00 fixo, como o resto do módulo). */
+function fmtSaoPaulo(iso: unknown): string {
+  const t = new Date(String(iso ?? '')).getTime();
+  if (!Number.isFinite(t)) return '';
+  const d = new Date(t - 3 * 3600 * 1000);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:00`;
+}
 
 const STYLE_ID = 'myio-tlmimport-styles';
 
@@ -204,6 +214,8 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     apiError: '' as string,
     apiDetail: '' as string,
     confirmReal: false,
+    /** "Desfazer importação" pede um segundo clique antes de chamar o revert */
+    confirmRevert: false,
     job: null as ImportJob | null,
   };
   let pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -387,8 +399,20 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     }
     const p = v.preview || {};
     const real = Number(p.existingRealReadings || 0);
-    const period = typeof p.period === 'string' ? p.period : p.period ? `${p.period.start || ''} → ${p.period.end || ''}` : '—';
+    // A API manda o início da primeira e da última hora, em UTC
+    const period =
+      typeof p.period === 'string'
+        ? p.period
+        : p.period
+          ? `${fmtSaoPaulo(p.period.start)} até a hora de ${fmtSaoPaulo(p.period.end)}`
+          : '—';
     const devices = Array.isArray(p.devices) ? p.devices.length : p.devices;
+    // Sem a coluna de reativa, a hora fica com reativa 0 — inclusive onde havia leitura real
+    const reactiveWarn =
+      domain === 'energy' && Number(p.existingReadingsInTarget || 0) > 0 && !s.rows.some((r) => r.value_reactive_kvarh !== undefined)
+        ? `<div class="tlmi-banner warn">A planilha não traz energia reativa: as ${fmtNum(p.existingReadingsInTarget)} hora(s) que já têm leitura
+            ficarão com reativa 0. A reativa original fica guardada e volta se a importação for desfeita.</div>`
+        : '';
     return `
       <div class="tlmi-banner ok">${s.model === 'accumulated' ? 'Valores válidos' : 'Planilha válida'}. Confira o resumo antes de importar.</div>
       ${s.model === 'accumulated' ? '<div class="tlmi-banner warn">Os valores por hora são estimados a partir do total informado.</div>' : ''}
@@ -398,7 +422,8 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
         <div class="tlmi-kpi"><span>Total (${txt.unit})</span><strong>${fmtNum(p.totalValue, 2)}</strong></div>
         <div class="tlmi-kpi"><span>Leituras substituídas</span><strong>${fmtNum(p.existingReadingsInTarget)}</strong></div>
       </div>
-      <p class="tlmi-muted">Período: ${esc(period)}</p>
+      <p class="tlmi-muted">Período (horário de Brasília): ${esc(period)}</p>
+      ${reactiveWarn}
       ${
         real > 0
           ? `<div class="tlmi-banner warn"><strong>${fmtNum(real)} leitura(s) reais do medidor</strong> serão substituídas pelos valores da planilha.
@@ -420,12 +445,30 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
       banner =
         j.refreshStatus === 'failed'
           ? '<div class="tlmi-banner warn">Dados importados, mas a atualização dos totais falhou. Avise o suporte MyIO.</div>'
-          : '<div class="tlmi-banner ok">Importação concluída. Os totais podem levar alguns minutos para refletir.</div>';
+          : `<div class="tlmi-banner ok">Importação concluída. Os totais podem levar alguns minutos para refletir.
+              <div class="tlmi-muted" style="margin-top:4px">Dispositivos manuais continuam aparecendo sem comunicação no status:
+              o status conta só leitura medida. Os totais e os cards usam os dados importados.</div></div>`;
     } else if (j.status === 'failed') {
       banner = `<div class="tlmi-banner err">A importação falhou${j.error ? `: ${esc(j.error)}` : '.'}</div>`;
     } else if (j.status === 'cancelled') {
       banner = '<div class="tlmi-banner warn">Importação cancelada. As leituras anteriores foram mantidas.</div>';
+    } else if (j.status === 'reverted') {
+      banner = '<div class="tlmi-banner ok">Importação desfeita. As leituras anteriores foram restauradas.</div>';
     }
+    // completed/failed podem ser desfeitos (cancel só vale antes de terminar)
+    const canRevert = j.status === 'completed' || j.status === 'failed';
+    const revert = canRevert
+      ? `<div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+           <button class="tlmi-btn" type="button" data-action="revert" ${s.busy ? 'disabled' : ''}>${
+             s.confirmRevert ? 'Confirmar: desfazer importação' : 'Desfazer importação'
+           }</button>
+           <span class="tlmi-muted">${
+             s.confirmRevert
+               ? 'Remove as horas importadas e devolve as leituras apagadas. Clique de novo para confirmar.'
+               : 'Use para remover uma importação errada ou de teste.'
+           }</span>
+         </div>`
+      : '';
     return `
       <div class="tlmi-card"><h3>Importação <span style="font-weight:600;color:#64748b">${esc(statusText)}</span></h3>
         <div class="tlmi-progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
@@ -436,11 +479,12 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
         </div>
         ${j.phase && !terminal ? `<p class="tlmi-muted" style="margin-top:8px">Etapa: ${esc(j.phase)}</p>` : ''}
         ${
-          !terminal
+          !terminal && j.status !== 'reverting'
             ? `<div style="margin-top:12px"><button class="tlmi-btn" type="button" data-action="cancel" ${s.busy ? 'disabled' : ''}>Cancelar importação</button>
                <span class="tlmi-muted" style="margin-left:8px">Você pode fechar esta janela; a importação continua.</span></div>`
             : ''
         }
+        ${revert}
       </div>
       ${banner}
       ${apiErrorBanner()}`;
@@ -632,7 +676,7 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     }
   }
 
-  function schedulePoll(delay = params.pollMs ?? 5000): void {
+  function schedulePoll(delay = params.pollMs ?? 2500): void {
     if (closed || !s.job?.jobId) return;
     pollTimer = setTimeout(async () => {
       if (closed || !s.job?.jobId) return;
@@ -662,12 +706,37 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     }
   }
 
+  async function revertJob(): Promise<void> {
+    if (!s.job?.jobId || s.busy) return;
+    if (!s.confirmRevert) {
+      s.confirmRevert = true;
+      render();
+      return;
+    }
+    s.busy = true;
+    s.confirmRevert = false;
+    s.apiError = '';
+    render();
+    try {
+      const j = await api.revertJob(s.job.jobId);
+      if (j?.status) s.job = { ...s.job, ...j };
+      // `reverting` é transitório: acompanha até `reverted`
+      if (s.job && !TERMINAL_JOB_STATUSES.includes(s.job.status)) schedulePoll(0);
+    } catch (err) {
+      setError(err);
+    } finally {
+      s.busy = false;
+      render();
+    }
+  }
+
   /* ------------------------------------------------------------ events */
   root.addEventListener('click', (e) => {
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-action]');
     if (!el) return;
     if (el.dataset.action === 'template') downloadTemplate();
     if (el.dataset.action === 'cancel') void cancelJob();
+    if (el.dataset.action === 'revert') void revertJob();
     if (el.dataset.action === 'use-form') {
       resetAccumulatedSource();
       recomputeAccumulated();

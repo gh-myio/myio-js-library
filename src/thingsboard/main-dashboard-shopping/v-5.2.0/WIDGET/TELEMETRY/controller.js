@@ -4124,7 +4124,16 @@ function _openTelemetryImportModal() {
     customerId: creds.CUSTOMER_ING_ID,
     customerName: window.MyIOUtils?.customerName || '',
     devices,
-    api: { baseUrl: dataApiHost, getToken: () => auth.getToken() },
+    // getToken reaproveita o token (cache global por credencial; o /auth aceita 5 pedidos/15 min).
+    // refreshToken: um token novo após 401 ou 403 de escopo — o escopo vai dentro do token.
+    api: {
+      baseUrl: dataApiHost,
+      getToken: () => auth.getToken(),
+      refreshToken: () => {
+        auth.clearCache();
+        return auth.getToken();
+      },
+    },
     showTechnicalDetails: window.MyIOUtils?.SuperAdmin === true,
   });
 }
