@@ -30,6 +30,7 @@ import {
   type RawBudgetBlock,
   normalizeMoneyBlock,
 } from './moneyTypes';
+import { unwrapGcdrEnvelope } from '../pricing-panel/tariffApiClient';
 
 /** Goal money granularity for reads. `month` is a common overlay grain. */
 export type GoalGranularity = 'year' | 'month' | 'day' | 'hour';
@@ -299,11 +300,16 @@ export class GoalsMoneyClient {
     return typeof v === 'number' ? { version: v } : {};
   }
 
+  /**
+   * Parse the body and unwrap GCDR's `{ success: true, data, meta }` success
+   * envelope (bare shape still accepted). Error envelopes stay intact for
+   * `toError`.
+   */
   private async readBody(res: Response): Promise<unknown> {
     try {
       const text = await res.text();
       if (!text) return null;
-      return JSON.parse(text);
+      return unwrapGcdrEnvelope(JSON.parse(text));
     } catch {
       return null;
     }

@@ -136,6 +136,21 @@ function tariffQuery(sel: TariffSelector, granularity?: TariffGranularity): stri
   return qs.toString();
 }
 
+/**
+ * GCDR wraps every success body as `{ success: true, data: {...}, meta: {...} }`
+ * (verified in production 2026-11-03). Unwrap `data` when that envelope is
+ * present; keep accepting the bare shape (older deployments / mocks). Error
+ * bodies (`success: false`) are returned untouched so `toError` still sees
+ * `{ error: { code, message } }`. Idempotent: a bare body is returned as is.
+ */
+export function unwrapGcdrEnvelope(body: unknown): unknown {
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    const b = body as { success?: unknown; data?: unknown };
+    if (b.success === true && b.data && typeof b.data === 'object') return b.data;
+  }
+  return body;
+}
+
 /** Parse a strong ETag (`"7"`) into a number, if present. */
 function parseETagVersion(headers: Headers): number | undefined {
   const raw = headers.get('ETag') || headers.get('etag');
@@ -188,7 +203,7 @@ export class TariffApiClient {
     const body = await this.readBody(res);
     if (!res.ok) throw this.toError(res, body);
     const etagVersion = parseETagVersion(res.headers);
-    const parsed = (body || {}) as Partial<TariffTreeResponse>;
+    const parsed = (unwrapGcdrEnvelope(body) || {}) as Partial<TariffTreeResponse>;
     return {
       customerId: sel.customerId,
       domain: sel.domain,
@@ -250,7 +265,8 @@ export class TariffApiClient {
     const body = await this.readBody(res);
     if (!res.ok) throw this.toError(res, body);
     const etagVersion = parseETagVersion(res.headers);
-    const v = (body && (body as { version?: unknown }).version) ?? etagVersion;
+    const data = unwrapGcdrEnvelope(body);
+    const v = (data && (data as { version?: unknown }).version) ?? etagVersion;
     return typeof v === 'number' ? { version: v } : {};
   }
 
@@ -275,7 +291,8 @@ export class TariffApiClient {
     const parsed = await this.readBody(res);
     if (!res.ok) throw this.toError(res, parsed);
     const etagVersion = parseETagVersion(res.headers);
-    const v = (parsed && (parsed as { version?: unknown }).version) ?? etagVersion;
+    const data = unwrapGcdrEnvelope(parsed);
+    const v = (data && (data as { version?: unknown }).version) ?? etagVersion;
     return { version: typeof v === 'number' ? v : (expectedVersion ?? 0) + 1 };
   }
 

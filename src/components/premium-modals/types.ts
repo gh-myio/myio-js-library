@@ -33,6 +33,29 @@ export interface AllReportMoneyConfig {
   perDeviceGoal?: Record<string, string | null | undefined>;
   /** A7 variance column header override (defaults to "Variação vs meta (R$)"). */
   varianceHeaderLabel?: string;
+  /**
+   * RFC-0241 rev. 2 — period the per-device R$ were computed for (dashboard period).
+   * When the report loads a different period, the per-device/total R$ are withheld
+   * (overlay `unavailable`) — never shown for the wrong period.
+   */
+  period?: { startISO?: string | null; endISO?: string | null };
+  /**
+   * RFC-0241 rev. 2 — `round(Σ raw)` of exactly these device ids (the rows the report
+   * shows), or `null` when any of them is not complete. Preferred over `total` (which
+   * covers every valued device of the domain) and over the 2dp row sum.
+   */
+  totalFor?: (deviceIds: string[]) => string | null;
+  /**
+   * RFC-0241 rev. 2 — values one bucket row of the daily/hourly series (rows carry
+   * their own timestamp, so hourly-band tariffs are exact here). Returns `null` for
+   * a device that is not convertible. Only `state: 'complete'` carries an amount.
+   */
+  valuateBucket?: (
+    deviceId: string,
+    startTs: number,
+    endTs: number,
+    qty: number
+  ) => { state: string; amount?: string } | null;
 }
 
 export interface DateRange { 

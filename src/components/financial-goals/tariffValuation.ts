@@ -59,7 +59,8 @@ export type DeviceMoneyReason =
   | 'no-data'
   | 'needs-hourly'
   | 'invalid-qty'
-  | 'intraday-tariff-long-period';
+  | 'intraday-tariff-long-period'
+  | 'too-many-segments';
 
 export interface DeviceMoney {
   state: DeviceMoneyState;
@@ -114,6 +115,167 @@ export interface TariffValuator {
   sum(list: DeviceMoney[]): MoneySum;
   /** Decide the consumption granularity for a period (§5.4 step 2). */
   chooseGranularity(categories: WireCategory[], startTs: number, endTs: number): GranularityDecision;
+  /**
+   * RFC-0241 rev. 2 — "constant-price segments". Split `[startTs, endTs)` at every
+   * point where the effective price (or coverage) of **any** of `categories`
+   * changes. Days whose price varies **inside** the day (hourly bands) collapse
+   * into one `hourly` run per category — never one segment per hour.
+   */
+  planSegments(categories: WireCategory[], startTs: number, endTs: number): PricePlan;
+  /**
+   * Value one device from per-segment period totals (`qtyBySegment[i]` = the
+   * device's consumption inside `plan.segments[i]`; `null`/`undefined` → no data).
+   * Segments that are `none` / `hourly` for the device's category never need a
+   * quantity — they make the device `partial`/`none` (honest coverage).
+   */
+  valuatePlan(
+    category: WireCategory | null,
+    plan: PricePlan,
+    qtyBySegment: Array<number | null | undefined>
+  ): DeviceMoney;
+}
+
+/** Max number of `/devices/totals` calls one money valuation may spend (per domain). */
+export const MONEY_MAX_SEGMENT_FETCHES = 31;
+
+/** Per-category state of a constant-price segment. */
+export type SegmentCategoryState = 'priced' | 'hourly' | 'none';
+
+export interface PriceSegment {
+  startTs: number;
+  endTs: number;
+  /** Price per category (decimal string) — only for `priced` categories. */
+  prices: Partial<Record<WireCategory, string>>;
+  states: Partial<Record<WireCategory, SegmentCategoryState>>;
+  /** True when at least one category is `priced` here (consumption must be fetched). */
+  needsFetch: boolean;
+}
+
+export interface PricePlan {
+  startTs: number;
+  endTs: number;
+  segments: PriceSegment[];
+  /** Segments with `needsFetch`. */
+  fetchCount: number;
+  /** `fetchCount > MONEY_MAX_SEGMENT_FETCHES` → callers must not fetch; devices are `partial`. */
+  tooMany: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Item-level money (the `item.money` contract read by widgets, RFC-0241 §5.1)
+// ---------------------------------------------------------------------------
+
+/** Display state of `item.money`. `missing` = no tariff/data at all for the period. */
+export type ItemMoneyState = 'complete' | 'partial' | 'missing' | 'uncategorized';
+
+export interface ItemMoney {
+  state: ItemMoneyState;
+  /** Unrounded decimal string; present **only** when `state === 'complete'`. */
+  amount?: string;
+  currency: 'BRL';
+  /** Covered fraction of the period (0..1). */
+  coverage: number;
+  reason?: DeviceMoneyReason;
+  /** "tarifa variável no período". */
+  priceVaries?: boolean;
+}
+
+/** Map the valuator's {@link DeviceMoney} to the widget-facing `item.money`. */
+export function toItemMoney(dm: DeviceMoney | null | undefined): ItemMoney {
+  if (!dm) return { state: 'missing', currency: 'BRL', coverage: 0, reason: 'no-data' };
+  if (dm.state === 'complete' && typeof dm.amount === 'string') {
+    const out: ItemMoney = { state: 'complete', amount: dm.amount, currency: 'BRL', coverage: 1 };
+    if (dm.priceVaries) out.priceVaries = true;
+    return out;
+  }
+  if (dm.state === 'uncategorized' || dm.state === 'not-convertible') {
+    return { state: 'uncategorized', currency: 'BRL', coverage: 0, reason: dm.reason || 'no-category' };
+  }
+  // A tariff that exists only as hourly bands is "Tarifa parcial", not "Sem tarifa".
+  const hourlyOnly = dm.reason === 'needs-hourly' || dm.reason === 'intraday-tariff-long-period';
+  if (dm.state === 'partial' || (dm.state === 'none' && hourlyOnly)) {
+    const out: ItemMoney = {
+      state: 'partial',
+      currency: 'BRL',
+      coverage: typeof dm.coveredRatio === 'number' ? dm.coveredRatio : 0,
+    };
+    if (dm.reason) out.reason = dm.reason;
+    if (dm.priceVaries) out.priceVaries = true;
+    return out;
+  }
+  return { state: 'missing', currency: 'BRL', coverage: 0, reason: dm.reason || 'no-tariff' };
+}
+
+/** Aggregate of several `item.money` (group totals, KPI, selection dock). */
+export interface ItemMoneySum {
+  /** `complete` only when **every** member is complete. */
+  state: 'complete' | 'partial' | 'none';
+  /** Unrounded `Σ raw`; present only when `state === 'complete'`. */
+  amount?: string;
+  covered: number;
+  total: number;
+}
+
+/**
+ * Honest sum (DEC-8: `round(Σ raw)` — round only at display). An empty list is
+ * `none` (never `R$ 0`). Any non-complete member → no amount.
+ */
+export function sumItemMoney(list: Array<{ state?: string; amount?: string } | null | undefined>): ItemMoneySum {
+  const items = Array.isArray(list) ? list : [];
+  const total = items.length;
+  if (total === 0) return { state: 'none', covered: 0, total: 0 };
+  let acc = 0n;
+  let covered = 0;
+  for (const m of items) {
+    if (!m || m.state !== 'complete' || typeof m.amount !== 'string') continue;
+    const v = parseScaled(m.amount, AMOUNT_SCALE);
+    if (v == null) continue;
+    acc += v;
+    covered += 1;
+  }
+  if (covered === total) return { state: 'complete', amount: formatScaled(acc, AMOUNT_SCALE), covered, total };
+  return { state: covered > 0 ? 'partial' : 'none', covered, total };
+}
+
+/** Round a decimal string half-up (away from zero) to 2 places — string/BigInt only. */
+export function roundMoney2(amount: string | null | undefined): string | null {
+  if (typeof amount !== 'string') return null;
+  const m = DECIMAL_RE.exec(amount.trim());
+  if (!m) return null;
+  const frac = m[3] || '';
+  let cents = BigInt(m[2]) * 100n + BigInt(frac.slice(0, 2).padEnd(2, '0'));
+  if (frac.charAt(2) >= '5') cents += 1n;
+  const neg = m[1] === '-' && cents !== 0n;
+  return `${neg ? '-' : ''}${(cents / 100n).toString()}.${(cents % 100n).toString().padStart(2, '0')}`;
+}
+
+/** Short pt-BR chip for a non-complete `item.money` ("Sem tarifa" / "Tarifa parcial" / "Sem categoria"). */
+export function moneyStateChipLabel(state: ItemMoneyState | string | null | undefined): string {
+  if (state === 'uncategorized') return 'Sem categoria';
+  if (state === 'missing') return 'Sem tarifa';
+  if (state === 'partial') return 'Tarifa parcial';
+  return '';
+}
+
+/** pt-BR explanation of a coverage reason (tooltips). */
+export function moneyReasonText(reason: DeviceMoneyReason | string | null | undefined): string {
+  switch (reason) {
+    case 'no-category':
+      return 'Dispositivo sem categoria tarifária (Lojas / Área Comum).';
+    case 'no-tariff':
+      return 'Não há tarifa cadastrada para todo o período.';
+    case 'no-data':
+      return 'Sem dados de consumo em parte do período.';
+    case 'needs-hourly':
+    case 'intraday-tariff-long-period':
+      return 'Tarifa horária ainda não suportada nesta visão.';
+    case 'too-many-segments':
+      return 'Tarifa muda muitas vezes no período; reduza o intervalo.';
+    case 'invalid-qty':
+      return 'Consumo inválido em parte do período.';
+    default:
+      return '';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -233,7 +395,19 @@ function resolveTreePrice(tree: TariffTreeNode, p: LocalParts): string | null {
 
 export function createTariffValuator(options: TariffValuatorOptions): TariffValuator {
   const trees = options?.trees || {};
-  const localParts = makeLocalPartsFn(options?.timezone || TARIFF_DEFAULT_TIMEZONE);
+  const rawLocalParts = makeLocalPartsFn(options?.timezone || TARIFF_DEFAULT_TIMEZONE);
+  // Memo: the same hour timestamps repeat across devices/rows (reports value
+  // N devices × M buckets) — Intl.formatToParts is the hot path.
+  const partsCache = new Map<number, LocalParts>();
+  const localParts = (ts: number): LocalParts => {
+    let p = partsCache.get(ts);
+    if (!p) {
+      if (partsCache.size > 50_000) partsCache.clear();
+      p = rawLocalParts(ts);
+      partsCache.set(ts, p);
+    }
+    return p;
+  };
 
   const byYear: Partial<Record<WireCategory, Map<number, TariffTreeNode>>> = {};
   (Object.keys(trees) as WireCategory[]).forEach((cat) => {
@@ -318,20 +492,124 @@ export function createTariffValuator(options: TariffValuatorOptions): TariffValu
   }
 
   function sum(list: DeviceMoney[]): MoneySum {
-    const items = Array.isArray(list) ? list : [];
-    const total = items.length;
-    if (total === 0) return { state: 'none', covered: 0, total: 0 };
-    let acc = 0n;
-    let covered = 0;
-    for (const m of items) {
-      if (m?.state !== 'complete' || m.amount == null) continue;
-      const v = parseScaled(m.amount, AMOUNT_SCALE);
-      if (v == null) continue;
-      acc += v;
-      covered += 1;
+    return sumItemMoney(list);
+  }
+
+  /** Normalised price key ("1.0" ≡ "1.000000"); `null` when not a price. */
+  function normPrice(p: string | null): string | null {
+    if (p == null) return null;
+    const v = parseScaled(p, PRICE_SCALE);
+    return v == null ? null : formatScaled(v, PRICE_SCALE);
+  }
+
+  function planSegments(categories: WireCategory[], startTs: number, endTs: number): PricePlan {
+    const cats = Array.from(new Set((categories || []).filter(Boolean))) as WireCategory[];
+    const empty: PricePlan = { startTs, endTs, segments: [], fetchCount: 0, tooMany: false };
+    if (!cats.length || !Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) return empty;
+
+    // Pass 1 — price of every hour per category + local day key.
+    const hours: number[] = [];
+    const dayKeys: string[] = [];
+    const prices: Record<string, Array<string | null>> = {};
+    cats.forEach((c) => (prices[c] = []));
+    for (let t = startTs; t < endTs; t += HOUR_MS) {
+      const p = localParts(t);
+      hours.push(t);
+      dayKeys.push(`${p.year}-${p.month}-${p.day}`);
+      for (const c of cats) prices[c].push(normPrice(priceAt(c, t)));
     }
-    if (covered === total) return { state: 'complete', amount: formatScaled(acc, AMOUNT_SCALE), covered, total };
-    return { state: covered > 0 ? 'partial' : 'none', covered, total };
+
+    // Days whose price varies inside the day (hourly bands / gaps inside a day).
+    const intraday: Record<string, Set<string>> = {};
+    for (const c of cats) {
+      const first = new Map<string, string | null>();
+      const set = new Set<string>();
+      hours.forEach((_, i) => {
+        const dk = dayKeys[i];
+        if (!first.has(dk)) first.set(dk, prices[c][i]);
+        else if (first.get(dk) !== prices[c][i]) set.add(dk);
+      });
+      intraday[c] = set;
+    }
+
+    // Pass 2 — merge consecutive hours with the same per-category state/price.
+    const segments: PriceSegment[] = [];
+    let curKey = '';
+    hours.forEach((t, i) => {
+      const parts = cats.map((c) => (intraday[c].has(dayKeys[i]) ? 'H' : (prices[c][i] ?? '-')));
+      const key = parts.join('|');
+      if (segments.length && key === curKey) return;
+      if (segments.length) segments[segments.length - 1].endTs = t;
+      curKey = key;
+      const seg: PriceSegment = { startTs: t, endTs, prices: {}, states: {}, needsFetch: false };
+      cats.forEach((c, ci) => {
+        const k = parts[ci];
+        if (k === 'H') seg.states[c] = 'hourly';
+        else if (k === '-') seg.states[c] = 'none';
+        else {
+          seg.states[c] = 'priced';
+          seg.prices[c] = k;
+          seg.needsFetch = true;
+        }
+      });
+      segments.push(seg);
+    });
+
+    const fetchCount = segments.filter((s) => s.needsFetch).length;
+    return { startTs, endTs, segments, fetchCount, tooMany: fetchCount > MONEY_MAX_SEGMENT_FETCHES };
+  }
+
+  function valuatePlan(
+    category: WireCategory | null,
+    plan: PricePlan,
+    qtyBySegment: Array<number | null | undefined>
+  ): DeviceMoney {
+    if (!category) return { state: 'uncategorized', reason: 'no-category' };
+    if (!hasAnyTariff(category)) return { state: 'none', reason: 'no-tariff', coveredRatio: 0 };
+    const segs = plan?.segments || [];
+    if (!segs.length) return { state: 'none', reason: 'no-data', coveredRatio: 0 };
+    if (plan.tooMany) return { state: 'partial', reason: 'too-many-segments', coveredRatio: 0 };
+
+    const span = Math.max(1, plan.endTs - plan.startTs);
+    let acc = 0n;
+    let coveredMs = 0;
+    let coveredSegs = 0;
+    let firstReason: DeviceMoneyReason | undefined;
+    const distinct = new Set<string>();
+
+    segs.forEach((seg, i) => {
+      const st = seg.states[category];
+      if (st === 'hourly') {
+        firstReason = firstReason || 'needs-hourly';
+        return;
+      }
+      if (st !== 'priced' || !seg.prices[category]) {
+        firstReason = firstReason || 'no-tariff';
+        return;
+      }
+      const raw = qtyBySegment?.[i];
+      const qty = raw == null ? null : qtyToScaled(raw);
+      if (qty == null) {
+        firstReason = firstReason || (raw == null ? 'no-data' : 'invalid-qty');
+        return;
+      }
+      const price = parseScaled(seg.prices[category] as string, PRICE_SCALE) as bigint;
+      distinct.add(seg.prices[category] as string);
+      acc += qty * price;
+      coveredMs += seg.endTs - seg.startTs;
+      coveredSegs += 1;
+    });
+
+    const priceVaries = distinct.size > 1;
+    if (coveredSegs === segs.length) {
+      return { state: 'complete', amount: formatScaled(acc, AMOUNT_SCALE), coveredRatio: 1, priceVaries };
+    }
+    if (coveredSegs === 0) {
+      // Tariff exists but only as hourly bands → "Tarifa parcial" (not "Sem tarifa").
+      if (firstReason === 'needs-hourly') return { state: 'partial', reason: firstReason, coveredRatio: 0 };
+      return { state: 'none', reason: firstReason || 'no-tariff', coveredRatio: 0 };
+    }
+    return { state: 'partial', reason: firstReason, coveredRatio: coveredMs / span, priceVaries };
   }
 
   function chooseGranularity(categories: WireCategory[], startTs: number, endTs: number): GranularityDecision {
@@ -359,5 +637,5 @@ export function createTariffValuator(options: TariffValuatorOptions): TariffValu
     return { granularity: '1d', intradayLimited: true };
   }
 
-  return { priceAt, valuate, sum, chooseGranularity };
+  return { priceAt, valuate, sum, chooseGranularity, planSegments, valuatePlan };
 }

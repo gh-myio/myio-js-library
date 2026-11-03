@@ -18,6 +18,10 @@
     label { font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
     pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px; font-size: 12px; max-height: 260px; overflow: auto; white-space: pre-wrap; }
     .note { font-size: 12px; color: #64748b; margin-top: 8px; }
+    .seg { display: inline-flex; padding: 3px; background: #eef1f6; border: 1px solid #dbe2ea; border-radius: 9px; }
+    .seg button { background: transparent; color: #475569; border: none; padding: 6px 12px; }
+    .seg button.is-active { background: #3e1a7d; color: #fff; }
+    #money-cards > div { width: 220px; }
   </style>
 </head>
 <body>
@@ -51,6 +55,26 @@
   </section>
 
   <section>
+    <h2>3. Modo "R$ em vez de kWh" (Parte B — Fase 5)</h2>
+    <div class="row">
+      <div class="seg" role="radiogroup" aria-label="Exibir valores em">
+        <button type="button" data-mode="physical" class="is-active">kWh/m³</button>
+        <button type="button" data-mode="money">R$</button>
+      </div>
+      <label><input type="checkbox" id="money-common" checked /> Tarifa de Área Comum cadastrada</label>
+      <label><input type="checkbox" id="money-change" /> Tarifa muda no dia 15 (2 segmentos)</label>
+      <label><input type="checkbox" id="money-band" /> Banda horária (18h) no dia 10</label>
+    </div>
+    <div id="money-total" class="note" style="font-size:13px;margin:10px 0 6px;"></div>
+    <div id="money-cards" style="display:flex;flex-wrap:wrap;gap:12px;"></div>
+    <p class="note">
+      Regra do customer (moneyCategoryRule): <code>{"source":"classification","SPECIFIC":["lojas"],"COMMON_AREA":["*"]}</code>.
+      Entrada fica sempre em kWh (Q8). Total em R$ só com todos os cards completos; senão kWh + "Cobertura incompleta".
+      Tarifas salvas no painel (aba Tarifas) entram no cálculo.
+    </p>
+  </section>
+
+  <section>
     <h2>Eventos / log</h2>
     <pre id="log"></pre>
   </section>
@@ -78,10 +102,18 @@
     const json = (body, status = 200) =>
       new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ETag: `"${body?.version ?? body?.data?.version ?? 0}"` } });
     const q = url.searchParams;
+    // Envelope real do GCDR (produção, 2026-11-03): { success, data, meta } — RFC-0241 rev. 2
+    const env = (data, status = 200) =>
+      new Response(JSON.stringify({ success: true, data, meta: { requestId: 'mock' } }), {
+        status,
+        headers: { 'Content-Type': 'application/json', ETag: `"${data?.version ?? 0}"` },
+      });
     if (url.pathname.endsWith('/tariffs')) {
       const key = `${q.get('domain')}|${q.get('category')}|${q.get('year')}`;
       const cur = store.tariffs[key] || { version: 0, tree: {} };
-      if (method === 'GET') return json(cur);
+      if (method === 'GET') {
+        return env({ customerId: 'gc-demo', domain: q.get('domain'), category: q.get('category'), year: Number(q.get('year')), unit: 'kWh', currency: 'BRL', tariffModel: 'FLAT', timezone: 'America/Sao_Paulo', ...cur });
+      }
       const body = init.body ? JSON.parse(init.body) : {};
       const tree = cur.tree;
       if (method === 'PATCH') {
@@ -96,11 +128,11 @@
       } else if (method === 'PUT') {
         store.tariffs[key] = { version: cur.version + 1, tree: { annual: body.annual } };
         log(`[mock] PUT tarifa ${key}`);
-        return json({ version: cur.version + 1 });
+        return env({ version: cur.version + 1 });
       }
       store.tariffs[key] = { version: cur.version + 1, tree };
       log(`[mock] ${method} tarifa ${key} → v${cur.version + 1}`);
-      return json({ version: cur.version + 1 });
+      return env({ version: cur.version + 1 });
     }
     if (url.pathname.endsWith('/goals') || url.pathname.includes('/goals/')) {
       const key = `${q.get('domain')}|${q.get('year')}`;
@@ -190,6 +222,85 @@
     const total = v.sum([loja, semCat]);
     log('Total do grupo:', total, total.state === 'complete' ? Lib.formatMoneyBRL(total.amount) : `→ físico + "Cobertura incompleta (${total.covered} de ${total.total})"`);
   });
+
+  // ── Parte B: modo R$ (simula MAIN valuateDomainMoney + TELEMETRY cards + total do grupo) ──
+  const MONEY_PERIOD = { start: Date.parse('2026-01-01T00:00:00-03:00'), end: Date.parse('2026-02-01T00:00:00-03:00') };
+  const DEVICES = [
+    { ingestionId: 'loja-101', label: 'Loja 101', group: 'lojas', deviceProfile: '3F_MEDIDOR', value: 1820.4 },
+    { ingestionId: 'loja-102', label: 'Loja 102', group: 'lojas', deviceProfile: '3F_MEDIDOR', value: 960.2 },
+    { ingestionId: 'chiller-1', label: 'Chiller 1', group: 'areacomum', deviceProfile: 'CHILLER', value: 5400 },
+    { ingestionId: 'entrada-1', label: 'Entrada', group: 'entrada', deviceProfile: 'ENTRADA', value: 9800 },
+  ];
+  let moneyMode = 'physical';
+  let moneyResult = null;
+
+  function seedDemoTariffs() {
+    const opt = (id) => document.getElementById(id).checked;
+    const spec = { annual: { price: '0.820000' } };
+    if (opt('money-change')) spec.daily = Object.fromEntries(Array.from({ length: 17 }, (_, i) => [`01-${String(15 + i).padStart(2, '0')}`, { price: '0.950000' }]));
+    if (opt('money-band')) spec.daily = { ...(spec.daily || {}), '01-10': { ...((spec.daily || {})['01-10'] || {}), hourly: { '18': { price: '1.400000' } } } };
+    const savedSpec = store.tariffs['ENERGY|SPECIFIC|2026'];
+    store.tariffs['ENERGY|SPECIFIC|2026'] = savedSpec && savedSpec.version > 0 && !savedSpec.demo ? savedSpec : { version: 1, tree: spec, demo: true };
+    if (opt('money-common')) store.tariffs['ENERGY|COMMON_AREA|2026'] = { version: 1, tree: { annual: { price: '0.700000' } }, demo: true };
+    else delete store.tariffs['ENERGY|COMMON_AREA|2026'];
+  }
+
+  async function valuateDemo() {
+    seedDemoTariffs();
+    const client = Lib.createTariffApiClient({ baseUrl: creds.baseUrl, apiKey: creds.apiKey, tenantId: creds.tenantId });
+    moneyResult = await Lib.valuateDomainMoney({
+      domain: 'energy',
+      startTs: MONEY_PERIOD.start,
+      endTs: MONEY_PERIOD.end,
+      devices: DEVICES.map((d) => ({ key: d.ingestionId, group: d.group })),
+      rule: Lib.parseMoneyCategoryRule({ source: 'classification', SPECIFIC: ['lojas'], COMMON_AREA: ['*'] }),
+      loadTree: (sel) => client.getTariff({ customerId: creds.customerId, ...sel }, 'hour'),
+      periodTotals: Object.fromEntries(DEVICES.map((d) => [d.ingestionId, d.value])),
+      // mock do /devices/totals por segmento: consumo proporcional à duração
+      fetchSegmentTotals: async (s, e) => {
+        const f = (e - s) / (MONEY_PERIOD.end - MONEY_PERIOD.start);
+        return Object.fromEntries(DEVICES.map((d) => [d.ingestionId, d.value * f]));
+      },
+    });
+    log(`[MAIN] valoração: ${moneyResult.plan.segments.length} segmento(s), ${moneyResult.segmentFetches} chamada(s) /devices/totals extras`);
+  }
+
+  function renderMoneyDemo() {
+    const host = document.getElementById('money-cards');
+    host.innerHTML = '';
+    const moneyOf = (d) => (moneyMode === 'money' && moneyResult ? moneyResult.byKey.get(d.ingestionId) || null : null);
+    DEVICES.forEach((d) => {
+      const entityObject = { entityId: d.ingestionId, labelOrName: d.label, deviceProfile: d.deviceProfile, val: d.value, deviceStatus: 'power_on', ingestionId: d.ingestionId };
+      if (moneyMode === 'money') { entityObject.displayMode = 'money'; entityObject.money = moneyOf(d); }
+      const $c = Lib.renderCardComponentV5({ entityObject, enableSelection: false, enableDragDrop: false });
+      host.appendChild($c[0]);
+    });
+    const consumers = DEVICES.filter((d) => d.group !== 'entrada');
+    const kwh = consumers.reduce((s, d) => s + d.value, 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' kWh';
+    const totalEl = document.getElementById('money-total');
+    if (moneyMode !== 'money') { totalEl.textContent = `Total consumidores: ${kwh}`; return; }
+    const sum = Lib.sumItemMoney(consumers.map((d) => moneyOf(d) || { state: 'missing' }));
+    totalEl.innerHTML = sum.state === 'complete'
+      ? `Total consumidores: <strong>${Lib.formatMoneyBRL(sum.amount)}</strong> <span style="opacity:.7">(Custo estimado · ${kwh})</span>`
+      : `Total consumidores: ${kwh} ${Lib.buildMoneyCoverageMarkerHTML(sum)}`;
+  }
+
+  document.querySelectorAll('.seg button').forEach((b) =>
+    b.addEventListener('click', async () => {
+      moneyMode = b.dataset.mode;
+      document.querySelectorAll('.seg button').forEach((x) => x.classList.toggle('is-active', x === b));
+      if (moneyMode === 'money') await valuateDemo();
+      log('📢 myio:value-display-mode-updated', { mode: moneyMode });
+      renderMoneyDemo();
+    })
+  );
+  ['money-common', 'money-change', 'money-band'].forEach((id) =>
+    document.getElementById(id).addEventListener('change', async () => {
+      if (moneyMode === 'money') { await valuateDemo(); log('📢 myio:money-valuation-ready'); }
+      renderMoneyDemo();
+    })
+  );
+  if (Lib && typeof Lib.renderCardComponentV5 === 'function') renderMoneyDemo();
 </script>
 </body>
 </html>

@@ -107,11 +107,23 @@ export function createDashboardReportsHubContext(opts: DashboardAdapterOptions):
     };
   };
 
+  // RFC-0241 Part B: R$ column only while the dashboard is in money mode (read at prepare).
+  const getReportMoney = (domain: GroupReportDomain) => {
+    if (domain === 'temperature' || typeof orch.getReportMoney !== 'function') return null;
+    try {
+      return orch.getReportMoney(domain) || null;
+    } catch (err) {
+      log.warn('getReportMoney failed:', (err as Error)?.message || err);
+      return null;
+    }
+  };
+
   return {
     domains,
     getGroups,
     ensureDomainLoaded,
     getAllReportBase,
+    getReportMoney,
     ...(validRange || idealRange
       ? { temperature: { ...(validRange ? { validRange } : {}), ...(idealRange ? { idealRange } : {}) } }
       : {}),

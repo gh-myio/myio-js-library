@@ -41,6 +41,8 @@ import {
   getTypesByCategory,
 } from '../../../../utils/devices/deviceTypeConfig';
 import { createEquipmentIndicatorStrip } from '../../../well-pumps/equipmentIndicators';
+// RFC-0241 Part B — modo "R$ em vez de kWh/m³" (entityObject.displayMode === 'money')
+import { formatItemMoney, buildMoneyChipHTML } from '../../../financial-goals/moneyDisplay';
 
 // ============================================
 // CONSTANTS
@@ -135,6 +137,9 @@ export function renderCardComponentV5({
     dataLoading = false,
     // ED-1354: indicadores B1/B2/S (bombas MOTOR + solenoide) no card do poço
     equipmentIndicators,
+    // RFC-0241 Part B: 'money' → "Custo estimado" em R$ quando money.state === 'complete'
+    displayMode,
+    money,
   } = entityObject;
   // deviceProfile é a autoridade; o campo legado deviceType (quando presente em
   // payloads antigos) serve só de último recurso de exibição.
@@ -474,6 +479,23 @@ export function renderCardComponentV5({
     status: mapDeviceStatusToCardStatus(deviceStatus),
     ingestionId: ingestionId || entityId, // Store ingestionId for API calls
   };
+
+  // RFC-0241 Part B — modo R$: só energia/água (nunca tanque/temperatura). `null` = caminho
+  // padrão inalterado (byte-idêntico). Completo → "Custo estimado" em R$ (kWh/m³ no title);
+  // incompleto → valor físico + chip ("Sem tarifa" / "Tarifa parcial" / "Sem categoria").
+  const moneyValueHTML = (() => {
+    if (displayMode !== 'money' || dataLoading || isTankDevice) return null;
+    if (!isEnergyDevice(deviceType) && !isWaterDeviceType(deviceType)) return null;
+    const physical = formatCardValue(cardEntity.lastValue, deviceType);
+    const brl = formatItemMoney(money);
+    if (brl) {
+      return (
+        `<span class="consumption-value" data-money="complete" title="Custo estimado — ${physical}">${brl}</span>` +
+        `<span class="myio-money-label" style="margin-left:4px;font:600 9px Nunito,sans-serif;opacity:.7;white-space:nowrap;">Custo estimado</span>`
+      );
+    }
+    return `<span class="consumption-value">${physical}</span>${buildMoneyChipHTML(money)}`;
+  })();
 
   // Register entity with SelectionStore if selection is enabled
   if (enableSelection && MyIOSelectionStore) {
@@ -860,7 +882,9 @@ export function renderCardComponentV5({
                     ${icon}
                   </span>
                   ${
-                    dataLoading
+                    moneyValueHTML !== null
+                      ? moneyValueHTML
+                      : dataLoading
                       ? `<span class="consumption-value myio-value-loading" title="Carregando dados de telemetria" aria-busy="true"><span class="myio-value-spinner" aria-hidden="true"></span>Carregando…</span>`
                       : `<span class="consumption-value"${
                           showNoTempReading ? ' style="color:#9ca3af;font-weight:500;font-size:0.85em;"' : ''

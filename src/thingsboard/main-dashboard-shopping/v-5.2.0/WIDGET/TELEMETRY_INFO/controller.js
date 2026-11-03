@@ -909,6 +909,84 @@ function formatEnergy(value) {
   return fallbackZero;
 }
 
+// ===================== RFC-0241 Part B: modo "R$ em vez de kWh/m³" =====================
+// Estado e valoração na MAIN (MyIOUtils.getItemMoney / formatMoneyTotal = fonte única,
+// a mesma dos cards e do FOOTER). Aqui só a apresentação: R$ em destaque + valor físico
+// em linha secundária; grupo com membro incompleto fica físico + "Cobertura incompleta".
+// Entrada e residuais (Área Comum de energia, Pontos Não Mapeados) seguem físicos em v1.
+
+function _moneyMode(domain = getWidgetDomain()) {
+  return (
+    (domain === 'energy' || domain === 'water') &&
+    window.MyIOUtils?.getValueDisplayMode?.() === 'money' &&
+    typeof window.MyIOUtils?.formatMoneyTotal === 'function'
+  );
+}
+
+const _moneySubStyle = 'display:block;font-size:0.7em;font-weight:500;opacity:0.7;';
+
+/** Total de um grupo: { html, title } em modo R$, ou null (mantém o físico). */
+function _moneyGroupHTML(devices, physicalText, domain = getWidgetDomain()) {
+  if (!_moneyMode(domain)) return null;
+  const t = window.MyIOUtils.formatMoneyTotal(devices || [], domain);
+  if (!t) return null;
+  if (t.complete) {
+    return {
+      html: `${t.text}<span class="ti-money-physical" style="${_moneySubStyle}">${physicalText}</span>`,
+      title: `Custo estimado — ${physicalText}`,
+    };
+  }
+  return { html: `${physicalText}${t.markerHTML}`, title: 'Cobertura incompleta — total em unidade física' };
+}
+
+/** Valor de um device em listas/tooltips: R$ (físico na linha de baixo) ou o físico de sempre. */
+function _moneyDeviceHTML(device, physicalText, domain = getWidgetDomain()) {
+  if (!_moneyMode(domain)) return physicalText;
+  const brl = window.MyIOUtils.formatItemMoney?.(window.MyIOUtils.getItemMoney(device, domain));
+  return brl ? `${brl}<span style="${_moneySubStyle}">${physicalText}</span>` : physicalText;
+}
+
+/** Aplica o modo R$ nos cards de KPI já renderizados (chamado no fim de renderStats/renderWaterStats). */
+let _moneyStatsTouched = false; // títulos postos pelo modo R$ → limpar ao voltar ao físico
+function _applyMoneyToStats(domain) {
+  if (_moneyStatsTouched) {
+    $$('#lojasTotal, #climatizacaoTotal, #elevadoresTotal, #escadasRolantesTotal, #outrosTotal, #banheirosTotal, #areaComumTotal').removeAttr('title');
+    _moneyStatsTouched = false;
+  }
+  if (!_moneyMode(domain)) return;
+  _moneyStatsTouched = true;
+  const fmt = (v) => (domain === 'water' ? formatValue(v, 'water') : formatEnergy(v));
+  const groups =
+    domain === 'water'
+      ? [
+          ['#lojasTotal', STATE_WATER.lojas],
+          ['#banheirosTotal', STATE_WATER.banheiros],
+        ]
+      : [
+          ['#lojasTotal', STATE.consumidores.lojas],
+          ['#climatizacaoTotal', STATE.consumidores.climatizacao],
+          ['#elevadoresTotal', STATE.consumidores.elevadores],
+          ['#escadasRolantesTotal', STATE.consumidores.escadasRolantes],
+          ['#outrosTotal', STATE.consumidores.outros],
+        ];
+  groups.forEach(([sel, g]) => {
+    if (!g || !(g.devices || []).length) return;
+    const out = _moneyGroupHTML(g.devices, fmt(g.total || 0), domain);
+    if (out) $$(sel).html(out.html).attr('title', out.title);
+  });
+  // Água: o card "Área Comum" soma banheiros quando não há card próprio
+  if (domain === 'water') {
+    const acDevices = [
+      ...(STATE_WATER.areaComum?.devices || []),
+      ...(STATE_WATER.includeBathrooms ? [] : STATE_WATER.banheiros?.devices || []),
+    ];
+    if (acDevices.length) {
+      const out = _moneyGroupHTML(acDevices, fmt(_waterAreaComumDisplay()), domain);
+      if (out) $$('#areaComumTotal').html(out.html).attr('title', out.title);
+    }
+  }
+}
+
 /**
  * RFC-0056: Render statistics for 6 categories
  */
@@ -981,6 +1059,8 @@ function renderStats() {
   applyGroupFilter('energy');
   // RFC-0196: Check for calculation errors (negative residuals / Entrada < Total)
   checkCalculationErrors();
+  // RFC-0241 Part B: totais em R$ (modo físico: no-op)
+  _applyMoneyToStats('energy');
 
   LogHelper.log('RFC-0056: Stats rendered successfully');
 }
@@ -2428,6 +2508,8 @@ function renderWaterStats() {
   applyGroupFilter('water');
   // RFC-0196: Check for calculation errors (negative residuals / Entrada < Total)
   checkCalculationErrors();
+  // RFC-0241 Part B: totais em R$ (modo físico: no-op)
+  _applyMoneyToStats('water');
 
   LogHelper.log('[RFC-0002 Water] Stats rendered');
 }
@@ -3717,6 +3799,17 @@ function _buildSimpleGroupContent(opts) {
         <span class="myio-info-tooltip__value">${Number(perc).toFixed(2).replace('.', ',')}%</span>
       </div>`;
   const expandHtml = devices && devices.length ? buildDeviceExpandList(id, devices, formatFn) : '';
+  // RFC-0241 Part B: total do tooltip em R$ (+ físico) só com todos os devices completos.
+  // Total que inclui residual (Área Comum calculada) nunca vira R$ em v1.
+  let moneyTotal = devices && devices.length ? _moneyGroupHTML(devices, formatFn(total)) : null;
+  if (moneyTotal && opts.moneyHasResidual) {
+    moneyTotal = {
+      html:
+        `${formatFn(total)}<span class="myio-money-coverage" title="Área Comum residual não é valorada" ` +
+        `style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;font:600 10px Nunito,sans-serif;` +
+        `background:#fef3c7;color:#92400e;">Cobertura incompleta</span>`,
+    };
+  }
   const devicesSection = expandHtml ? `
     <div class="myio-info-tooltip__section">
       <div class="myio-info-tooltip__section-title">
@@ -3729,7 +3822,7 @@ function _buildSimpleGroupContent(opts) {
       <div class="myio-info-tooltip__section-title"><span>📊</span> Resumo</div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Total:</span>
-        <span class="myio-info-tooltip__value">${formatFn(total)}</span>
+        <span class="myio-info-tooltip__value">${moneyTotal ? moneyTotal.html : formatFn(total)}</span>
       </div>
       ${percRow}
       <div class="myio-info-tooltip__row">
@@ -3824,6 +3917,7 @@ function buildTotalConsumidoresContent() {
     formatFn: formatEnergy,
     footerHtml: buildExportFooter('energy', 'totalConsumidores'),
     noticeText: 'Soma de todos os consumidores: Lojas + Climatização + Elevadores + Esc. Rolantes + Outros + Área Comum.',
+    moneyHasResidual: (c.areaComum?.total || 0) > 0, // RFC-0241 Part B
   });
 }
 
@@ -3875,7 +3969,8 @@ function buildDeviceExpandList(id, devices, formatFn) {
     .map((d) => {
       const full = cleanLabel(d.label || d.identifier || d.name || '—');
       const display = truncate(full);
-      const val = typeof d.value === 'number' ? formatFn(d.value) : '—';
+      // RFC-0241 Part B: R$ (físico embaixo) quando o device tem custo estimado completo
+      const val = typeof d.value === 'number' ? _moneyDeviceHTML(d, formatFn(d.value)) : '—';
       return `<div class="rfc196-device-item">
       <span class="rfc196-device-item__name" title="${escAttr(full)}">${escAttr(display)}</span>
       <span class="rfc196-device-item__value">${val}</span>
@@ -5237,6 +5332,16 @@ self.onInit = async function () {
     }
   };
   window.addEventListener('myio:measurement-settings-updated', measurementSettingsHandler);
+
+  // RFC-0241 Part B: kWh/m³ ↔ R$ e valoração pronta → mesmo re-render do RFC-0108
+  // (gráfico de pizza continua em proporções físicas).
+  const moneyDisplayHandler = (ev) => {
+    const d = ev?.detail?.domain;
+    if (d && d !== getWidgetDomain()) return;
+    measurementSettingsHandler(ev);
+  };
+  window.addEventListener('myio:value-display-mode-updated', moneyDisplayHandler);
+  window.addEventListener('myio:money-valuation-ready', moneyDisplayHandler);
 
   LogHelper.log('Widget initialized successfully (RFC-0056)');
 };

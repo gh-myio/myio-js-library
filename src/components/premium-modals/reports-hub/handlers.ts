@@ -31,6 +31,8 @@ export const groupReportHandler: ReportsHubHandlerDef = {
         : {};
     const theme = visual.palette ?? base.theme;
     const customerName = visual.customerName || base.customerName;
+    // RFC-0241 Part B: dashboard in R$ mode → A6 "Custo estimado (R$)" column (physical stays primary)
+    const money = context.getReportMoney?.(d) || null;
     return () => {
       openDashboardPopupAllReport({
         ...base,
@@ -40,6 +42,7 @@ export const groupReportHandler: ReportsHubHandlerDef = {
         itemsList,
         ...(theme ? { theme } : {}),
         ...(customerName ? { customerName } : {}),
+        ...(money ? { money } : {}),
       });
     };
   },

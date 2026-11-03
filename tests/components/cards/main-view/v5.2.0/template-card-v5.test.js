@@ -299,3 +299,79 @@ describe('renderCardComponentV5 — device *_MANUAL (sem verificação de conect
     expect(el.classList.contains('offline')).toBe(true);
   });
 });
+
+// RFC-0241 Part B — modo "R$ em vez de kWh/m³" (entityObject.displayMode / money)
+describe('renderCardComponentV5 — RFC-0241 money mode', () => {
+  const html = (entityObject) =>
+    renderCardComponentV5({
+      entityObject: { entityId: 'dev-1', labelOrName: 'Loja 1', deviceStatus: 'power_on', ...entityObject },
+      enableSelection: false,
+      enableDragDrop: false,
+    })[0].outerHTML;
+  const COMPLETE = { state: 'complete', amount: '1234.565', currency: 'BRL', coverage: 1 };
+  const DEFAULT_CASES = [
+    { deviceProfile: '3F_MEDIDOR', val: 1500, perc: 12.5 },
+    { deviceProfile: 'HIDROMETRO', val: 12.5, perc: 40 },
+    { deviceProfile: 'TANK', val: 1220.7, waterLevel: 1220.7, waterPercentage: 1.22 },
+    { deviceProfile: '3F_MEDIDOR', val: null, dataLoading: true },
+  ];
+
+  // AC-11: golden HTML captured from the pre-RFC-0241 template (desenv e4e99ac7).
+  it.each(DEFAULT_CASES.map((c, i) => [i, c]))('AC-11 default path is byte-identical to the pre-change template (#%i)', async (i, c) => {
+    await expect(html(c)).toMatchFileSnapshot(`./__snapshots__/card-v5-default-${i}.html`);
+  });
+
+  it('AC-11: displayMode physical (or absent) ignores money → identical HTML', () => {
+    for (const c of DEFAULT_CASES) {
+      expect(html({ ...c, displayMode: 'physical', money: COMPLETE })).toBe(html(c));
+      expect(html({ ...c, money: COMPLETE })).toBe(html(c));
+    }
+  });
+
+  it('money + complete → "Custo estimado" in R$ (rounded once), physical value in the title', () => {
+    const $c = renderCardComponentV5({
+      entityObject: { entityId: 'dev-1', labelOrName: 'Loja', deviceProfile: '3F_MEDIDOR', val: 1500, displayMode: 'money', money: COMPLETE },
+      enableSelection: false,
+      enableDragDrop: false,
+    })[0];
+    const v = $c.querySelector('.consumption-value');
+    expect(v.textContent.trim()).toBe('R$ 1.234,57');
+    expect(v.getAttribute('title')).toBe(`Custo estimado — ${formatEnergy(1500)}`);
+    expect($c.querySelector('.myio-money-label').textContent).toBe('Custo estimado');
+    expect($c.textContent).not.toMatch(/Fatura|Faturamento|Conta de luz/);
+  });
+
+  it.each([
+    [{ state: 'partial', currency: 'BRL', coverage: 0.4, reason: 'no-tariff' }, 'Tarifa parcial'],
+    [{ state: 'missing', currency: 'BRL', coverage: 0, reason: 'no-tariff' }, 'Sem tarifa'],
+    [{ state: 'uncategorized', currency: 'BRL', coverage: 0 }, 'Sem categoria'],
+  ])('AC-14: money + %o → physical value + chip "%s", never R$ 0', (money, chip) => {
+    const $c = renderCardComponentV5({
+      entityObject: { entityId: 'd', labelOrName: 'Loja', deviceProfile: 'HIDROMETRO', val: 12.5, displayMode: 'money', money },
+      enableSelection: false,
+      enableDragDrop: false,
+    })[0];
+    expect($c.querySelector('.consumption-value').textContent.trim()).toBe('12,50 m³');
+    expect($c.querySelector('.myio-money-chip').textContent).toBe(chip);
+    expect($c.textContent).not.toContain('R$');
+    expect($c.textContent).not.toContain('NaN');
+  });
+
+  it('money mode without money (not valued yet / Entrada) → physical, no chip', () => {
+    const c = { deviceProfile: '3F_MEDIDOR', val: 1500 };
+    const $c = renderCardComponentV5({
+      entityObject: { entityId: 'd', labelOrName: 'L', ...c, displayMode: 'money' },
+      enableSelection: false,
+      enableDragDrop: false,
+    })[0];
+    expect($c.querySelector('.consumption-value').textContent.trim()).toBe(formatEnergy(1500));
+    expect($c.querySelector('.myio-money-chip')).toBeNull();
+  });
+
+  it('AC-16: temperature and tank cards are never converted', () => {
+    const temp = { deviceProfile: 'TERMOSTATO', val: 22.5, temperatureSource: 'thingsboard' };
+    expect(html({ ...temp, displayMode: 'money', money: COMPLETE })).toBe(html(temp));
+    const tank = DEFAULT_CASES[2];
+    expect(html({ ...tank, displayMode: 'money', money: COMPLETE })).toBe(html(tank));
+  });
+});
