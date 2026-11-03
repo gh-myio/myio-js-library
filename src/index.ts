@@ -1347,6 +1347,25 @@ export type {
   GatedMoneyRenderers,
 } from './components/financial-goals';
 
+// RFC-0241 §5.3 — pure tariff valuator for the dashboard-wide R$ display mode.
+export {
+  createTariffValuator,
+  MONEY_HOURLY_MAX_DAYS,
+  TARIFF_DEFAULT_TIMEZONE,
+} from './components/financial-goals';
+export type {
+  ValuationBucket,
+  DeviceSeries as TariffDeviceSeries,
+  DeviceMoney,
+  DeviceMoneyState,
+  DeviceMoneyReason,
+  MoneySum,
+  ConsumptionGranularity,
+  GranularityDecision,
+  TariffValuatorOptions,
+  TariffValuator,
+} from './components/financial-goals';
+
 // RFC-0108: Measurement Setup Modal
 export { openMeasurementSetupModal } from './components/premium-modals/measurement-setup';
 
