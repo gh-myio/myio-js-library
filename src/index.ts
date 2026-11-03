@@ -1152,6 +1152,16 @@ export type {
   SettingsHubModalHandle,
 } from './components/settings-hub';
 
+// RFC-0241: "🎯 Metas e Tarifas" area picker (Gestão de Metas · Metas × Consumo · Tarifas)
+export { openGoalsTariffsHub } from './components/goals-tariffs-hub';
+export type {
+  GoalsTariffsArea,
+  GoalsTariffsHandlers,
+  GoalsTariffsHubHandle,
+  GoalsTariffsThemeSource,
+  OpenGoalsTariffsHubOptions,
+} from './components/goals-tariffs-hub';
+
 // RFC-0222: Customer Energy/Water Pricing Panel (prototype — R$/kWh & R$/m³ per
 // customer × domain × category × period, with audit trail + KPI dashboard).
 // Prototype persistence (memory + localStorage + onSave); real GCDR persistence

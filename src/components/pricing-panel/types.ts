@@ -152,6 +152,17 @@ export interface OpenPricingPanelParams {
    * **When absent**, the panel keeps its byte-identical localStorage prototype.
    */
   tariffApi?: TariffApiPanelConfig;
+  /**
+   * RFC-0241 — caller-asserted permission. When provided it **replaces** the
+   * built-in `@myio.com.br` / SuperAdmin gate (e.g. a customer user admin who is
+   * not a MyIO user). UX gating only; the backend must enforce writes.
+   */
+  allowed?: boolean;
+  /**
+   * RFC-0241 — single-customer dashboards: hide the customer selector and keep
+   * the first entry of `customers` selected.
+   */
+  lockCustomer?: boolean;
 }
 
 /** Config for the RFC-0228 A1 tariff-API persistence path. */

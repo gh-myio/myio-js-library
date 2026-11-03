@@ -74,6 +74,20 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * RFC-0241 — resolve a host palette: `createMyIOTheme` object (`cssVars()`) or a
+ * flat `--myio-*` map. Returns null when absent/invalid.
+ */
+function resolveThemeVars(theme) {
+  if (!theme || typeof theme !== 'object') return null;
+  try {
+    const vars = typeof theme.cssVars === 'function' ? theme.cssVars() : theme;
+    return vars && typeof vars === 'object' ? vars : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 // =============================================================================
 // Public entry point
 // =============================================================================
@@ -89,6 +103,9 @@ function esc(s) {
  * @param {number} [params.year]              - initial year (default current year).
  * @param {string} [params.locale='pt-BR']    - 'pt-BR' | 'en-US'.
  * @param {Object} [params.styles]            - theme overrides (accent/primaryColor/zIndex/...).
+ * @param {Object} [params.theme]             - RFC-0241: dashboard palette (createMyIOTheme or `--myio-*` map);
+ *                                              header follows `--myio-brand-700` unless styles override it.
+ * @param {string} [params.tenantId]          - RFC-0241: optional GCDR tenant → `X-Tenant-ID` header.
  * @param {Function} [params.onSaved]         - called after a successful write (WriteGoalsResponse).
  * @param {Function} [params.onClose]         - called when the modal closes.
  * @param {HTMLElement} [params.container]    - mount node (default document.body).
@@ -110,6 +127,10 @@ export function openGoalsPanel(params) {
   const container = p.container || document.body;
   const locale = p.locale === 'en-US' ? 'en-US' : 'pt-BR';
   const styles = p.styles || {};
+  // RFC-0241 — X-Tenant-ID opcional (F-4: alguns backends respondem 401 sem o tenant).
+  const tenantId = p.tenantId ? String(p.tenantId) : null;
+  // RFC-0241 — paleta do dashboard (createMyIOTheme ou mapa `--myio-*`).
+  const themeVars = resolveThemeVars(p.theme);
 
   if (!customerId) throw new Error('customerId is required');
   if (!apiKey) throw new Error('apiKey (X-API-Key gcdr_cust_*) is required');
@@ -121,7 +142,12 @@ export function openGoalsPanel(params) {
   const theme = {
     accent: styles.accent || styles.primaryColor || '#059669',
     accentSoft: styles.accentSoft || 'rgba(5,150,105,0.10)',
-    primary: styles.primaryColor || styles.accent || '#059669',
+    // Header: styles explícito > paleta do dashboard (--myio-brand-700) > esmeralda.
+    primary:
+      styles.primaryColor ||
+      styles.accent ||
+      (themeVars && typeof themeVars['--myio-brand-700'] === 'string' ? themeVars['--myio-brand-700'] : null) ||
+      '#059669',
     violet: styles.violet || '#6c5ce7',
     danger: styles.errorColor || '#dc2626',
     amber: styles.warningColor || '#d97706',
@@ -202,11 +228,14 @@ export function openGoalsPanel(params) {
     try {
       res = await fetch(url, {
         method,
-        headers: {
-          'X-API-Key': apiKey,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
+        headers: Object.assign(
+          {
+            'X-API-Key': apiKey,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          tenantId ? { 'X-Tenant-ID': tenantId } : {}
+        ),
         body: o.body !== undefined ? JSON.stringify(o.body) : undefined,
       });
     } catch (e) {
@@ -786,6 +815,12 @@ export function openGoalsPanel(params) {
     rootEl.className = 'myio-goals-overlay';
     rootEl.setAttribute('role', 'dialog');
     rootEl.setAttribute('aria-modal', 'true');
+    // RFC-0241: expõe a paleta do dashboard (--myio-*) no root do painel.
+    if (themeVars) {
+      Object.entries(themeVars).forEach(([k, v]) => {
+        if (k.startsWith('--') && typeof v === 'string') rootEl.style.setProperty(k, v);
+      });
+    }
     container.appendChild(rootEl);
 
     injectStyles();

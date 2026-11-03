@@ -102,6 +102,101 @@ describe('openSettingsHubModal — rendering & gating', () => {
   });
 });
 
+describe('openSettingsHubModal — RFC-0241 goals-tariffs (permissions)', () => {
+  const withGoals = (): SettingsHubHandlers => ({ ...makeHandlers(), 'goals-tariffs': vi.fn() });
+
+  it('AC-05: the 8 existing options render exactly as before when the new option is not permitted', () => {
+    openSettingsHubModal({ isSuperAdmin: true, handlers: withGoals() });
+    expect(getOptions().map((b) => b.dataset.action)).toEqual(ALL_ACTIONS);
+    openSettingsHubModal({ isSuperAdmin: false, handlers: withGoals(), permissions: { 'goals-tariffs': false } });
+    expect(getOptions().map((b) => b.dataset.action)).toEqual(['temperature', 'contract', 'measurement']);
+  });
+
+  it('renders "Metas e Tarifas" after measurement when permitted (non-SuperAdmin admin too)', () => {
+    openSettingsHubModal({ isSuperAdmin: false, handlers: withGoals(), permissions: { 'goals-tariffs': true } });
+    expect(getOptions().map((b) => b.dataset.action)).toEqual([
+      'temperature',
+      'contract',
+      'measurement',
+      'goals-tariffs',
+    ]);
+    const btn = getOptions().find((b) => b.dataset.action === 'goals-tariffs')!;
+    expect(btn.textContent).toContain('Metas e Tarifas');
+    expect(btn.classList.contains('myio-settings-option--myio')).toBe(false);
+  });
+
+  it('does not render the option without a handler even when permitted', () => {
+    openSettingsHubModal({ isSuperAdmin: true, handlers: makeHandlers(), permissions: { 'goals-tariffs': true } });
+    expect(getOptions().map((b) => b.dataset.action)).not.toContain('goals-tariffs');
+  });
+
+  it('routes the click to the goals-tariffs handler', () => {
+    const handlers = withGoals();
+    openSettingsHubModal({ handlers, permissions: { 'goals-tariffs': true } });
+    getOptions().find((b) => b.dataset.action === 'goals-tariffs')!.click();
+    vi.advanceTimersByTime(250);
+    expect(handlers['goals-tariffs']).toHaveBeenCalledTimes(1);
+  });
+
+  it('permissions never re-enable a SuperAdmin-only option for regular users', () => {
+    openSettingsHubModal({ isSuperAdmin: false, handlers: makeHandlers(), permissions: { integration: true } });
+    expect(getOptions().map((b) => b.dataset.action)).toEqual(['temperature', 'contract', 'measurement']);
+  });
+
+  it('AC-05 snapshot: existing option markup is unchanged', () => {
+    openSettingsHubModal({ isSuperAdmin: true, handlers: makeHandlers() });
+    const markup = getOptions().map((b) => ({
+      action: b.dataset.action,
+      cls: b.className,
+      text: b.textContent!.replace(/\s+/g, ' ').trim(),
+    }));
+    expect(markup).toMatchInlineSnapshot(`
+      [
+        {
+          "action": "temperature",
+          "cls": "myio-settings-option",
+          "text": "🌡️ Config. Temperatura Limites e alertas de temperatura",
+        },
+        {
+          "action": "contract",
+          "cls": "myio-settings-option",
+          "text": "📋 Dispositivos Contratados Quantidade de dispositivos por domínio",
+        },
+        {
+          "action": "measurement",
+          "cls": "myio-settings-option",
+          "text": "📐 Config. Medidas Unidades e casas decimais",
+        },
+        {
+          "action": "integration",
+          "cls": "myio-settings-option myio-settings-option--myio",
+          "text": "🔗 Setup de Integração Ingestion · GCDR — apenas MyIO",
+        },
+        {
+          "action": "user-management",
+          "cls": "myio-settings-option myio-settings-option--myio",
+          "text": "👥 Gestão de Usuários Usuários e perfis — apenas MyIO",
+        },
+        {
+          "action": "default-dashboard",
+          "cls": "myio-settings-option myio-settings-option--myio",
+          "text": "🏠 Dashboard Padrão Dashboard exibido ao criar novos usuários — apenas MyIO",
+        },
+        {
+          "action": "client-config",
+          "cls": "myio-settings-option myio-settings-option--myio",
+          "text": "🏢 Configurações Cliente Funcionalidades e senha master — apenas MyIO",
+        },
+        {
+          "action": "device-profile",
+          "cls": "myio-settings-option myio-settings-option--myio",
+          "text": "🧩 Gestão de Perfil de Dispositivos Regras de classificação (colunas e breakdown) — apenas MyIO",
+        },
+      ]
+    `);
+  });
+});
+
 describe('openSettingsHubModal — routing', () => {
   it('closes the hub and calls the handler after the close-animation delay', () => {
     const handlers = makeHandlers();
