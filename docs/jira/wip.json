@@ -2,13 +2,13 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-10-29",
+    "generatedAt": "2026-11-04",
     "status": "Em Andamento",
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 8,
-  "peopleOver": 2,
+  "total": 9,
+  "peopleOver": 3,
   "people": [
     {
       "name": "Rodrigo Lago",
@@ -28,16 +28,35 @@
           "updated": "2026-10-01"
         },
         {
-          "key": "ED-1300",
-          "type": "Tarefa",
-          "summary": "GCDR — Bloqueio de conta (6ª tentativa), notificação de bloqueio e Turnstile no login",
-          "updated": "2026-09-30"
-        },
-        {
           "key": "ED-1297",
           "type": "Tarefa",
           "summary": "GCDR — Fluxo \"Esqueci a senha\" com magic link e template MYIO",
           "updated": "2026-09-30"
+        },
+        {
+          "key": "ED-1300",
+          "type": "Tarefa",
+          "summary": "GCDR — Bloqueio de conta (6ª tentativa), notificação de bloqueio e Turnstile no login",
+          "updated": "2026-09-30"
+        }
+      ]
+    },
+    {
+      "name": "Luiz Guilherme Martinho Sampaio Ito",
+      "count": 2,
+      "over": true,
+      "tickets": [
+        {
+          "key": "ED-1131",
+          "type": "Tarefa",
+          "summary": "[CENTRAL] Detecção preditiva de falha do medidor 3F (anomalia antes da parada total)",
+          "updated": "2026-10-29"
+        },
+        {
+          "key": "ED-1211",
+          "type": "Subtarefa",
+          "summary": "Plano de canal por vizinhança física",
+          "updated": "2026-09-16"
         }
       ]
     },
@@ -66,23 +85,10 @@
       "over": false,
       "tickets": [
         {
-          "key": "ED-1368",
+          "key": "ED-1377",
           "type": "Tarefa",
-          "summary": "[QA] [TABOÃO] 1. Automação dos poços",
-          "updated": "2026-10-28"
-        }
-      ]
-    },
-    {
-      "name": "Luiz Guilherme Martinho Sampaio Ito",
-      "count": 1,
-      "over": false,
-      "tickets": [
-        {
-          "key": "ED-1211",
-          "type": "Subtarefa",
-          "summary": "Plano de canal por vizinhança física",
-          "updated": "2026-09-16"
+          "summary": "[QA] [TABOÃO] 3. Cards virtuais",
+          "updated": "2026-11-03"
         }
       ]
     }

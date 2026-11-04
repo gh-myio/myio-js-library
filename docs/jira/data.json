@@ -11,72 +11,74 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-10-29",
+    "generatedAt": "2026-11-04",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 33,
-    "backlogOpen": 587,
-    "total": 620
+    "sprintOpen": 39,
+    "backlogOpen": 585,
+    "total": 624
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "PENDENTE": 8,
-        "EM REVISÃO": 4,
-        "Itens Novos": 18,
+        "PENDENTE": 10,
+        "EM REVISÃO": 5,
+        "Itens Novos": 21,
         "Em Andamento": 3
       },
       "byType": {
-        "Bug": 6,
-        "Tarefa": 27
+        "Bug": 8,
+        "Tarefa": 31
       },
       "byPriority": {
-        "Medium": 17,
+        "Medium": 20,
         "Highest": 8,
         "Low": 1,
-        "High": 7
+        "High": 10
       },
       "byAssignee": {
-        "Rodrigo Lago": 22,
+        "Rodrigo Lago": 28,
         "Letícia Camargo": 7,
         "Victor Hugo da Silva": 3,
         "Luiz Guilherme Martinho Sampaio Ito": 1
       },
       "byGroup": {
-        "Outros": 1,
+        "Outros": 2,
         "GCDR / Plataforma": 12,
-        "Relatórios / Dashboard": 8,
+        "Relatórios / Dashboard": 9,
         "TrensRJ": 1,
         "Souza Aguiar": 1,
-        "Shopping da Ilha / SDI": 1,
-        "Campinas": 2,
+        "Shopping da Ilha / SDI": 2,
+        "Campinas": 3,
         "Central / Firmware / HW": 3,
-        "Taboão": 3,
-        "Ilha Plaza": 1
+        "Taboão": 4,
+        "Ilha Plaza": 1,
+        "Sá Cavalcante": 1
       }
     },
     "backlog": {
       "byStatus": {
-        "Itens Novos": 177,
+        "Itens Novos": 175,
         "EM REVISÃO": 10,
-        "PENDENTE": 395,
-        "Em Andamento": 5
+        "PENDENTE": 394,
+        "Em Andamento": 6
       },
       "byType": {
-        "Tarefa": 442,
+        "Tarefa": 440,
         "Subtarefa": 94,
         "Bug": 51
       },
       "byPriority": {
-        "High": 21,
-        "Medium": 558,
+        "High": 19,
+        "Medium": 557,
         "Low": 6,
-        "Highest": 2
+        "Highest": 2,
+        "Lowest": 1
       },
       "byAssignee": {
-        "Rodrigo Lago": 125,
+        "Rodrigo Lago": 123,
         "Letícia Camargo": 25,
         "Luiz Guilherme Martinho Sampaio Ito": 386,
         "Leticia Saraiva": 5,
@@ -85,24 +87,25 @@
       },
       "byGroup": {
         "Souza Aguiar": 3,
-        "Relatórios / Dashboard": 7,
+        "Relatórios / Dashboard": 8,
         "GCDR / Plataforma": 116,
         "Raiz Educação": 2,
         "Central / Firmware / HW": 394,
         "Contagem": 3,
         "Outros": 21,
-        "Sá Cavalcante": 8,
+        "Sá Cavalcante": 7,
         "Mestre Álvaro": 2,
-        "Campinas": 3,
-        "Rio Poty": 2,
+        "Rio Poty": 1,
         "Moxuara": 1,
+        "Campinas": 1,
         "BAS": 10,
         "West Plaza": 1,
         "Melicidade": 2,
-        "Shopping da Ilha / SDI": 5,
+        "Shopping da Ilha / SDI": 4,
         "TrensRJ": 2,
         "Ilha Plaza": 1,
-        "Taboão": 4
+        "Taboão": 5,
+        "Obramax": 1
       }
     }
   },
@@ -524,15 +527,93 @@
       "kind": "unit"
     },
     {
-      "key": "ED-1368",
-      "summary": "[QA] [TABOÃO] 1. Automação dos poços",
+      "key": "ED-989",
+      "summary": "Campinas Shopping - Loja sem exibição no painel",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "EM REVISÃO",
+      "cat": "indeterminate",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-03",
+      "group": "Campinas",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1350",
+      "summary": "Sá Cavalcante - Inclusão de granularidade de 30 minutos no gráfico de temperatura",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "PENDENTE",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-03",
+      "group": "Sá Cavalcante",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1351",
+      "summary": "Shopping da Ilha - Inserir offset de temperatura",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "PENDENTE",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-03",
+      "group": "Shopping da Ilha / SDI",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1372",
+      "summary": "Myio Inclusão de campo de anotações nos eventos de incidentes do painel de alarmes",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-29",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1374",
+      "summary": "[BUG] [THINGSBOARD] [TABOÃO] Devices com deviceProfile CISTERNA_ENTRADA e CISTERNA são todos listados em “Poços/Cisternas”",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-03",
+      "group": "Taboão",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1375",
+      "summary": "[BUG] [THINGSBOARD] Gráfico do dashboard de Water Tank não converte para metros ao selecionar “Nível (mca)”",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-03",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1377",
+      "summary": "[QA] [TABOÃO] 3. Cards virtuais",
       "type": "Tarefa",
       "sub": false,
       "status": "Em Andamento",
       "cat": "indeterminate",
-      "priority": "Medium",
+      "priority": "High",
       "assignee": "Letícia Camargo",
-      "updated": "2026-10-28",
+      "updated": "2026-11-03",
       "group": "Taboão",
       "kind": "unit"
     }
@@ -5804,19 +5885,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-989",
-      "summary": "Campinas Shopping - Loja sem exibição no painel",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-17",
-      "group": "Campinas",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1003",
       "summary": "[BUG] [GCDR] [OS] Card \"Linha do tempo\" não atualiza automaticamente após vincular/desvincular OS Filha (Requer F5)",
       "type": "Bug",
@@ -5841,19 +5909,6 @@
       "updated": "2026-07-29",
       "group": "Relatórios / Dashboard",
       "kind": "theme"
-    },
-    {
-      "key": "ED-1034",
-      "summary": "Rio Poty - Setup de novo produto de água adicionado no App (302EF)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-07-27",
-      "group": "Rio Poty",
-      "kind": "unit"
     },
     {
       "key": "ED-1048",
@@ -6042,11 +6097,11 @@
       "summary": "[CENTRAL] Detecção preditiva de falha do medidor 3F (anomalia antes da parada total)",
       "type": "Tarefa",
       "sub": false,
-      "status": "PENDENTE",
+      "status": "Em Andamento",
       "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "updated": "2026-09-21",
+      "updated": "2026-10-29",
       "group": "Central / Firmware / HW",
       "kind": "theme"
     },
@@ -8040,32 +8095,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1350",
-      "summary": "Sá Cavalcante - Inclusão de granularidade de 30 minutos no gráfico de temperatura",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-16",
-      "group": "Sá Cavalcante",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1351",
-      "summary": "Shopping da Ilha - Inserir offset de temperatura",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-16",
-      "group": "Shopping da Ilha / SDI",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1353",
       "summary": "[BUG] [THINGSBOARD] Modal “Filtros Avançados”, nas configurações de uma anotação, com contagem incoerente, seleção múltipla inconsistente e sem feedback de carregamento",
       "type": "Bug",
@@ -8105,19 +8134,6 @@
       "kind": "unit"
     },
     {
-      "key": "ED-1360",
-      "summary": "Campinas Shopping - Relatório de caixa d'água sem exibição",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-26",
-      "group": "Campinas",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1362",
       "summary": "[TABOÃO] 1. Automação dos poços — B1/B2/S nos cards de poço, modal de bombas e widget Poços / Cisternas",
       "type": "Subtarefa",
@@ -8152,7 +8168,7 @@
       "cat": "new",
       "priority": "High",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-10-27",
+      "updated": "2026-11-03",
       "group": "Taboão",
       "kind": "unit"
     },
@@ -8166,6 +8182,45 @@
       "priority": "High",
       "assignee": "Rodrigo Lago",
       "updated": "2026-10-27",
+      "group": "Taboão",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1369",
+      "summary": "Inclusão de módulo Obramax Aricanduva",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-10-29",
+      "group": "Obramax",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1373",
+      "summary": "[BUG] [THINGSBOARD] Botão “Regras de Alarmes” aparece indevidamente próximo à paginação de listagens",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-03",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1376",
+      "summary": "[MELHORIA] [TABOÃO] Reduzir o tempo de carregamento da aba Equipamentos do poço",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Lowest",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-03",
       "group": "Taboão",
       "kind": "unit"
     }

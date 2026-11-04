@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-10-29",
-    "today": "2026-10-29",
+    "generatedAt": "2026-11-04",
+    "today": "2026-11-04",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -694,8 +694,8 @@
       "end": "2026-09-21",
       "complete": "",
       "state": "future",
-      "scope": 63,
-      "done": 30,
+      "scope": 70,
+      "done": 31,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -755,6 +755,11 @@
         {
           "date": "2026-10-29",
           "remaining": 33,
+          "ideal": 0
+        },
+        {
+          "date": "2026-11-04",
+          "remaining": 39,
           "ideal": 0
         }
       ],
@@ -3609,6 +3614,46 @@
       "type": "Tarefa",
       "priority": "High",
       "date": "2026-10-27"
+    },
+    {
+      "key": "ED-1360",
+      "summary": "Campinas Shopping - Relatório de caixa d'água sem exibição",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-10-30"
+    },
+    {
+      "key": "ED-1370",
+      "summary": "Mestre Álvaro - Ajuste de consumo de entrada de energia",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-10-30"
+    },
+    {
+      "key": "ED-1034",
+      "summary": "Rio Poty - Setup de novo produto de água adicionado no App (302EF)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-11-03"
+    },
+    {
+      "key": "ED-1368",
+      "summary": "[QA] [TABOÃO] 1. Automação dos poços",
+      "assignee": "Letícia Camargo",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-11-03"
+    },
+    {
+      "key": "ED-1371",
+      "summary": "Metropole Ananindeua - Preenchimento de consumo (Entrada de energia)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-11-03"
     }
   ]
 }
