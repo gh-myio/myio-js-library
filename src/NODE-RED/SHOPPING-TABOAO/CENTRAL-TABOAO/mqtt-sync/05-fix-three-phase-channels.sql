@@ -6,6 +6,9 @@
 -- Central: Shopping Taboao (8324c829-1bc9-4ab8-9bcb-2793ee0f436a), banco hubot.
 -- Estado em 2026-10-19: 177 slaves three_phase_sensor, cada um com 1 channel
 -- (channel=1, type three_phase_sensor, mesmo nome do slave) e slaves.channels=1.
+-- Reexecucao 2026-11-04 (log.channels.log): o lote de 2026-10-27 23:39 recriou
+-- 61 desses canais (slaves 236..309 e 318..321); 187 trifasicos ja estao com 0.
+-- Idempotente: pode rodar de novo, so pega o que ainda sobrou.
 --
 -- ANTES: backup do cadastro (manual-centrais-linix-orangepi.md, 9.4)
 --   pg_dump -U hubot --clean --if-exists -t slaves -t channels -t ambients -t ambients_rfir_slaves_rel \
