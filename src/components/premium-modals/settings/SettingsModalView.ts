@@ -95,6 +95,14 @@ export class SettingsModalView {
     return this.isSuperAdmin() || this.config.holdingAdmin === true;
   }
 
+  /**
+   * Campos comerciais (ABL / Contrato / Segmento / Atividade): visíveis para todos,
+   * editáveis só para admin — mesma regra do Identificador (superadmin ou holding admin).
+   */
+  private canEditCommercial(): boolean {
+    return this.canEditIdentifier();
+  }
+
   private isWellEquipmentDevice(): boolean {
     return ['CISTERNA', 'CISTERNA_ENTRADA'].includes(String(this.config.deviceProfile || '').toUpperCase());
   }
@@ -139,10 +147,8 @@ export class SettingsModalView {
       lastUpdatedEl.textContent = formData.lastUpdatedTime ? this.formatTs(formData.lastUpdatedTime) : '—';
     }
 
-    // Campos comerciais (só @myio / superadmin): selects em cascata Segmento → Atividade
-    if (this.isSuperAdmin()) {
-      this.initCommercialFields(formData);
-    }
+    // Campos comerciais (visíveis para todos; editáveis só para admin): cascata Segmento → Atividade
+    this.initCommercialFields(formData);
 
     // Patch gcdrDeviceId from SERVER_SCOPE attribute if not already provided
     if (!this.config.gcdrDeviceId && formData.gcdrDeviceId) {
@@ -701,9 +707,9 @@ export class SettingsModalView {
       cancelBtn.disabled = isLoading;
     }
 
-    // Disable form inputs during save
+    // Disable form inputs during save (campos travados por permissão continuam travados)
     formInputs.forEach((input) => {
-      input.disabled = isLoading;
+      input.disabled = isLoading || input.dataset.locked === 'true';
     });
   }
 
@@ -1053,7 +1059,7 @@ export class SettingsModalView {
             </div>
 
           </div>
-          ${this.isSuperAdmin() ? this.getCommercialFieldsHTML() : ''}
+          ${this.getCommercialFieldsHTML()}
         </div>
 
         <!-- Central/gateway identity+telemetry — only for CentralSettingsModal (isGateway);
@@ -1073,12 +1079,14 @@ export class SettingsModalView {
   }
 
   /**
-   * Campos comerciais — só @myio / superadmin (o bloco nem é renderizado para os demais,
-   * então getFormData não envia essas chaves e o save não as sobrescreve).
+   * Campos comerciais — visíveis para todos, editáveis só para admin (canEditCommercial).
+   * Sem permissão: ABL/Contrato readonly (o FormData reenvia o valor carregado, sem mudança)
+   * e selects disabled + data-locked (não entram no FormData → o save não toca segment/activity).
    * Linha 1: ABL + Contrato (texto). Linha 2: Segmento → Atividade (selects em cascata,
    * opções preenchidas em initCommercialFields após carregar o catálogo).
    */
   private getCommercialFieldsHTML(): string {
+    const ro = this.canEditCommercial() ? '' : ' readonly';
     // Nome do customer: config → fallback MyIOUtils.customerName (setado pelo MAIN_VIEW)
     const customerName = String(
       this.config.customerName || (window as any).MyIOUtils?.customerName || ''
@@ -1092,11 +1100,11 @@ export class SettingsModalView {
         <div class="commercial-grid">
           <div class="commercial-field">
             <label class="identity-field-label" for="abl">ABL</label>
-            <input type="text" id="abl" name="abl" class="identity-input" maxlength="50" placeholder="Ex.: 120,50 m²">
+            <input type="text" id="abl" name="abl" class="identity-input" maxlength="50" placeholder="${ro ? '—' : 'Ex.: 120,50 m²'}"${ro}>
           </div>
           <div class="commercial-field">
             <label class="identity-field-label" for="contract">Contrato</label>
-            <input type="text" id="contract" name="contract" class="identity-input" maxlength="100" placeholder="Nº / identificação do contrato">
+            <input type="text" id="contract" name="contract" class="identity-input" maxlength="100" placeholder="${ro ? '—' : 'Nº / identificação do contrato'}"${ro}>
           </div>
           <div class="commercial-field">
             <label class="identity-field-label" for="segment">Segmento</label>
@@ -1134,19 +1142,26 @@ export class SettingsModalView {
     // Segmento salvo que saiu do catálogo continua selecionável (não perde o dado)
     const segments = catalog.map((s) => s.segment);
     if (savedSegment && !segments.includes(savedSegment)) segments.push(savedSegment);
-    segmentEl.innerHTML = options(segments, savedSegment, 'Selecione…');
-    segmentEl.disabled = false;
+    const canEdit = this.canEditCommercial();
+    segmentEl.innerHTML = options(segments, savedSegment, canEdit ? 'Selecione…' : '—');
+    segmentEl.disabled = !canEdit;
 
     const fillActivities = (segment: string, selected: string) => {
       if (!segment) {
-        activityEl.innerHTML = options([], '', 'Selecione o segmento primeiro');
+        activityEl.innerHTML = options([], '', canEdit ? 'Selecione o segmento primeiro' : '—');
         activityEl.disabled = true;
         return;
       }
-      activityEl.innerHTML = options(activitiesForSegment(catalog, segment, selected), selected, 'Selecione…');
-      activityEl.disabled = false;
+      activityEl.innerHTML = options(activitiesForSegment(catalog, segment, selected), selected, canEdit ? 'Selecione…' : '—');
+      activityEl.disabled = !canEdit;
     };
     fillActivities(savedSegment, savedActivity);
+
+    if (!canEdit) {
+      segmentEl.dataset.locked = 'true';
+      activityEl.dataset.locked = 'true';
+      return;
+    }
 
     segmentEl.addEventListener('change', () => fillActivities(segmentEl.value, ''));
   }
@@ -3000,7 +3015,7 @@ export class SettingsModalView {
           cursor: default;
         }
 
-        /* Campos comerciais (só @myio / superadmin) */
+        /* Campos comerciais (visíveis para todos; editáveis só para admin) */
         .commercial-block {
           margin-top: 14px;
           padding-top: 12px;

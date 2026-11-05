@@ -154,7 +154,7 @@ export class DefaultSettingsFetcher implements SettingsFetcher {
         } else if (attr.key === "gcdrDeviceId") {
           attributes.gcdrDeviceId = attr.value;
         } else if (["abl", "contract", "segment", "activity"].includes(attr.key)) {
-          // Campos comerciais (só @myio / superadmin no modal)
+          // Campos comerciais (visíveis para todos; editáveis só para admin no modal)
           attributes[attr.key] = String(attr.value);
         }
       }
@@ -204,7 +204,7 @@ static sanitizeFetchedData(data: Record<string, any>): Record<string, any> {
       "label",
       "floor",
       "identifier",
-      // Campos comerciais (só @myio / superadmin no modal)
+      // Campos comerciais (visíveis para todos; editáveis só para admin no modal)
       "abl",
       "contract",
       "segment",

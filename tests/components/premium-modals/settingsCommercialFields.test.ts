@@ -1,6 +1,7 @@
 /**
  * Campos comerciais do SettingsModal (ABL / Contrato / Segmento → Atividade):
- * visíveis só para @myio / superadmin; Atividade carrega depois do Segmento.
+ * visíveis para todos, editáveis só para admin (superadmin / @myio / holding admin);
+ * Atividade carrega depois do Segmento.
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 // Ciclo pré-existente SettingsModalView ↔ CentralSettingsModal: carregar pelo
@@ -65,10 +66,43 @@ describe('commercialCatalog helpers', () => {
 });
 
 describe('SettingsModalView — campos comerciais', () => {
-  it('não renderiza para usuário sem @myio', () => {
-    openView({ userEmail: 'cliente@shopping.com.br' });
-    expect(q('#abl')).toBeNull();
-    expect(q('#segment')).toBeNull();
+  it('usuário comum: vê os valores, mas tudo somente leitura (e o save não toca segment/activity)', async () => {
+    const view = openView(
+      { userEmail: 'cliente@shopping.com.br' },
+      { abl: '1205,8', contract: '015318', segment: 'Lojas Âncoras', activity: 'Academias' }
+    );
+    await flush();
+
+    const abl = q<HTMLInputElement>('#abl')!;
+    const contract = q<HTMLInputElement>('#contract')!;
+    const seg = q<HTMLSelectElement>('#segment')!;
+    const act = q<HTMLSelectElement>('#activity')!;
+    expect(abl.value).toBe('1205,8');
+    expect(contract.value).toBe('015318');
+    expect(abl.readOnly).toBe(true);
+    expect(contract.readOnly).toBe(true);
+    expect(seg.value).toBe('Lojas Âncoras');
+    expect(act.value).toBe('Academias');
+    expect(seg.disabled).toBe(true);
+    expect(act.disabled).toBe(true);
+
+    // showLoadingState(false) após o save não destrava campos sem permissão
+    view.showLoadingState(true);
+    view.showLoadingState(false);
+    expect(seg.disabled).toBe(true);
+    expect(act.disabled).toBe(true);
+
+    const data = view.getFormData();
+    expect(data).toMatchObject({ abl: '1205,8', contract: '015318' });
+    expect(data).not.toHaveProperty('segment');
+    expect(data).not.toHaveProperty('activity');
+  });
+
+  it('holding admin edita (mesma regra do Identificador)', async () => {
+    openView({ userEmail: 'admin@cliente.com.br', holdingAdmin: true });
+    await flush();
+    expect(q<HTMLInputElement>('#abl')!.readOnly).toBe(false);
+    expect(q<HTMLSelectElement>('#segment')!.disabled).toBe(false);
   });
 
   it('renderiza ABL, Contrato, Segmento e Atividade para @myio', () => {
