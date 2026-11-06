@@ -3186,10 +3186,20 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           }
         }
 
-        // *_MANUAL (ex.: 3F_MEDIDOR_MANUAL) não entra em nenhum relatório
-        itemsListTB = (itemsListTB || []).filter(
-          (item) => !/_MANUAL$/i.test(String(item?.deviceProfile || item?.deviceType || '').trim())
-        );
+        // *_MANUAL de loja (3F_MEDIDOR_MANUAL / HIDROMETRO_MANUAL) entram no relatório como as demais
+        // lojas. O alias TB ("Lojas" / "Todos Hidrometros Lojas") normalmente não os contém → vêm do
+        // orquestrador (MAIN_VIEW: MyIOOrchestratorData[domain].manualItems). id = ingestionId, como
+        // o buildListItemsThingsboardByUniqueDatasource (o AllReportModal casa por esse id).
+        itemsListTB = itemsListTB || [];
+        const _manualStoreRe = /^(3F_MEDIDOR|HIDROMETRO)_MANUAL$/i;
+        const _seenIds = new Set(itemsListTB.map((item) => String(item?.id)));
+        (window.MyIOOrchestratorData?.[domain]?.manualItems || []).forEach((it) => {
+          if (!_manualStoreRe.test(String(it?.deviceProfile || it?.deviceType || '').trim())) return;
+          const id = String(it.ingestionId || it.id || '');
+          if (!id || _seenIds.has(id)) return;
+          _seenIds.add(id);
+          itemsListTB.push({ id, identifier: it.identifier, label: it.label || it.name || it.identifier });
+        });
 
         const _openAllReport = window.MyIOUtils?.openDashboardPopupAllReport;
         if (typeof _openAllReport !== 'function') {

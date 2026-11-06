@@ -206,11 +206,13 @@ export class WellEquipmentTab {
           <label for="wet-b2-device">Bomba B2</label>${options('pump', 'B2', binding(this.bindings.pumps, 'B2'))}${labelInput('B2', binding(this.bindings.pumps, 'B2'))}
           <label for="wet-s-device">Solenoide S</label>${options('valve', 'S', binding(this.bindings.valves, 'S'))}${labelInput('S', binding(this.bindings.valves, 'S'))}
         </div>
+        <p class="wet-hint">Rótulos com até 4 caracteres (ex.: B3) aparecem no card no lugar de B1/B2/S.</p>
         <p id="wet-message" class="wet-message" role="status" aria-live="polite"></p>
         <button type="button" id="wet-save" ${this.loaded ? '' : 'disabled'}>Salvar vínculos</button>
       </section>
       <style>
         .wet-tab{padding:24px;color:#374151}.wet-grid{display:grid;grid-template-columns:130px minmax(180px,1fr) minmax(180px,1fr);gap:12px;align-items:center}
+        .wet-hint{margin:12px 0 0;font-size:12px;color:#6b7280}
         .wet-grid label{font-weight:600}.wet-grid select,.wet-grid input{box-sizing:border-box;width:100%;min-height:38px;padding:7px 9px;border:1px solid #d1d5db;border-radius:6px;background:white}
         #wet-save{margin-top:18px;padding:9px 16px;border:0;border-radius:6px;background:#2563eb;color:white;font-weight:600;cursor:pointer}
         #wet-save:disabled{opacity:.6;cursor:wait}.wet-message{min-height:20px;margin:12px 0 0}.wet-message.wet-error,.wet-error{color:#b91c1c}.wet-message.wet-success{color:#15803d}.wet-state{text-align:center;padding:30px;color:#6b7280}

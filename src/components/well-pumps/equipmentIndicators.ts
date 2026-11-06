@@ -29,10 +29,26 @@ export function indicatorStateText(ind: EquipmentIndicator, short = false): stri
   return ind.active ? (short ? 'Ligada' : 'ligada') : short ? 'Deslig.' : 'desligada';
 }
 
+/** Tamanho máximo do rótulo para ele substituir o código do slot no badge (cabe em ~26px). */
+export const SHORT_TAG_MAX = 4;
+
+/**
+ * Texto exibido no badge/tile/chip: o rótulo configurado na aba "Equipamentos do Poço" quando é curto
+ * (1–4 caracteres, sem espaço — ex.: 'B3', 'B4', 'S2'); senão o código do slot ('B1', 'B2', 'S').
+ * O slot continua em `data-code` (identidade estável); só o texto visível muda.
+ */
+export function indicatorTag(ind: { code: string; label?: string | null }): string {
+  const label = String(ind?.label ?? '').trim();
+  return label && label.length <= SHORT_TAG_MAX && !/\s/.test(label) ? label : String(ind?.code ?? '');
+}
+
 export function indicatorTitle(ind: EquipmentIndicator): string {
   const profile = ind.deviceProfile ? ` (${ind.deviceProfile})` : '';
   const since = ind.since ? ` desde ${formatClock(ind.since)}` : '';
-  return `${ind.code} · ${ind.label}${profile}: ${indicatorStateText(ind)}${ind.active === null || ind.active === undefined ? '' : since}`;
+  const tag = indicatorTag(ind);
+  const name = String(ind.label ?? '').trim();
+  const head = name && name !== tag ? `${tag} · ${name}` : tag;
+  return `${head}${profile}: ${indicatorStateText(ind)}${ind.active === null || ind.active === undefined ? '' : since}`;
 }
 
 export function ensureEquipmentIndicatorStyles(): void {
@@ -91,8 +107,9 @@ export function renderEquipmentStripHTML(indicators: EquipmentIndicator[]): stri
   return (indicators || [])
     .map((ind) => {
       const cls = indicatorStateClass(ind);
-      // válvula única 'S' → ícone; várias (S1, S2…) → código, para distinguir
-      const content = ind.kind === 'valve' && ind.code.length <= 1 ? VALVE_SVG : escapeHtml(ind.code);
+      const tag = indicatorTag(ind);
+      // válvula única 'S' → ícone; várias (S1, S2…) → código/rótulo, para distinguir
+      const content = ind.kind === 'valve' && tag.length <= 1 ? VALVE_SVG : escapeHtml(tag);
       return `<span class="myio-eq-b ${cls}" data-code="${escapeHtml(ind.code)}" title="${escapeHtml(indicatorTitle(ind))}">${content}</span>`;
     })
     .join('');
@@ -126,7 +143,7 @@ export function renderEquipmentTilesHTML(indicators: EquipmentIndicator[]): stri
   return `<div class="myio-eq-tiles">${indicators
     .map((ind) => {
       const cls = indicatorStateClass(ind);
-      return `<div class="myio-eq-ti ${cls}" title="${escapeHtml(indicatorTitle(ind))}"><i></i><b>${escapeHtml(ind.code)}</b><small>${indicatorStateText(ind, true)}</small></div>`;
+      return `<div class="myio-eq-ti ${cls}" title="${escapeHtml(indicatorTitle(ind))}"><i></i><b>${escapeHtml(indicatorTag(ind))}</b><small>${indicatorStateText(ind, true)}</small></div>`;
     })
     .join('')}</div>`;
 }
@@ -136,6 +153,6 @@ export function renderEquipmentShortcutHTML(indicators: EquipmentIndicator[], la
   const anyOn = (indicators || []).some((i) => i.kind === 'pump' && i.active === true);
   return (
     `<span class="${anyOn ? 'myio-eq-spin' : ''}" style="display:inline-flex">${PUMP_SVG}</span><span>${escapeHtml(label)}</span>` +
-    (indicators || []).map((ind) => `<i class="${indicatorStateClass(ind)}">${escapeHtml(ind.code)}</i>`).join('')
+    (indicators || []).map((ind) => `<i class="${indicatorStateClass(ind)}">${escapeHtml(indicatorTag(ind))}</i>`).join('')
   );
 }
