@@ -99,9 +99,14 @@ export class SettingsModalView {
     return ['CISTERNA', 'CISTERNA_ENTRADA'].includes(String(this.config.deviceProfile || '').toUpperCase());
   }
 
-  /** Retrolavagem virtual: escolhe os hidrômetros de entrada e de saída (aba só para SuperAdmin). */
+  /** Retrolavagem virtual: escolhe os hidrômetros de entrada e de saída. */
   private isRetrolavagemDevice(): boolean {
     return String(this.config.deviceProfile || '').toUpperCase() === RETROLAVAGEM_PROFILE;
+  }
+
+  /** Permissão de configuração: SuperAdmin ou administrador da holding já validado pelo host. */
+  private canManageRetrolavagem(): boolean {
+    return this.isSuperAdmin() || this.config.holdingAdmin === true;
   }
 
   render(initialData: Record<string, any>): void {
@@ -170,8 +175,8 @@ export class SettingsModalView {
     if (this.isWellEquipmentDevice() && this.isSuperAdmin()) {
       this.initWellEquipmentTab();
     }
-    // Retrolavagem: hidrômetros de entrada/saída (Σ entrada − Σ saída), só SuperAdmin.
-    if (this.isRetrolavagemDevice() && this.isSuperAdmin()) {
+    // Retrolavagem: hidrômetros de entrada/saída (Σ entrada − Σ saída).
+    if (this.isRetrolavagemDevice() && this.canManageRetrolavagem()) {
       this.initRetrolavagemTab();
     }
     // RFC-0232: Incidentes tab (central + admin MyIO only) — search/devices
@@ -521,7 +526,7 @@ export class SettingsModalView {
 
   private async initRetrolavagemTab(): Promise<void> {
     const container = this.modal.querySelector('#retrolavagem-tab-content') as HTMLElement | null;
-    if (!container || !this.isRetrolavagemDevice() || !this.isSuperAdmin()) return;
+    if (!container || !this.isRetrolavagemDevice() || !this.canManageRetrolavagem()) return;
 
     const customerId = this.config.customerId || (window as any).MyIOUtils?.customerTB_ID;
     const { deviceId, jwtToken, tbBaseUrl } = this.config;
@@ -866,7 +871,7 @@ export class SettingsModalView {
                 : ''
             }
             ${
-              this.isRetrolavagemDevice() && this.isSuperAdmin()
+              this.isRetrolavagemDevice() && this.canManageRetrolavagem()
                 ? `<button type="button" class="modal-tab" data-tab="retrolavagem">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M3 12h7M14 12h7"></path>
@@ -947,7 +952,7 @@ export class SettingsModalView {
                 : ''
             }
             ${
-              this.isRetrolavagemDevice() && this.isSuperAdmin()
+              this.isRetrolavagemDevice() && this.canManageRetrolavagem()
                 ? `<div id="retrolavagem-tab-content" class="tab-content" style="display:none;">
                     <p class="rlt-state">Carregando vínculos e hidrômetros…</p>
                   </div>`

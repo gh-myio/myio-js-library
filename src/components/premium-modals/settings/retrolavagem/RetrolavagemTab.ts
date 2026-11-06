@@ -2,7 +2,7 @@
  * Aba "Equipamentos da Retrolavagem" do SettingsModal — device HIDROMETRO_ENTRADA_RETROLAVAGEM.
  *
  * A retrolavagem é virtual: o MAIN_VIEW calcula Σ entradas − Σ saídas. Esta aba escolhe quais
- * hidrômetros entram em cada lado (até 10 + 10) e grava o JSON `retrolavagemBindings` no
+ * hidrômetros entram em cada lado (até 5 + 5) e grava o JSON `retrolavagemBindings` no
  * atributo SERVER_SCOPE do próprio device. Sem vínculos, o MAIN_VIEW usa a conta antiga
  * (Entrada − consumidores). O mesmo hidrômetro pode ser usado em outras retrolavagens.
  *
@@ -11,7 +11,7 @@
 
 export const RETROLAVAGEM_PROFILE = 'HIDROMETRO_ENTRADA_RETROLAVAGEM';
 export const RETROLAVAGEM_BINDINGS_KEY = 'retrolavagemBindings';
-export const MAX_RETROLAVAGEM_DEVICES_PER_SIDE = 10;
+export const MAX_RETROLAVAGEM_DEVICES_PER_SIDE = 5;
 
 export interface RetrolavagemTabConfig {
   container: HTMLElement;
