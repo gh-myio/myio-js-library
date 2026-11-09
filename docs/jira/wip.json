@@ -3,74 +3,218 @@
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
     "generatedAt": "2026-11-09",
-    "status": "Em Andamento",
+    "status": [
+      "Em Andamento",
+      "EM REVISÃO"
+    ],
     "wipLimit": 1,
-    "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
+    "note": "WIP = tickets com status \"Em Andamento\" ou \"EM REVISÃO\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 6,
-  "peopleOver": 2,
+  "total": 23,
+  "peopleOver": 4,
   "people": [
     {
-      "name": "Luiz Guilherme Martinho Sampaio Ito",
-      "count": 2,
-      "over": true,
-      "tickets": [
-        {
-          "key": "ED-1131",
-          "type": "Tarefa",
-          "summary": "[CENTRAL] Detecção preditiva de falha do medidor 3F (anomalia antes da parada total)",
-          "updated": "2026-10-29"
-        },
-        {
-          "key": "ED-1211",
-          "type": "Subtarefa",
-          "summary": "Plano de canal por vizinhança física",
-          "updated": "2026-09-16"
-        }
-      ]
-    },
-    {
-      "name": "Victor Hugo da Silva",
-      "count": 2,
-      "over": true,
-      "tickets": [
-        {
-          "key": "ED-1334",
-          "type": "Tarefa",
-          "summary": "Node-RED (aba Notifics): investigar por que a central manda triggered=true de vez em quando sem atender a condição — Campinas G0 Nova",
-          "updated": "2026-10-09"
-        },
-        {
-          "key": "ED-1328",
-          "type": "Tarefa",
-          "summary": "Shopping da Ilha — configurar o Node-RED da central nova de ENTRADA (cópia do Rio Poty, contribs e gateway no ThingsBoard)",
-          "updated": "2026-10-06"
-        }
-      ]
-    },
-    {
       "name": "Letícia Camargo",
-      "count": 1,
-      "over": false,
+      "count": 8,
+      "over": true,
+      "byStatus": {
+        "Em Andamento": 1,
+        "EM REVISÃO": 7
+      },
       "tickets": [
         {
           "key": "ED-1377",
           "type": "Tarefa",
+          "status": "Em Andamento",
           "summary": "[QA] [TABOÃO] 3. Cards virtuais",
           "updated": "2026-11-03"
+        },
+        {
+          "key": "ED-1048",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "[GCDR] Implementar sincronização de status de conexão das centrais",
+          "updated": "2026-09-21"
+        },
+        {
+          "key": "ED-1283",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "Report-Gaps: modal \"Verificar na Central\" com comparação de telemetria bruta (central × ingestion)",
+          "updated": "2026-09-29"
+        },
+        {
+          "key": "ED-1302",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "GCDR — Exclusão de usuário com vínculos: análise antes de excluir, exclusão segura e retorno do usuário",
+          "updated": "2026-10-01"
+        },
+        {
+          "key": "ED-1306",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "GCDR — Restaurar usuário excluído (lista de excluídos, restauração auditada e aviso no recadastro)",
+          "updated": "2026-10-01"
+        },
+        {
+          "key": "ED-1297",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "GCDR — Fluxo \"Esqueci a senha\" com magic link e template MYIO",
+          "updated": "2026-11-09"
+        },
+        {
+          "key": "ED-1300",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "GCDR — Bloqueio de conta (6ª tentativa), notificação de bloqueio e Turnstile no login",
+          "updated": "2026-11-09"
+        },
+        {
+          "key": "ED-1301",
+          "type": "Bug",
+          "status": "EM REVISÃO",
+          "summary": "GCDR — Usuário bloqueado não é recuperado pela tela de usuários (Ativar, Redefinir senha e Reenviar verificação não funcionam)",
+          "updated": "2026-11-09"
         }
       ]
     },
     {
       "name": "Rodrigo Lago",
-      "count": 1,
-      "over": false,
+      "count": 7,
+      "over": true,
+      "byStatus": {
+        "Em Andamento": 1,
+        "EM REVISÃO": 6
+      },
       "tickets": [
         {
           "key": "ED-996",
           "type": "Bug",
+          "status": "Em Andamento",
           "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
           "updated": "2026-10-06"
+        },
+        {
+          "key": "ED-1123",
+          "type": "Bug",
+          "status": "EM REVISÃO",
+          "summary": "[BUG] Comparação de Temperatura (Footer) não mostra dados — busca na API do TB em vez da Ingestion",
+          "updated": "2026-08-13"
+        },
+        {
+          "key": "ED-910",
+          "type": "Subtarefa",
+          "status": "EM REVISÃO",
+          "summary": "VM para emulação de imagem Yocto CM4 (aarch64)",
+          "updated": "2026-09-15"
+        },
+        {
+          "key": "ED-1231",
+          "type": "Bug",
+          "status": "EM REVISÃO",
+          "summary": "[BUG] Central: hidrômetro não lê após \"Replace Product\" até inserir manualmente em channel_pulse_log",
+          "updated": "2026-09-15"
+        },
+        {
+          "key": "ED-320",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "[GCDR][RULE][EDIT] - Ao entrar na tela de edição, ajustar em Scope Profile x Devices - Sem exibição de devices",
+          "updated": "2026-09-21"
+        },
+        {
+          "key": "ED-1220",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "[API] Public GET /v3/health — structured services (audit/sync/version), items, environment presence, backup",
+          "updated": "2026-09-29"
+        },
+        {
+          "key": "ED-989",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "Campinas Shopping - Loja sem exibição no painel",
+          "updated": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "name": "Luiz Guilherme Martinho Sampaio Ito",
+      "count": 5,
+      "over": true,
+      "byStatus": {
+        "Em Andamento": 2,
+        "EM REVISÃO": 3
+      },
+      "tickets": [
+        {
+          "key": "ED-1211",
+          "type": "Subtarefa",
+          "status": "Em Andamento",
+          "summary": "Plano de canal por vizinhança física",
+          "updated": "2026-09-16"
+        },
+        {
+          "key": "ED-1131",
+          "type": "Tarefa",
+          "status": "Em Andamento",
+          "summary": "[CENTRAL] Detecção preditiva de falha do medidor 3F (anomalia antes da parada total)",
+          "updated": "2026-10-29"
+        },
+        {
+          "key": "ED-1200",
+          "type": "Subtarefa",
+          "status": "EM REVISÃO",
+          "summary": "Fix: three defects found by first static analysis run",
+          "updated": "2026-08-27"
+        },
+        {
+          "key": "ED-1202",
+          "type": "Subtarefa",
+          "status": "EM REVISÃO",
+          "summary": "Remove dead code and fix two latent defects it was hiding",
+          "updated": "2026-08-27"
+        },
+        {
+          "key": "ED-1349",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "Firmware da central: provisionar SYSTEM_API_KEY em /run/myio/cloud para habilitar POST /system/restart e /v3/ha/switchover pela nuvem",
+          "updated": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "name": "Victor Hugo da Silva",
+      "count": 3,
+      "over": true,
+      "byStatus": {
+        "Em Andamento": 2,
+        "EM REVISÃO": 1
+      },
+      "tickets": [
+        {
+          "key": "ED-1328",
+          "type": "Tarefa",
+          "status": "Em Andamento",
+          "summary": "Shopping da Ilha — configurar o Node-RED da central nova de ENTRADA (cópia do Rio Poty, contribs e gateway no ThingsBoard)",
+          "updated": "2026-10-06"
+        },
+        {
+          "key": "ED-1334",
+          "type": "Tarefa",
+          "status": "Em Andamento",
+          "summary": "Node-RED (aba Notifics): investigar por que a central manda triggered=true de vez em quando sem atender a condição — Campinas G0 Nova",
+          "updated": "2026-10-09"
+        },
+        {
+          "key": "ED-1149",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "RFC-0229: Migrar Customer Server Scope (TB) → GCDR customer-config, atributo por atributo + settings do widget MAIN_VIEW",
+          "updated": "2026-09-21"
         }
       ]
     }

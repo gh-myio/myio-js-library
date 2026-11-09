@@ -7,7 +7,7 @@
 Cada pessoa mantém **sempre um, e apenas um**, ticket com status **`Em Andamento`** — inclusive quando estiver ociosa: nesse caso, o ticket em andamento é o de **`Aguardando Demanda`**. Nunca zero, nunca dois.
 
 - **Objetivo:** tornar o trabalho (e a ociosidade) visível e rastreável no board a qualquer momento.
-- **Como medimos:** cartão *"WIP atual"* no cockpit (`status = "Em Andamento"` agrupado por responsável). Acima de 1 = sinalizado.
+- **Como medimos:** cartão *"WIP atual"* no cockpit (`status in ("Em Andamento", "EM REVISÃO")` agrupado por responsável — desde 09/11/2026 o que está em revisão também conta como WIP do responsável). Acima de 1 = sinalizado.
 
 ## 2. Vazão diária: mínimo 1, meta 4
 - **Mínimo aceitável:** **1 ticket concluído por dia útil**.
@@ -42,7 +42,7 @@ Toda branch nos repositórios é **alinhada ao ID do ticket** no Jira, com prefi
 - **Ganho:** o Jira faz a **linkagem automática** do desenvolvimento no ticket; permite *Smart Commits* (transicionar status pelo commit).
 
 ## 6. Semântica de status (máquina de estados da TASK-pai)
-A **TASK-pai** carrega o *estágio do fluxo*; o **WIP=1 é medido apenas no que está `Em Andamento`** (a pai em `Em Revisão`/`Pendente` **não** conta como WIP de ninguém).
+A **TASK-pai** carrega o *estágio do fluxo*; o **WIP=1 é medido no que está `Em Andamento` ou `Em Revisão`**, contado para o responsável atual do ticket (desde 09/11/2026; antes só `Em Andamento` contava). `Pendente` **não** conta como WIP de ninguém.
 
 | Status | Significado |
 |---|---|

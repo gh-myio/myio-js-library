@@ -123,7 +123,7 @@
   <section class="kpis" id="kpis"></section>
 
   <section class="panel wip" id="wipPanel" style="display:none">
-    <h3><span class="dot" style="background:#e5484d"></span> WIP atual — tickets <b>“Em Andamento”</b> por pessoa <span id="wipBadge"></span></h3>
+    <h3><span class="dot" style="background:#e5484d"></span> WIP atual — tickets <b>“Em Andamento” + “Em Revisão”</b> por pessoa <span id="wipBadge"></span></h3>
     <p class="hint" id="wipHint"></p>
     <div class="wip-grid" id="wipCards"></div>
   </section>
@@ -352,10 +352,14 @@ function renderWIP(w){
   const base=w.meta.jiraBase, limit=w.meta.wipLimit;
   const over=w.people.filter(p=>p.over).length;
   document.getElementById('wipBadge').innerHTML = over?`<span class="wip-badge">${over} acima do limite</span>`:`<span class="wip-badge" style="background:#e8f7f0;color:#039e6b">tudo ok</span>`;
-  document.getElementById('wipHint').innerHTML=`${w.meta.note} Total em andamento: <b>${w.total}</b> · limite acordado: <b>${limit}/pessoa</b> · snapshot ${fmt(w.meta.generatedAt)}.`;
+  document.getElementById('wipHint').innerHTML=`${w.meta.note} Total em andamento + em revisão: <b>${w.total}</b> · limite acordado: <b>${limit}/pessoa</b> · snapshot ${fmt(w.meta.generatedAt)}.`;
   document.getElementById('wipCards').innerHTML=w.people.map(p=>{
     const cls=p.over?'over':(p.count===limit?'ok':'');
-    const keys=p.tickets.map(t=>`<a href="${base}/browse/${t.key}" target="_blank" rel="noopener" title="${(t.summary||'').replace(/"/g,'&quot;')}">${t.key}</a>`).join(' · ');
+    const isRev=t=>/revis/i.test(t.status||'');
+    const link=t=>`<a href="${base}/browse/${t.key}" target="_blank" rel="noopener" title="${((t.status?t.status+' — ':'')+(t.summary||'')).replace(/"/g,'&quot;')}">${t.key}</a>`;
+    const and=p.tickets.filter(t=>!isRev(t)), rev=p.tickets.filter(isRev);
+    const keys=(and.length?`<div><b>Em andamento (${and.length}):</b> ${and.map(link).join(' · ')}</div>`:'')+
+               (rev.length?`<div><b>Em revisão (${rev.length}):</b> ${rev.map(link).join(' · ')}</div>`:'');
     return `<div class="wip-chip ${cls}">
       <div class="wp-top"><span class="wp-name">${p.name}</span><span class="wp-n">${p.count}</span></div>
       <div class="wp-tag">${p.over?('acima do limite de '+limit):(p.count===limit?'dentro do limite':'ocioso?')}</div>
