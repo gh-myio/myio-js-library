@@ -10,8 +10,9 @@ import {
   fetchTemperatureData,
   clampTemperature,
   calculateStats,
-  aggregateByHour,
+  aggregateByMinutes,
   aggregateByDay,
+  buildDayTicks,
   formatTemperature,
   formatDateLabel,
   getThemeColors,
@@ -30,6 +31,16 @@ import {
   type DayPeriod
 } from './utils';
 
+import {
+  DEFAULT_CURRENT_TEMPERATURE_MAX_AGE_MINUTES,
+  fetchIngestionLatestTemperature,
+  fetchThingsboardLatestTemperature,
+  makeTemperatureValidator,
+  resolveCurrentTemperature,
+  type ResolvedCurrentTemperature,
+  type TemperatureAggregateFetcher,
+} from './currentTemperature';
+
 import { createDateRangePicker, type DateRangeControl } from '../createDateRangePicker';
 import { CSS_TOKENS, DATERANGEPICKER_STYLES } from '../premium-modals/internal/styles/tokens';
 import { ModalHeader } from '../../utils/ModalHeader';
@@ -38,6 +49,21 @@ import { createModalFooter, type ModalFooterInstance } from '../premium-modals/f
 // ============================================================================
 // Types
 // ============================================================================
+
+/** Granularidade da modal: 15 min / 30 min / hora (média da janela fechada) ou dia (média do dia) */
+export type TemperatureModalGranularity = '15min' | '30min' | TemperatureGranularity;
+
+const GRANULARITY_MINUTES: Partial<Record<TemperatureModalGranularity, number>> = {
+  '15min': 15,
+  '30min': 30,
+  hour: 60,
+};
+const GRANULARITY_LABEL: Record<TemperatureModalGranularity, string> = {
+  '15min': '15 minutos',
+  '30min': '30 minutos',
+  hour: 'Hora',
+  day: 'Dia (média)',
+};
 
 export interface TemperatureModalParams {
   /** JWT token for ThingsBoard API */
@@ -69,7 +95,7 @@ export interface TemperatureModalParams {
   /** Outlier clamping range */
   clampRange?: ClampRange;
   /** Initial granularity */
-  granularity?: TemperatureGranularity;
+  granularity?: TemperatureModalGranularity;
   /** Initial theme */
   theme?: 'dark' | 'light';
   /** IANA timezone string (e.g., 'America/Sao_Paulo'). Defaults to local timezone. */
@@ -80,6 +106,18 @@ export interface TemperatureModalParams {
    * Use this to fetch from an alternative source (e.g., Data Apps ingestion API).
    */
   dataFetcher?: (startTs: number, endTs: number) => Promise<TemperatureTelemetry[]>;
+  /**
+   * Busca agregada em janelas (15/30/60 min) — ex.: `createIngestionTemperatureAggregateFetcher`
+   * (Ingestion /temperature-readings/aggregate). Usada nas granularidades 15 e 30 min e para achar a
+   * leitura mais recente fora do período filtrado. Sem ela, 15/30 min são agregados localmente da
+   * série bruta do ThingsBoard (e ficam indisponíveis quando há `dataFetcher` horário).
+   */
+  aggregateFetcher?: TemperatureAggregateFetcher;
+  /**
+   * "Temperatura Atual": a última leitura do ThingsBoard só vale se tiver no máximo estes minutos;
+   * senão usa a última do Ingestion e, por fim, a última do ThingsBoard (antiga). Padrão 120.
+   */
+  currentTemperatureMaxAgeMinutes?: number;
   /** Nome do device no ThingsBoard — header (fonte sutil + botão copiar), padrão dos relatórios */
   deviceName?: string;
   /** Customer/shopping — footer premium (padrão AllReport/DeviceReport) */
@@ -92,7 +130,7 @@ export interface TemperatureModalInstance {
   /** Destroys the modal */
   destroy: () => void;
   /** Updates data with new date range */
-  updateData: (startDate: string, endDate: string, granularity?: TemperatureGranularity) => Promise<void>;
+  updateData: (startDate: string, endDate: string, granularity?: TemperatureModalGranularity) => Promise<void>;
 }
 
 // ============================================================================
@@ -110,7 +148,7 @@ interface ModalState {
   temperatureOffset: number;
   startTs: number;
   endTs: number;
-  granularity: TemperatureGranularity;
+  granularity: TemperatureModalGranularity;
   theme: 'dark' | 'light';
   clampRange: ClampRange;
   locale: string;
@@ -121,6 +159,12 @@ interface ModalState {
   dateRangePicker: DateRangeControl | null;
   selectedPeriods: DayPeriod[];
   dataFetcher: ((startTs: number, endTs: number) => Promise<TemperatureTelemetry[]>) | null;
+  aggregateFetcher: TemperatureAggregateFetcher | null;
+  /** 'raw' (dataFetcher/TB) ou 'agg:<min>' (aggregateFetcher) — de onde veio state.data */
+  dataMode: string;
+  currentMaxAgeMinutes: number;
+  /** Leitura mais recente resolvida (independe do período); null = usa currentTemperature do card */
+  current: ResolvedCurrentTemperature | null;
   deviceName: string;
   customerName: string;
   accent: string;
@@ -195,6 +239,13 @@ export async function openTemperatureModal(
     dateRangePicker: null,
     selectedPeriods: ['madrugada', 'manha', 'tarde', 'noite'], // All periods selected by default
     dataFetcher: params.dataFetcher ?? null,
+    aggregateFetcher: params.aggregateFetcher ?? null,
+    dataMode: '',
+    currentMaxAgeMinutes:
+      Number(params.currentTemperatureMaxAgeMinutes) > 0
+        ? Number(params.currentTemperatureMaxAgeMinutes)
+        : DEFAULT_CURRENT_TEMPERATURE_MAX_AGE_MINUTES,
+    current: null,
     deviceName: params.deviceName || '',
     customerName: resolveCustomerName(params.customerName),
     accent: resolveAccent(
@@ -211,9 +262,10 @@ export async function openTemperatureModal(
   }
 
   // Load saved preferences
-  const savedGranularity = localStorage.getItem('myio-temp-modal-granularity') as TemperatureGranularity;
+  const savedGranularity = localStorage.getItem('myio-temp-modal-granularity') as TemperatureModalGranularity;
   const savedTheme = localStorage.getItem('myio-temp-modal-theme') as 'dark' | 'light';
-  if (savedGranularity) state.granularity = savedGranularity;
+  if (savedGranularity && savedGranularity in GRANULARITY_LABEL) state.granularity = savedGranularity;
+  if (!isGranularityAvailable(state, state.granularity)) state.granularity = 'hour';
   // Tema pedido pelo chamador vence a preferência salva (senão um toggle antigo p/ dark grudava)
   if (savedTheme && !params.theme) state.theme = savedTheme;
 
@@ -225,15 +277,9 @@ export async function openTemperatureModal(
   // Render modal
   renderModal(modalContainer, state, modalId);
 
-  // Fetch initial data
+  // Fetch initial data (+ leitura mais recente, independente do período)
   try {
-    state.data = discardInvalid(
-      await (state.dataFetcher
-        ? state.dataFetcher(state.startTs, state.endTs)
-        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs)),
-      state
-    );
-    state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
+    await Promise.all([loadSeries(state), refreshCurrent(state)]);
     state.isLoading = false;
     renderModal(modalContainer, state, modalId);
     drawChart(modalId, state);
@@ -254,21 +300,15 @@ export async function openTemperatureModal(
       modalContainer.remove();
       params.onClose?.();
     },
-    updateData: async (startDate: string, endDate: string, granularity?: TemperatureGranularity) => {
+    updateData: async (startDate: string, endDate: string, granularity?: TemperatureModalGranularity) => {
       state.startTs = new Date(startDate).getTime();
       state.endTs = new Date(endDate).getTime();
-      if (granularity) state.granularity = granularity;
+      if (granularity && isGranularityAvailable(state, granularity)) state.granularity = granularity;
       state.isLoading = true;
       renderModal(modalContainer, state, modalId);
 
       try {
-        state.data = discardInvalid(
-      await (state.dataFetcher
-        ? state.dataFetcher(state.startTs, state.endTs)
-        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs)),
-      state
-    );
-        state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
+        await Promise.all([loadSeries(state), refreshCurrent(state)]);
         state.isLoading = false;
         renderModal(modalContainer, state, modalId);
         drawChart(modalId, state);
@@ -279,6 +319,88 @@ export async function openTemperatureModal(
       }
     }
   };
+}
+
+// ============================================================================
+// Data loading
+// ============================================================================
+
+/** 15/30 min exigem agregado (Ingestion) ou série bruta do TB — não dá pra tirar de série horária */
+function isGranularityAvailable(state: ModalState, g: TemperatureModalGranularity): boolean {
+  const m = GRANULARITY_MINUTES[g];
+  if (!m || m >= 60) return true;
+  return !!state.aggregateFetcher || !state.dataFetcher;
+}
+
+/** De onde vem a série para a granularidade atual: agregado do Ingestion (15/30 min) ou bruto */
+function dataModeFor(state: ModalState): string {
+  const m = GRANULARITY_MINUTES[state.granularity];
+  return m && m < 60 && state.aggregateFetcher ? `agg:${m}` : 'raw';
+}
+
+/** Carrega a série do período conforme a granularidade e recalcula os cards */
+async function loadSeries(state: ModalState): Promise<void> {
+  const mode = dataModeFor(state);
+  const raw =
+    mode !== 'raw' && state.aggregateFetcher
+      ? await state.aggregateFetcher(state.startTs, state.endTs, Number(mode.slice(4)))
+      : await (state.dataFetcher
+          ? state.dataFetcher(state.startTs, state.endTs)
+          : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs));
+  state.data = discardInvalid(raw || [], state);
+  state.dataMode = mode;
+  state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
+}
+
+/** "Temperatura Atual" = leitura mais recente do sensor, fora do período filtrado (nunca lança) */
+async function refreshCurrent(state: ModalState): Promise<void> {
+  try {
+    const isValid = makeTemperatureValidator(state.clampRange, state.temperatureOffset);
+    const latestSource: TemperatureAggregateFetcher | null =
+      state.aggregateFetcher ?? (state.dataFetcher ? (s, e) => state.dataFetcher!(s, e) : null);
+    state.current = await resolveCurrentTemperature({
+      maxAgeMinutes: state.currentMaxAgeMinutes,
+      isValid,
+      fetchThingsboardLatest:
+        state.token && state.deviceId
+          ? () => fetchThingsboardLatestTemperature(state.token, state.deviceId)
+          : undefined,
+      fetchIngestionLatest: latestSource
+        ? () => fetchIngestionLatestTemperature(latestSource, Date.now(), undefined, isValid)
+        : undefined,
+    });
+  } catch (err) {
+    console.warn('[TemperatureModal] Temperatura atual indisponível:', err);
+    state.current = null;
+  }
+}
+
+function currentStatus(state: ModalState, value: number | null): 'ok' | 'above' | 'below' | null {
+  if (value === null) return state.temperatureStatus;
+  if (state.temperatureMin === null || state.temperatureMax === null) return state.temperatureStatus;
+  return value > state.temperatureMax ? 'above' : value < state.temperatureMin ? 'below' : 'ok';
+}
+
+/** Valor exibido em "Temperatura Atual" (com offset quando vem da leitura resolvida) */
+function displayedCurrent(state: ModalState): number | null {
+  if (state.current) return state.current.value + (Number(state.temperatureOffset) || 0);
+  return state.currentTemperature;
+}
+
+function currentSourceText(state: ModalState): string {
+  const c = state.current;
+  if (!c) return '';
+  const src = c.source === 'thingsboard' ? 'ThingsBoard' : 'Ingestion';
+  if (c.fresh) {
+    const m = Math.round(c.ageMinutes);
+    const age = m < 1 ? 'agora' : m < 60 ? `há ${m} min` : `há ${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
+    return `${src} · ${age}`;
+  }
+  const when = new Date(c.ts).toLocaleString(state.locale, {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    timeZone: state.timezone || 'America/Sao_Paulo',
+  });
+  return `Última leitura ${when} (${src})`;
 }
 
 // ============================================================================
@@ -295,13 +417,18 @@ function renderModal(
   const startDateStr = new Date(state.startTs).toLocaleDateString(state.locale);
   const endDateStr = new Date(state.endTs).toLocaleDateString(state.locale);
 
-  // Format status
-  const statusText = state.temperatureStatus === 'ok' ? 'Dentro da faixa' :
-    state.temperatureStatus === 'above' ? 'Acima do limite' :
-    state.temperatureStatus === 'below' ? 'Abaixo do limite' : 'N/A';
-  const statusColor = state.temperatureStatus === 'ok' ? colors.success :
-    state.temperatureStatus === 'above' ? colors.danger :
-    state.temperatureStatus === 'below' ? colors.primary : colors.textMuted;
+  // "Temperatura Atual": leitura mais recente resolvida (fora do período) ou, sem ela, a do card
+  const currentValue = displayedCurrent(state);
+  const status = currentStatus(state, state.current ? currentValue : null);
+  const staleCurrent = !!state.current && !state.current.fresh;
+  const statusText = (status === 'ok' ? 'Dentro da faixa' :
+    status === 'above' ? 'Acima do limite' :
+    status === 'below' ? 'Abaixo do limite' : 'N/A') + (staleCurrent ? ' (leitura antiga)' : '');
+  const statusColor = staleCurrent ? colors.textMuted :
+    status === 'ok' ? colors.success :
+    status === 'above' ? colors.danger :
+    status === 'below' ? colors.primary : colors.textMuted;
+  const currentSource = currentSourceText(state);
 
   // Format range text
   const rangeText = (state.temperatureMin !== null && state.temperatureMax !== null)
@@ -368,8 +495,12 @@ function renderModal(
               font-size: 14px; color: ${colors.text}; background: ${colors.surface};
               cursor: pointer; min-width: 130px;
             ">
-              <option value="hour" ${state.granularity === 'hour' ? 'selected' : ''}>Hora</option>
-              <option value="day" ${state.granularity === 'day' ? 'selected' : ''}>Dia (média)</option>
+              ${(Object.keys(GRANULARITY_LABEL) as TemperatureModalGranularity[])
+                .map((g) => {
+                  const ok = isGranularityAvailable(state, g);
+                  return `<option value="${g}" ${state.granularity === g ? 'selected' : ''} ${ok ? '' : 'disabled title="Indisponível para esta fonte de dados"'}>${GRANULARITY_LABEL[g]}</option>`;
+                })
+                .join('')}
             </select>
           </div>
           <!-- Day Period Filter (Multiselect) -->
@@ -457,9 +588,10 @@ function renderModal(
           ">
             <span style="color: ${colors.textMuted}; font-size: 12px; font-weight: 500;">Temperatura Atual</span>
             <div style="font-weight: 700; font-size: 24px; color: ${statusColor}; margin-top: 4px;">
-              ${state.currentTemperature !== null ? formatTemperature(state.currentTemperature) : 'N/A'}
+              ${currentValue !== null ? formatTemperature(currentValue) : 'N/A'}
             </div>
             <div style="font-size: 11px; color: ${statusColor}; margin-top: 2px;">${statusText}</div>
+            ${currentSource ? `<div style="font-size: 10px; color: ${colors.textMuted}; margin-top: 2px;">${escHtml(currentSource)}</div>` : ''}
           </div>
           <!-- Average -->
           <div style="
@@ -574,7 +706,7 @@ function renderModal(
 // Chart Drawing
 // ============================================================================
 
-interface ChartPoint {
+export interface ChartPoint {
   x: number;      // timestamp
   y: number;      // temperature value
   screenX: number; // screen X coordinate
@@ -609,10 +741,11 @@ function drawChart(modalId: string, state: ModalState): void {
   // Process data based on granularity
   let chartData: ChartPoint[];
 
-  if (state.granularity === 'hour') {
-    // Hora fechada: um ponto por hora = média das leituras da hora (13:00 = 13:00–13:59)
-    const hourly = aggregateByHour(filteredData, state.clampRange, state.temperatureOffset);
-    chartData = hourly.map(item => ({
+  const windowMinutes = GRANULARITY_MINUTES[state.granularity];
+  if (windowMinutes) {
+    // Janela fechada (15/30/60 min): um ponto por janela = média das leituras dela (13:00 = 13:00–13:59)
+    const series = aggregateByMinutes(filteredData, windowMinutes, state.clampRange, state.temperatureOffset);
+    chartData = series.map(item => ({
       x: item.ts,
       y: Number(item.value),
       screenX: 0,
@@ -745,47 +878,21 @@ function drawChart(modalId: string, state: ModalState): void {
     ctx.fillText(val.toFixed(1) + '°C', paddingLeft - 8, y + 4);
   }
 
-  // Draw X axis labels with time for hour granularity
+  // Eixo X: período > 24 h → uma marca por dia à meia-noite (dd/mm), rareada p/ ≤ 8;
+  // até 24 h → HH:mm a cada N pontos. (Antes: "a cada N pontos" em vários dias caía em horas
+  // quebradas — 01/11 00:00, 02/11 01:00, 03/11 02:00…)
   ctx.textAlign = 'center';
-  const numLabels = Math.min(8, chartData.length);
-  const labelInterval = Math.max(1, Math.floor(chartData.length / numLabels));
-
-  // Período > 24 h em "Hora": rótulo em 2 linhas (dd/mm + HH:mm) — só a hora,
-  // espaçada ~1 dia, parecia fora de ordem (00:00, 03:00, 02:00, 01:00…)
-  const xSpan = chartData.length > 1 ? chartData[chartData.length - 1].x - chartData[0].x : 0;
-  const multiDay = state.granularity === 'hour' && xSpan > 24 * 60 * 60 * 1000;
-
-  for (let i = 0; i < chartData.length; i += labelInterval) {
-    const point = chartData[i];
-    const date = new Date(point.x);
-
-    // Format label based on granularity
-    let label: string;
-    let subLabel = '';
-    if (state.granularity === 'hour') {
-      // Show time HH:mm for hour granularity (+ date when the range spans days)
-      label = date.toLocaleTimeString(state.locale, { hour: '2-digit', minute: '2-digit' });
-      if (multiDay) {
-        subLabel = label;
-        label = date.toLocaleDateString(state.locale, { day: '2-digit', month: '2-digit' });
-      }
-    } else {
-      // Show date DD/MM for day granularity
-      label = date.toLocaleDateString(state.locale, { day: '2-digit', month: '2-digit' });
-    }
-
-    // Draw vertical grid line
+  const tz = state.timezone || 'America/Sao_Paulo';
+  for (const tick of buildXAxisTicks(chartData, state.granularity, tz, state.locale, isPeriodsFiltered, paddingLeft, chartWidth)) {
     ctx.strokeStyle = colors.chartGrid;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(point.screenX, paddingTop);
-    ctx.lineTo(point.screenX, height - paddingBottom);
+    ctx.moveTo(tick.screenX, paddingTop);
+    ctx.lineTo(tick.screenX, height - paddingBottom);
     ctx.stroke();
 
-    // Draw label
     ctx.fillStyle = colors.textMuted;
-    ctx.fillText(label, point.screenX, height - paddingBottom + 18);
-    if (subLabel) ctx.fillText(subLabel, point.screenX, height - paddingBottom + 31);
+    ctx.fillText(tick.label, tick.screenX, height - paddingBottom + 18);
   }
 
   // Draw axis lines
@@ -799,6 +906,61 @@ function drawChart(modalId: string, state: ModalState): void {
 
   // Setup tooltip
   setupChartTooltip(canvas, chartContainer, chartData, state, colors);
+}
+
+/**
+ * Marcas do eixo X a partir dos pontos já posicionados (screenX calculado).
+ * > 24 h: meia-noite de cada dia (dd/mm); posição por tempo, ou — com períodos do dia filtrados
+ * (eixo por índice) — no primeiro ponto do dia. ≤ 24 h: HH:mm a cada N pontos (dd/mm em "Dia").
+ */
+export function buildXAxisTicks(
+  chartData: ChartPoint[],
+  granularity: TemperatureModalGranularity,
+  timezone: string,
+  locale: string,
+  indexBased: boolean,
+  paddingLeft: number,
+  chartWidth: number
+): { screenX: number; label: string; ts: number }[] {
+  if (!chartData.length) return [];
+  const minX = chartData[0].x;
+  const maxX = chartData[chartData.length - 1].x;
+  const dayLabel = (ts: number) =>
+    new Date(ts).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', timeZone: timezone });
+
+  if (maxX - minX > 24 * 60 * 60 * 1000) {
+    const range = maxX - minX || 1;
+    const out: { screenX: number; label: string; ts: number }[] = [];
+    const seen = new Set<number>();
+    for (const ts of buildDayTicks(minX, maxX, timezone, 8)) {
+      let screenX: number;
+      if (indexBased) {
+        const p = chartData.find((d) => d.x >= ts);
+        if (!p) continue;
+        screenX = p.screenX;
+      } else {
+        screenX = paddingLeft + ((ts - minX) / range) * chartWidth;
+      }
+      const key = Math.round(screenX);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ screenX, label: dayLabel(ts), ts });
+    }
+    return out;
+  }
+
+  const numLabels = Math.min(8, chartData.length);
+  const interval = Math.max(1, Math.floor(chartData.length / numLabels));
+  const out: { screenX: number; label: string; ts: number }[] = [];
+  for (let i = 0; i < chartData.length; i += interval) {
+    const p = chartData[i];
+    const label =
+      granularity === 'day'
+        ? dayLabel(p.x)
+        : new Date(p.x).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone: timezone });
+    out.push({ screenX: p.screenX, label, ts: p.x });
+  }
+  return out;
 }
 
 // ============================================================================
@@ -867,7 +1029,7 @@ function setupChartTooltip(
 
       // Format date/time based on granularity
       let dateStr: string;
-      if (state.granularity === 'hour') {
+      if (state.granularity !== 'day') {
         dateStr = date.toLocaleDateString(state.locale, {
           day: '2-digit', month: '2-digit', year: 'numeric'
         }) + ' ' + date.toLocaleTimeString(state.locale, {
@@ -1051,9 +1213,29 @@ async function setupEventListeners(
   });
 
   // Granularity change
-  document.getElementById(`${modalId}-granularity`)?.addEventListener('change', (e) => {
-    state.granularity = (e.target as HTMLSelectElement).value as TemperatureGranularity;
+  document.getElementById(`${modalId}-granularity`)?.addEventListener('change', async (e) => {
+    const next = (e.target as HTMLSelectElement).value as TemperatureModalGranularity;
+    if (!isGranularityAvailable(state, next)) return;
+    state.granularity = next;
     localStorage.setItem('myio-temp-modal-granularity', state.granularity);
+    // Mudou a fonte (agregado 15/30 min ↔ série bruta/horária) → busca de novo
+    if (dataModeFor(state) !== state.dataMode) {
+      state.isLoading = true;
+      state.dateRangePicker = null;
+      renderModal(container, state, modalId);
+      try {
+        await loadSeries(state);
+        state.isLoading = false;
+        renderModal(container, state, modalId);
+        drawChart(modalId, state);
+      } catch (error) {
+        console.error('[TemperatureModal] Error fetching data:', error);
+        state.isLoading = false;
+        renderModal(container, state, modalId, error as Error);
+      }
+      await setupEventListeners(container, state, modalId, onClose);
+      return;
+    }
     if (state.data.length > 0) drawChart(modalId, state);
   });
 
@@ -1070,13 +1252,7 @@ async function setupEventListeners(
     renderModal(container, state, modalId);
 
     try {
-      state.data = discardInvalid(
-      await (state.dataFetcher
-        ? state.dataFetcher(state.startTs, state.endTs)
-        : fetchTemperatureData(state.token, state.deviceId, state.startTs, state.endTs)),
-      state
-    );
-      state.stats = calculateStats(state.data, state.clampRange, state.temperatureOffset);
+      await Promise.all([loadSeries(state), refreshCurrent(state)]);
       state.isLoading = false;
       renderModal(container, state, modalId);
       drawChart(modalId, state);
@@ -1122,12 +1298,18 @@ function exportCsv(state: ModalState): void {
     ...(state.deviceName ? [['Dispositivo (TB)', state.deviceName]] : []),
     ...(state.customerName ? [['Cliente', state.customerName]] : []),
     ['Período', `${fmtD(state.startTs)} — ${fmtD(state.endTs)}`],
-    ['Granularidade', state.granularity === 'hour' ? 'Hora (média da hora fechada)' : 'Dia (média do dia)'],
+    [
+      'Granularidade',
+      state.granularity === 'day'
+        ? 'Dia (média do dia)'
+        : `${GRANULARITY_LABEL[state.granularity]} (média da janela fechada)`,
+    ],
     ['Períodos do dia', getSelectedPeriodsLabel(state.selectedPeriods)],
     ...(off !== 0 ? [['Offset aplicado (°C)', n2(off)]] : []),
     ['Gerado em', new Date().toLocaleString('pt-BR')],
     [],
-    ['Temperatura atual (°C)', state.currentTemperature !== null ? n2(state.currentTemperature) : 'N/A'],
+    ['Temperatura atual (°C)', displayedCurrent(state) !== null ? n2(displayedCurrent(state) as number) : 'N/A'],
+    ...(state.current ? [['Origem da temperatura atual', currentSourceText(state)]] : []),
     ['Média do período (°C)', state.stats.count > 0 ? n2(state.stats.avg) : 'N/A'],
     ['Mínima (°C)', state.stats.count > 0 ? n2(state.stats.min) : 'N/A'],
     ['Máxima (°C)', state.stats.count > 0 ? n2(state.stats.max) : 'N/A'],
@@ -1135,9 +1317,10 @@ function exportCsv(state: ModalState): void {
     [],
   ];
 
-  if (state.granularity === 'hour') {
+  const csvMinutes = GRANULARITY_MINUTES[state.granularity];
+  if (csvMinutes) {
     lines.push(['Data/Hora', 'Temperatura (°C)']);
-    aggregateByHour(filtered, state.clampRange, off).forEach((p) => lines.push([dt(p.ts), n2(Number(p.value))]));
+    aggregateByMinutes(filtered, csvMinutes, state.clampRange, off).forEach((p) => lines.push([dt(p.ts), n2(Number(p.value))]));
   } else {
     lines.push(['Dia', 'Média (°C)', 'Mín (°C)', 'Máx (°C)', 'Leituras']);
     aggregateByDay(filtered, state.clampRange, off).forEach((d) =>
@@ -1150,7 +1333,8 @@ function exportCsv(state: ModalState): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `temperatura_${state.label.replace(/\s+/g, '_')}_${state.granularity === 'hour' ? '1h' : '1d'}_${new Date()
+  const suffix = { '15min': '15min', '30min': '30min', hour: '1h', day: '1d' }[state.granularity];
+  a.download = `temperatura_${state.label.replace(/\s+/g, '_')}_${suffix}_${new Date()
     .toISOString()
     .slice(0, 10)}.csv`;
   document.body.appendChild(a);

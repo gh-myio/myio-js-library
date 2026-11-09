@@ -3330,6 +3330,9 @@ function renderList(visible) {
             const ingestionId = it.ingestionId || null;
             const useIngestionApi = !!(window.MyIOUtils?.enableTemperatureApiDataFetch && ingestionId);
             let ingestionDataFetcher = null;
+            // Agregado de 15 min do Ingestion (GET /temperature-readings/aggregate?gatewayId&slaveId):
+            // granularidade 15/30 min na modal + leitura mais recente fora do período filtrado
+            let ingestionAggregateFetcher = null;
 
             if (useIngestionApi) {
               try {
@@ -3368,8 +3371,41 @@ function renderList(visible) {
                     .map((e) => ({ ts: new Date(e.timestamp).getTime(), value: Number(e.value) }));
                 };
 
+                const gatewayId = it.centralId && it.centralId !== 'N/A' ? String(it.centralId) : null;
+                const slaveId = Number(it.slaveId);
+                if (gatewayId && Number.isFinite(slaveId)) {
+                  ingestionAggregateFetcher = async (fetchStartTs, fetchEndTs, intervalMinutes) => {
+                    const m = Math.max(15, Math.round(Number(intervalMinutes) || 15));
+                    const interval = m >= 60 && m % 60 === 0 ? `${m / 60} hour` : `${m} minutes`;
+                    const url = new URL(`${dataApiHost}/temperature-readings/aggregate`);
+                    url.searchParams.set('gatewayId', gatewayId);
+                    url.searchParams.set('slaveId', String(slaveId));
+                    url.searchParams.set('startTs', new Date(fetchStartTs).toISOString());
+                    url.searchParams.set('endTs', new Date(fetchEndTs).toISOString());
+                    url.searchParams.set('interval', interval);
+                    url.searchParams.set('timezone', 'America/Sao_Paulo');
+                    let token = null;
+                    try {
+                      token = await myIOAuth.getToken();
+                    } catch (_) {
+                      token = null; // a rota ainda aceita sem token
+                    }
+                    const res = await fetch(
+                      url.toString(),
+                      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+                    );
+                    if (!res.ok) throw new Error(`Ingestion aggregate error: ${res.status}`);
+                    const rows = await res.json();
+                    return (Array.isArray(rows) ? rows : [])
+                      .map((r) => ({ ts: new Date(r.bucket).getTime(), value: Number(r.avg_temperature) }))
+                      .filter((p) => Number.isFinite(p.ts) && Number.isFinite(p.value))
+                      .sort((a, b) => a.ts - b.ts);
+                  };
+                }
+
                 LogHelper.log(
-                  `[TELEMETRY v5] 🌡️ RFC-0189: using ingestion API for modal (ingestionId: ${ingestionId})`
+                  `[TELEMETRY v5] 🌡️ RFC-0189: using ingestion API for modal (ingestionId: ${ingestionId}` +
+                    `${ingestionAggregateFetcher ? `, aggregate ${gatewayId}/${slaveId}` : ''})`
                 );
               } catch (authErr) {
                 LogHelper.warn(
@@ -3419,6 +3455,9 @@ function renderList(visible) {
               granularity: 'hour',
               ...(clampRange ? { clampRange } : {}),
               ...(ingestionDataFetcher ? { dataFetcher: ingestionDataFetcher } : {}),
+              ...(ingestionAggregateFetcher ? { aggregateFetcher: ingestionAggregateFetcher } : {}),
+              // "Temperatura Atual": TB só vale se a leitura tiver até N min (MAIN_VIEW); senão Ingestion
+              currentTemperatureMaxAgeMinutes: window.MyIOUtils?.temperatureCurrentMaxAgeMinutes ?? 120,
               onClose: () => {
                 LogHelper.log('[TELEMETRY v5] Temperature modal closed');
               },

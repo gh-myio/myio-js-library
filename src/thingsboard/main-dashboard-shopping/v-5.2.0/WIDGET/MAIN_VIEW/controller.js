@@ -78,6 +78,13 @@ const TEMPERATURE_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 // Idade da última leitura → estado do card: ≤ 10 h normal · ≤ 12 h aviso · ≤ 24 h sem leitura recente
 const TEMPERATURE_FRESHNESS = { okMs: 10 * 60 * 60 * 1000, warningMs: 12 * 60 * 60 * 1000 };
 
+/**
+ * Modal de temperatura — "Temperatura Atual": a última leitura do ThingsBoard só é usada se tiver no
+ * máximo estes minutos; senão a modal usa a última do Ingestion (agregado) e, por fim, a última do
+ * ThingsBoard mesmo antiga. Exposto em MyIOUtils.temperatureCurrentMaxAgeMinutes (lido pelo TELEMETRY).
+ */
+const TEMPERATURE_CURRENT_MAX_AGE_MINUTES = 120;
+
 /** ISO 8601 em horário de Brasília (`-03:00`), ex.: 2026-10-08T10:00:00-03:00 */
 function toSaoPauloIso(ms) {
   return new Date(ms - 3 * 60 * 60 * 1000).toISOString().slice(0, 19) + '-03:00';
@@ -493,6 +500,8 @@ Object.assign(window.MyIOUtils, {
   },
   // Outlier clamp range for temperature chart/CSV (superadmin-only, from SERVER_SCOPE)
   temperatureClampRange: null, // { min, max } or null → falls back to DEFAULT_CLAMP_RANGE (15–40)
+  // Modal de temperatura: idade máxima (min) da última leitura do TB p/ valer como "Temperatura Atual"
+  temperatureCurrentMaxAgeMinutes: TEMPERATURE_CURRENT_MAX_AGE_MINUTES,
   // RFC-0106: Global mapInstantaneousPower from customer's parent entity
   // Used for deviceStatus calculation with power ranges
   mapInstantaneousPower: null,
