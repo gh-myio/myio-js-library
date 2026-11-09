@@ -24,6 +24,7 @@ import {
   renderEquipmentTilesHTML,
   renderEquipmentShortcutHTML,
   indicatorStateClass,
+  indicatorTag,
 } from '../../../src/components/well-pumps/equipmentIndicators';
 import { openWellPumpsModal, renderWellPumpsBodyHTML } from '../../../src/components/well-pumps/WellPumpsModal';
 import type { WellPumpsModalData } from '../../../src/components/well-pumps/types';
@@ -194,9 +195,86 @@ describe('indicadores B1/B2/S', () => {
   });
 
   it('escapa HTML do label', () => {
-    const strip = createEquipmentIndicatorStrip([{ code: '<b>', label: '"x"', kind: 'pump', active: false }]);
+    // rótulo longo → badge mostra o código (escapado)
+    const strip = createEquipmentIndicatorStrip([{ code: '<b>', label: '"x" <i>y</i>', kind: 'pump', active: false }]);
     expect(strip.querySelector('b')).toBeNull();
+    expect(strip.querySelector('i')).toBeNull();
     expect(strip.querySelector('.myio-eq-b')!.textContent).toBe('<b>');
+    // rótulo curto → vira o texto do badge, também escapado
+    const short = createEquipmentIndicatorStrip([{ code: 'B1', label: '<i>', kind: 'pump', active: false }]);
+    expect(short.querySelector('i')).toBeNull();
+    expect(short.querySelector('.myio-eq-b')!.textContent).toBe('<i>');
+  });
+});
+
+describe('rótulo curto configurado (aba Equipamentos do Poço) no lugar do slot', () => {
+  // Taboão: slot B1 → STBP03 com rótulo "B3"; slot B2 → STBP04 com rótulo "B4"
+  const taboao = (): WellPumpsModalData => ({
+    pumps: [
+      { code: 'B1', label: 'B3', identifier: 'STBP03_BOMBA_POCO_03', history: [[NOW - HOUR_MS, null]] },
+      { code: 'B2', label: 'B4', identifier: 'STBP04_BOMBA_POCO_04', history: [] },
+    ],
+    valves: [{ code: 'S', label: 'S', history: [[NOW - HOUR_MS, null]] }],
+  });
+
+  it('indicatorTag: rótulo de 1–4 caracteres sem espaço; senão o código do slot', () => {
+    expect(indicatorTag({ code: 'B1', label: 'B3' })).toBe('B3');
+    expect(indicatorTag({ code: 'B1', label: '  B4 ' })).toBe('B4');
+    expect(indicatorTag({ code: 'B1', label: 'BP03' })).toBe('BP03');
+    expect(indicatorTag({ code: 'B1', label: 'BP-03' })).toBe('B1'); // 5 caracteres
+    expect(indicatorTag({ code: 'B1', label: 'B 3' })).toBe('B1'); // espaço
+    expect(indicatorTag({ code: 'B1', label: '3F MOTR. STBP03_BOMBA_POCO_03' })).toBe('B1');
+    expect(indicatorTag({ code: 'B2', label: '' })).toBe('B2');
+    expect(indicatorTag({ code: 'B2', label: undefined })).toBe('B2');
+  });
+
+  it('strip do card mostra B3/B4 e mantém o slot em data-code', () => {
+    const strip = createEquipmentIndicatorStrip(indicatorsFromModalData(taboao()));
+    const badges = [...strip.querySelectorAll('.myio-eq-b')];
+    expect(badges.map((el) => el.getAttribute('data-code'))).toEqual(['B1', 'B2', 'S']);
+    expect(badges.slice(0, 2).map((el) => el.textContent)).toEqual(['B3', 'B4']);
+    expect(badges[2].querySelector('svg')).not.toBeNull(); // solenoide única → ícone
+    // tooltip sem "B3 · B3"
+    expect(badges[0].getAttribute('title')).toMatch(/^B3 \(BOMBA_POCO\): ligada/);
+  });
+
+  it('rótulo longo continua no tooltip, com o slot no badge', () => {
+    const strip = createEquipmentIndicatorStrip([
+      { code: 'B1', label: '3F MOTR. STBP03_BOMBA_POCO_03', kind: 'pump', active: false, deviceProfile: 'BOMBA_POCO' },
+    ]);
+    const badge = strip.querySelector('.myio-eq-b')!;
+    expect(badge.textContent).toBe('B1');
+    expect(badge.getAttribute('title')).toContain('B1 · 3F MOTR. STBP03_BOMBA_POCO_03 (BOMBA_POCO)');
+  });
+
+  it('solenoide com rótulo curto de 2+ caracteres → texto no lugar do ícone', () => {
+    const strip = createEquipmentIndicatorStrip([{ code: 'S', label: 'S2', kind: 'valve', active: true }]);
+    const badge = strip.querySelector('.myio-eq-b')!;
+    expect(badge.querySelector('svg')).toBeNull();
+    expect(badge.textContent).toBe('S2');
+  });
+
+  it('tiles da modal do reservatório e chips do atalho usam o rótulo curto', () => {
+    const inds = indicatorsFromModalData(taboao());
+    const tiles = document.createElement('div');
+    tiles.innerHTML = renderEquipmentTilesHTML(inds);
+    expect([...tiles.querySelectorAll('.myio-eq-ti b')].map((b) => b.textContent)).toEqual(['B3', 'B4', 'S']);
+    const chips = document.createElement('div');
+    chips.innerHTML = renderEquipmentShortcutHTML(inds);
+    expect([...chips.querySelectorAll('i')].map((i) => i.textContent)).toEqual(['B3', 'B4', 'S']);
+  });
+
+  it('modal Automação dos Poços: tag = rótulo curto, nome = identifier (sem "B3 B3")', () => {
+    const div = document.createElement('div');
+    div.innerHTML = renderWellPumpsBodyHTML(taboao(), { now: NOW });
+    const name = div.querySelector('[data-code="B1"] .myio-wp-name')!;
+    expect(name.querySelector('.myio-wp-tag')!.textContent).toBe('B3');
+    expect(name.textContent).toBe('B3STBP03_BOMBA_POCO_03');
+    // rótulo longo → tag = slot, nome = rótulo
+    div.innerHTML = renderWellPumpsBodyHTML(sample(), { now: NOW });
+    const longName = div.querySelector('[data-code="B1"] .myio-wp-name')!;
+    expect(longName.querySelector('.myio-wp-tag')!.textContent).toBe('B1');
+    expect(longName.textContent).toBe('B1Bomba Poço 3');
   });
 });
 

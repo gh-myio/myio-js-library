@@ -7,6 +7,7 @@ export {
   ensureEquipmentIndicatorStyles,
   indicatorStateClass,
   indicatorTitle,
+  indicatorTag,
 } from './equipmentIndicators';
 export {
   parseBinaryState,

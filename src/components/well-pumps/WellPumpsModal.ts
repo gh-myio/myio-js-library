@@ -13,7 +13,7 @@ import {
   timelineSegments,
   DAY_MS,
 } from './equipmentState';
-import { escapeHtml, PUMP_SVG, VALVE_SVG } from './equipmentIndicators';
+import { escapeHtml, indicatorTag, PUMP_SVG, VALVE_SVG } from './equipmentIndicators';
 import type {
   OpenWellPumpsModalParams,
   WellPumpInfo,
@@ -111,6 +111,17 @@ function timelineHTML(history: WellPumpInfo['history'], now: number, kind: 'pump
     </div>`;
 }
 
+/**
+ * Tag + nome do equipamento. Tag = rótulo curto configurado (ex.: 'B3') ou o slot ('B1'); quando o
+ * rótulo já virou a tag, o nome passa a ser o identifier do device (evita "B3 B3").
+ */
+function equipmentNameHTML(item: WellPumpInfo | WellValveInfo, fallbackProfile: string): string {
+  const tag = indicatorTag(item);
+  const label = String(item.label ?? '').trim();
+  const name = label && label !== tag ? label : item.identifier || item.deviceProfile || fallbackProfile;
+  return `<span class="myio-wp-tag">${escapeHtml(tag)}</span>${escapeHtml(name)}`;
+}
+
 function pumpCardHTML(p: WellPumpInfo, now: number, images: { pump: string }, focusWellId?: string): string {
   const on = isActive(p.history);
   const known = Array.isArray(p.history);
@@ -127,7 +138,7 @@ function pumpCardHTML(p: WellPumpInfo, now: number, images: { pump: string }, fo
       <div class="myio-wp-top">
         <img class="myio-wp-img" src="${escapeHtml(images.pump)}" alt="">
         <div>
-          <div class="myio-wp-name"><span class="myio-wp-tag">${escapeHtml(p.code)}</span>${escapeHtml(p.label)}</div>
+          <div class="myio-wp-name">${equipmentNameHTML(p, 'BOMBA_POCO')}</div>
           <div class="myio-wp-meta"><span class="myio-wp-prof">${escapeHtml(p.deviceProfile || 'BOMBA_POCO')}</span>${meta}</div>
         </div>
         <span class="myio-wp-state ${!known ? 'unk' : on ? 'on' : 'off'}">${PUMP_SVG}${!known ? 'SEM LEITURA' : on ? 'LIGADA' : 'DESLIGADA'}</span>
@@ -162,7 +173,7 @@ function valveCardHTML(v: WellValveInfo, now: number, images: { valve: string })
       <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
         <div class="myio-wp-top">
           <div>
-            <div class="myio-wp-name"><span class="myio-wp-tag">${escapeHtml(v.code)}</span>${escapeHtml(v.label)}</div>
+            <div class="myio-wp-name">${equipmentNameHTML(v, 'SOLENOIDE')}</div>
             <div class="myio-wp-meta"><span class="myio-wp-prof">${escapeHtml(v.deviceProfile || 'SOLENOIDE')}</span>${meta}</div>
           </div>
           <span class="myio-wp-state ${!known ? 'unk' : open ? 'open' : 'closed'}">${VALVE_SVG}${!known ? 'SEM LEITURA' : open ? 'ABERTA' : 'FECHADA'}</span>
