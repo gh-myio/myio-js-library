@@ -10,8 +10,12 @@ import { exportGridPdf, exportGridXls } from '../../telemetry-grid-shopping/expo
 import type { TelemetryDevice } from '../../telemetry-grid-shopping/types';
 import { createParticipationChart } from '../../graphs';
 import type { ParticipationChartInstance } from '../../graphs';
-import { createGranularitySelector } from '../../granularity-selector';
-import type { GranularitySelectorInstance } from '../../granularity-selector';
+import {
+  createGranularitySelector,
+  granularityMinutes,
+  TEMPERATURE_GRANULARITY_OPTIONS,
+} from '../../granularity-selector';
+import type { Granularity, GranularitySelectorInstance } from '../../granularity-selector';
 import { createModalFooter } from '../footer-modal';
 import { renderTemperatureBarsPng } from '../internal/temperatureBarsPng';
 import type { ModalFooterInstance } from '../footer-modal';
@@ -144,7 +148,9 @@ export class DeviceReportModal {
   private dateRangePicker: DateRangeControl | null = null;
   private sortState: { key: keyof DailyReading | null; direction: 'asc' | 'desc' } = { key: null, direction: 'asc' };
   private domainConfig: DomainConfig;
-  private granularity: '1d' | '1h' = '1d';
+  // Temperatura: 15m | 30m | 1h | 1d (15/30 min agregados no cliente a partir dos blocos de
+  // 15 min que o Ingestion devolve com granularity=1h). Demais domínios: 1h | 1d.
+  private granularity: Granularity = '1d';
   // Granularity selector (shared component — same pill 1h|1d as EnergyModal/AllReportModal).
   private granularitySelector: GranularitySelectorInstance | null = null;
   // Footer premium: Customer · relógio · versão | Powered by MYIO | CSV.
@@ -171,7 +177,31 @@ export class DeviceReportModal {
     this.granularity = params.granularity === '1h' ? '1h' : '1d';
 
     // Use injected fetcher or create default with params; getter ensures live granularity
-    this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params, () => this.granularity);
+    this.energyFetcher = params.fetcher || createDefaultEnergyFetcher(params, () => this.apiGranularity);
+  }
+
+  /** Linhas intradiárias (15 min, 30 min ou hora) — tudo que não é '1d' */
+  private get isIntraday(): boolean {
+    return this.granularity !== '1d';
+  }
+
+  /** O Ingestion só aceita 1h|1d: 15/30 min buscam 1h (blocos de 15 min) e agregam aqui */
+  private get apiGranularity(): '1h' | '1d' {
+    return this.isIntraday ? '1h' : '1d';
+  }
+
+  /** Rótulo da linha intradiária: "Hora" (1h) ou "Horário" (15/30 min) */
+  private get intradayLabel(): string {
+    return this.granularity === '1h' ? 'Hora' : 'Horário';
+  }
+
+  /** Rótulo legível da granularidade (CSV/avisos) */
+  private get granularityText(): string {
+    return { '15m': '15 minutos', '30m': '30 minutos', '1h': 'Hora', '1d': 'Dia' }[this.granularity];
+  }
+
+  private get isTemperatureDomain(): boolean {
+    return (this.params.domain || 'energy') === 'temperature';
   }
 
   // Header: "Relatório - <identifier> - <label>" + nome do device (sutil, com copiar).
@@ -443,13 +473,18 @@ export class DeviceReportModal {
           // sem label interno (o form group acima já tem "Granularidade").
           label: '',
           themeMode: this.params.ui?.theme === 'dark' ? 'dark' : 'light',
+          // Temperatura: 15m | 30m | 1h | 1d; demais domínios: 1h | 1d (default do componente)
+          ...(this.isTemperatureDomain ? { options: TEMPERATURE_GRANULARITY_OPTIONS } : {}),
           tooltip: {
             enabled: true,
             title: 'Granularidade',
-            text: 'Em <b>Dia</b>, a tabela traz uma linha por dia; em <b>Hora</b>, uma linha por hora e o seletor de período ganha hora/minuto. KPIs e gráfico recalculam conforme a granularidade.',
+            text: this.isTemperatureDomain
+              ? 'Em <b>Dia</b>, uma linha por dia (média do dia); em <b>15m</b>, <b>30m</b> e <b>1h</b>, uma linha por janela (média da janela) e o seletor de período ganha hora/minuto. KPIs e gráfico recalculam conforme a granularidade.'
+              : 'Em <b>Dia</b>, a tabela traz uma linha por dia; em <b>Hora</b>, uma linha por hora e o seletor de período ganha hora/minuto. KPIs e gráfico recalculam conforme a granularidade.',
           },
         },
         onChange: async (value) => {
+          if (!this.isTemperatureDomain && value !== '1h' && value !== '1d') return;
           this.granularity = value;
           // Rebuild DateRangePicker so the time input appears only when 1h
           await this.rebuildDateRangePicker(dateRangeInput);
@@ -475,7 +510,7 @@ export class DeviceReportModal {
     if (tableContainer) {
       tableContainer.innerHTML = `
         <div style="text-align: center; padding: 40px; color: var(--myio-text-muted);">
-          Granularidade alterada para <strong>${this.granularity}</strong>. Clique em "Carregar" para atualizar os dados.
+          Granularidade alterada para <strong>${this.granularityText}</strong>. Clique em "Carregar" para atualizar os dados.
         </div>
       `;
     }
@@ -527,7 +562,7 @@ export class DeviceReportModal {
         presetEnd,
         // Ciclo de rateio (dia D → dia D do mês seguinte) tem até 32 dias corridos (ex.: 15/08→15/09)
         maxRangeDays: 32,
-        includeTime: this.granularity === '1h',
+        includeTime: this.isIntraday,
         timePrecision: 'minute',
         parentEl: this.modal.element,
         onApply: ({ startISO, endISO }) => {
@@ -549,7 +584,7 @@ export class DeviceReportModal {
   // Contrato do getDates(): hora LOCAL + offset (YYYY-MM-DDTHH:mm:ss±HH:MM) — os 10
   // primeiros caracteres são o dia exibido e os 6 últimos, o offset.
   private resolveQueryWindow(range: DateRangeResult): { startISO: string; endISO: string } {
-    if (this.granularity === '1h' || !range.startISO || !range.endISO) return range;
+    if (this.isIntraday || !range.startISO || !range.endISO) return range;
     const day = (iso: string) => iso.slice(0, 10);
     const offset = (iso: string) => iso.slice(-6);
     return {
@@ -603,7 +638,8 @@ export class DeviceReportModal {
         ingestionId: this.params.ingestionId,
         startISO,
         endISO,
-        granularity: this.granularity,
+        // API só conhece 1h|1d — 15/30 min vêm do 1h e são agregados em processApiResponse
+        granularity: this.apiGranularity,
       });
 
       // Process API response
@@ -635,7 +671,7 @@ export class DeviceReportModal {
   private processApiResponse(apiResponse: any, dateRange: string[]): DailyReading[] {
     // Handle response - expect array with data property
     const dataArray = Array.isArray(apiResponse) ? apiResponse : (apiResponse.data || []);
-    const isHourly = (this.granularity) === '1h';
+    const isHourly = this.isIntraday;
 
     if (!Array.isArray(dataArray) || dataArray.length === 0) {
       console.warn("[DeviceReportModal] API returned empty or invalid response, zero-filling date range");
@@ -665,10 +701,10 @@ export class DeviceReportModal {
     }
 
     if (isHourly) {
-      // Hourly: HORA FECHADA — a API devolve blocos sub-horários (15/30 min) mesmo pedindo
-      // 1h; consolida por hora: média (temperatura) ou soma (consumo). Sem zero-fill.
+      // Intradiário: JANELA FECHADA (15 min, 30 min ou 1 h) — a API devolve blocos de 15 min
+      // mesmo pedindo 1h; consolida por janela: média (temperatura) ou soma (consumo). Sem zero-fill.
       const isAvg = this.domainConfig.summaryType === 'average';
-      const HOUR = 3600 * 1000;
+      const HOUR = granularityMinutes(this.granularity) * 60 * 1000;
       const byHour = new Map<number, { sum: number; n: number }>();
       consumption.forEach((item: any) => {
         if (!item.timestamp || item.value == null) return;
@@ -749,7 +785,7 @@ export class DeviceReportModal {
   private computeKpis(): Array<{ value: string; label: string; sub?: string }> {
     const fmt = this.domainConfig.formatter;
     const unit = this.domainConfig.unit;
-    const isHourly = this.granularity === '1h';
+    const isHourly = this.isIntraday;
     const isTemperature = this.domainConfig.summaryType === 'average';
 
     const total = this.calculateTotal();
@@ -776,7 +812,7 @@ export class DeviceReportModal {
     );
     const zeroCount = this.data.filter((r) => r.consumption <= 0).length;
 
-    const rowLabel = isHourly ? 'Hora' : 'Dia';
+    const rowLabel = isHourly ? this.intradayLabel : 'Dia';
 
     // Média por Dia: consumo = total ÷ dias; temperatura = média das médias diárias
     // (antes era soma de todas as horas ÷ dias → ex.: 537 °C em 1h)
@@ -820,7 +856,7 @@ export class DeviceReportModal {
       kpis.push({ value: String(zeroCount), label: isHourly ? 'Horas sem Consumo' : 'Dias sem Consumo' });
     } else {
       const noData = this.data.length - rows.length;
-      if (noData > 0) kpis.push({ value: String(noData), label: isHourly ? 'Horas sem Leitura' : 'Dias sem Leitura' });
+      if (noData > 0) kpis.push({ value: String(noData), label: isHourly ? `${this.intradayLabel}s sem Leitura` : 'Dias sem Leitura' });
     }
     return kpis;
   }
@@ -844,7 +880,7 @@ export class DeviceReportModal {
   // Temperatura (painel direito): ranking em barras — 1d = dias mais quentes (média do dia);
   // 1h = horas mais quentes (top 24). Escala comum + faixa ideal sombreada (padrão AllReport).
   private renderTemperatureRanking(container: HTMLElement): void {
-    const isHourly = this.granularity === '1h';
+    const isHourly = this.isIntraday;
     const valid = this.validRows;
     if (!valid.length) {
       container.innerHTML = `<div style="border:1px dashed var(--myio-border,#e5e7eb);border-radius:10px;padding:32px 16px;text-align:center;font-size:13px;color:var(--myio-text-muted,#6b7280);">Sem leituras no período</div>`;
@@ -882,7 +918,7 @@ export class DeviceReportModal {
 
     const unit = this.domainConfig.unit;
     const title = isHourly
-      ? `${this.domainConfig.rankingHourTitle}${ranked.length > TOP_HOURS ? ` (top ${TOP_HOURS})` : ''}`
+      ? `${this.intradayRankingTitle()}${ranked.length > TOP_HOURS ? ` (top ${TOP_HOURS})` : ''}`
       : this.domainConfig.rankingDayTitle;
     container.innerHTML = `
       <div style="border:1px solid var(--myio-border,#e5e7eb);border-radius:10px;padding:12px 14px;max-height:620px;overflow-y:auto;">
@@ -897,6 +933,13 @@ export class DeviceReportModal {
         ${shown.map((r) => line(this.formatDate(r.date), r)).join('')}
         ${noData.map((r) => line(this.formatDate(r.date), null)).join('')}
       </div>`;
+  }
+
+  // "Horas mais quentes" (1h) / "Horários mais quentes (15 min)" (15/30 min)
+  private intradayRankingTitle(): string {
+    const base = this.domainConfig.rankingHourTitle || '';
+    if (this.granularity === '1h') return base;
+    return `${base.replace(/^Horas/, 'Horários')} (${this.granularityText})`;
   }
 
   private updateDayChart(): void {
@@ -964,7 +1007,7 @@ export class DeviceReportModal {
           <thead style="position: sticky; top: 0; background: var(--myio-bg); z-index: 1;">
             <tr>
               <th style="cursor: pointer;" data-sort="date">
-                ${(this.granularity) === '1h' ? 'Data/Hora' : 'Data'}
+                ${this.isIntraday ? 'Data/Hora' : 'Data'}
                 <span style="margin-left: 4px; opacity: ${this.sortState.key === 'date' ? '1' : '0.5'};">${getSortIndicator('date')}</span>
               </th>
               <th style="cursor: pointer; text-align: right;" data-sort="consumption">
@@ -1071,17 +1114,17 @@ export class DeviceReportModal {
       ...(isTemp && off !== 0 ? [['Offset aplicado (°C)', this.domainConfig.formatter(off), '']] : []),
       ...(this.resolveCustomerName() ? [['Cliente', this.resolveCustomerName(), '']] : []),
       ...(p?.startISO ? [['Período', `${fmtD(p.startISO)} — ${fmtD(p.endISO)}`, '']] : []),
-      ['Granularidade', this.granularity === '1h' ? 'Hora' : 'Dia', ''],
+      ['Granularidade', this.granularityText, ''],
       ['DATA EMISSÃO', timestamp, ''],
       [],
       ...this.computeKpis().map((k) => [k.label, k.value, k.sub || '']),
       [],
-      [this.granularity === '1h' ? 'Data/Hora' : 'Data', this.domainConfig.label, ''],
+      [this.isIntraday ? 'Data/Hora' : 'Data', this.domainConfig.label, ''],
       ...this.data.map(row => [this.formatDate(row.date), row.noData ? 'Sem leitura' : this.domainConfig.formatter(row.consumption)])
     ];
 
     const csvContent = toCsv(csvData);
-    const granSuffix = this.granularity === '1h' ? '-1h' : '';
+    const granSuffix = this.isIntraday ? `-${this.granularity}` : '';
     this.downloadCSV(csvContent, `relatorio-${this.params.identifier || 'dispositivo'}${granSuffix}-${new Date().toISOString().split('T')[0]}.csv`);
   }
 
@@ -1135,11 +1178,11 @@ export class DeviceReportModal {
   private exportColumnOptions() {
     const isTemp = this.domainConfig.summaryType === 'average';
     return {
-      nameLabel: this.granularity === '1h' ? 'Data/Hora' : 'Data',
+      nameLabel: this.isIntraday ? 'Data/Hora' : 'Data',
       hideIdentifier: true,
       // Mesmo rótulo da coluna da tela (antes saía "Consumo (°C)" em temperatura)
       valueLabel: this.domainConfig.label,
-      countLabel: this.granularity === '1h' ? 'hora(s)' : 'dia(s)',
+      countLabel: this.isIntraday ? (this.granularity === '1h' ? 'hora(s)' : 'horário(s)') : 'dia(s)',
       ...(isTemp ? { hidePerc: true, emptyValueText: 'Sem leitura', valueDecimals: 2 } : {}),
     };
   }
@@ -1147,7 +1190,7 @@ export class DeviceReportModal {
   // Gráfico da página final do PDF = painel da direita da tela
   private async buildExportChart(): Promise<{ dataUrl: string; width?: number; height?: number; title?: string } | null> {
     if (this.domainConfig.summaryType === 'average') {
-      const isHourly = this.granularity === '1h';
+      const isHourly = this.isIntraday;
       const ranked = [...this.validRows].sort((a, b) => b.consumption - a.consumption);
       const shown = isHourly ? ranked.slice(0, 24) : ranked;
       const noData = isHourly ? [] : this.data.filter((r) => r.noData);
@@ -1161,7 +1204,7 @@ export class DeviceReportModal {
         unit: this.domainConfig.unit,
       });
       const title = isHourly
-        ? `${this.domainConfig.rankingHourTitle}${ranked.length > 24 ? ' (top 24)' : ''}`
+        ? `${this.intradayRankingTitle()}${ranked.length > 24 ? ' (top 24)' : ''}`
         : this.domainConfig.rankingDayTitle;
       return png ? { ...png, title } : null;
     }

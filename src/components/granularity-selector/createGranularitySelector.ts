@@ -19,10 +19,15 @@ import {
 
 const P = GRANULARITY_SELECTOR_CSS_PREFIX;
 
-const DEFAULT_TITLES: Record<Granularity, string> = { '1h': 'Hora', '1d': 'Dia' };
+const DEFAULT_TITLES: Record<Granularity, string> = {
+  '15m': '15 minutos',
+  '30m': '30 minutos',
+  '1h': 'Hora',
+  '1d': 'Dia',
+};
 
 function isGranularity(v: unknown): v is Granularity {
-  return v === '1h' || v === '1d';
+  return v === '15m' || v === '30m' || v === '1h' || v === '1d';
 }
 
 export function createGranularitySelector(
