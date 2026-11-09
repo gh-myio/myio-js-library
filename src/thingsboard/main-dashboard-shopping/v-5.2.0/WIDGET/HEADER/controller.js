@@ -372,6 +372,32 @@ function setupTooltipPremium(target, text) {
   }
 }
 
+/**
+ * Lista do relatório geral × devices *_MANUAL.
+ * - Com o opt-in do customer (MyIOUtils.manualStoresInLojas): os de loja (3F_MEDIDOR_MANUAL /
+ *   HIDROMETRO_MANUAL) entram como as demais lojas. O alias TB ("Lojas" / "Todos Hidrometros Lojas")
+ *   normalmente não os contém → vêm do orquestrador (MAIN_VIEW: MyIOOrchestratorData[domain].manualItems).
+ *   id = ingestionId, como o buildListItemsThingsboardByUniqueDatasource (o AllReportModal casa por esse id).
+ * - Sem o opt-in: nenhum *_MANUAL entra no relatório.
+ */
+function _applyManualStoresToReportList(domain, items) {
+  const list = items || [];
+  if (!window.MyIOUtils?.manualStoresInLojas) {
+    return list.filter((item) => !/_MANUAL$/i.test(String(item?.deviceProfile || item?.deviceType || '').trim()));
+  }
+  const manualStoreRe = /^(3F_MEDIDOR|HIDROMETRO)_MANUAL$/i;
+  const merged = [...list];
+  const seenIds = new Set(list.map((item) => String(item?.id)));
+  (window.MyIOOrchestratorData?.[domain]?.manualItems || []).forEach((it) => {
+    if (!manualStoreRe.test(String(it?.deviceProfile || it?.deviceType || '').trim())) return;
+    const id = String(it.ingestionId || it.id || '');
+    if (!id || seenIds.has(id)) return;
+    seenIds.add(id);
+    merged.push({ id, identifier: it.identifier, label: it.label || it.name || it.identifier });
+  });
+  return merged;
+}
+
 self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
   // Signal to the module-scope fallback emitter that onInit IS running
   window.__myioHeaderOnInitRan = true;
@@ -3186,10 +3212,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
           }
         }
 
-        // *_MANUAL (ex.: 3F_MEDIDOR_MANUAL) não entra em nenhum relatório
-        itemsListTB = (itemsListTB || []).filter(
-          (item) => !/_MANUAL$/i.test(String(item?.deviceProfile || item?.deviceType || '').trim())
-        );
+        itemsListTB = _applyManualStoresToReportList(domain, itemsListTB);
 
         const _openAllReport = window.MyIOUtils?.openDashboardPopupAllReport;
         if (typeof _openAllReport !== 'function') {
