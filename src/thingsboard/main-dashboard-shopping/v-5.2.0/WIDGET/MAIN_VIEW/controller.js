@@ -1956,14 +1956,18 @@ async function _loadMeasurementDisplaySettings(customerId) {
 /**
  * Retrolavagem: hidrômetros de entrada e de saída escolhidos na aba "Equipamentos da Retrolavagem"
  * (SettingsModal), no atributo SERVER_SCOPE `retrolavagemBindings` do device virtual:
- *   { version: 1, inputs: [{ tbId, label, gcdrId? }], outputs: [...] }  (até 10 de cada lado)
+ *   { version: 1, inputs: [{ tbId, label, gcdrId? }], outputs: [...] }
+ * A aba edita até 5 de cada lado; vínculos salvos quando o limite era 10 continuam somados.
  * null = sem vínculos → conta automática (Entrada − consumidores).
  */
+const RETROLAVAGEM_LEGACY_MAX_PER_SIDE = 10; // igual ao mesmo nome em RetrolavagemTab.ts
+
 function _parseRetrolavagemBindings(raw) {
   if (!raw) return null;
   try {
     const b = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    const side = (arr) => (Array.isArray(arr) ? arr.filter((d) => d && d.tbId).slice(0, 10) : []);
+    const side = (arr) =>
+      Array.isArray(arr) ? arr.filter((d) => d && d.tbId).slice(0, RETROLAVAGEM_LEGACY_MAX_PER_SIDE) : [];
     const inputs = side(b?.inputs);
     const outputs = side(b?.outputs);
     if (!inputs.length && !outputs.length) return null;

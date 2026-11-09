@@ -1,4 +1,4 @@
-// Aba "Equipamentos da Retrolavagem": hidrômetros de entrada/saída (até 10 + 10) gravados no
+// Aba "Equipamentos da Retrolavagem": hidrômetros de entrada/saída (até 5 + 5) gravados no
 // atributo SERVER_SCOPE `retrolavagemBindings` do device HIDROMETRO_ENTRADA_RETROLAVAGEM.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../../../src/components/premium-modals/central-settings';
@@ -77,13 +77,14 @@ describe('RetrolavagemTab — regras puras', () => {
     expect(isRetrolavagemCandidateProfile('BOMBA_POCO')).toBe(false);
   });
 
-  it('normalizeRetrolavagemBindings: aceita string, remove inválidos/duplicados e limita a 10', () => {
-    const many = Array.from({ length: 12 }, (_, i) => ({ tbId: `d${i}`, label: `D${i}` }));
+  it('normalizeRetrolavagemBindings: aceita string, remove inválidos/duplicados e preserva vínculos legados até 10', () => {
+    const refs = (n: number) => Array.from({ length: n }, (_, i) => ({ tbId: `d${i}`, label: `D${i}` }));
     const r = normalizeRetrolavagemBindings(
-      JSON.stringify({ inputs: [{ tbId: 'a', label: 'A' }, { tbId: 'a', label: 'A2' }, { label: 'sem id' }], outputs: many })
+      JSON.stringify({ inputs: [{ tbId: 'a', label: 'A' }, { tbId: 'a', label: 'A2' }, { label: 'sem id' }], outputs: refs(7) })
     );
     expect(r.inputs).toEqual([{ tbId: 'a', label: 'A' }]);
-    expect(r.outputs).toHaveLength(10);
+    expect(r.outputs).toHaveLength(7); // acima do limite de edição (5), mas sem perder nada
+    expect(normalizeRetrolavagemBindings({ inputs: refs(12), outputs: [] }).inputs).toHaveLength(10);
     expect(normalizeRetrolavagemBindings('não é json')).toEqual({ version: 1, inputs: [], outputs: [] });
   });
 });
@@ -139,12 +140,43 @@ describe('RetrolavagemTab — tela', () => {
     expect(container.querySelector('#rlt-message')!.textContent).toContain('na entrada e na saída');
   });
 
-  it('limite de 10 por lado: o botão de adicionar desabilita', async () => {
-    const stored = { inputs: Array.from({ length: 10 }, (_, i) => ({ tbId: `x${i}`, label: `X${i}` })), outputs: [] };
+  it('limite de 5 por lado: o botão de adicionar desabilita', async () => {
+    const stored = { inputs: Array.from({ length: 5 }, (_, i) => ({ tbId: `x${i}`, label: `X${i}` })), outputs: [] };
     const { container, tab } = openTab(stored);
     await tab.init();
     expect(container.querySelector<HTMLButtonElement>('button[data-add="inputs"]')!.disabled).toBe(true);
-    expect(container.querySelector('fieldset[data-side="inputs"] .rlt-count')!.textContent).toBe('10/10');
+    expect(container.querySelector('fieldset[data-side="inputs"] .rlt-count')!.textContent).toBe('5/5');
+    expect(container.querySelector('.rlt-over')).toBeNull();
+  });
+
+  it('vínculo legado acima do limite: mostra todos, avisa e só salva depois de remover o excesso', async () => {
+    const stored = { inputs: Array.from({ length: 7 }, (_, i) => ({ tbId: `x${i}`, label: `X${i}` })), outputs: [] };
+    const { container, fetchMock, tab } = openTab(stored);
+    await tab.init();
+
+    expect(container.querySelectorAll('select[data-side="inputs"]')).toHaveLength(7);
+    expect(container.querySelector('fieldset[data-side="inputs"] .rlt-count')!.textContent).toBe('7/5');
+    expect(container.querySelector('.rlt-over')!.textContent).toContain('tem 7 hidrômetros de entrada');
+    expect(container.querySelector('.rlt-over')!.textContent).toContain('Remova 2');
+    expect(container.querySelector<HTMLButtonElement>('button[data-add="inputs"]')!.disabled).toBe(true);
+
+    click(container, '#rlt-save');
+    await flush();
+    expect(posted(fetchMock)).toBeNull(); // nada é apagado sem ação explícita
+    expect(container.querySelector('#rlt-message')!.textContent).toContain('No máximo 5');
+
+    click(container, 'button[data-remove="inputs"][data-index="6"]');
+    click(container, 'button[data-remove="inputs"][data-index="5"]');
+    expect(container.querySelector('.rlt-over')).toBeNull();
+    click(container, '#rlt-save');
+    await flush();
+    expect(posted(fetchMock).retrolavagemBindings.inputs.map((d: { tbId: string }) => d.tbId)).toEqual([
+      'x0',
+      'x1',
+      'x2',
+      'x3',
+      'x4',
+    ]);
   });
 
   it('vínculo salvo que saiu da lista continua visível e pode ser mantido', async () => {
@@ -188,16 +220,17 @@ describe('SettingsModalView — aba da retrolavagem', () => {
     onClose: () => undefined,
   };
 
-  it('aparece só para HIDROMETRO_ENTRADA_RETROLAVAGEM + SuperAdmin', () => {
+  it('aparece para o dispositivo de retrolavagem e SuperAdmin ou holding admin', () => {
     vi.stubGlobal('fetch', vi.fn(async () => response([])));
-    const make = (deviceProfile: string, superadmin: boolean) => {
+    const make = (deviceProfile: string, superadmin: boolean, holdingAdmin = false) => {
       document.body.innerHTML = '';
-      const view = new SettingsModalView({ ...baseConfig, deviceProfile, superadmin } as any);
+      const view = new SettingsModalView({ ...baseConfig, deviceProfile, superadmin, holdingAdmin } as any);
       view.render({});
       return !!document.querySelector('[data-tab="retrolavagem"]');
     };
     expect(make('HIDROMETRO_ENTRADA_RETROLAVAGEM', true)).toBe(true);
     expect(make('HIDROMETRO_ENTRADA_RETROLAVAGEM', false)).toBe(false);
+    expect(make('HIDROMETRO_ENTRADA_RETROLAVAGEM', false, true)).toBe(true);
     expect(make('HIDROMETRO', true)).toBe(false);
   });
 });
