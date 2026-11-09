@@ -314,20 +314,54 @@ export function aggregateByHour(
   clampRange: ClampRange = DEFAULT_CLAMP_RANGE,
   offset: number = DEFAULT_TEMPERATURE_OFFSET
 ): TemperatureTelemetry[] {
-  const HOUR = 60 * 60 * 1000;
+  return aggregateByMinutes(data, 60, clampRange, offset);
+}
+
+/**
+ * Consolida a série em janelas FECHADAS de `minutes` (15, 30, 60…): um ponto por janela (início da
+ * janela) com a média das leituras dela. Janelas sem leitura ficam sem ponto. Série que já vem em
+ * janelas alinhadas do mesmo tamanho (ex.: agregado de 15 min do Ingestion) passa sem alteração
+ * além de offset/clamp.
+ */
+export function aggregateByMinutes(
+  data: TemperatureTelemetry[],
+  minutes: number,
+  clampRange: ClampRange = DEFAULT_CLAMP_RANGE,
+  offset: number = DEFAULT_TEMPERATURE_OFFSET
+): TemperatureTelemetry[] {
+  const size = Math.max(1, Math.round(minutes)) * 60 * 1000;
   const buckets = new Map<number, { sum: number; n: number }>();
   for (const item of data) {
     const ts = Number(item.ts);
     if (!Number.isFinite(ts)) continue;
-    const hour = Math.floor(ts / HOUR) * HOUR; // fusos inteiros → alinhado também em SP
-    const b = buckets.get(hour) || { sum: 0, n: 0 };
+    const start = Math.floor(ts / size) * size; // fusos de hora inteira → alinhado também em SP
+    const b = buckets.get(start) || { sum: 0, n: 0 };
     b.sum += clampTemperature(item.value, clampRange, offset);
     b.n += 1;
-    buckets.set(hour, b);
+    buckets.set(start, b);
   }
   return [...buckets.entries()]
     .sort((a, b) => a[0] - b[0])
     .map(([ts, b]) => ({ ts, value: b.sum / b.n }));
+}
+
+/**
+ * Marcas do eixo X para períodos de vários dias: meia-noite (no fuso) de cada dia entre minTs e
+ * maxTs, rareadas para no máximo `maxTicks` (passo inteiro de dias). Evita rótulos "a cada N pontos",
+ * que caíam em horas quebradas (01/11 00:00, 02/11 01:00, 03/11 02:00…).
+ */
+export function buildDayTicks(minTs: number, maxTs: number, timezone?: string, maxTicks = 8): number[] {
+  if (!Number.isFinite(minTs) || !Number.isFinite(maxTs) || maxTs < minTs) return [];
+  const DAY = 24 * 60 * 60 * 1000;
+  const days: number[] = [];
+  let t = getStartOfDay(new Date(minTs), timezone);
+  if (t < minTs) t = getStartOfDay(new Date(t + DAY + 2 * 60 * 60 * 1000), timezone);
+  for (let guard = 0; t <= maxTs && guard < 2000; guard++) {
+    days.push(t);
+    t = getStartOfDay(new Date(t + DAY + 2 * 60 * 60 * 1000), timezone); // +26 h → robusto a DST
+  }
+  const step = Math.max(1, Math.ceil(days.length / Math.max(1, maxTicks)));
+  return days.filter((_, i) => i % step === 0);
 }
 
 /**

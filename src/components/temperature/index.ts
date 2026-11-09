@@ -19,8 +19,23 @@ export type {
 // Types from TemperatureModal
 export type {
   TemperatureModalParams,
-  TemperatureModalInstance
+  TemperatureModalInstance,
+  TemperatureModalGranularity
 } from './TemperatureModal';
+
+// "Temperatura Atual" (leitura mais recente) + agregado 15 min do Ingestion
+export {
+  createIngestionTemperatureAggregateFetcher,
+  resolveCurrentTemperature,
+  fetchThingsboardLatestTemperature,
+  fetchIngestionLatestTemperature,
+  DEFAULT_CURRENT_TEMPERATURE_MAX_AGE_MINUTES
+} from './currentTemperature';
+export type {
+  TemperatureAggregateFetcher,
+  ResolvedCurrentTemperature,
+  LatestTemperatureReading
+} from './currentTemperature';
 
 // Types from TemperatureComparisonModal
 export type {

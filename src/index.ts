@@ -771,6 +771,10 @@ export {
   aggregateByDay,
   formatTemperature,
   exportTemperatureCSV,
+  // "Temperatura Atual" + agregado 15 min do Ingestion
+  createIngestionTemperatureAggregateFetcher,
+  resolveCurrentTemperature,
+  DEFAULT_CURRENT_TEMPERATURE_MAX_AGE_MINUTES,
   // Constants
   DEFAULT_CLAMP_RANGE,
   CHART_COLORS,
@@ -780,6 +784,9 @@ export {
 export type {
   TemperatureModalParams,
   TemperatureModalInstance,
+  TemperatureModalGranularity,
+  TemperatureAggregateFetcher,
+  ResolvedCurrentTemperature,
   TemperatureComparisonModalParams,
   TemperatureComparisonModalInstance,
   TemperatureSettingsParams,
