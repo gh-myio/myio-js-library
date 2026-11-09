@@ -16,36 +16,36 @@
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 41,
+    "sprintOpen": 40,
     "backlogOpen": 584,
-    "total": 625
+    "total": 624
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
         "PENDENTE": 10,
         "EM REVISÃO": 5,
-        "Itens Novos": 23,
+        "Itens Novos": 22,
         "Em Andamento": 3
       },
       "byType": {
-        "Bug": 9,
+        "Bug": 8,
         "Tarefa": 32
       },
       "byPriority": {
         "Medium": 20,
         "Highest": 9,
         "Low": 1,
-        "High": 11
+        "High": 10
       },
       "byAssignee": {
-        "Rodrigo Lago": 30,
+        "Rodrigo Lago": 29,
         "Letícia Camargo": 7,
         "Victor Hugo da Silva": 3,
         "Luiz Guilherme Martinho Sampaio Ito": 1
       },
       "byGroup": {
-        "Outros": 3,
+        "Outros": 2,
         "GCDR / Plataforma": 12,
         "Relatórios / Dashboard": 9,
         "TrensRJ": 1,
@@ -617,19 +617,6 @@
       "updated": "2026-11-03",
       "group": "Taboão",
       "kind": "unit"
-    },
-    {
-      "key": "ED-1378",
-      "summary": "Smart Hospital - Verificar inclusão do produto Sala Limpa 02 no relatório de temperaturas",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-11-04",
-      "group": "Outros",
-      "kind": "other"
     },
     {
       "key": "ED-1379",
