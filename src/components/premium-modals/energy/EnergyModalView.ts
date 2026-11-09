@@ -1501,7 +1501,10 @@ export class EnergyModalView {
           value: this.currentGranularity,
           themeMode: this.currentTheme
         },
-        onChange: (granularity) => this.setGranularity(granularity)
+        // Opções default (1h | 1d) — 15m/30m só existem nos relatórios de temperatura
+        onChange: (granularity) => {
+          if (granularity === '1h' || granularity === '1d') this.setGranularity(granularity);
+        }
       });
 
       dbg('[EnergyModalView] [RFC-0097] Granularity selector initialized with:', this.currentGranularity);

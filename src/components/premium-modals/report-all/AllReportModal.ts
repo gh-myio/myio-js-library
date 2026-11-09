@@ -16,8 +16,12 @@ import { exportGridPdf, exportGridXls } from '../../telemetry-grid-shopping/expo
 import type { TelemetryDevice } from '../../telemetry-grid-shopping/types';
 import { createParticipationChart } from '../../graphs';
 import type { ParticipationChartInstance } from '../../graphs';
-import { createGranularitySelector } from '../../granularity-selector';
-import type { GranularitySelectorInstance } from '../../granularity-selector';
+import {
+  createGranularitySelector,
+  granularityMinutes,
+  TEMPERATURE_GRANULARITY_OPTIONS,
+} from '../../granularity-selector';
+import type { Granularity, GranularitySelectorInstance } from '../../granularity-selector';
 import { createModalFooter } from '../footer-modal';
 import type { ModalFooterInstance } from '../footer-modal';
 // RFC-0228 A6 — R$ money column (additive + gated). `createReportMoneyColumn(undefined)`
@@ -133,8 +137,9 @@ export class AllReportModal {
   // Domain configuration
   private domainConfig: DomainConfig;
 
-  // Granularity: '1d' (daily) | '1h' (hourly)
-  private granularity: '1d' | '1h' = '1d';
+  // Granularity: '1d' (daily) | '1h' (hourly). Temperatura também '15m' | '30m' — agregados
+  // aqui a partir dos blocos de 15 min que o Ingestion devolve com granularity=1h.
+  private granularity: Granularity = '1d';
 
   // Temperatura: estatísticas por sensor (key = ingestionId) da última carga
   private temperatureStats = new Map<string, TemperatureStats>();
@@ -686,15 +691,18 @@ export class AllReportModal {
           // Padrão FIEL ao EnergyModal: pill "1h | 1d" (opções default do componente),
           // sem label interno (o form group acima já tem "Granularidade").
           label: '',
+          // Temperatura: 15m | 30m | 1h | 1d; demais domínios: 1h | 1d (default do componente)
+          ...(this.isTemperature ? { options: TEMPERATURE_GRANULARITY_OPTIONS } : {}),
           tooltip: {
             enabled: true,
             title: 'Granularidade',
             text: this.isTemperature
-              ? 'A tabela mostra a <b>média do período</b> de cada sensor. Clique em ▸ no sensor para ver a série <b>por hora</b> ou <b>por dia</b>; o CSV segue a mesma granularidade.'
+              ? 'A tabela mostra a <b>média do período</b> de cada sensor. Clique em ▸ no sensor para ver a série <b>por 15 min</b>, <b>30 min</b>, <b>hora</b> ou <b>dia</b> (média da janela); o CSV segue a mesma granularidade.'
               : 'A tabela mostra os <b>totais do período</b>. Clique em ▸ no dispositivo para ver a série <b>por hora</b> ou <b>por dia</b>; em Hora, o CSV traz uma linha por dispositivo × hora.',
           },
         },
         onChange: (value) => {
+          if (!this.isTemperature && value !== '1h' && value !== '1d') return;
           this.granularity = value;
           this.hourlySeriesCache = null;
           // Linhas expandidas passam a mostrar a série na nova granularidade
@@ -1168,7 +1176,7 @@ export class AllReportModal {
     const expandable = !!row.id;
     const expanded = expandable && this.expandedIds.has(row.id!);
     const expandBtn = expandable
-      ? `<button type="button" class="rp-expand" data-expand-id="${row.id}" aria-expanded="${expanded}" title="Ver série por ${this.granularity === '1h' ? 'hora' : 'dia'}">▸</button>`
+      ? `<button type="button" class="rp-expand" data-expand-id="${row.id}" aria-expanded="${expanded}" title="Ver série por ${this.granularityNoun(this.granularity)}">▸</button>`
       : '';
     const idTd = showId
       ? `<td data-label="Identificador" style="font-family: monospace; font-weight: bold; text-transform: uppercase;">${row.identifier}</td>`
@@ -1295,27 +1303,30 @@ export class AllReportModal {
   private async fillSeries(id: string, box: HTMLElement): Promise<void> {
     const row = this.data.find((r) => r.id === id);
     const gran = this.granularity;
+    const intraday = gran !== '1d';
     try {
       const points = await this.getDeviceSeries(id, gran);
       if (!box.isConnected) return;
       if (!points.length) {
-        box.innerHTML = `<span class="rp-muted">Sem dados ${gran === '1h' ? 'horários' : 'diários'} no período.</span>`;
+        box.innerHTML = `<span class="rp-muted">Sem dados ${intraday ? 'horários' : 'diários'} no período.</span>`;
         return;
       }
       const fmtTs = (ts: number) =>
-        gran === '1h'
+        intraday
           ? new Date(ts).toLocaleString('pt-BR', {
               day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
               timeZone: 'America/Sao_Paulo',
             })
           : new Date(ts).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
       const valueLabel = this.isTemperature
-        ? gran === '1h' ? 'Temperatura (°C)' : 'Média do dia (°C)'
+        ? intraday ? 'Temperatura (°C)' : 'Média do dia (°C)'
         : this.domainConfig.label;
       // RFC-0241 rev. 2: modo R$ — cada linha valorada pelo preço do seu horário/dia
       // (faixa horária exata em Horário); subtotal só com todas as linhas completas.
-      if (this.bucketMoney(id, points[0].timestamp, gran, points[0].value)) {
-        const money = points.map((p) => this.bucketMoney(id, p.timestamp, gran, p.value));
+      // (R$ só existe em energia/água, onde a granularidade é 1h|1d)
+      const moneyGran: '1h' | '1d' = intraday ? '1h' : '1d';
+      if (this.bucketMoney(id, points[0].timestamp, moneyGran, points[0].value)) {
+        const money = points.map((p) => this.bucketMoney(id, p.timestamp, moneyGran, p.value));
         const cell = (m: { state: string; amount?: string } | null) =>
           m && m.state === 'complete' && m.amount
             ? formatMoneyBRL(m.amount)
@@ -1327,7 +1338,7 @@ export class AllReportModal {
             : `<span class="rp-muted">Cobertura incompleta (${sub.covered} de ${sub.total})</span>`;
         box.innerHTML = `
         <table>
-          <thead><tr><th>${gran === '1h' ? 'Data/Hora' : 'Dia'}</th><th class="num">${valueLabel}</th><th class="num">${this.moneyHeaderLabel()}</th></tr></thead>
+          <thead><tr><th>${intraday ? 'Data/Hora' : 'Dia'}</th><th class="num">${valueLabel}</th><th class="num">${this.moneyHeaderLabel()}</th></tr></thead>
           <tbody>${points
             .map((p, i) => `<tr><td>${fmtTs(p.timestamp)}</td><td class="num">${fmtPt(p.value)}</td><td class="num" data-money-cell="1">${cell(money[i])}</td></tr>`)
             .join('')}</tbody>
@@ -1337,7 +1348,7 @@ export class AllReportModal {
       }
       box.innerHTML = `
         <table>
-          <thead><tr><th>${gran === '1h' ? 'Data/Hora' : 'Dia'}</th><th class="num">${valueLabel}</th></tr></thead>
+          <thead><tr><th>${intraday ? 'Data/Hora' : 'Dia'}</th><th class="num">${valueLabel}</th></tr></thead>
           <tbody>${points
             .map((p) => `<tr><td>${fmtTs(p.timestamp)}</td><td class="num">${fmtPt(p.value)}</td></tr>`)
             .join('')}</tbody>
@@ -1352,12 +1363,16 @@ export class AllReportModal {
 
   // Série do device na granularidade pedida. Temperatura: da série horária já calculada
   // (offset + descarte), agregada por dia em 1d. Energia/água: endpoint por device.
-  private async getDeviceSeries(id: string, gran: '1h' | '1d'): Promise<SeriesPoint[]> {
+  private async getDeviceSeries(id: string, gran: Granularity): Promise<SeriesPoint[]> {
     if (this.isTemperature) {
       const raw = this.temperatureStats.get(id)?.series || [];
-      // A API devolve blocos de 15 min mesmo pedindo 1h → consolida em hora fechada
-      return gran === '1h' ? this.aggregateHourly(raw, 'avg') : this.aggregateDaily(raw, 'avg');
+      // A API devolve blocos de 15 min mesmo pedindo 1h → consolida na janela fechada
+      // (15 min, 30 min ou hora) ou por dia
+      return gran === '1d'
+        ? this.aggregateDaily(raw, 'avg')
+        : this.aggregateHourly(raw, 'avg', granularityMinutes(gran));
     }
+    if (gran !== '1h' && gran !== '1d') gran = '1h'; // energia/água: só 1h|1d
     const key = `${gran}|${id}`;
     const cached = this.deviceSeriesCache.get(key);
     if (cached) return cached;
@@ -1389,10 +1404,10 @@ export class AllReportModal {
       .sort((a, b) => a.timestamp - b.timestamp);
   }
 
-  // Consolida em HORA FECHADA (início da hora): média (temperatura) ou soma (consumo).
-  // Fusos inteiros → a hora UTC coincide com a hora de São Paulo.
-  private aggregateHourly(points: SeriesPoint[], mode: 'avg' | 'sum'): SeriesPoint[] {
-    const HOUR = 3600 * 1000;
+  // Consolida em JANELA FECHADA de `minutes` (padrão 60 = hora; 15/30 em temperatura):
+  // média (temperatura) ou soma (consumo). Fusos inteiros → alinha também em São Paulo.
+  private aggregateHourly(points: SeriesPoint[], mode: 'avg' | 'sum', minutes = 60): SeriesPoint[] {
+    const HOUR = minutes * 60 * 1000;
     const byHour = new Map<number, { sum: number; n: number }>();
     for (const p of points) {
       const h = Math.floor(p.timestamp / HOUR) * HOUR;
@@ -1404,6 +1419,11 @@ export class AllReportModal {
     return [...byHour.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([h, { sum, n }]) => ({ timestamp: h, value: mode === 'avg' ? sum / n : sum }));
+  }
+
+  // "hora" | "15 minutos" | "30 minutos" | "dia" — textos de ▸ e CSV
+  private granularityNoun(g: Granularity): string {
+    return { '15m': '15 minutos', '30m': '30 minutos', '1h': 'hora', '1d': 'dia' }[g];
   }
 
   // Agrega série horária por dia civil (São Paulo): média (temperatura) ou soma (consumo)
@@ -1763,7 +1783,7 @@ export class AllReportModal {
       ['Relatório', this.resolveTitle()],
       ...(this.params.customerName ? [['Cliente', this.params.customerName]] : []),
       ...(p?.startISO ? [['Período', `${fmtD(p.startISO)} — ${fmtD(p.endISO)}`]] : []),
-      ['Granularidade', gran === '1h' ? 'Hora' : 'Dia'],
+      ['Granularidade', { '15m': '15 minutos', '30m': '30 minutos', '1h': 'Hora', '1d': 'Dia' }[gran]],
       ['Gerado em', new Date().toLocaleString('pt-BR')],
       [],
       ...this.computeKpis().map((k) => [k.label, k.value, k.sub || '']),
@@ -1787,9 +1807,9 @@ export class AllReportModal {
       ]),
     ];
 
-    const series: string[][] = [[...idHead, 'Sensor', gran === '1h' ? 'Data/Hora' : 'Dia', 'Temperatura (°C)']];
+    const series: string[][] = [[...idHead, 'Sensor', gran !== '1d' ? 'Data/Hora' : 'Dia', 'Temperatura (°C)']];
     const fmtTs = (ts: number) =>
-      gran === '1h'
+      gran !== '1d'
         ? new Date(ts).toLocaleString('pt-BR', {
             day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
             timeZone: 'America/Sao_Paulo',
@@ -1797,7 +1817,8 @@ export class AllReportModal {
         : new Date(ts).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     for (const r of rows) {
       const raw = (r.id && this.temperatureStats.get(r.id)?.series) || [];
-      const pts = gran === '1h' ? this.aggregateHourly(raw, 'avg') : this.aggregateDaily(raw, 'avg');
+      const pts =
+        gran === '1d' ? this.aggregateDaily(raw, 'avg') : this.aggregateHourly(raw, 'avg', granularityMinutes(gran));
       for (const p of pts) series.push([...idCol(r), r.name, fmtTs(p.timestamp), n2(p.value)]);
     }
 

@@ -6,7 +6,7 @@ export {
   GRANULARITY_SELECTOR_CSS_PREFIX,
   injectGranularitySelectorStyles,
 } from './styles';
-export { DEFAULT_GRANULARITY_OPTIONS } from './types';
+export { DEFAULT_GRANULARITY_OPTIONS, TEMPERATURE_GRANULARITY_OPTIONS, granularityMinutes } from './types';
 export type {
   Granularity,
   GranularitySelectorThemeMode,

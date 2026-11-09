@@ -3,7 +3,8 @@
 // pill container com fundo sutil, botão ativo destacado, temas light/dark e
 // tooltip premium opcional via InfoTooltip.
 
-export type Granularity = '1h' | '1d';
+/** 15m/30m: só onde houver opções explícitas (ex.: relatórios de temperatura) — default segue 1h|1d */
+export type Granularity = '15m' | '30m' | '1h' | '1d';
 
 export type GranularitySelectorThemeMode = 'light' | 'dark';
 
@@ -64,3 +65,16 @@ export const DEFAULT_GRANULARITY_OPTIONS: GranularitySelectorOption[] = [
   { value: '1h', title: 'Hora' },
   { value: '1d', title: 'Dia' },
 ];
+
+/** Opções dos relatórios de temperatura: 15 min, 30 min, hora e dia. */
+export const TEMPERATURE_GRANULARITY_OPTIONS: GranularitySelectorOption[] = [
+  { value: '15m', title: '15 minutos' },
+  { value: '30m', title: '30 minutos' },
+  { value: '1h', title: 'Hora' },
+  { value: '1d', title: 'Dia' },
+];
+
+/** Tamanho da janela em minutos (1d → 1440). */
+export function granularityMinutes(g: Granularity): number {
+  return g === '15m' ? 15 : g === '30m' ? 30 : g === '1h' ? 60 : 1440;
+}
