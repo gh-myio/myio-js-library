@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-11-04",
-    "today": "2026-11-04",
+    "generatedAt": "2026-11-09",
+    "today": "2026-11-09",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -694,7 +694,7 @@
       "end": "2026-09-21",
       "complete": "",
       "state": "future",
-      "scope": 70,
+      "scope": 72,
       "done": 31,
       "burndown": [
         {
@@ -760,6 +760,11 @@
         {
           "date": "2026-11-04",
           "remaining": 39,
+          "ideal": 0
+        },
+        {
+          "date": "2026-11-09",
+          "remaining": 41,
           "ideal": 0
         }
       ],
@@ -3654,6 +3659,14 @@
       "type": "Tarefa",
       "priority": "High",
       "date": "2026-11-03"
+    },
+    {
+      "key": "ED-1303",
+      "summary": "Central — novo build: script e API para instalar, desinstalar e consultar o Modbus (node-red-contrib-myio-modbus)",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Tarefa",
+      "priority": "Low",
+      "date": "2026-11-04"
     }
   ]
 }

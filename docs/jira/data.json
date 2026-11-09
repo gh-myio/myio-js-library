@@ -11,41 +11,41 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-11-04",
+    "generatedAt": "2026-11-09",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 39,
-    "backlogOpen": 585,
-    "total": 624
+    "sprintOpen": 41,
+    "backlogOpen": 584,
+    "total": 625
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
         "PENDENTE": 10,
         "EM REVISÃO": 5,
-        "Itens Novos": 21,
+        "Itens Novos": 23,
         "Em Andamento": 3
       },
       "byType": {
-        "Bug": 8,
-        "Tarefa": 31
+        "Bug": 9,
+        "Tarefa": 32
       },
       "byPriority": {
         "Medium": 20,
-        "Highest": 8,
+        "Highest": 9,
         "Low": 1,
-        "High": 10
+        "High": 11
       },
       "byAssignee": {
-        "Rodrigo Lago": 28,
+        "Rodrigo Lago": 30,
         "Letícia Camargo": 7,
         "Victor Hugo da Silva": 3,
         "Luiz Guilherme Martinho Sampaio Ito": 1
       },
       "byGroup": {
-        "Outros": 2,
+        "Outros": 3,
         "GCDR / Plataforma": 12,
         "Relatórios / Dashboard": 9,
         "TrensRJ": 1,
@@ -55,32 +55,33 @@
         "Central / Firmware / HW": 3,
         "Taboão": 4,
         "Ilha Plaza": 1,
-        "Sá Cavalcante": 1
+        "Sá Cavalcante": 1,
+        "Moxuara": 1
       }
     },
     "backlog": {
       "byStatus": {
         "Itens Novos": 175,
-        "EM REVISÃO": 10,
+        "EM REVISÃO": 9,
         "PENDENTE": 394,
         "Em Andamento": 6
       },
       "byType": {
-        "Tarefa": 440,
+        "Tarefa": 439,
         "Subtarefa": 94,
         "Bug": 51
       },
       "byPriority": {
         "High": 19,
         "Medium": 557,
-        "Low": 6,
+        "Low": 5,
         "Highest": 2,
         "Lowest": 1
       },
       "byAssignee": {
         "Rodrigo Lago": 123,
         "Letícia Camargo": 25,
-        "Luiz Guilherme Martinho Sampaio Ito": 386,
+        "Luiz Guilherme Martinho Sampaio Ito": 385,
         "Leticia Saraiva": 5,
         "Victor Hugo da Silva": 45,
         "Leandro Gadioli Rodrigues": 1
@@ -90,7 +91,7 @@
         "Relatórios / Dashboard": 8,
         "GCDR / Plataforma": 116,
         "Raiz Educação": 2,
-        "Central / Firmware / HW": 394,
+        "Central / Firmware / HW": 393,
         "Contagem": 3,
         "Outros": 21,
         "Sá Cavalcante": 7,
@@ -615,6 +616,32 @@
       "assignee": "Letícia Camargo",
       "updated": "2026-11-03",
       "group": "Taboão",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1378",
+      "summary": "Smart Hospital - Verificar inclusão do produto Sala Limpa 02 no relatório de temperaturas",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-04",
+      "group": "Outros",
+      "kind": "other"
+    },
+    {
+      "key": "ED-1379",
+      "summary": "Moxuara - Ressincronização e redistribuição do consumo",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Highest",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-05",
+      "group": "Moxuara",
       "kind": "unit"
     }
   ],
@@ -7923,19 +7950,6 @@
       "assignee": "Rodrigo Lago",
       "updated": "2026-10-01",
       "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1303",
-      "summary": "Central — novo build: script e API para instalar, desinstalar e consultar o Modbus (node-red-contrib-myio-modbus)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Low",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "updated": "2026-10-28",
-      "group": "Central / Firmware / HW",
       "kind": "theme"
     },
     {
