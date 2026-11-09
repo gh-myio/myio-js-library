@@ -1845,6 +1845,8 @@ async function _fetchGcdrDeviceStatus() {
 
 /** 'ACTIVE' | 'INACTIVE' | 'UNKNOWN' (sem match no GCDR ou índice ainda não carregado). */
 function _resolveDeviceGcdrStatus(item) {
+  // *_MANUAL: sem conectividade → status fixo online (coerente com _splitManualItems), não some do filtro
+  if (item?._isManual) return 'ACTIVE';
   if (!_gcdrDeviceStatusIndex || !item) return 'UNKNOWN';
   const byGcdr = item.gcdrDeviceId && _gcdrDeviceStatusIndex.byGcdrId.get(String(item.gcdrDeviceId));
   if (byGcdr) return byGcdr;
@@ -2623,6 +2625,10 @@ let widgetSettings = {
 // Exclusão de Grupos: group exclusion config loaded from CUSTOMER SERVER_SCOPE via SettingsModal
 // { enabled: boolean, groups: { entrada, lojas, climatizacao, elevadores, escadas_rolantes, outros, area_comum } }
 let _excludeGroupsTotals = null;
+
+// Opt-in do customer (SERVER_SCOPE `includeManualStoresInLojas`): devices *_MANUAL de loja entram
+// também em Lojas, totais e relatórios. Desligado (padrão) → ficam só na aba MANUAL.
+let _manualStoresInLojas = false;
 
 /**
  * Normalize legacy excludedGroups format to the current groups-object format.
@@ -4166,6 +4172,16 @@ Object.assign(window.MyIOUtils, {
             }
             // Evaluate gate now (currentUserEmail may not be set yet; re-evaluated after user fetch)
             _applyTicketsGate();
+
+            // Opt-in dos *_MANUAL de loja em Lojas/totais/relatórios (undefined → desligado).
+            // Antes do parse abaixo: um JSON inválido em exclude_groups_totals interrompe este bloco.
+            const _rawManualStores = attrs?.includeManualStoresInLojas;
+            _manualStoresInLojas =
+              _rawManualStores === true ||
+              _rawManualStores === 'true' ||
+              _rawManualStores === 1 ||
+              _rawManualStores === '1';
+            window.MyIOUtils.manualStoresInLojas = _manualStoresInLojas;
 
             // RFC-0241 Part B (Q3): regra opt-in grupo do dashboard → categoria tarifária
             _moneySetCategoryRule(attrs?.moneyCategoryRule);
@@ -5843,6 +5859,11 @@ function categorizeItemsByGroup(items) {
   }
 
   for (const item of items) {
+    // Opt-in 3F_MEDIDOR_MANUAL: o resolver só conhece 3F_MEDIDOR (match exato) → cairia em Área Comum
+    if (_isManualStore(item)) {
+      lojas.push(item);
+      continue;
+    }
     const grp = _resolveGroup(item).group; // 'lojas'|'entrada'|'transformadores'|'areacomum'|'ocultos'
     if (grp === 'lojas') lojas.push(item);
     else if (grp === 'entrada') entrada.push(item);
@@ -5914,6 +5935,11 @@ function categorizeItemsByGroupWater(items) {
     // o TELEMETRY as exibe na coluna Entrada (_ENTRADA) ou Área Comum. O perfil RFC-0207 não as conhece.
     if (/^CISTERNA(_ENTRADA)?$/.test(_profile)) {
       caixadagua.push(item);
+      continue;
+    }
+    // Opt-in HIDROMETRO_MANUAL: hidrômetro de loja com leitura lançada à mão → Lojas
+    if (_isManualStore(item)) {
+      lojas.push(item);
       continue;
     }
     const grp = _resolveGroup(item, undefined, 'water').group;
@@ -6885,12 +6911,23 @@ function buildCentralNameMap(items) {
 
 /**
  * Device "*_MANUAL" (deviceProfile ex.: 3F_MEDIDOR_MANUAL, HIDROMETRO_MANUAL): leitura lançada à mão.
- * Fica FORA de todos os grupos, totais e relatórios do domínio — vai só para STATE[domain].manual,
- * exibido apenas pelo TELEMETRY cujo labelWidget contém "_MANUAL" (ex.: "Entrada_MANUAL").
- * Sem telemetria de conexão → status fixo online (o card V5 também ignora a conectividade).
+ * Sempre vai para STATE[domain].manual, exibido pelo TELEMETRY cujo labelWidget contém a palavra
+ * "MANUAL" (ex.: "Lojas Energia MANUAL"). Sem telemetria de conexão → status fixo online (o card V5
+ * também ignora a conectividade).
  */
 function _isManualDevice(item) {
   return /_MANUAL$/i.test(String(item?.deviceProfile || item?.deviceType || '').trim());
+}
+
+/**
+ * *_MANUAL de loja (3F_MEDIDOR_MANUAL / HIDROMETRO_MANUAL — ex.: quiosques volantes do Taboão):
+ * com o opt-in do customer (`includeManualStoresInLojas`), além da aba MANUAL entram também em
+ * Lojas — cards, totais (summary) e relatórios (MyIOOrchestratorData[domain].items →
+ * getEnergyGroups/getWaterGroups). Sem o opt-in → false: ficam só na aba MANUAL.
+ */
+function _isManualStore(item) {
+  if (!_manualStoresInLojas) return false;
+  return /^(3F_MEDIDOR|HIDROMETRO)_MANUAL$/i.test(String(item?.deviceProfile || item?.deviceType || '').trim());
 }
 
 function _splitManualItems(items) {
@@ -6898,7 +6935,12 @@ function _splitManualItems(items) {
   const manual = [];
   for (const item of items || []) {
     if (_isManualDevice(item)) {
-      manual.push({ ...item, deviceStatus: 'power_on', connectionStatus: 'online', _isManual: true });
+      const normalized = item._isManual
+        ? item
+        : { ...item, deviceStatus: 'power_on', connectionStatus: 'online', _isManual: true };
+      manual.push(normalized);
+      // mesmo objeto nos dois grupos: valor/estado consistentes entre a aba MANUAL e Lojas
+      if (_isManualStore(normalized)) regular.push(normalized);
     } else {
       regular.push(item);
     }
@@ -6911,13 +6953,14 @@ function _splitManualItems(items) {
  * RFC-0106: Now supports both energy and water domains with specific categorization
  */
 function populateState(domain, rawItems, periodKey, manualItems, lookupItems) {
-  // *_MANUAL: separados antes de qualquer agrupamento/total (ver _splitManualItems)
+  // *_MANUAL: aba própria; com opt-in, os de loja (_isManualStore) seguem também em `regular` → Lojas/totais
   const split = _splitManualItems(rawItems);
   const items = _filterWellAutomationItems(domain, split.regular);
   const manual = manualItems || split.manual;
   if (manual.length > 0) {
+    const stores = manual.filter(_isManualStore).length;
     LogHelper.log(
-      `[Orchestrator] ✍️ ${manual.length} device(s) *_MANUAL em ${domain} (fora dos totais/relatórios)`
+      `[Orchestrator] ✍️ ${manual.length} device(s) *_MANUAL em ${domain} (${stores} também em Lojas/totais/relatórios)`
     );
   }
   if (domain === 'water') {
@@ -6933,7 +6976,7 @@ function populateState(domain, rawItems, periodKey, manualItems, lookupItems) {
       areacomum: buildGroupData(areacomum),
       caixadagua: buildGroupData(caixadagua), // RFC-0107: Tanks
       retrolavagem: buildGroupData(retrolavagem), // virtual: coluna Entrada, fora do summary
-      manual: buildGroupData(manual), // *_MANUAL: só no TELEMETRY "…_MANUAL", fora do summary
+      manual: buildGroupData(manual), // *_MANUAL: aba MANUAL (fora do summary; com opt-in, os de loja contam em lojas)
       summary: buildSummaryWater(entrada, lojas, banheiros, areacomum, periodKey),
       _raw: items,
     };
@@ -6960,7 +7003,7 @@ function populateState(domain, rawItems, periodKey, manualItems, lookupItems) {
       entrada: buildGroupData(entrada),
       transformadores: buildGroupData(transformadores), // RFC-0234
       areacomum: buildGroupData(areacomum),
-      manual: buildGroupData(manual), // *_MANUAL: só no TELEMETRY "…_MANUAL", fora do summary
+      manual: buildGroupData(manual), // *_MANUAL: aba MANUAL (fora do summary; com opt-in, os de loja contam em lojas)
       summary: buildSummary(lojas, entrada, transformadores, areacomum, periodKey),
       _raw: items,
     };
@@ -10224,7 +10267,8 @@ const MyIOOrchestrator = (() => {
     // Filtro "Status Disp." (GCDR): a lista completa fica em allItems; cards, STATE e
     // relatórios recebem só o subconjunto filtrado (que pode ser vazio).
     const allItems = _filterWellAutomationItems(domain, items);
-    // *_MANUAL: fora de cards normais, totais, relatórios e do filtro (STATE[domain].manual).
+    // *_MANUAL: todos vão para STATE[domain].manual. Com o opt-in do customer, os de loja
+    // (_isManualStore) seguem também em `regular` → Lojas, totais e relatórios (ACTIVE no filtro).
     const { regular, manual: manualItems } = _splitManualItems(allItems);
     items = _applyDeviceStatusFilter(regular);
 
