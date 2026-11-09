@@ -7,40 +7,9 @@
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 9,
-  "peopleOver": 3,
+  "total": 6,
+  "peopleOver": 2,
   "people": [
-    {
-      "name": "Rodrigo Lago",
-      "count": 4,
-      "over": true,
-      "tickets": [
-        {
-          "key": "ED-996",
-          "type": "Bug",
-          "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
-          "updated": "2026-10-06"
-        },
-        {
-          "key": "ED-1301",
-          "type": "Bug",
-          "summary": "GCDR — Usuário bloqueado não é recuperado pela tela de usuários (Ativar, Redefinir senha e Reenviar verificação não funcionam)",
-          "updated": "2026-10-01"
-        },
-        {
-          "key": "ED-1297",
-          "type": "Tarefa",
-          "summary": "GCDR — Fluxo \"Esqueci a senha\" com magic link e template MYIO",
-          "updated": "2026-09-30"
-        },
-        {
-          "key": "ED-1300",
-          "type": "Tarefa",
-          "summary": "GCDR — Bloqueio de conta (6ª tentativa), notificação de bloqueio e Turnstile no login",
-          "updated": "2026-09-30"
-        }
-      ]
-    },
     {
       "name": "Luiz Guilherme Martinho Sampaio Ito",
       "count": 2,
@@ -89,6 +58,19 @@
           "type": "Tarefa",
           "summary": "[QA] [TABOÃO] 3. Cards virtuais",
           "updated": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "name": "Rodrigo Lago",
+      "count": 1,
+      "over": false,
+      "tickets": [
+        {
+          "key": "ED-996",
+          "type": "Bug",
+          "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
+          "updated": "2026-10-06"
         }
       ]
     }

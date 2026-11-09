@@ -62,9 +62,9 @@
     "backlog": {
       "byStatus": {
         "Itens Novos": 175,
-        "EM REVISÃO": 9,
+        "EM REVISÃO": 12,
         "PENDENTE": 394,
-        "Em Andamento": 6
+        "Em Andamento": 3
       },
       "byType": {
         "Tarefa": 439,
@@ -79,8 +79,8 @@
         "Lowest": 1
       },
       "byAssignee": {
-        "Rodrigo Lago": 123,
-        "Letícia Camargo": 25,
+        "Rodrigo Lago": 120,
+        "Letícia Camargo": 28,
         "Luiz Guilherme Martinho Sampaio Ito": 385,
         "Leticia Saraiva": 5,
         "Victor Hugo da Silva": 45,
@@ -7905,11 +7905,11 @@
       "summary": "GCDR — Fluxo \"Esqueci a senha\" com magic link e template MYIO",
       "type": "Tarefa",
       "sub": false,
-      "status": "Em Andamento",
+      "status": "EM REVISÃO",
       "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-30",
+      "assignee": "Letícia Camargo",
+      "updated": "2026-11-09",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -7931,11 +7931,11 @@
       "summary": "GCDR — Bloqueio de conta (6ª tentativa), notificação de bloqueio e Turnstile no login",
       "type": "Tarefa",
       "sub": false,
-      "status": "Em Andamento",
+      "status": "EM REVISÃO",
       "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-30",
+      "assignee": "Letícia Camargo",
+      "updated": "2026-11-09",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -7944,11 +7944,11 @@
       "summary": "GCDR — Usuário bloqueado não é recuperado pela tela de usuários (Ativar, Redefinir senha e Reenviar verificação não funcionam)",
       "type": "Bug",
       "sub": false,
-      "status": "Em Andamento",
+      "status": "EM REVISÃO",
       "cat": "indeterminate",
       "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-01",
+      "assignee": "Letícia Camargo",
+      "updated": "2026-11-09",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
