@@ -218,12 +218,13 @@ self.onInit = function () {
            full-strength all the time would read as heavy/intrusive on the
            menu edge) — full opacity only on hover/focus. */
         opacity: 0.6;
-        /* Must stay BELOW loading/busy overlays (myio-orchestrator-busy-overlay,
-           z-index:99999) and premium modals (z-index:999999) — found live: at
-           2147483000 it rendered on top of the "Carregando contrato..." busy
-           overlay, staying clickable while the app was mid-load. 10000 clears
-           ordinary dashboard widget content but yields to any real overlay. */
-        z-index: 10000;
+        /* Must stay BELOW every overlay/modal — busy overlays (99999), premium
+           modals (999999) and also the lower ones: TemperatureModal overlay is
+           9998 (found live: at 10000 the arrow showed on top of its backdrop)
+           and Angular Material's cdk-overlay-container (TB dialogs/menus) is
+           1000. 999 still clears dashboard widget content (max seen: 150,
+           .tb-widget-actions). */
+        z-index: 999;
         transition: background 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
       }
       .menu-collapse-arrow:hover,
