@@ -2,7 +2,7 @@
  * Aba "Equipamentos da Retrolavagem" do SettingsModal — device HIDROMETRO_ENTRADA_RETROLAVAGEM.
  *
  * A retrolavagem é virtual: o MAIN_VIEW calcula Σ entradas − Σ saídas. Esta aba escolhe quais
- * hidrômetros entram em cada lado (até 10 + 10) e grava o JSON `retrolavagemBindings` no
+ * hidrômetros entram em cada lado (até 5 + 5) e grava o JSON `retrolavagemBindings` no
  * atributo SERVER_SCOPE do próprio device. Sem vínculos, o MAIN_VIEW usa a conta antiga
  * (Entrada − consumidores). O mesmo hidrômetro pode ser usado em outras retrolavagens.
  *
@@ -11,7 +11,13 @@
 
 export const RETROLAVAGEM_PROFILE = 'HIDROMETRO_ENTRADA_RETROLAVAGEM';
 export const RETROLAVAGEM_BINDINGS_KEY = 'retrolavagemBindings';
-export const MAX_RETROLAVAGEM_DEVICES_PER_SIDE = 10;
+/** Limite de edição: a aba não deixa adicionar nem salvar acima disto. */
+export const MAX_RETROLAVAGEM_DEVICES_PER_SIDE = 5;
+/**
+ * Teto de leitura: vínculos salvos quando o limite era 10 continuam carregados, para não serem
+ * apagados sem aviso ao salvar. Tem que ser igual ao mesmo nome no MAIN_VIEW, que soma todos eles.
+ */
+export const RETROLAVAGEM_LEGACY_MAX_PER_SIDE = 10;
 
 export interface RetrolavagemTabConfig {
   container: HTMLElement;
@@ -92,7 +98,7 @@ export function normalizeRetrolavagemBindings(value: unknown): RetrolavagemBindi
       .filter((item): item is RetrolavagemDeviceRef =>
         !!item && typeof item === 'object' && typeof (item as RetrolavagemDeviceRef).tbId === 'string' && !!(item as RetrolavagemDeviceRef).tbId)
       .filter((item) => (seen.has(item.tbId) ? false : (seen.add(item.tbId), true)))
-      .slice(0, MAX_RETROLAVAGEM_DEVICES_PER_SIDE)
+      .slice(0, RETROLAVAGEM_LEGACY_MAX_PER_SIDE)
       .map((item) => ({
         tbId: item.tbId,
         label: String(item.label || item.tbId),
@@ -213,6 +219,7 @@ export class RetrolavagemTab {
     const text = SIDE_TEXT[side];
     const rows = this.rows[side];
     const full = rows.length >= MAX_RETROLAVAGEM_DEVICES_PER_SIDE;
+    const excess = rows.length - MAX_RETROLAVAGEM_DEVICES_PER_SIDE;
     const options = (current: string) => {
       const missing =
         current && !this.catalog.some((o) => o.tbId === current)
@@ -231,6 +238,11 @@ export class RetrolavagemTab {
       <fieldset class="rlt-side" data-side="${side}">
         <legend>${text.title} <span class="rlt-count">${rows.length}/${MAX_RETROLAVAGEM_DEVICES_PER_SIDE}</span></legend>
         <p class="rlt-hint">${text.hint}</p>
+        ${
+          excess > 0
+            ? `<p class="rlt-over" role="alert">Esta retrolavagem tem ${rows.length} hidrômetros de ${text.title.toLowerCase()}, acima do limite de ${MAX_RETROLAVAGEM_DEVICES_PER_SIDE}. O painel continua somando todos. Remova ${excess} para poder salvar.</p>`
+            : ''
+        }
         ${
           rows.length
             ? rows
@@ -267,6 +279,7 @@ export class RetrolavagemTab {
         .rlt-side{border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin:0}.rlt-side legend{font-weight:700;padding:0 6px}
         .rlt-count{font-weight:500;color:#6b7280;font-size:12px}.rlt-hint,.rlt-empty,.rlt-note{margin:0 0 10px;font-size:13px;color:#6b7280}
         .rlt-note{background:#f1ecfa;color:#3e1a7d;border-radius:6px;padding:8px 10px}
+        .rlt-over{margin:0 0 10px;font-size:13px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 10px}
         .rlt-row{display:flex;gap:8px;margin-bottom:8px}.rlt-row select{flex:1;min-width:0;min-height:36px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff}
         .rlt-remove{border:1px solid #d1d5db;background:#fff;border-radius:6px;padding:0 10px;cursor:pointer;color:#6b7280}
         .rlt-add{border:1px dashed #9ca3af;background:#fff;border-radius:6px;padding:7px 12px;cursor:pointer;color:#374151;font-weight:600}
