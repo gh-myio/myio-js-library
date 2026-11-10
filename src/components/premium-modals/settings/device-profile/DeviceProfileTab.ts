@@ -78,6 +78,46 @@ const EDITABLE_ATTRS: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'gcdrAssetId', label: 'GCDR Asset ID' },
 ];
 
+/**
+ * Atributos da seção "Todos os atributos SERVER_SCOPE" editáveis inline (texto livre).
+ * Aparecem mesmo quando ainda não existem no device, para poderem ser criados.
+ */
+const EDITABLE_OTHER_ATTRS: ReadonlyArray<string> = ['contract', 'floor'];
+
+/** Epoch em ms plausível (2001 → 2286): evita tratar contadores/IDs numéricos como data. */
+const MIN_EPOCH_MS = 1e12;
+const MAX_EPOCH_MS = 1e13;
+
+/**
+ * Atributo de data/hora? Chaves terminadas em Time / At / Ts / Timestamp (ex.: lastActivityTime,
+ * gcdrSyncAt, inactivityAlarmTime) com valor epoch-ms ou ISO-8601.
+ */
+export function attrTimestampMs(key: string, value: unknown): number | null {
+  if (!/(Time|At|Ts|Timestamp)$/.test(key)) return null;
+  if (typeof value === 'number' || (typeof value === 'string' && /^\d{12,13}$/.test(value.trim()))) {
+    const n = Number(value);
+    return n >= MIN_EPOCH_MS && n < MAX_EPOCH_MS ? n : null;
+  }
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    const n = Date.parse(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/** "há 5 min" / "há 2 h" / "há 3 dias" / "em 4 min" relativo a `now`. */
+export function relativeTime(ts: number, now = Date.now()): string {
+  const diff = now - ts;
+  const abs = Math.abs(diff);
+  const min = Math.round(abs / 60000);
+  let txt: string;
+  if (min < 1) txt = 'menos de 1 min';
+  else if (min < 60) txt = `${min} min`;
+  else if (min < 48 * 60) txt = `${Math.round(min / 60)} h`;
+  else txt = `${Math.round(min / 1440)} dias`;
+  return diff >= 0 ? `há ${txt}` : `em ${txt}`;
+}
+
 /** Read-only classification attrs shown alongside the editable ones. */
 const READONLY_ATTRS: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'deviceType', label: 'Device Type' },
@@ -393,10 +433,16 @@ export class DeviceProfileTab {
   ): string {
     const text = this.esc(this.displayText(value));
     if (kind === 'readonly') {
+      // Data/hora (epoch ms ou ISO): exibe legível + relativo; valor bruto no tooltip
+      const ts = attrTimestampMs(field, value);
+      const valueHtml =
+        ts !== null
+          ? `<span class="dpt-value" title="${text}">${this.esc(this.formatDate(ts))} <span class="dpt-rel">(${this.esc(relativeTime(ts))})</span></span>`
+          : `<span class="dpt-value">${text}</span>`;
       return `
         <div class="dpt-row" data-field="${this.esc(field)}">
           <span class="dpt-label">${this.esc(label)}</span>
-          <span class="dpt-value">${text}</span>
+          ${valueHtml}
         </div>`;
     }
 
@@ -440,11 +486,18 @@ export class DeviceProfileTab {
     ).join('');
 
     const highlightedKeys = new Set([...EDITABLE_ATTRS.map((a) => a.key), ...READONLY_ATTRS.map((a) => a.key)]);
-    const otherAttrs = this.attributes
-      .filter((a) => !highlightedKeys.has(a.key))
-      .sort((a, b) => a.key.localeCompare(b.key));
+    const otherAttrs = this.attributes.filter((a) => !highlightedKeys.has(a.key));
+    // contract / floor: sempre listados (editáveis), mesmo que o atributo ainda não exista
+    EDITABLE_OTHER_ATTRS.forEach((key) => {
+      if (!otherAttrs.some((a) => a.key === key)) otherAttrs.push({ key, value: undefined });
+    });
+    otherAttrs.sort((a, b) => a.key.localeCompare(b.key));
     const otherRows = otherAttrs.length
-      ? otherAttrs.map((a) => this.renderRow(a.key, a.key, a.value, 'readonly')).join('')
+      ? otherAttrs
+          .map((a) =>
+            this.renderRow(a.key, a.key, a.value, EDITABLE_OTHER_ATTRS.includes(a.key) ? 'attr-text' : 'readonly'),
+          )
+          .join('')
       : `<div class="dpt-empty">Nenhum outro atributo SERVER_SCOPE.</div>`;
 
     return `
@@ -640,6 +693,7 @@ export class DeviceProfileTab {
       .dpt-label { font-size: 12px; color: #6b7280; font-weight: 600; white-space: nowrap; }
       .dpt-value { font-size: 13px; color: #111827; text-align: right; word-break: break-word; }
       .dpt-value-wrap { display: flex; align-items: center; gap: 6px; }
+      .dpt-rel { color: #9ca3af; font-size: 12px; }
       .dpt-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
       .dpt-empty { padding: 16px 0; text-align: center; color: #9ca3af; font-size: 13px; }
       .dpt-icon-btn {

@@ -9,6 +9,7 @@ import { DeviceProfileTab } from './device-profile/DeviceProfileTab';
 import { WellEquipmentTab } from './well-equipment/WellEquipmentTab';
 import { RetrolavagemTab, RETROLAVAGEM_PROFILE } from './retrolavagem/RetrolavagemTab';
 import { createTicketsTab } from './tickets/TicketsTab';
+import { renderDeviceIncidentsTab, renderDeviceWorkOrdersTab } from './myio-ops/DeviceOpsTabs';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import { loadStoreSegmentCatalog, activitiesForSegment } from './commercialCatalog';
 import type { UserInfo, PermissionSet } from './annotations/types';
@@ -38,7 +39,7 @@ export class SettingsModalView {
   private deviceProfileTab: DeviceProfileTab | null = null;
   private wellEquipmentTab: WellEquipmentTab | null = null;
   private retrolavagemTab: RetrolavagemTab | null = null;
-  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'well-equipment' | 'retrolavagem' | 'incidents' = 'general';
+  private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'well-equipment' | 'retrolavagem' | 'incidents' | 'device-os' | 'device-incidents' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
   // RFC-0190: Exclude Groups Totals
@@ -83,6 +84,39 @@ export class SettingsModalView {
 
     const email = userEmail.toLowerCase().trim();
     return email.endsWith(ALLOWED_EMAIL_DOMAIN.toLowerCase());
+  }
+
+  /** Usuário @myio.com.br (só pelo e-mail — o flag superadmin não basta). Gate das abas OSs/Incidentes. */
+  private isMyioUser(): boolean {
+    const email = String(this.config.userEmail || '').toLowerCase().trim();
+    return !!email && email.endsWith(ALLOWED_EMAIL_DOMAIN.toLowerCase());
+  }
+
+  /** Abas OSs + Incidentes do dispositivo (GCDR work-orders / alarms-backend incidents). */
+  private initDeviceOpsTabs(): void {
+    const cfg = {
+      gcdrDeviceId: this.config.gcdrDeviceId,
+      identifier: this.config.identifier,
+      gcdrApiBaseUrl: (this.config as any).gcdrApiBaseUrl,
+    };
+    const setBadge = (id: string, n: number) => {
+      const el = this.modal.querySelector(`#${id}`) as HTMLElement | null;
+      if (!el) return;
+      el.textContent = n > 99 ? '99+' : String(n);
+      el.style.display = n > 0 ? '' : 'none';
+    };
+    const osEl = this.modal.querySelector('#device-os-tab-content') as HTMLElement | null;
+    if (osEl) {
+      renderDeviceWorkOrdersTab(osEl, cfg)
+        .then((n) => setBadge('tab-badge-device-os', n))
+        .catch((e) => console.warn('[SettingsModalView] OSs tab:', e));
+    }
+    const incEl = this.modal.querySelector('#device-incidents-tab-content') as HTMLElement | null;
+    if (incEl) {
+      renderDeviceIncidentsTab(incEl, cfg)
+        .then((n) => setBadge('tab-badge-device-incidents', n))
+        .catch((e) => console.warn('[SettingsModalView] Incidentes tab:', e));
+    }
   }
 
   /**
@@ -190,6 +224,10 @@ export class SettingsModalView {
     if (this.config.isGateway && this.isSuperAdmin()) {
       this.bindIncidentsTabEvents();
       this.initIncidentsDateRange();
+    }
+    // OSs + Incidentes do dispositivo — só @myio.com.br (async, somente leitura)
+    if (this.isMyioUser()) {
+      this.initDeviceOpsTabs();
     }
     // Seed tab badges from available orchestrators + initialData
     this._updateTabBadges(initialData);
@@ -570,6 +608,8 @@ export class SettingsModalView {
       | 'well-equipment'
       | 'retrolavagem'
       | 'incidents'
+      | 'device-os'
+      | 'device-incidents'
   ): void {
     this.currentTab = tab;
 
@@ -599,6 +639,10 @@ export class SettingsModalView {
     if (retrolavagemContent) retrolavagemContent.style.display = tab === 'retrolavagem' ? 'block' : 'none';
     if (exclusionGroupsContent) exclusionGroupsContent.style.display = tab === 'exclusion-groups' ? 'block' : 'none';
     if (incidentsContent) incidentsContent.style.display = tab === 'incidents' ? 'block' : 'none';
+    const deviceOsContent = this.modal.querySelector('#device-os-tab-content') as HTMLElement;
+    const deviceIncidentsContent = this.modal.querySelector('#device-incidents-tab-content') as HTMLElement;
+    if (deviceOsContent) deviceOsContent.style.display = tab === 'device-os' ? 'block' : 'none';
+    if (deviceIncidentsContent) deviceIncidentsContent.style.display = tab === 'device-incidents' ? 'block' : 'none';
 
     // Update footer Save button (only on General tab; all other tabs have own save)
     const saveBtn = this.modal.querySelector('.btn-save') as HTMLElement;
@@ -777,12 +821,68 @@ export class SettingsModalView {
             data[key] = num;
           }
         } else if (value.trim()) {
-          data[key] = value.trim();
+          data[key] = key === 'label' ? this.labelCase(value.trim()) : value.trim();
         }
       }
     }
 
     return data;
+  }
+
+  /** Copia texto para a área de transferência (Clipboard API; fallback execCommand fora de HTTPS). */
+  static async copyText(text: string): Promise<boolean> {
+    if (!text) return false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // cai no fallback abaixo
+    }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Etiqueta (label) do device sempre em maiúsculas — exibição, digitação, colagem e gravação. */
+  static toLabelCase(value: unknown): string {
+    return String(value ?? '').toLocaleUpperCase('pt-BR');
+  }
+
+  /** Etiqueta do modal: maiúsculas para dispositivos; centrais (isGateway) mantêm o nome como está. */
+  private labelCase(value: unknown): string {
+    return this.config.isGateway ? String(value ?? '') : SettingsModalView.toLabelCase(value);
+  }
+
+  /**
+   * Input "Etiqueta": converte para maiúsculas enquanto digita/cola (preservando o cursor) e
+   * espelha o valor no título ao lado do ícone.
+   */
+  private bindLabelUppercase(): void {
+    const input = this.form?.querySelector('#label') as HTMLInputElement | null;
+    if (!input || input.dataset.upperBound) return;
+    input.dataset.upperBound = 'true';
+    const nameText = this.modal.querySelector('.identity-name-text') as HTMLElement | null;
+    input.addEventListener('input', () => {
+      const upper = this.labelCase(input.value);
+      if (upper !== input.value) {
+        const { selectionStart, selectionEnd } = input;
+        input.value = upper;
+        if (selectionStart !== null && selectionEnd !== null) input.setSelectionRange(selectionStart, selectionEnd);
+      }
+      if (nameText) nameText.textContent = input.value.trim() || '—';
+    });
   }
 
   private createModal(): void {
@@ -861,7 +961,7 @@ export class SettingsModalView {
                 <line x1="3" y1="9" x2="21" y2="9"></line>
                 <line x1="9" y1="21" x2="9" y2="9"></line>
               </svg>
-              Perfil de Dispositivo
+              Perfil Disp.
             </button>`
                 : ''
             }
@@ -888,7 +988,28 @@ export class SettingsModalView {
               </button>`
                 : ''
             }
-            <!-- RFC-0232: Incidentes (interpolação) — central + admin MyIO only -->
+            <!-- OSs + Incidentes do dispositivo — só @myio.com.br -->
+            ${
+              this.isMyioUser()
+                ? `<button type="button" class="modal-tab" data-tab="device-os">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"></path>
+                </svg>
+                OSs
+                <span class="modal-tab-badge modal-tab-badge--os" id="tab-badge-device-os" style="display:none"></span>
+              </button>
+              <button type="button" class="modal-tab" data-tab="device-incidents">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 9v4"></path>
+                  <path d="M12 17h.01"></path>
+                  <path d="M10.29 3.86l-8.18 14.14A2 2 0 0 0 3.93 21h16.14a2 2 0 0 0 1.82-2.99L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                </svg>
+                Incidentes
+                <span class="modal-tab-badge modal-tab-badge--incidents" id="tab-badge-device-incidents" style="display:none"></span>
+              </button>`
+                : ''
+            }
+            <!-- RFC-0232: Interpolações (antes "Incidentes") — central + admin MyIO only -->
             ${
               this.config.isGateway && this.isSuperAdmin()
                 ? `<button type="button" class="modal-tab" data-tab="incidents">
@@ -897,7 +1018,7 @@ export class SettingsModalView {
                   <path d="M12 17h.01"></path>
                   <path d="M10.29 3.86l-8.18 14.14A2 2 0 0 0 3.93 21h16.14a2 2 0 0 0 1.82-2.99L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
                 </svg>
-                Incidentes
+                Interpolações
                 ${
                   (this.config.interpolatedSlots?.length ?? 0) > 0
                     ? `<span class="modal-tab-badge modal-tab-badge--incidents">${this.config.interpolatedSlots!.length}</span>`
@@ -972,6 +1093,12 @@ export class SettingsModalView {
                 ? `<div id="incidents-tab-content" class="tab-content" style="display: none;">${this.getInterpolationIncidentsHTML()}</div>`
                 : ''
             }
+            ${
+              this.isMyioUser()
+                ? `<div id="device-os-tab-content" class="tab-content" style="display: none;"></div>
+            <div id="device-incidents-tab-content" class="tab-content" style="display: none;"></div>`
+                : ''
+            }
           </div>
           <div class="modal-footer">
             <button type="button" class="btn-cancel">Fechar</button>
@@ -1022,8 +1149,17 @@ export class SettingsModalView {
             <!-- Col 1, rows 1-6: single wrapper → borda contínua -->
             <div class="identity-col1">
               <div class="identity-name-block">
-                <div class="identity-name-text">${this.config.deviceLabel || '—'}</div>
-                <div class="device-name-subtitle">${this.config.deviceName || ''}</div>
+                <div class="identity-name-text">${this.labelCase(this.config.deviceLabel) || '—'}</div>
+                ${
+                  this.config.deviceName
+                    ? `<div class="device-name-row">
+                  <div class="device-name-subtitle">${this.config.deviceName}</div>
+                  <button type="button" class="device-name-copy" id="btnCopyDeviceName" title="Copiar nome do dispositivo" aria-label="Copiar nome do dispositivo">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  </button>
+                </div>`
+                    : ''
+                }
               </div>
               <div class="identity-icon-cell">
                 ${this.getDeviceImage(deviceType)}
@@ -2500,6 +2636,7 @@ export class SettingsModalView {
         .modal-tab-badge--chamados    { background: #0891b2; }
         .modal-tab-badge--exclusion   { background: #d97706; }
         .modal-tab-badge--incidents   { background: #7C3AED; }
+        .modal-tab-badge--os          { background: #0891b2; }
 
         .tab-content {
           min-height: 400px;
@@ -3111,6 +3248,40 @@ export class SettingsModalView {
 
         .device-name-subtitle:empty {
           display: none;
+        }
+
+        /* device.name + botão copiar */
+        .device-name-row {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+          margin-top: 2px;
+        }
+        .device-name-row .device-name-subtitle {
+          margin-top: 0;
+          min-width: 0;
+        }
+        .device-name-copy {
+          flex: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 20px;
+          height: 20px;
+          padding: 0;
+          border: none;
+          border-radius: 4px;
+          background: transparent;
+          color: #9ca3af;
+          cursor: pointer;
+        }
+        .device-name-copy:hover {
+          background: #f3f4f6;
+          color: #3e1a7d;
+        }
+        .device-name-copy.is-copied {
+          color: #15803d;
         }
 
         .section-title {
@@ -4213,7 +4384,7 @@ export class SettingsModalView {
     for (const [key, value] of Object.entries(data)) {
       const input = this.form.querySelector(`[name="${key}"]`) as HTMLInputElement;
       if (input && value !== undefined && value !== null) {
-        input.value = String(value);
+        input.value = key === 'label' ? this.labelCase(value) : String(value);
       }
     }
   }
@@ -4335,7 +4506,9 @@ export class SettingsModalView {
           | 'device-profile'
           | 'well-equipment'
           | 'retrolavagem'
-          | 'incidents';
+          | 'incidents'
+          | 'device-os'
+          | 'device-incidents';
         if (tab) {
           this.switchTab(tab);
         }
@@ -4357,6 +4530,24 @@ export class SettingsModalView {
     // 'click' delegate twice on this.modal (bit us once already: two
     // listeners both toggling 'is-collapsed' on the same click cancelled
     // each other out).
+
+    // Etiqueta sempre em maiúsculas (digitação/colagem) + título ao lado do ícone
+    this.bindLabelUppercase();
+
+    // Copiar só o device.name (abaixo da etiqueta)
+    const btnCopyName = this.modal.querySelector('#btnCopyDeviceName') as HTMLButtonElement | null;
+    btnCopyName?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const ok = await SettingsModalView.copyText(String(this.config.deviceName || ''));
+      if (!ok) return;
+      btnCopyName.classList.add('is-copied');
+      btnCopyName.title = 'Copiado!';
+      setTimeout(() => {
+        btnCopyName.classList.remove('is-copied');
+        btnCopyName.title = 'Copiar nome do dispositivo';
+      }, 1500);
+    });
 
     // Handle form submission
     this.form.addEventListener('submit', (event) => {

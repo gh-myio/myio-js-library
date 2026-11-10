@@ -450,7 +450,7 @@ describe('openCentralSettingsModal — "Incidentes" tab (RFC-0232, admin MyIO on
     openCentralSettingsModal(baseParams({ userEmail: 'admin@myio.com.br', interpolatedSlots: SLOTS }));
     const tabBtn = root().querySelector<HTMLElement>('[data-tab="incidents"]');
     expect(tabBtn).toBeTruthy();
-    expect(tabBtn!.textContent).toContain('Incidentes');
+    expect(tabBtn!.textContent).toContain('Interpolações'); // aba renomeada (antes "Incidentes")
     expect(tabBtn!.querySelector('.modal-tab-badge')?.textContent).toBe('4');
 
     tabBtn!.click();
