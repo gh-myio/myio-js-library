@@ -1870,10 +1870,27 @@ function _applyDeviceStatusFilter(items) {
   );
 }
 
-/** Contagem por status sobre a lista completa de todos os domínios (para o seletor do HEADER). */
+// Escopo das contagens do seletor = domínio aberto no MENU (myio:dashboard-state).
+// null (antes do 1º dashboard-state, ou abas não-domínio: alarmes / Disp. Manuais) → todos.
+const DEVICE_STATUS_DOMAINS = ['energy', 'water', 'temperature'];
+let _deviceStatusScopeDomain = null;
+
+/** Escopo das contagens do seletor: só o domínio do MENU; fora de energia/água/temperatura → todos. */
+function _setDeviceStatusScope(tab) {
+  const next = DEVICE_STATUS_DOMAINS.includes(tab) ? tab : null;
+  if (next === _deviceStatusScopeDomain) return false;
+  _deviceStatusScopeDomain = next;
+  return true;
+}
+
+/**
+ * Contagem por status sobre a lista completa (allItems, antes do filtro) do domínio aberto no
+ * MENU — energia, água ou temperatura. O filtro em si continua global (vale p/ todos os domínios).
+ */
 function _publishDeviceStatusOptions() {
   const counts = { all: 0, ACTIVE: 0, INACTIVE: 0, UNKNOWN: 0 };
-  ['energy', 'water', 'temperature'].forEach((d) => {
+  const domains = _deviceStatusScopeDomain ? [_deviceStatusScopeDomain] : DEVICE_STATUS_DOMAINS;
+  domains.forEach((d) => {
     const c = window.MyIOOrchestratorData?.[d];
     (c?.allItems || c?.items || []).forEach((item) => {
       if (_isManualDevice(item)) return; // *_MANUAL não tem conectividade
@@ -1886,6 +1903,7 @@ function _publishDeviceStatusOptions() {
     value: _deviceStatusFilter,
     counts,
     hasUnknown: counts.UNKNOWN > 0,
+    domain: _deviceStatusScopeDomain, // null = todos os domínios
   };
   if (window.MyIOOrchestrator) window.MyIOOrchestrator.deviceStatusFilterState = detail;
   window.dispatchEvent(new CustomEvent('myio:device-status-options', { detail }));
@@ -10686,6 +10704,11 @@ const MyIOOrchestrator = (() => {
 
   window.addEventListener('myio:dashboard-state', (ev) => {
     const tab = ev.detail.tab;
+
+    // Status Disp.: contagens do HEADER refletem só o domínio aberto no MENU (domínio desabilitado
+    // é ignorado abaixo — não mexe no escopo; alarmes / Disp. Manuais → todos os domínios)
+    const _tabDisabled = widgetSettings?.domainsEnabled && widgetSettings.domainsEnabled[tab] === false;
+    if (!_tabDisabled && _setDeviceStatusScope(tab) && _gcdrDeviceStatusIndex) _publishDeviceStatusOptions();
 
     // Aba "Disp. Manuais": energia + água ao mesmo tempo (ver _loadManualTab)
     if (tab === 'manual') {

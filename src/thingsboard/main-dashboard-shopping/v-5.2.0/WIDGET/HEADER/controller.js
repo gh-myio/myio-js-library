@@ -2799,6 +2799,7 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       const thumb = root.querySelector('.tbx-status-thumb');
       const opts = Array.from(root.querySelectorAll('.tbx-status-opt'));
       const LABELS = { all: 'Todos', ACTIVE: 'Ativos', INACTIVE: 'Inativos', UNKNOWN: 'Desconhecidos (sem cadastro no GCDR)' };
+      const DOMAIN_SCOPE_LABELS = { energy: ' de energia', water: ' de água', temperature: ' de temperatura' };
       let current = 'all';
 
       function moveThumb() {
@@ -2821,11 +2822,13 @@ self.onInit = async function ({ strt: presetStart, end: presetEnd } = {}) {
       function render(state) {
         if (!state || !state.available) return;
         const counts = state.counts || {};
+        // Contagens = domínio aberto no MENU (state.domain); null → todos os domínios
+        const scope = DOMAIN_SCOPE_LABELS[state.domain] || '';
         const unknownBtn = opts.find((b) => b.dataset.status === 'UNKNOWN');
         if (unknownBtn) unknownBtn.style.display = state.hasUnknown ? '' : 'none';
         opts.forEach((b) => {
           const s = b.dataset.status;
-          b.title = `${LABELS[s]}: ${counts[s] ?? 0} dispositivo(s)`;
+          b.title = `${LABELS[s]}: ${counts[s] ?? 0} dispositivo(s)${scope}`;
           const badge = b.querySelector('.tbx-status-count');
           if (badge) badge.textContent = Number(counts[s] ?? 0).toLocaleString('pt-BR');
         });
