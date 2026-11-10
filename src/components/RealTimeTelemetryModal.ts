@@ -111,6 +111,58 @@ const TELEMETRY_CONFIG: Record<string, { label: string; unit: string; icon: stri
   temperature: { label: 'Temperatura', unit: '°C', icon: '🌡️', decimals: 1 },
 };
 
+const CURRENT_KEYS_MA = new Set(['total_current', 'current', 'current_a', 'current_b', 'current_c']);
+const POWER_FACTOR_KEYS_255 = new Set(['fp_a', 'fp_b', 'fp_c', 'powerFactor']);
+
+/**
+ * Raw ThingsBoard value -> display scale, shared by the Realtime and "Por Período" tabs.
+ * Currents come in mA (-> A) and power factor as 0–255 (-> 0–1). Power keys
+ * (consumption, power, a, b, c) already come in W — raw and aggregated (MAX/AVG/…) alike —
+ * and stay in W: scaling to kW/MW is a display concern (formatTelemetryValue / formatPower).
+ */
+export function normalizeTelemetryValue(key: string, raw: number): number {
+  const v = Number(raw) || 0;
+  if (CURRENT_KEYS_MA.has(key)) return v / 1000;
+  if (POWER_FACTOR_KEYS_255.has(key)) return v / 255;
+  return v;
+}
+
+/** Scales a W value to W / kW / MW (dot decimal, same style as the chart). */
+function scaleWatts(value: number, decimals: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(decimals)} MW`;
+  if (abs >= 1_000) return `${(value / 1_000).toFixed(decimals)} kW`;
+  return `${value.toFixed(0)} W`;
+}
+
+/** Tooltip / card / history value text for an already-normalized value (W keys auto-scale to kW/MW). */
+export function formatTelemetryValue(key: string, value: number): string {
+  const config = TELEMETRY_CONFIG[key];
+  if (!config) return value.toFixed(2);
+  if (config.unit === 'W') return scaleWatts(value, 2);
+  return `${value.toFixed(config.decimals)} ${config.unit}`;
+}
+
+/** Y-axis tick text for a unit (W auto-scales to kW/MW). */
+export function formatAxisTick(unit: string, value: any): string {
+  if (unit === 'W') {
+    const n = Number(value);
+    if (Math.abs(n) >= 1000) return scaleWatts(n, 1);
+    return `${value} W`;
+  }
+  return `${value}${unit ? ' ' + unit : ''}`;
+}
+
+/** "Máxima" peak value text (pt-BR mask; W values auto-scale to kW/MW via formatPower). */
+export function formatPeakValue(key: string, value: number): string {
+  const cfg = TELEMETRY_CONFIG[key] || { label: key, unit: '', icon: '', decimals: 2 };
+  if (cfg.unit === 'W') return formatPower(value, 3);
+  return `${value.toLocaleString('pt-BR', {
+    minimumFractionDigits: cfg.decimals ?? 2,
+    maximumFractionDigits: cfg.decimals ?? 2,
+  })} ${cfg.unit}`;
+}
+
 /** Short label for each key when shown as a phase row inside a grouped card. */
 const PHASE_SHORT_LABEL: Record<string, string> = {
   consumption: 'Total',
@@ -2583,17 +2635,7 @@ export async function openRealTimeTelemetryModal(
 
   /** Raw ThingsBoard value -> display scale for the realtime tab (mA -> A, fp 0-255 -> 0-1). */
   function normalizeRealtimeValue(key: string, raw: number): number {
-    if (
-      key === 'total_current' ||
-      key === 'current' ||
-      key === 'current_a' ||
-      key === 'current_b' ||
-      key === 'current_c'
-    ) {
-      return raw / 1000;
-    }
-    if (key === 'fp_a' || key === 'fp_b' || key === 'fp_c' || key === 'powerFactor') return raw / 255;
-    return raw;
+    return normalizeTelemetryValue(key, raw);
   }
 
   /**
@@ -2823,15 +2865,9 @@ export async function openRealTimeTelemetryModal(
       periodHistory.clear();
       periodLastKnown.clear();
 
-      const toPeriodY = (key: string, raw: number): number => {
-        let y = raw ?? 0;
-        if (key === 'total_current' || key === 'current') y = y / 1000;
-        if (key === 'fp_a' || key === 'fp_b' || key === 'fp_c' || key === 'powerFactor') y = y / 255;
-        // Wh -> kWh: aggregated (MAX/AVG/etc.) power/energy values come back raw from
-        // ThingsBoard, same unit mismatch already fixed in DemandModal.ts for these keys.
-        if (POWER_KEYS.has(key)) y = y / 1000;
-        return y;
-      };
+      // Same scale as the Realtime tab: power keys stay in W (TELEMETRY_CONFIG unit 'W'),
+      // axis / tooltip / "Máxima" scale W -> kW/MW only for display. Do NOT divide power here.
+      const toPeriodY = (key: string, raw: number): number => normalizeTelemetryValue(key, raw);
 
       // Aggregated: every grouping interval of the period gets a point (gaps repeat the previous value).
       const fillGaps = selectedAgg !== 'NONE';
@@ -2902,13 +2938,7 @@ export async function openRealTimeTelemetryModal(
             : '';
           // Brazilian number mask: values in W auto-scale to kW/MW (formatPower),
           // everything else keeps its own unit with a pt-BR decimal comma.
-          const formattedValue =
-            cfg.unit === 'W'
-              ? formatPower(peakPoint.y, 3)
-              : `${peakPoint.y.toLocaleString('pt-BR', {
-                  minimumFractionDigits: cfg.decimals ?? 2,
-                  maximumFractionDigits: cfg.decimals ?? 2,
-                })} ${cfg.unit}`;
+          const formattedValue = formatPeakValue(peakKey, peakPoint.y);
           peakSummaryEl.textContent = `Máxima: ${formattedValue} (${cfg.label}) em ${when}`;
           peakSummaryEl.style.display = 'block';
         } else {
@@ -2945,23 +2975,8 @@ export async function openRealTimeTelemetryModal(
       const latest = telemetryData[0];
       const config = TELEMETRY_CONFIG[key] || { label: key, unit: '', icon: '📊', decimals: 2 };
 
-      let numValue = Number(latest.value) || 0;
-
-      // RFC-0086: Convert mA to A for all current values (API returns milliamps)
-      if (
-        key === 'total_current' ||
-        key === 'current' ||
-        key === 'current_a' ||
-        key === 'current_b' ||
-        key === 'current_c'
-      ) {
-        numValue = numValue / 1000;
-      }
-
-      // FP values from firmware are 0–255; normalize to 0–1 for display
-      if (key === 'fp_a' || key === 'fp_b' || key === 'fp_c' || key === 'powerFactor') {
-        numValue = numValue / 255;
-      }
+      // RFC-0086: mA -> A for currents; FP 0–255 -> 0–1; power stays in W
+      const numValue = normalizeTelemetryValue(key, latest.value);
 
       const formattedNum = numValue.toFixed(config.decimals);
       // 'fp' is an internal pseudo-unit for grouping — don't show it as a suffix
@@ -3275,18 +3290,7 @@ export async function openRealTimeTelemetryModal(
    * Get formatted value with appropriate unit
    */
   function getFormattedValue(key: string, value: number): string {
-    const config = TELEMETRY_CONFIG[key];
-    if (!config) return value.toFixed(2);
-
-    // Special formatting for consumption/power (show in W, format to kW if > 1000)
-    if (key === 'consumption' || key === 'power') {
-      if (value >= 1000) {
-        return `${(value / 1000).toFixed(2)} kW`;
-      }
-      return `${value.toFixed(0)} W`;
-    }
-
-    return `${value.toFixed(config.decimals)} ${config.unit}`;
+    return formatTelemetryValue(key, value);
   }
 
   /** Convert hex color to rgba string. */
@@ -3332,11 +3336,7 @@ export async function openRealTimeTelemetryModal(
 
     function makeTickCallback(unit: string) {
       return function (value: any) {
-        if (unit === 'W') {
-          if (value >= 1000) return `${(value / 1000).toFixed(1)} kW`;
-          return `${value} W`;
-        }
-        return `${value}${unit ? ' ' + unit : ''}`;
+        return formatAxisTick(unit, value);
       };
     }
 
