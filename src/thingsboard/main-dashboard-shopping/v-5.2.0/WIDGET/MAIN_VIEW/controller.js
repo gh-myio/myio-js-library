@@ -92,13 +92,33 @@ function toSaoPauloIso(ms) {
 
 window.MyIOUtils = window.MyIOUtils || {};
 
-// Cada avaliação deste controller cria um orquestrador próprio e registra listeners em `window`
-// que o onDestroy não remove: avaliações anteriores continuam ouvindo eventos e gravando no STATE.
-// Estado que vale para a página inteira (ex.: opt-in dos manuais) tem que morar em window.MyIOUtils.
+// Cada avaliação deste controller cria um orquestrador próprio e registra listeners em `window`.
+// Tempo de vida DESTA avaliação: os listeners (_onWindow) e intervals (_everyMs) que ela registra
+// saem no onDestroy (_mainViewLifetime.abort()), e emissões ainda em voo são descartadas. Antes,
+// avaliações antigas seguiam ouvindo eventos, buscando dados e regravando window.STATE (Taboão:
+// manuais sumindo de Lojas ao trocar de aba). Estado da página inteira fica em window.MyIOUtils.
+const _mainViewLifetime = new AbortController();
+
+/** window.addEventListener ligado ao tempo de vida desta avaliação do controller. */
+function _onWindow(type, handler, options) {
+  const opts = typeof options === 'object' && options !== null ? options : { capture: !!options };
+  window.addEventListener(type, handler, { ...opts, signal: _mainViewLifetime.signal });
+}
+
+/** setInterval ligado ao tempo de vida desta avaliação do controller. */
+function _everyMs(fn, ms) {
+  const id = setInterval(fn, ms);
+  _mainViewLifetime.signal.addEventListener('abort', () => clearInterval(id), { once: true });
+  return id;
+}
+
+// Diagnóstico: avaliações na página (total) e vivas agora (o onDestroy desconta). Mais de uma viva
+// por instantes é normal ao recriar o widget; se persistir, há dois MAIN_VIEW ativos na página.
 window.__myioMainViewEvaluations = (window.__myioMainViewEvaluations || 0) + 1;
-if (window.__myioMainViewEvaluations === 2) {
+window.__myioMainViewLive = (window.__myioMainViewLive || 0) + 1;
+if (window.__myioMainViewLive > 1) {
   console.warn(
-    '[MAIN_VIEW] Controller avaliado mais de uma vez nesta página: listeners de avaliações anteriores continuam ativos (ver window.__myioMainViewEvaluations).'
+    `[MAIN_VIEW] ${window.__myioMainViewLive} avaliações do controller vivas ao mesmo tempo (ver window.__myioMainViewLive).`
   );
 }
 
@@ -1786,7 +1806,7 @@ window.MyIOUtils.getReportMoney = function getReportMoney(domain) {
 
 // Tarifas salvas no painel → relê do GCDR e revalora sem recarregar a página (AC-18)
 let _moneyTariffTimer = null;
-window.addEventListener('myio:tariffs-updated', () => {
+_onWindow('myio:tariffs-updated', () => {
   _moneyState.rev += 1;
   _moneyState.treeCache.clear();
   clearTimeout(_moneyTariffTimer);
@@ -1801,7 +1821,7 @@ window.addEventListener('myio:tariffs-updated', () => {
 });
 
 // Usuário conhecido (detectSuperAdmin) → elegibilidade + preferência salva
-window.addEventListener('myio:user-info-ready', () => {
+_onWindow('myio:user-info-ready', () => {
   _moneyState.availabilityPromise = null;
   _moneyApplyPreference('user-info').catch((err) => LogHelper.warn('[MAIN_VIEW] RFC-0241:', err));
 });
@@ -3511,6 +3531,7 @@ Object.assign(window.MyIOUtils, {
         applySizing();
       });
       resizeObserver.observe(rootEl);
+      _mainViewLifetime.signal.addEventListener('abort', () => resizeObserver.disconnect(), { once: true });
     }
   }
 
@@ -4119,7 +4140,7 @@ Object.assign(window.MyIOUtils, {
     // RFC-0233: reapply once the real restrict_view (if any) has finished
     // loading — detectSuperAdmin() dispatches this after its async USER
     // SERVER_SCOPE fetch resolves, which happens after the call above.
-    window.addEventListener('myio:feature-visibility-ready', applyDomainStateVisibility);
+    _onWindow('myio:feature-visibility-ready', applyDomainStateVisibility);
 
     // Initialize MyIO Library and Authentication
     const MyIO =
@@ -4330,7 +4351,7 @@ Object.assign(window.MyIOUtils, {
           _fetchAlarmDayMap(); // RFC-0193: populate today's alarm history map (all states)
 
           // Re-fetch alarms when isInternalSupportRule toggle changes in HEADER
-          window.addEventListener('myio:internal-support-rule-changed', () => {
+          _onWindow('myio:internal-support-rule-changed', () => {
             const cid = window.MyIOOrchestrator?.gcdrCustomerId;
             const tid = window.MyIOOrchestrator?.gcdrTenantId || '';
             const aBase = window.MyIOOrchestrator?.alarmsApiBaseUrl || 'https://alarms-api.a.myio-bas.com';
@@ -4351,7 +4372,7 @@ Object.assign(window.MyIOUtils, {
         // Incidentes abertos (alarms-backend) por dispositivo → badge de incidente nos cards.
         // Precisa dos centralIds dos itens: tenta já e de novo quando os dados chegam.
         _buildIncidentServiceOrchestrator();
-        window.addEventListener('myio:data-ready', () => _buildIncidentServiceOrchestrator(), { once: true });
+        _onWindow('myio:data-ready', () => _buildIncidentServiceOrchestrator(), { once: true });
 
         // RFC-0199: Init GCDR Auth Context (non-blocking) — resolves user assignments/roles/policies
         // and exposes window.MyIOAuthContext for all widgets to check permissions via .can('action')
@@ -4641,6 +4662,11 @@ Object.assign(window.MyIOUtils, {
   };
 
   self.onDestroy = function () {
+    // Desliga o que esta avaliação registrou em window (listeners/intervals/observer) e descarta
+    // emissões de requisições ainda em voo — senão ela segue regravando window.STATE.
+    _mainViewLifetime.abort();
+    window.__myioMainViewLive = Math.max(0, (window.__myioMainViewLive || 1) - 1);
+
     // Para o keep-alive do token TB (é recriado no próximo load do MAIN_VIEW)
     if (window.__myioTbTokenKeepAlive) {
       clearInterval(window.__myioTbTokenKeepAlive);
@@ -4649,10 +4675,6 @@ Object.assign(window.MyIOUtils, {
     // ED-1354: para o polling das bombas/solenoide dos poços
     clearInterval(_wellEquipment.timer);
     _wellEquipment.timer = null;
-    // Limpa event listeners se necessário
-    if (typeof window !== 'undefined') {
-      // Remove custom event listeners se foram adicionados
-    }
 
     // Destroy orchestrator
     if (window.MyIOOrchestrator) {
@@ -5360,7 +5382,7 @@ function _buildAlarmServiceOrchestrator(alarms) {
   // ─────────────────────────────────────────────────────────────────────────
   if (!window.__myioAnnotationClickedBound) {
     window.__myioAnnotationClickedBound = true;
-    window.addEventListener('myio:annotation-clicked', async (ev) => {
+    _onWindow('myio:annotation-clicked', async (ev) => {
       try {
         const detail = ev?.detail || {};
         const deviceId = detail.deviceId;
@@ -7150,6 +7172,8 @@ function _splitManualItems(items) {
  * RFC-0106: Now supports both energy and water domains with specific categorization
  */
 function populateState(domain, rawItems, periodKey, manualItems, lookupItems) {
+  // Avaliação destruída (onDestroy): não regrava o STATE de quem está vivo
+  if (_mainViewLifetime.signal.aborted) return;
   // *_MANUAL: aba própria; com opt-in, os de loja (_isManualStore) seguem também em `regular` → Lojas/totais
   const split = _splitManualItems(rawItems);
   const items = _filterWellAutomationItems(domain, split.regular);
@@ -9153,8 +9177,8 @@ const MyIOOrchestrator = (() => {
     }
   }
 
-  // Check periodically if ctx.data becomes available
-  setInterval(checkAndRefetchIfNeeded, 2000);
+  // Check periodically if ctx.data becomes available (para no onDestroy desta avaliação)
+  _everyMs(checkAndRefetchIfNeeded, 2000);
 
   // ===== Resumo por cliente — Ingestion GET /telemetry/customers/{id}/summary =====
   // Uma chamada por domínio traz todos os dispositivos do cliente (total do período + última
@@ -10288,6 +10312,7 @@ const MyIOOrchestrator = (() => {
   // options.silent: pré-montagem em segundo plano (prefetchOtherSummaries) — sem spinner, sem
   // toast/reload em erro e sem disparar novas pré-montagens.
   async function hydrateDomain(domain, period, options = {}) {
+    if (_mainViewLifetime.signal.aborted) return []; // avaliação destruída: não busca nem emite
     const { force = false, silent = false } = options;
     if (!DATA_DOMAINS.includes(domain)) {
       LogHelper.log(`[Orchestrator] ⏭️ hydrateDomain(${domain}) ignorado — domínio sem telemetria`);
@@ -10452,6 +10477,8 @@ const MyIOOrchestrator = (() => {
 
   // Emit data to widgets
   function emitProvide(domain, pKey, items) {
+    // Avaliação destruída (onDestroy) com requisição ainda em voo: descarta, não regrava o STATE
+    if (_mainViewLifetime.signal.aborted) return;
     const now = Date.now();
     const key = `${domain}_${pKey}`;
 
@@ -10561,7 +10588,7 @@ const MyIOOrchestrator = (() => {
     }
   }
 
-  window.addEventListener('myio:device-status-filter', (ev) => {
+  _onWindow('myio:device-status-filter', (ev) => {
     const value = ev?.detail?.value;
     if (!DEVICE_STATUS_FILTERS.includes(value) || value === _deviceStatusFilter) return;
     _deviceStatusFilter = value;
@@ -10571,7 +10598,7 @@ const MyIOOrchestrator = (() => {
   });
 
   // Índice GCDR carregado depois dos dados TB → marca/re-filtra o que já foi emitido.
-  window.addEventListener('myio:gcdr-device-status-loaded', () => {
+  _onWindow('myio:gcdr-device-status-loaded', () => {
     if (_deviceStatusFilter !== 'all') reemitForDeviceStatusFilter();
     _publishDeviceStatusOptions();
   });
@@ -10689,7 +10716,7 @@ const MyIOOrchestrator = (() => {
   /**
    * Listener para widgets se registrarem
    */
-  window.addEventListener('myio:widget:register', (ev) => {
+  _onWindow('myio:widget:register', (ev) => {
     const { widgetId, domain } = ev.detail;
     registerWidget(widgetId, domain);
   });
@@ -10699,7 +10726,7 @@ const MyIOOrchestrator = (() => {
    * When a widget signals it's ready, re-emit provide-data if we have cached data
    * This solves the race condition where widgets miss the initial provide-data event
    */
-  window.addEventListener('myio:widget:ready', (ev) => {
+  _onWindow('myio:widget:ready', (ev) => {
     const { widgetId, domain, labelWidget } = ev.detail;
 
     LogHelper.log(
@@ -10795,7 +10822,7 @@ const MyIOOrchestrator = (() => {
   }
 
   // Event listeners
-  window.addEventListener('myio:update-date', (ev) => {
+  _onWindow('myio:update-date', (ev) => {
     LogHelper.log('[Orchestrator] 📅 Received myio:update-date event', ev.detail);
 
     if (visibleTab === 'manual') {
@@ -10881,7 +10908,7 @@ const MyIOOrchestrator = (() => {
     }
   });
 
-  window.addEventListener('myio:dashboard-state', (ev) => {
+  _onWindow('myio:dashboard-state', (ev) => {
     const tab = ev.detail.tab;
 
     // Status Disp.: contagens do HEADER refletem só o domínio aberto no MENU (domínio desabilitado
@@ -10978,7 +11005,7 @@ const MyIOOrchestrator = (() => {
   // Fired by ExclusionGroupsTab after saving per-device exclude_groups_totals to TB SERVER_SCOPE.
   // Updates the in-memory cache immediately so the dashboard reflects the change without waiting
   // for the next TB onDataUpdated push.
-  window.addEventListener('myio:device-exclusion-updated', (ev) => {
+  _onWindow('myio:device-exclusion-updated', (ev) => {
     if (!ev.detail) return; // guard against malformed CustomEvent
     const { deviceId, exclude_groups_totals } = ev.detail;
     LogHelper.log(`[MAIN_VIEW] Configuração de exclusão atualizada para o device ${deviceId}.`);
@@ -11021,7 +11048,7 @@ const MyIOOrchestrator = (() => {
 
   // Request-data listener with pending listeners support
   // RFC-0130: Enhanced with retry logic for resilient data loading
-  window.addEventListener('myio:telemetry:request-data', async (ev) => {
+  _onWindow('myio:telemetry:request-data', async (ev) => {
     const { domain, period, widgetId, priority, isRetry } = ev.detail;
 
     LogHelper.log(
@@ -11108,7 +11135,7 @@ const MyIOOrchestrator = (() => {
 
   // Telemetry reporting
   if (!config?.debugMode && typeof window.tbClient !== 'undefined') {
-    setInterval(
+    _everyMs(
       () => {
         try {
           window.tbClient.sendTelemetry(metrics.generateTelemetrySummary());
@@ -11796,8 +11823,8 @@ function setupContractValidationListeners(expectedCounts) {
     }
   };
 
-  window.addEventListener('myio:state:ready', handleStateReady);
-  window.addEventListener('myio:domain:fetch-complete', handleFetchComplete);
+  _onWindow('myio:state:ready', handleStateReady);
+  _onWindow('myio:domain:fetch-complete', handleFetchComplete);
 
   // Also check for already-loaded domains (in case events were missed)
   setTimeout(() => {

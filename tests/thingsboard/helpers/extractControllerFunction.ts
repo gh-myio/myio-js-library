@@ -23,3 +23,16 @@ export function extractFunction(source: string, name: string): string {
   }
   throw new Error(`unbalanced braces in ${name}`);
 }
+
+/** Extrai o bloco `{ ... }` que começa no primeiro `{` depois de `marker` (ex.: 'self.onDestroy = function'). */
+export function extractBlockAfter(source: string, marker: string): string {
+  const start = source.indexOf(marker);
+  if (start < 0) throw new Error(`"${marker}" not found in controller source`);
+  const open = source.indexOf('{', start);
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === '{') depth++;
+    else if (source[i] === '}' && --depth === 0) return source.slice(open, i + 1);
+  }
+  throw new Error(`unbalanced braces after "${marker}"`);
+}
