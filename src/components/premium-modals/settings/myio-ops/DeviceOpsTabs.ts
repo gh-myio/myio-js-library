@@ -84,14 +84,6 @@ const INCIDENT_STATUS_LABELS: Record<string, string> = {
   CLOSED: 'Fechado',
 };
 
-const SEVERITY_COLORS: Record<string, string> = {
-  CRITICAL: '#dc2626',
-  HIGH: '#f59e0b',
-  MEDIUM: '#3b82f6',
-  LOW: '#6b7280',
-  INFO: '#6b7280',
-};
-
 const STYLES_ID = 'myio-dops-styles';
 
 function esc(value: unknown): string {
@@ -141,13 +133,37 @@ export async function fetchDeviceWorkOrders(config: DeviceOpsApiConfig): Promise
 }
 
 /** Incidentes (alarms-backend) que envolvem o device. */
+/** Incidente crítico ainda aberto (OPEN ou reconhecido; resolvido/fechado fica de fora). */
+export function isOpenCritical(i: DeviceIncident): boolean {
+  return String(i.severity) === 'CRITICAL' && !['RESOLVED', 'CLOSED'].includes(String(i.status));
+}
+
+const WEEKDAYS_PT = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
+/** Dia do incidente (YYYY-MM-DD, dia local da central) → "03/11/2026 · seg". */
+export function fmtDay(day?: string | null): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(day || ''));
+  if (!m) return day ? String(day) : '—';
+  const wd = WEEKDAYS_PT[new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay()];
+  return `${m[3]}/${m[2]}/${m[1]} · ${wd}`;
+}
+
+/** "há 5 min" / "há 3 h" / "há 2 dias". */
+function relativeAgo(ts: number, now: number): string {
+  const min = Math.max(0, Math.round((now - ts) / 60000));
+  if (min < 60) return `há ${min} min`;
+  if (min < 48 * 60) return `há ${Math.round(min / 60)} h`;
+  return `há ${Math.round(min / 1440)} dias`;
+}
+
+/** Incidentes CRITICAL do dispositivo (a API filtra a severidade; o status é filtrado no cliente). */
 export async function fetchDeviceIncidents(config: DeviceOpsApiConfig): Promise<DeviceIncident[]> {
   const api = resolveApi(config);
   const deviceKey = String(config.ingestionId || api.gcdrDeviceId || '');
   if (!deviceKey) return [];
   const url =
     `${api.alarmsBase}/incidents?device=${encodeURIComponent(deviceKey)}` +
-    `&sortBy=firstDetectedAt&sortDir=desc&limit=100`;
+    `&severity=CRITICAL&sortBy=firstDetectedAt&sortDir=desc&limit=100`;
   const res = await fetch(url, { headers: api.headers });
   if (!res.ok) throw Object.assign(new Error(`Alarms incidents HTTP ${res.status}`), { status: res.status });
   const body = await res.json();
@@ -204,13 +220,24 @@ function injectStyles(): void {
   const style = document.createElement('style');
   style.id = STYLES_ID;
   style.textContent = `
-    .dops-tab { padding: 4px 2px 20px; font-family: 'Nunito', system-ui, sans-serif; }
+    .dops-tab { padding: 4px 2px 20px; }
+    .dops-tab, .dops-tab table, .dops-tab th, .dops-tab td, .dops-tab b, .dops-tab small, .dops-tab span {
+      font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+    .dops-day { white-space:nowrap; font-variant-numeric: tabular-nums; }
+    /* o modal define td/th em 16px — fixa o tamanho nas próprias células (OSs e Incidentes) */
+    .dops-tab .dops-table td { font-size:12px; line-height:1.45; }
+    .dops-tab .dops-table th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+    .dops-tab .dops-table td.dops-muted { font-size:11.5px; }
+    .dops-tab .dops-chip { font-size:11px; }
+    .dops-tab .dops-table th.dops-col-date { width:140px; min-width:140px; }
     .dops-notice { background:#f1ecfa; color:#3e1a7d; border-radius:8px; padding:8px 12px; font-size:12px; margin-bottom:14px; }
     .dops-state { padding:28px 16px; text-align:center; color:#6b7280; font-size:13px; }
     .dops-error { color:#b91c1c; }
     .dops-summary { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
     .dops-kpi { border:1px solid #e5e7eb; border-radius:8px; padding:8px 12px; min-width:110px; background:#fff; }
     .dops-kpi b { display:block; font-size:18px; color:#111827; }
+    .dops-kpi--crit b { color:#dc2626; }
     .dops-kpi span { font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.4px; }
     .dops-table { width:100%; border-collapse:collapse; font-size:12px; background:#fff; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; }
     .dops-table th { text-align:left; background:#f9fafb; color:#6b7280; font-weight:700; padding:8px 10px; border-bottom:1px solid #e5e7eb; white-space:nowrap; }
@@ -295,48 +322,47 @@ export async function renderDeviceIncidentsTab(container: HTMLElement, config: D
     container.innerHTML = `<div class="dops-tab">${noDeviceHTML('Incidentes')}</div>`;
     return 0;
   }
-  container.innerHTML = `<div class="dops-tab"><div class="dops-state">Carregando incidentes…</div></div>`;
+  container.innerHTML = `<div class="dops-tab"><div class="dops-state">Carregando incidentes críticos…</div></div>`;
   let incidents: DeviceIncident[] = [];
   try {
-    incidents = await fetchDeviceIncidents(config);
+    incidents = (await fetchDeviceIncidents(config)).filter(isOpenCritical);
   } catch (e: any) {
     container.innerHTML = `<div class="dops-tab"><div class="dops-state dops-error">Erro ao carregar incidentes: ${esc(
       e?.message || e
     )}</div></div>`;
     return 0;
   }
-  const active = incidents.filter((i) => !['RESOLVED', 'CLOSED'].includes(String(i.status))).length;
-  const critical = incidents.filter(
-    (i) => String(i.severity) === 'CRITICAL' && !['RESOLVED', 'CLOSED'].includes(String(i.status))
-  ).length;
+  const now = Date.now();
+  const unacked = incidents.filter((i) => String(i.status) === 'OPEN').length;
+  const detected = incidents.map((i) => Date.parse(i.firstDetectedAt || '')).filter((t) => Number.isFinite(t));
+  const oldest = detected.length ? Math.min(...detected) : null;
+  const newest = detected.length ? Math.max(...detected) : null;
+  const daysOpen = oldest !== null ? Math.max(1, Math.round((now - oldest) / 86400000)) : null;
   const rows = incidents
-    .map((i) => {
-      const sev = String(i.severity || '');
-      return `<tr>
-        <td><span class="dops-chip" style="background:${SEVERITY_COLORS[sev] || '#6b7280'};color:#fff">${esc(sev || '—')}</span></td>
-        <td>${esc(i.kind || '—')}</td>
+    .map(
+      (i) => `<tr>
+        <td class="dops-day">${esc(fmtDay(i.day))}</td>
         <td><span class="dops-chip">${esc(INCIDENT_STATUS_LABELS[String(i.status)] || i.status || '—')}</span></td>
-        <td>${esc(i.day || '—')}</td>
-        <td>${esc(i.centralName || '—')}</td>
-        <td>${fmtDate(i.firstDetectedAt)}</td>
-        <td>${fmtDate(i.lastEvaluatedAt)}</td>
+        <td class="dops-day">${fmtDate(i.firstDetectedAt)}</td>
+        <td class="dops-day">${fmtDate(i.lastEvaluatedAt)}</td>
         <td class="dops-muted">${esc(i.description || '')}</td>
-      </tr>`;
-    })
+      </tr>`
+    )
     .join('');
   container.innerHTML = `
     <div class="dops-tab">
-      <div class="dops-notice">🔒 Visível só para usuários MyIO. Incidentes do alarms-backend que envolvem este dispositivo.</div>
+      <div class="dops-notice">🔒 Visível só para usuários MyIO. Incidentes <b>críticos em aberto</b> do alarms-backend que envolvem este dispositivo.</div>
       <div class="dops-summary">
-        <div class="dops-kpi"><b>${incidents.length}</b><span>Incidentes</span></div>
-        <div class="dops-kpi"><b>${active}</b><span>Não resolvidos</span></div>
-        <div class="dops-kpi"><b>${critical}</b><span>Críticos abertos</span></div>
+        <div class="dops-kpi dops-kpi--crit"><b>${incidents.length}</b><span>Críticos abertos</span></div>
+        <div class="dops-kpi"><b>${unacked}</b><span>Sem reconhecimento</span></div>
+        <div class="dops-kpi"><b>${daysOpen === null ? '—' : daysOpen + (daysOpen === 1 ? ' dia' : ' dias')}</b><span>Aberto há (mais antigo)</span></div>
+        <div class="dops-kpi"><b>${newest === null ? '—' : esc(relativeAgo(newest, now))}</b><span>Última detecção</span></div>
       </div>
       ${
         incidents.length
-          ? `<table class="dops-table"><thead><tr><th>Severidade</th><th>Tipo</th><th>Status</th><th>Dia</th><th>Central</th><th>Detectado</th><th>Última avaliação</th><th>Descrição</th></tr></thead><tbody>${rows}</tbody></table>`
-          : `<div class="dops-state">Nenhum incidente para este dispositivo.</div>`
+          ? `<table class="dops-table"><thead><tr><th>Dia</th><th>Status</th><th class="dops-col-date">Detectado</th><th class="dops-col-date">Última avaliação</th><th>Descrição</th></tr></thead><tbody>${rows}</tbody></table>`
+          : `<div class="dops-state">Nenhum incidente crítico em aberto para este dispositivo.</div>`
       }
     </div>`;
-  return critical;
+  return incidents.length;
 }

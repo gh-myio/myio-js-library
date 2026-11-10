@@ -104,10 +104,16 @@ describe('aba Incidentes', () => {
     const el = document.createElement('div');
     expect(await renderDeviceIncidentsTab(el, { ...api, ingestionId: 'ing-1' })).toBe(1);
     expect(String(fetchMock.mock.calls[0][0])).toBe(
-      'https://alarms.test/api/v1/incidents?device=ing-1&sortBy=firstDetectedAt&sortDir=desc&limit=100'
+      'https://alarms.test/api/v1/incidents?device=ing-1&severity=CRITICAL&sortBy=firstDetectedAt&sortDir=desc&limit=100'
     );
-    expect(el.querySelectorAll('tbody tr')).toHaveLength(3);
-    expect(el.textContent).toContain('Aberto');
+    // só o CRITICAL aberto fica; sem colunas Tipo/Severidade
+    expect(el.querySelectorAll('tbody tr')).toHaveLength(1);
+    const heads = [...el.querySelectorAll('thead th')].map((th) => th.textContent);
+    expect(heads).toEqual(['Dia', 'Status', 'Detectado', 'Última avaliação', 'Descrição']);
+    expect(el.querySelector('tbody td')!.textContent).toBe('03/11/2026 · ter');
+    expect(el.querySelector('tbody')!.textContent).not.toContain('NO_CONSUMPTION');
+    const kpis = [...el.querySelectorAll('.dops-kpi span')].map((x) => x.textContent);
+    expect(kpis).toEqual(['Críticos abertos', 'Sem reconhecimento', 'Aberto há (mais antigo)', 'Última detecção']);
   });
 
   it('sem gcdrDeviceId → aviso, sem chamada de rede', async () => {
