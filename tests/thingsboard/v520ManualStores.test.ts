@@ -24,7 +24,15 @@ type Fns = {
   _resolveDeviceGcdrStatus: (item: any) => string;
 };
 
-function loadMain(manualStoresInLojas: boolean): Fns {
+type FakeWindow = { MyIOLibrary: { resolveGroup: typeof resolveGroup }; MyIOUtils: { manualStoresInLojas?: boolean } };
+
+const fakeWindowWith = (manualStoresInLojas?: boolean): FakeWindow => ({
+  MyIOLibrary: { resolveGroup },
+  MyIOUtils: manualStoresInLojas === undefined ? {} : { manualStoresInLojas },
+});
+
+/** Uma "avaliação" do controller: funções reais do MAIN_VIEW num escopo próprio, sobre o `window` dado. */
+function evaluateMain(win: FakeWindow): Fns {
   const names = [
     '_isManualDevice',
     '_isManualStore',
@@ -33,7 +41,6 @@ function loadMain(manualStoresInLojas: boolean): Fns {
     'categorizeItemsByGroupWater',
     '_resolveDeviceGcdrStatus',
   ];
-  const fakeWindow = { MyIOLibrary: { resolveGroup } };
   const LogHelper = { log: () => {}, warn: () => {}, error: () => {} };
   const gcdrIndex = { byGcdrId: new Map(), byTbId: new Map([['tb-loja', 'INACTIVE']]) };
   // eslint-disable-next-line no-new-func
@@ -41,11 +48,12 @@ function loadMain(manualStoresInLojas: boolean): Fns {
     'window',
     'LogHelper',
     '_gcdrDeviceStatusIndex',
-    '_manualStoresInLojas',
     `${names.map((n) => extractFunction(MAIN_SRC, n)).join('\n')}\nreturn { ${names.join(', ')} };`
   );
-  return factory(fakeWindow, LogHelper, gcdrIndex, manualStoresInLojas);
+  return factory(win, LogHelper, gcdrIndex);
 }
+
+const loadMain = (manualStoresInLojas: boolean): Fns => evaluateMain(fakeWindowWith(manualStoresInLojas));
 
 function loadHeaderMerge(win: unknown): (domain: string, items: any[] | null) => any[] {
   // eslint-disable-next-line no-new-func
@@ -127,6 +135,32 @@ describe('v-5.2.0 MAIN_VIEW — *_MANUAL SEM o opt-in (padrão)', () => {
   });
 });
 
+describe('v-5.2.0 MAIN_VIEW — várias avaliações do controller na mesma página', () => {
+  // Taboão: uma avaliação anterior do controller (listeners em window que o onDestroy não remove)
+  // continuava emitindo com o próprio flag = false e regravava Lojas sem os manuais ao trocar de aba.
+  it('o opt-in é lido do window na hora: um escopo criado antes da leitura dos atributos também o aplica', () => {
+    const win = fakeWindowWith(undefined); // atributos do customer ainda não lidos
+    const antigo = evaluateMain(win);
+    expect(antigo._isManualStore(quiosque('q1'))).toBe(false);
+
+    win.MyIOUtils.manualStoresInLojas = true; // leitura dos atributos (por qualquer avaliação)
+    const atual = evaluateMain(win);
+    for (const scope of [antigo, atual]) {
+      const { regular } = scope._splitManualItems([loja, quiosque('q1'), quiosque('q2')]);
+      expect(scope.categorizeItemsByGroup(regular).lojas.map((i) => i.id)).toEqual(['loja', 'q1', 'q2']);
+    }
+  });
+
+  it('desligar o opt-in no window vale para todos os escopos', () => {
+    const win = fakeWindowWith(true);
+    const a = evaluateMain(win);
+    const b = evaluateMain(win);
+    win.MyIOUtils.manualStoresInLojas = false;
+    expect(a._isManualStore(quiosque('q1'))).toBe(false);
+    expect(b._isManualStore(quiosque('q1'))).toBe(false);
+  });
+});
+
 describe('v-5.2.0 HEADER — relatório geral × *_MANUAL', () => {
   const manualItems = [
     { id: 'tb-q1', ingestionId: 'ing-q1', deviceProfile: '3F_MEDIDOR_MANUAL', identifier: 'STB_QV_L1', label: 'Quiosque 1' },
@@ -156,11 +190,20 @@ describe('v-5.2.0 HEADER — relatório geral × *_MANUAL', () => {
 });
 
 describe('v-5.2.0 — atributo do opt-in ligado aos dois widgets', () => {
-  it('MAIN_VIEW lê o atributo antes do parse que pode lançar e publica para o HEADER', () => {
+  it('MAIN_VIEW lê o atributo antes do parse que pode lançar e grava só em window.MyIOUtils', () => {
     const read = MAIN_SRC.indexOf('attrs?.includeManualStoresInLojas');
     expect(read).toBeGreaterThan(0);
     expect(read).toBeLessThan(MAIN_SRC.indexOf('attrs?.exclude_groups_totals'));
-    expect(MAIN_SRC).toContain('window.MyIOUtils.manualStoresInLojas = _manualStoresInLojas');
+    expect(MAIN_SRC).toContain('window.MyIOUtils.manualStoresInLojas =');
     expect(HEADER_SRC).toContain('window.MyIOUtils?.manualStoresInLojas');
+  });
+
+  it('nenhuma cópia do opt-in no escopo do controller (fonte única da página)', () => {
+    expect(MAIN_SRC).not.toMatch(/\b_manualStoresInLojas\b/);
+    expect(extractFunction(MAIN_SRC, '_isManualStore')).toContain('window.MyIOUtils?.manualStoresInLojas');
+  });
+
+  it('MAIN_VIEW conta as próprias avaliações e avisa a partir da segunda', () => {
+    expect(MAIN_SRC).toContain('window.__myioMainViewEvaluations = (window.__myioMainViewEvaluations || 0) + 1');
   });
 });

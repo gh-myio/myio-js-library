@@ -92,6 +92,16 @@ function toSaoPauloIso(ms) {
 
 window.MyIOUtils = window.MyIOUtils || {};
 
+// Cada avaliação deste controller cria um orquestrador próprio e registra listeners em `window`
+// que o onDestroy não remove: avaliações anteriores continuam ouvindo eventos e gravando no STATE.
+// Estado que vale para a página inteira (ex.: opt-in dos manuais) tem que morar em window.MyIOUtils.
+window.__myioMainViewEvaluations = (window.__myioMainViewEvaluations || 0) + 1;
+if (window.__myioMainViewEvaluations === 2) {
+  console.warn(
+    '[MAIN_VIEW] Controller avaliado mais de uma vez nesta página: listeners de avaliações anteriores continuam ativos (ver window.__myioMainViewEvaluations).'
+  );
+}
+
 // ── Token ThingsBoard sempre válido ─────────────────────────────────────────────
 // Os widgets fazem fetch() direto com localStorage.jwt_token. O TB só renova esse
 // token quando o PRÓPRIO Angular faz uma requisição — com o dashboard parado além da
@@ -2644,10 +2654,6 @@ let widgetSettings = {
 // { enabled: boolean, groups: { entrada, lojas, climatizacao, elevadores, escadas_rolantes, outros, area_comum } }
 let _excludeGroupsTotals = null;
 
-// Opt-in do customer (SERVER_SCOPE `includeManualStoresInLojas`): devices *_MANUAL de loja entram
-// também em Lojas, totais e relatórios. Desligado (padrão) → ficam só na aba MANUAL.
-let _manualStoresInLojas = false;
-
 /**
  * Normalize legacy excludedGroups format to the current groups-object format.
  * Legacy: { enabled, excludedGroups: ["entrada", "esc_rolantes", ...] }
@@ -4192,14 +4198,15 @@ Object.assign(window.MyIOUtils, {
             _applyTicketsGate();
 
             // Opt-in dos *_MANUAL de loja em Lojas/totais/relatórios (undefined → desligado).
+            // Fonte única da página (window.MyIOUtils): avaliações anteriores deste controller ainda
+            // emitem dados e têm que aplicar a mesma regra (ver window.__myioMainViewEvaluations).
             // Antes do parse abaixo: um JSON inválido em exclude_groups_totals interrompe este bloco.
             const _rawManualStores = attrs?.includeManualStoresInLojas;
-            _manualStoresInLojas =
+            window.MyIOUtils.manualStoresInLojas =
               _rawManualStores === true ||
               _rawManualStores === 'true' ||
               _rawManualStores === 1 ||
               _rawManualStores === '1';
-            window.MyIOUtils.manualStoresInLojas = _manualStoresInLojas;
 
             // RFC-0241 Part B (Q3): regra opt-in grupo do dashboard → categoria tarifária
             _moneySetCategoryRule(attrs?.moneyCategoryRule);
@@ -7112,9 +7119,11 @@ function _isManualDevice(item) {
  * com o opt-in do customer (`includeManualStoresInLojas`), além da aba MANUAL entram também em
  * Lojas — cards, totais (summary) e relatórios (MyIOOrchestratorData[domain].items →
  * getEnergyGroups/getWaterGroups). Sem o opt-in → false: ficam só na aba MANUAL.
+ * O opt-in é lido de window.MyIOUtils na hora (nunca de variável deste escopo): uma avaliação
+ * anterior do controller que não leu os atributos também emite e gravaria Lojas sem os manuais.
  */
 function _isManualStore(item) {
-  if (!_manualStoresInLojas) return false;
+  if (window.MyIOUtils?.manualStoresInLojas !== true) return false;
   return /^(3F_MEDIDOR|HIDROMETRO)_MANUAL$/i.test(String(item?.deviceProfile || item?.deviceType || '').trim());
 }
 
