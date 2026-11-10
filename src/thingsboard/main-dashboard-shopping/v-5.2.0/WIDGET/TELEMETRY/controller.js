@@ -277,7 +277,7 @@ function addIncidentBadge(cardElement, gcdrDeviceId) {
   badge.className = 'myio-incident-badge';
   badge.setAttribute('data-incident-device-id', gcdrDeviceId);
   badge.style.display = count > 0 && _isMyioCardUser() ? '' : 'none';
-  badge.title = count + ' incidente' + (count !== 1 ? 's' : '') + ' de interpolação';
+  _paintIncidentBadge(badge, count, iso && iso.getIncidentSeverityForDevice ? iso.getIncidentSeverityForDevice(gcdrDeviceId) : null);
   badge.innerHTML =
     '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">' +
     '<path d="M12 2L1 21h22L12 2z"/>' +
@@ -286,6 +286,12 @@ function addIncidentBadge(cardElement, gcdrDeviceId) {
     (count > 99 ? '99+' : count) +
     '</span>';
   cardElement.appendChild(badge);
+}
+
+/** Título + cor do badge de incidente: vermelho com CRITICAL, violeta nos demais. */
+function _paintIncidentBadge(badge, count, severity) {
+  badge.title = count + ' incidente' + (count !== 1 ? 's' : '') + ' crítico' + (count !== 1 ? 's' : '') + ' aberto' + (count !== 1 ? 's' : '');
+  badge.style.background = severity === 'CRITICAL' ? '#dc2626' : '#7C3AED';
 }
 
 /**
@@ -310,7 +316,7 @@ function refreshIncidentBadges() {
     const span = badge.querySelector('span');
     if (count > 0) {
       badge.style.display = '';
-      badge.title = count + ' incidente' + (count !== 1 ? 's' : '') + ' de interpolação';
+      _paintIncidentBadge(badge, count, iso.getIncidentSeverityForDevice ? iso.getIncidentSeverityForDevice(gcdrDeviceId) : null);
       if (span) span.textContent = count > 99 ? '99+' : String(count);
     } else {
       badge.style.display = 'none';
@@ -332,16 +338,20 @@ function addTicketBadge(cardElement, identifier, ticketsItemsRaw) {
   const tso = window.TicketServiceOrchestrator;
   let count = tso ? tso.getTicketCountForDevice(identifier) : 0;
 
-  // Fallback: use tickets_items SERVER_SCOPE attribute (always try when count still 0)
-  if (count === 0 && ticketsItemsRaw) {
+  // Fallback: tickets_items SERVER_SCOPE attribute. Guardado no badge (data-fallback-count) para o
+  // refresh não zerar o badge quando o mapa do FreshDesk vem vazio (chamado sem cf_device_identifier):
+  // antes o badge aparecia e sumia no myio:tickets-ready.
+  let fallbackCount = 0;
+  if (ticketsItemsRaw) {
     try {
       const parsed = typeof ticketsItemsRaw === 'string' ? JSON.parse(ticketsItemsRaw) : ticketsItemsRaw;
       const summaries = Array.isArray(parsed) ? parsed : (parsed?.items ?? []);
-      count = summaries.filter((t) => [2, 3, 6].includes(t.status)).length;
+      fallbackCount = summaries.filter((t) => [2, 3, 6].includes(t.status)).length;
     } catch (_e) {
       /* ignore */
     }
   }
+  count = Math.max(count, fallbackCount);
 
   injectTicketBadgeStyles();
   if (cardElement.style) cardElement.style.position = 'relative';
@@ -349,6 +359,7 @@ function addTicketBadge(cardElement, identifier, ticketsItemsRaw) {
   const badge = document.createElement('div');
   badge.className = 'myio-ticket-badge';
   badge.setAttribute('data-ticket-identifier', identifier);
+  badge.setAttribute('data-fallback-count', String(fallbackCount));
   // Hidden if no tickets yet OR if tickets gate is not open
   const gateOpen = window.MyIOUtils?.ticketsEnabled === true && _isMyioCardUser();
   badge.style.display = count > 0 && gateOpen ? '' : 'none';
@@ -385,7 +396,10 @@ function refreshTicketBadges() {
   document.querySelectorAll('.myio-ticket-badge[data-ticket-identifier]').forEach((badge) => {
     const identifier = badge.getAttribute('data-ticket-identifier');
     if (!identifier) return;
-    const count = tso.getTicketCountForDevice(identifier);
+    const count = Math.max(
+      tso.getTicketCountForDevice(identifier),
+      Number(badge.getAttribute('data-fallback-count') || 0)
+    );
     if (count > 0) {
       badge.style.display = '';
       badge.title = count + ' chamado' + (count !== 1 ? 's' : '') + ' aberto' + (count !== 1 ? 's' : '');
@@ -400,6 +414,60 @@ function refreshTicketBadges() {
     } else {
       badge.style.display = 'none';
     }
+  });
+}
+
+// OSs do GCDR (WorkOrderServiceOrchestrator, MAIN_VIEW): badge de OS logo acima do de chamados,
+// mesmo formato. Só para @myio.com.br; sempre no DOM (oculto com 0) para o refresh acender.
+function injectWorkOrderBadgeStyles() {
+  if (document.getElementById('myio-wo-badge-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'myio-wo-badge-styles';
+  s.textContent =
+    '.myio-wo-badge{position:absolute;bottom:36px;left:6px;width:24px;height:24px;' +
+    'background:rgba(234,88,12,.12);color:#ea580c;border:1px solid rgba(234,88,12,.3);border-radius:6px;' +
+    'display:flex;align-items:center;justify-content:center;z-index:10}' +
+    '.myio-wo-badge-count{position:absolute;top:-5px;right:-5px;min-width:14px;height:14px;padding:0 3px;' +
+    'border-radius:7px;background:#ea580c;color:#fff;font-size:9px;font-weight:700;line-height:14px;' +
+    'text-align:center;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.3)}';
+  document.head.appendChild(s);
+}
+
+function _setWorkOrderBadge(badge, count) {
+  badge.style.display = count > 0 && _isMyioCardUser() ? '' : 'none';
+  badge.title = count + ' OS' + (count !== 1 ? 's' : '') + ' em aberto';
+  let pill = badge.querySelector('.myio-wo-badge-count');
+  if (!pill) {
+    pill = document.createElement('span');
+    pill.className = 'myio-wo-badge-count';
+    badge.appendChild(pill);
+  }
+  pill.textContent = count > 99 ? '99+' : String(count);
+}
+
+function addWorkOrderBadge(cardElement, gcdrDeviceId) {
+  if (!cardElement || !gcdrDeviceId) return;
+  if (cardElement.querySelector('[data-wo-device-id="' + gcdrDeviceId + '"]')) return;
+  injectWorkOrderBadgeStyles();
+  if (cardElement.style) cardElement.style.position = 'relative';
+  const badge = document.createElement('div');
+  badge.className = 'myio-wo-badge';
+  badge.setAttribute('data-wo-device-id', gcdrDeviceId);
+  // ícone: chave inglesa (OS de manutenção/instalação)
+  badge.innerHTML =
+    '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>' +
+    '</svg>';
+  const wso = window.WorkOrderServiceOrchestrator;
+  _setWorkOrderBadge(badge, wso ? wso.getWorkOrderCountForDevice(gcdrDeviceId) : 0);
+  cardElement.appendChild(badge);
+}
+
+function refreshWorkOrderBadges() {
+  const wso = window.WorkOrderServiceOrchestrator;
+  document.querySelectorAll('.myio-wo-badge[data-wo-device-id]').forEach((badge) => {
+    const id = badge.getAttribute('data-wo-device-id');
+    _setWorkOrderBadge(badge, wso && id ? wso.getWorkOrderCountForDevice(id) : 0);
   });
 }
 
@@ -3941,6 +4009,7 @@ function renderList(visible) {
 
           await MyIO.openDashboardPopupSettings({
             deviceId: tbId, // TB deviceId
+            ingestionId: it.ingestionId || undefined, // aba Incidentes: o alarms-backend indexa por ingestionId
             label: it.label,
             deviceName: it.entityName || it.name || '', // Raw device name (shown as subtitle in identity card)
             jwtToken: jwt,
@@ -4018,6 +4087,11 @@ function renderList(visible) {
     // Visibility is controlled by ticketsEnabled inside addTicketBadge + refreshTicketBadges.
     if ($card && $card[0]) {
       addTicketBadge($card[0], it.identifier || null, it.ticketsItems || null);
+    }
+
+    // OSs do GCDR em aberto para o dispositivo (badge de OS, só @myio.com.br)
+    if ($card && $card[0]) {
+      addWorkOrderBadge($card[0], it.gcdrDeviceId || null);
     }
 
     // RFC-0152: Collect TB↔GCDR mapping data for device export
@@ -7365,6 +7439,9 @@ self.onInit = async function () {
   // Refreshes ticket badge counts on all currently-rendered TELEMETRY cards without re-rendering.
   window.addEventListener('myio:tickets-ready', refreshTicketBadges);
 
+  // OSs do GCDR: mapa por dispositivo pronto/atualizado (MAIN_VIEW WorkOrderServiceOrchestrator)
+  window.addEventListener('myio:work-orders-ready', refreshWorkOrderBadges);
+
   // myio:tickets-gate-changed — fired by MAIN_VIEW when ticketsEnabled changes (e.g. after user email known).
   // If gate closed, hide all ticket badges immediately; if opened, trigger a refresh.
   window.addEventListener('myio:tickets-gate-changed', (e) => {
@@ -7432,6 +7509,7 @@ self.onInit = async function () {
     // e-mail conhecido agora → acende (MyIO) ou mantém ocultos os badges de incidentes/chamados
     refreshIncidentBadges();
     refreshTicketBadges();
+    refreshWorkOrderBadges();
   });
 
   // RFC-0136: Intelligent retry with backoff for late-arriving widgets

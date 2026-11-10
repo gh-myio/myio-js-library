@@ -4338,6 +4338,14 @@ Object.assign(window.MyIOUtils, {
         // can use them without a per-device fetch when the Settings modal is opened.
         _buildTicketServiceOrchestrator();
 
+        // OSs do GCDR (/wo/work-orders, X-API-Key) por dispositivo → badge de OS nos cards (non-blocking)
+        _buildWorkOrderServiceOrchestrator();
+
+        // Incidentes abertos (alarms-backend) por dispositivo → badge de incidente nos cards.
+        // Precisa dos centralIds dos itens: tenta já e de novo quando os dados chegam.
+        _buildIncidentServiceOrchestrator();
+        window.addEventListener('myio:data-ready', () => _buildIncidentServiceOrchestrator(), { once: true });
+
         // RFC-0199: Init GCDR Auth Context (non-blocking) — resolves user assignments/roles/policies
         // and exposes window.MyIOAuthContext for all widgets to check permissions via .can('action')
         _initAuthContext(gcdrCustomerId, gcdrTenantId, gcdrApiKey, gcdrApiBaseUrl);
@@ -5621,6 +5629,168 @@ async function _buildTicketServiceOrchestrator() {
   } catch (err) {
     LogHelper.warn('[TicketServiceOrchestrator] build error:', err);
   }
+}
+
+// ── OSs do GCDR por dispositivo ───────────────────────────────────────────────
+// GET {gcdr}/api/v1/wo/work-orders?customerId=…&include=devices (X-API-Key, escopo wo:read).
+// Cada página traz as OSs com o escopo de dispositivos (`scopeDevices`); o mapa conta só OSs em
+// aberto (status ≠ FINALIZADA/CANCELADA), inclusive as do tipo CHAMADO do GCDR.
+// window.WorkOrderServiceOrchestrator.getWorkOrderCountForDevice(gcdrDeviceId) alimenta o badge
+// de OS do TELEMETRY; `myio:work-orders-ready` avisa quando o mapa muda.
+const WO_CLOSED_STATUSES = new Set(['FINALIZADA', 'CANCELADA']);
+
+async function _fetchCustomerWorkOrders() {
+  const orch = window.MyIOOrchestrator;
+  const root = _rfc0234GcdrApiRoot();
+  const customerId = orch?.gcdrCustomerId;
+  if (!root || !customerId || !orch?.gcdrApiKey) return null;
+  const headers = { 'X-API-Key': orch.gcdrApiKey, Accept: 'application/json' };
+  if (orch.gcdrTenantId) headers['X-Tenant-ID'] = orch.gcdrTenantId;
+  const all = [];
+  let cursor = '';
+  for (let page = 0; page < 20; page++) {
+    const url =
+      `${root}/api/v1/wo/work-orders?customerId=${encodeURIComponent(customerId)}&include=devices&limit=100` +
+      (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      LogHelper.warn(`[WorkOrderServiceOrchestrator] GCDR /wo/work-orders HTTP ${res.status}`);
+      return null;
+    }
+    const body = await res.json();
+    const items = Array.isArray(body?.data?.items) ? body.data.items : [];
+    all.push(...items);
+    cursor = body?.data?.nextCursor || body?.data?.pagination?.nextCursor || '';
+    if (!body?.data?.pagination?.hasMore || !cursor || items.length === 0) break;
+  }
+  return all;
+}
+
+async function _buildWorkOrderServiceOrchestrator() {
+  try {
+    const orders = await _fetchCustomerWorkOrders();
+    if (!orders) return;
+    const deviceWorkOrderMap = new Map(); // gcdrDeviceId → OSs em aberto
+    orders.forEach((wo) => {
+      if (WO_CLOSED_STATUSES.has(String(wo?.status))) return;
+      (wo?.scopeDevices || []).forEach((d) => {
+        const id = d?.deviceId && String(d.deviceId);
+        if (!id) return;
+        if (!deviceWorkOrderMap.has(id)) deviceWorkOrderMap.set(id, []);
+        deviceWorkOrderMap.get(id).push(wo);
+      });
+    });
+    window.WorkOrderServiceOrchestrator = {
+      workOrders: orders,
+      deviceWorkOrderMap,
+      getWorkOrderCountForDevice: (gcdrDeviceId) =>
+        (gcdrDeviceId && deviceWorkOrderMap.get(String(gcdrDeviceId))?.length) || 0,
+      getWorkOrdersForDevice: (gcdrDeviceId) =>
+        (gcdrDeviceId && deviceWorkOrderMap.get(String(gcdrDeviceId))) || [],
+      refresh: _buildWorkOrderServiceOrchestrator,
+    };
+    LogHelper.log(
+      `[WorkOrderServiceOrchestrator] ${orders.length} OS(s), ${deviceWorkOrderMap.size} dispositivo(s) com OS em aberto`
+    );
+    window.dispatchEvent(
+      new CustomEvent('myio:work-orders-ready', { detail: { devices: deviceWorkOrderMap.size } })
+    );
+  } catch (err) {
+    LogHelper.warn('[WorkOrderServiceOrchestrator] build error:', err?.message || err);
+  }
+}
+
+// ── Incidentes abertos por dispositivo (alarms-backend) ───────────────────────
+// GET {alarms}/incidents/devices?centralId=<centrais do customer>&status=OPEN,ACK — uma chamada
+// por página de centrais devolve Central → Device → dias com incidente. O `deviceId` do
+// alarms-backend é o **ingestionId** do dispositivo; o mapa indexa também por gcdrDeviceId
+// (via STATE) para o badge do TELEMETRY, que é montado com gcdrDeviceId.
+// Contagem = só incidentes CRITICAL em aberto (um por dia); os demais não acendem o badge.
+const INCIDENT_SEVERITY_RANK = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1, INFO: 0 };
+let _incidentBuildInFlight = null;
+
+function _customerCentralIds() {
+  const ids = new Set();
+  ['energy', 'water', 'temperature'].forEach((d) => {
+    const c = window.MyIOOrchestratorData?.[d];
+    (c?.allItems || c?.items || window.STATE?.[d]?._raw || []).forEach((it) => {
+      if (it?.centralId) ids.add(String(it.centralId));
+    });
+  });
+  return [...ids];
+}
+
+function _ingestionToGcdrIdMap() {
+  const map = new Map();
+  ['energy', 'water', 'temperature'].forEach((d) => {
+    const c = window.MyIOOrchestratorData?.[d];
+    (c?.allItems || c?.items || window.STATE?.[d]?._raw || []).forEach((it) => {
+      if (it?.ingestionId && it?.gcdrDeviceId) map.set(String(it.ingestionId), String(it.gcdrDeviceId));
+    });
+  });
+  return map;
+}
+
+async function _buildIncidentServiceOrchestrator() {
+  if (_incidentBuildInFlight) return _incidentBuildInFlight;
+  _incidentBuildInFlight = (async () => {
+    const orch = window.MyIOOrchestrator;
+    const base = String(orch?.alarmsApiBaseUrl || '').replace(/\/+$/, '');
+    const centrals = _customerCentralIds();
+    if (!base || !orch?.gcdrApiKey || centrals.length === 0) return;
+    const headers = { 'X-API-Key': orch.gcdrApiKey, Accept: 'application/json' };
+    if (orch.gcdrTenantId) headers['X-Tenant-ID'] = orch.gcdrTenantId;
+    const byDevice = new Map(); // id (ingestionId e gcdrDeviceId) → { count, severity, days[] }
+    const toGcdr = _ingestionToGcdrIdMap();
+    let offset = 0;
+    for (let page = 0; page < 10; page++) {
+      const url =
+        `${base}/incidents/devices?centralId=${encodeURIComponent(centrals.join(','))}` +
+        `&status=OPEN,ACK&limit=100&offset=${offset}`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        LogHelper.warn(`[IncidentServiceOrchestrator] /incidents/devices HTTP ${res.status}`);
+        return;
+      }
+      const body = await res.json();
+      const gateways = Array.isArray(body?.data) ? body.data : [];
+      gateways.forEach((gw) =>
+        (gw?.devices || []).forEach((dev) => {
+          const days = (dev?.days || []).filter(
+            (d) => String(d?.severity) === 'CRITICAL' && ['OPEN', 'ACK', 'ACKNOWLEDGED'].includes(String(d?.status))
+          );
+          if (!days.length || !dev?.deviceId) return;
+          const severity = days.reduce(
+            (best, d) => ((INCIDENT_SEVERITY_RANK[d.severity] ?? -1) > (INCIDENT_SEVERITY_RANK[best] ?? -1) ? d.severity : best),
+            null
+          );
+          const entry = { count: days.length, severity, days };
+          byDevice.set(String(dev.deviceId), entry);
+          const gcdrId = dev.gcdrDeviceId || toGcdr.get(String(dev.deviceId));
+          if (gcdrId) byDevice.set(String(gcdrId), entry);
+        })
+      );
+      offset += gateways.length;
+      if (!body?.pagination?.hasMore || gateways.length === 0) break;
+    }
+    window.IncidentServiceOrchestrator = {
+      deviceIncidentMap: byDevice,
+      getIncidentCountForDevice: (id) => (id && byDevice.get(String(id))?.count) || 0,
+      getIncidentSeverityForDevice: (id) => (id && byDevice.get(String(id))?.severity) || null,
+      getIncidentsForDevice: (id) => (id && byDevice.get(String(id))?.days) || [],
+      refresh: () => {
+        _incidentBuildInFlight = null;
+        return _buildIncidentServiceOrchestrator();
+      },
+    };
+    LogHelper.log(`[IncidentServiceOrchestrator] ${byDevice.size} id(s) de dispositivo com incidente CRITICAL aberto`);
+    window.dispatchEvent(new CustomEvent('myio:incidents-updated', { detail: { devices: byDevice.size } }));
+  })()
+    .catch((err) => LogHelper.warn('[IncidentServiceOrchestrator] build error:', err?.message || err))
+    .finally(() => {
+      _incidentBuildInFlight = null;
+    });
+  return _incidentBuildInFlight;
 }
 
 // ── RFC-0199: GCDR Auth Context initialisation ────────────────────────────────
