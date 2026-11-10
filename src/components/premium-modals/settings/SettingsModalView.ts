@@ -92,10 +92,22 @@ export class SettingsModalView {
     return !!email && email.endsWith(ALLOWED_EMAIL_DOMAIN.toLowerCase());
   }
 
+  /** ingestionId do dispositivo pelo estado do dashboard (host antigo que não o envia). */
+  private lookupIngestionId(): string | null {
+    const id = String(this.config.deviceId || '');
+    const state = (window as any).STATE || {};
+    for (const d of ['energy', 'water', 'temperature']) {
+      const hit = (state[d]?._raw || []).find((it: any) => String(it?.tbId || it?.id) === id);
+      if (hit?.ingestionId) return String(hit.ingestionId);
+    }
+    return null;
+  }
+
   /** Abas OSs + Incidentes do dispositivo (GCDR work-orders / alarms-backend incidents). */
   private initDeviceOpsTabs(): void {
     const cfg = {
       gcdrDeviceId: this.config.gcdrDeviceId,
+      ingestionId: this.config.ingestionId || this.lookupIngestionId(),
       identifier: this.config.identifier,
       gcdrApiBaseUrl: (this.config as any).gcdrApiBaseUrl,
     };

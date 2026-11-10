@@ -189,6 +189,8 @@ export interface SettingsPersister {
 }
 
 export interface ModalConfig {
+  /** Ingestion device id — chave dos incidentes no alarms-backend (aba Incidentes). */
+  ingestionId?: string | null;
   title: string;
   width: number | string;
   theme?: 'light' | 'dark';

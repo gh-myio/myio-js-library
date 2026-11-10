@@ -2,10 +2,11 @@
  * Abas "OSs" e "Incidentes" do SettingsModal — só para usuários @myio.com.br (gate no caller).
  *
  * - OSs: ordens de serviço do device no GCDR (`GET {gcdr}/api/v1/wo/work-orders?deviceId=<gcdrDeviceId>`,
- *   todos os tipos — inclui os chamados GCDR, tipo CHAMADO). A contagem da aba soma, por ora,
- *   OSs + chamados FreshDesk do device (TicketServiceOrchestrator); depois separamos.
+ *   todos os tipos — inclui os chamados GCDR, tipo CHAMADO). O badge da aba conta só as OSs em
+ *   aberto; chamados FreshDesk têm a aba e o badge próprios.
  * - Incidentes: incidentes do alarms-backend que envolvem o device
- *   (`GET {alarms}/incidents?device=<gcdrDeviceId>` — filtro por id exato do device).
+ *   (`GET {alarms}/incidents?device=<ingestionId>` — o alarms-backend usa o id do Ingestion;
+ *   cai para o gcdrDeviceId só quando o ingestionId não veio).
  *
  * Ambas somente leitura. Auth: X-API-Key do customer (gcdrApiKey) + X-Tenant-ID, igual aos
  * alarmes. Config vem dos params ou, por padrão, de window.MyIOOrchestrator.
@@ -13,6 +14,8 @@
 
 export interface DeviceOpsApiConfig {
   gcdrDeviceId?: string | null;
+  /** Ingestion device id — o alarms-backend indexa os incidentes por ele (não pelo gcdrDeviceId). */
+  ingestionId?: string | null;
   /** Identifier do device (chave dos chamados FreshDesk no TicketServiceOrchestrator). */
   identifier?: string | null;
   gcdrApiBaseUrl?: string;
@@ -140,14 +143,53 @@ export async function fetchDeviceWorkOrders(config: DeviceOpsApiConfig): Promise
 /** Incidentes (alarms-backend) que envolvem o device. */
 export async function fetchDeviceIncidents(config: DeviceOpsApiConfig): Promise<DeviceIncident[]> {
   const api = resolveApi(config);
-  if (!api.gcdrDeviceId) return [];
+  const deviceKey = String(config.ingestionId || api.gcdrDeviceId || '');
+  if (!deviceKey) return [];
   const url =
-    `${api.alarmsBase}/incidents?device=${encodeURIComponent(api.gcdrDeviceId)}` +
+    `${api.alarmsBase}/incidents?device=${encodeURIComponent(deviceKey)}` +
     `&sortBy=firstDetectedAt&sortDir=desc&limit=100`;
   const res = await fetch(url, { headers: api.headers });
   if (!res.ok) throw Object.assign(new Error(`Alarms incidents HTTP ${res.status}`), { status: res.status });
   const body = await res.json();
   return (Array.isArray(body?.data) ? body.data : []) as DeviceIncident[];
+}
+
+export interface WorkOrderUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+}
+
+/**
+ * Usuários que podem ser responsáveis por OS (id → nome/e-mail). O GCDR só devolve o id em
+ * `assignedTo` e a rota /users exige login; o alarms-backend expõe a mesma lista com a X-API-Key
+ * (`GET {alarms}/incidents/work-order-users`). Falha → mapa vazio (a coluna cai para o id curto).
+ */
+export async function fetchWorkOrderUsers(config: DeviceOpsApiConfig): Promise<Map<string, WorkOrderUser>> {
+  const api = resolveApi(config);
+  const map = new Map<string, WorkOrderUser>();
+  try {
+    const res = await fetch(`${api.alarmsBase}/incidents/work-order-users`, { headers: api.headers });
+    if (!res.ok) return map;
+    const body = await res.json();
+    const list = Array.isArray(body) ? body : Array.isArray(body?.data) ? body.data : Array.isArray(body?.items) ? body.items : [];
+    list.forEach((u: WorkOrderUser) => u?.id && map.set(String(u.id), u));
+  } catch {
+    // sem nomes: a coluna mostra o id curto
+  }
+  return map;
+}
+
+/** Célula "Responsável": nome + e-mail; sem match, id curto com o id completo no tooltip. */
+export function assigneeHTML(id: string | null | undefined, users: Map<string, WorkOrderUser>): string {
+  if (!id) return '<span class="dops-muted">—</span>';
+  const u = users.get(String(id));
+  if (u && (u.name || u.email)) {
+    return `<div class="dops-person" title="${esc(id)}"><b>${esc(u.name || u.email)}</b>${
+      u.name && u.email ? `<small>${esc(u.email)}</small>` : ''
+    }</div>`;
+  }
+  return `<span class="dops-muted dops-mono" title="${esc(id)}">usuário ${esc(String(id).slice(0, 8))}…</span>`;
 }
 
 /** Chamados FreshDesk do device (TicketServiceOrchestrator, por identifier). */
@@ -177,6 +219,9 @@ function injectStyles(): void {
     .dops-chip { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; background:#f3f4f6; color:#374151; white-space:nowrap; }
     .dops-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     .dops-muted { color:#9ca3af; }
+    .dops-person { display:flex; flex-direction:column; gap:1px; min-width:0; }
+    .dops-person b { font-weight:700; }
+    .dops-person small { font-size:11px; color:#6b7280; }
     .theme-dark .dops-table, .theme-dark .dops-kpi { background:#111827; border-color:#374151; }
     .theme-dark .dops-table th { background:#1f2937; color:#9ca3af; border-color:#374151; }
     .theme-dark .dops-table td { color:#e5e7eb; border-color:#1f2937; }
@@ -189,26 +234,27 @@ function noDeviceHTML(what: string): string {
   return `<div class="dops-state">${what} indisponíveis: o dispositivo não tem <code>gcdrDeviceId</code>.</div>`;
 }
 
-/** Aba OSs. Retorna a contagem exibida no badge da aba (OSs + chamados FreshDesk). */
+/** Aba OSs. Retorna a contagem do badge da aba: OSs em aberto do dispositivo. */
 export async function renderDeviceWorkOrdersTab(container: HTMLElement, config: DeviceOpsApiConfig): Promise<number> {
   injectStyles();
-  const tickets = countDeviceFreshdeskTickets(config.identifier);
   if (!config.gcdrDeviceId) {
     container.innerHTML = `<div class="dops-tab">${noDeviceHTML('OSs')}</div>`;
-    return tickets;
+    return 0;
   }
   container.innerHTML = `<div class="dops-tab"><div class="dops-state">Carregando ordens de serviço…</div></div>`;
   let orders: DeviceWorkOrder[] = [];
   let errorHtml = '';
+  const usersPromise = fetchWorkOrderUsers(config);
   try {
     orders = await fetchDeviceWorkOrders(config);
   } catch (e: any) {
     errorHtml =
       e?.status === 401 || e?.status === 403
-        ? 'O GCDR ainda não libera a leitura de OSs com a chave do customer (as rotas /wo/work-orders exigem login de usuário GCDR).'
+        ? 'O GCDR recusou a leitura das OSs com a chave deste customer (falta o escopo wo:read na chave).'
         : `Erro ao carregar OSs: ${esc(e?.message || e)}`;
   }
   const open = orders.filter((o) => !['FINALIZADA', 'CANCELADA'].includes(String(o.status))).length;
+  const users = await usersPromise;
   const rows = orders
     .slice()
     .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
@@ -218,7 +264,7 @@ export async function renderDeviceWorkOrdersTab(container: HTMLElement, config: 
         <td>${esc(o.title || '—')}</td>
         <td>${esc(WO_TYPE_LABELS[String(o.type)] || o.type || '—')}</td>
         <td><span class="dops-chip">${esc(WO_STATUS_LABELS[String(o.status)] || o.status || '—')}</span></td>
-        <td>${esc(o.assignedTo || '—')}</td>
+        <td>${assigneeHTML(o.assignedTo, users)}</td>
         <td>${fmtDate(o.scheduledAt)}</td>
         <td>${fmtDate(o.createdAt)}</td>
       </tr>`
@@ -226,11 +272,10 @@ export async function renderDeviceWorkOrdersTab(container: HTMLElement, config: 
     .join('');
   container.innerHTML = `
     <div class="dops-tab">
-      <div class="dops-notice">🔒 Visível só para usuários MyIO. A contagem da aba soma OSs e chamados (FreshDesk) do dispositivo.</div>
+      <div class="dops-notice">🔒 Visível só para usuários MyIO. Ordens de serviço do GCDR que incluem este dispositivo.</div>
       <div class="dops-summary">
         <div class="dops-kpi"><b>${errorHtml ? '—' : orders.length}</b><span>OSs</span></div>
         <div class="dops-kpi"><b>${errorHtml ? '—' : open}</b><span>OSs em aberto</span></div>
-        <div class="dops-kpi"><b>${tickets}</b><span>Chamados</span></div>
       </div>
       ${
         errorHtml
@@ -240,13 +285,13 @@ export async function renderDeviceWorkOrdersTab(container: HTMLElement, config: 
           : `<div class="dops-state">Nenhuma OS para este dispositivo.</div>`
       }
     </div>`;
-  return (errorHtml ? 0 : orders.length) + tickets;
+  return errorHtml ? 0 : open;
 }
 
-/** Aba Incidentes. Retorna a quantidade de incidentes não resolvidos (badge da aba). */
+/** Aba Incidentes. Retorna o badge da aba: incidentes CRITICAL não resolvidos (a lista mostra todos). */
 export async function renderDeviceIncidentsTab(container: HTMLElement, config: DeviceOpsApiConfig): Promise<number> {
   injectStyles();
-  if (!config.gcdrDeviceId) {
+  if (!config.ingestionId && !config.gcdrDeviceId) {
     container.innerHTML = `<div class="dops-tab">${noDeviceHTML('Incidentes')}</div>`;
     return 0;
   }
@@ -261,6 +306,9 @@ export async function renderDeviceIncidentsTab(container: HTMLElement, config: D
     return 0;
   }
   const active = incidents.filter((i) => !['RESOLVED', 'CLOSED'].includes(String(i.status))).length;
+  const critical = incidents.filter(
+    (i) => String(i.severity) === 'CRITICAL' && !['RESOLVED', 'CLOSED'].includes(String(i.status))
+  ).length;
   const rows = incidents
     .map((i) => {
       const sev = String(i.severity || '');
@@ -282,6 +330,7 @@ export async function renderDeviceIncidentsTab(container: HTMLElement, config: D
       <div class="dops-summary">
         <div class="dops-kpi"><b>${incidents.length}</b><span>Incidentes</span></div>
         <div class="dops-kpi"><b>${active}</b><span>Não resolvidos</span></div>
+        <div class="dops-kpi"><b>${critical}</b><span>Críticos abertos</span></div>
       </div>
       ${
         incidents.length
@@ -289,5 +338,5 @@ export async function renderDeviceIncidentsTab(container: HTMLElement, config: D
           : `<div class="dops-state">Nenhum incidente para este dispositivo.</div>`
       }
     </div>`;
-  return active;
+  return critical;
 }

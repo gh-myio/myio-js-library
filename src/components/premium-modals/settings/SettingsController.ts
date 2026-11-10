@@ -62,6 +62,7 @@ export class SettingsController {
       // RFC-0180: Raw device name + GCDR identifiers for Alarms tab
       deviceName: params.deviceName,
       gcdrDeviceId: params.gcdrDeviceId,
+      ingestionId: params.ingestionId ?? null,
       gcdrCustomerId: params.gcdrCustomerId,
       gcdrTenantId: params.gcdrTenantId,
       gcdrApiBaseUrl: params.gcdrApiBaseUrl,
