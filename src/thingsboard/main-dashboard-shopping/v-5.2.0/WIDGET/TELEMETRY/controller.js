@@ -250,6 +250,15 @@ function injectIncidentBadgeStyles() {
   document.head.appendChild(s);
 }
 
+// Badges de incidentes e chamados no card: só para usuários @myio.com.br. O e-mail chega
+// tarde (myio:user-info-ready) — os badges ficam no DOM ocultos e o refresh os acende.
+function _isMyioCardUser() {
+  return String(window.MyIOUtils?.currentUserEmail || '')
+    .toLowerCase()
+    .trim()
+    .endsWith('@myio.com.br');
+}
+
 // RFC-0232: Append incident badge to a card element for devices with
 // interpolated/fabricated telemetry slots. Always inserted in the DOM
 // (hidden when count=0) so refreshIncidentBadges() can light it up when
@@ -267,7 +276,7 @@ function addIncidentBadge(cardElement, gcdrDeviceId) {
   const badge = document.createElement('div');
   badge.className = 'myio-incident-badge';
   badge.setAttribute('data-incident-device-id', gcdrDeviceId);
-  badge.style.display = count > 0 ? '' : 'none';
+  badge.style.display = count > 0 && _isMyioCardUser() ? '' : 'none';
   badge.title = count + ' incidente' + (count !== 1 ? 's' : '') + ' de interpolação';
   badge.innerHTML =
     '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor" aria-hidden="true">' +
@@ -284,6 +293,13 @@ function addIncidentBadge(cardElement, gcdrDeviceId) {
  * on all currently-rendered TELEMETRY cards without re-rendering.
  */
 function refreshIncidentBadges() {
+  // Só @myio.com.br: demais usuários nunca veem o badge de incidentes
+  if (!_isMyioCardUser()) {
+    document.querySelectorAll('.myio-incident-badge').forEach((el) => {
+      el.style.display = 'none';
+    });
+    return;
+  }
   const iso = window.IncidentServiceOrchestrator;
   if (!iso) return;
 
@@ -334,7 +350,7 @@ function addTicketBadge(cardElement, identifier, ticketsItemsRaw) {
   badge.className = 'myio-ticket-badge';
   badge.setAttribute('data-ticket-identifier', identifier);
   // Hidden if no tickets yet OR if tickets gate is not open
-  const gateOpen = window.MyIOUtils?.ticketsEnabled === true;
+  const gateOpen = window.MyIOUtils?.ticketsEnabled === true && _isMyioCardUser();
   badge.style.display = count > 0 && gateOpen ? '' : 'none';
   badge.title =
     count > 0
@@ -358,7 +374,8 @@ function refreshTicketBadges() {
   const tso = window.TicketServiceOrchestrator;
   if (!tso) return;
   // Gate: hide all badges if ticketsEnabled is no longer true (e.g. email changed, gate re-evaluated)
-  if (window.MyIOUtils?.ticketsEnabled !== true) {
+  // ou se o usuário não é @myio.com.br (badge de chamados só para MyIO)
+  if (window.MyIOUtils?.ticketsEnabled !== true || !_isMyioCardUser()) {
     document.querySelectorAll('.myio-ticket-badge').forEach((el) => {
       el.style.display = 'none';
     });
@@ -7412,6 +7429,9 @@ self.onInit = async function () {
   _applyPresetupVisibility(window.MyIOUtils?.SuperAdmin === true);
   window.addEventListener('myio:user-info-ready', (ev) => {
     _applyPresetupVisibility(ev.detail?.isSuperAdmin === true);
+    // e-mail conhecido agora → acende (MyIO) ou mantém ocultos os badges de incidentes/chamados
+    refreshIncidentBadges();
+    refreshTicketBadges();
   });
 
   // RFC-0136: Intelligent retry with backoff for late-arriving widgets
