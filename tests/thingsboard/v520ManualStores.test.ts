@@ -9,9 +9,9 @@
  *  - ficam ACTIVE no filtro "Status Disp." (sem conectividade, status fixo online).
  * Sem o opt-in, o comportamento é o anterior: ficam só na aba MANUAL e fora dos relatórios.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { resolveGroup } from '../../src/utils/devices/deviceClassificationProfile';
-import { extractFunction, readControllerSource } from './helpers/extractControllerFunction';
+import { extractBlockAfter, extractFunction, readControllerSource } from './helpers/extractControllerFunction';
 
 const MAIN_SRC = readControllerSource('MAIN_VIEW');
 const HEADER_SRC = readControllerSource('HEADER');
@@ -205,5 +205,101 @@ describe('v-5.2.0 — atributo do opt-in ligado aos dois widgets', () => {
 
   it('MAIN_VIEW conta as próprias avaliações e avisa a partir da segunda', () => {
     expect(MAIN_SRC).toContain('window.__myioMainViewEvaluations = (window.__myioMainViewEvaluations || 0) + 1');
+  });
+});
+
+describe('v-5.2.0 MAIN_VIEW — opt-in recalculado a cada onInit (navegação interna do TB, sem reload)', () => {
+  const onInit = extractBlockAfter(MAIN_SRC, 'self.onInit = async function');
+  const RESET = 'window.MyIOUtils.manualStoresInLojas = false;';
+  const COND = 'if (customerTB_ID && jwt)';
+
+  /** Trecho REAL do onInit: reset + declarações + `if (customerTB_ID && jwt) {…} else {…}`. */
+  function attrsStep(): string {
+    const condAt = onInit.indexOf(COND);
+    const ifStart = onInit.indexOf('{', condAt);
+    const ifBlock = extractBlockAfter(onInit.slice(condAt), COND);
+    const rest = onInit.slice(ifStart + ifBlock.length);
+    expect(rest).toMatch(/^\s*else\s*\{/);
+    const elseBlock = extractBlockAfter(rest, 'else');
+    const decls = onInit.slice(onInit.indexOf("let CLIENT_ID = '';"), condAt);
+    return `${RESET}\n${decls}\n${COND} ${ifBlock} else ${elseBlock}`;
+  }
+
+  async function runAttrsStep(opts: {
+    previous: boolean;
+    customerTB_ID?: string;
+    jwt?: string | null;
+    fetchAttrs?: () => Promise<Record<string, unknown>>;
+  }) {
+    const win: { MyIOUtils: { manualStoresInLojas?: boolean } } = { MyIOUtils: { manualStoresInLojas: opts.previous } };
+    const LogHelper = { log: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const fetchAttrs = vi.fn(opts.fetchAttrs || (async () => ({})));
+    // eslint-disable-next-line no-new-func
+    const run = new Function(
+      'window',
+      'MyIO',
+      'LogHelper',
+      'self',
+      'customerTB_ID',
+      'jwt',
+      '_applyTicketsGate',
+      '_moneySetCategoryRule',
+      'normalizeExcludeGroupsTotals',
+      'rfc0207LoadActiveProfile',
+      `return (async () => {\n${attrsStep()}\n})();`
+    );
+    await run(
+      win,
+      { fetchThingsboardCustomerAttrsFromStorage: fetchAttrs },
+      LogHelper,
+      { ctx: { settings: {} } },
+      opts.customerTB_ID ?? 'customer-2',
+      opts.jwt === undefined ? 'jwt' : opts.jwt,
+      () => {},
+      () => {},
+      (raw: unknown) => raw,
+      async () => {}
+    );
+    return { flag: win.MyIOUtils.manualStoresInLojas, fetchAttrs, LogHelper };
+  }
+
+  it('o reset é a primeira coisa do onInit: antes de qualquer await e da leitura dos atributos', () => {
+    const resetAt = onInit.indexOf(RESET);
+    expect(resetAt).toBeGreaterThan(0);
+    expect(resetAt).toBeLessThan(onInit.indexOf('await '));
+    expect(resetAt).toBeLessThan(onInit.indexOf('fetchThingsboardCustomerAttrsFromStorage('));
+    expect(resetAt).toBeLessThan(onInit.indexOf(COND));
+  });
+
+  it('leitura dos atributos falha → false, mesmo vindo de um customer com o opt-in ligado', async () => {
+    const r = await runAttrsStep({
+      previous: true,
+      fetchAttrs: async () => {
+        throw new Error('HTTP 500');
+      },
+    });
+    expect(r.fetchAttrs).toHaveBeenCalledOnce();
+    expect(r.LogHelper.error).toHaveBeenCalled(); // caiu no catch
+    expect(r.flag).toBe(false);
+  });
+
+  it('sem customerTB_ID ou sem jwt → false, sem ler atributos', async () => {
+    const semCustomer = await runAttrsStep({ previous: true, customerTB_ID: '' });
+    expect(semCustomer.fetchAttrs).not.toHaveBeenCalled();
+    expect(semCustomer.flag).toBe(false);
+
+    const semJwt = await runAttrsStep({ previous: true, jwt: null });
+    expect(semJwt.fetchAttrs).not.toHaveBeenCalled();
+    expect(semJwt.flag).toBe(false);
+  });
+
+  it('customer seguinte sem o atributo → false; com o atributo → true', async () => {
+    expect((await runAttrsStep({ previous: true, fetchAttrs: async () => ({}) })).flag).toBe(false);
+    expect(
+      (await runAttrsStep({ previous: false, fetchAttrs: async () => ({ includeManualStoresInLojas: 'true' }) })).flag
+    ).toBe(true);
+    expect(
+      (await runAttrsStep({ previous: false, fetchAttrs: async () => ({ includeManualStoresInLojas: true }) })).flag
+    ).toBe(true);
   });
 });
