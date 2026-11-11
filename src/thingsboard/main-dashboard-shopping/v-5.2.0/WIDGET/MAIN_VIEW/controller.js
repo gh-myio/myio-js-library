@@ -3684,6 +3684,11 @@ Object.assign(window.MyIOUtils, {
 
   // ThingsBoard lifecycle
   self.onInit = async function () {
+    // Opt-in dos *_MANUAL em Lojas vale para a página inteira (window.MyIOUtils): zera aqui e só volta
+    // a true pela leitura dos atributos DESTE customer (mais abaixo). A navegação interna do TB não
+    // recarrega a página — sem o reset, uma leitura que falhe herdaria o opt-in do customer anterior.
+    window.MyIOUtils.manualStoresInLojas = false; // recomputed below from the customer attributes
+
     // FIRST: populate _dataApiHost from widget settings before any other logic
     _dataApiHost = self.ctx.settings?.dataApiHost || '';
     window.MyIOUtils.DATA_API_HOST = _dataApiHost; // backward compat for external consumers
