@@ -60,6 +60,9 @@ function load(): Harness {
     listeners.push([type, fn]);
     add(type, fn, opts);
   });
+  // No MAIN_VIEW, listeners de window passam por _onWindow (ligado ao tempo de vida da avaliação);
+  // aqui ele delega ao addEventListener espionado, para o afterEach continuar removendo tudo.
+  const _onWindow = (type: string, fn: any, opts?: any) => window.addEventListener(type, fn, opts);
   // eslint-disable-next-line no-new-func
   const factory = new Function(
     'window',
@@ -67,9 +70,10 @@ function load(): Harness {
     'toastError',
     '_fetchGoalsFromGCDR',
     'localStorage',
+    '_onWindow',
     `${extractBlocks()}\nreturn { _moneySetCategoryRule, _moneyOnProvide };`
   );
-  const out = factory(window, LogHelper, toastError, vi.fn(), window.localStorage);
+  const out = factory(window, LogHelper, toastError, vi.fn(), window.localStorage, _onWindow);
   spy.mockRestore();
   return { setRule: out._moneySetCategoryRule, onProvide: out._moneyOnProvide, getTariff, toastError };
 }
