@@ -1,0 +1,16 @@
+{
+  "_meta": {
+    "central": "Praia Grande (Obramax)",
+    "table": "rfir_remotes",
+    "rowCount": 5,
+    "capturedAt": "2026-11-16 14:47 UTC",
+    "source": "dump-cadastro.py → ssh root@200:a12e:4703:c680:dfb7:936b:88b9:6f4b · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "name": "Controle  - A/C Rack", "rfir_device_id": 1, "created_at": "2024-02-01T14:25:43.295+00:00", "updated_at": "2024-02-01T14:25:43.319+00:00"},
+    {"id": 2, "name": "Controle  - A/C ", "rfir_device_id": 2, "created_at": "2024-02-01T15:54:13.337+00:00", "updated_at": "2024-02-01T15:54:13.352+00:00"},
+    {"id": 3, "name": "Controle  - A/C Hitachi", "rfir_device_id": 3, "created_at": "2024-02-01T16:48:18.994+00:00", "updated_at": "2024-02-01T16:48:19.01+00:00"},
+    {"id": 4, "name": "Controle  - A/C Hitachi", "rfir_device_id": 4, "created_at": "2024-02-01T19:35:57.485+00:00", "updated_at": "2024-02-01T19:35:57.505+00:00"},
+    {"id": 5, "name": "Controle  - A/C No-break Springer", "rfir_device_id": 5, "created_at": "2024-02-02T02:48:17.694+00:00", "updated_at": "2024-02-02T02:48:18.006+00:00"}
+  ]
+}

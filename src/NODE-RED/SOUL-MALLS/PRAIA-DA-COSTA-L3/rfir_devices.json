@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Praia da Costa L3 (Soul Malls)",
+    "table": "rfir_devices",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:59 UTC",
+    "source": "dump-cadastro.py → ssh root@200:af84:3511:6645:d746:a980:dc50:c849 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "_meta": {
+    "central": "Central Shopping da Ilha - ENTRADA - 2026-10-06 (Sá Cavalcante)",
+    "table": "ambients",
+    "rowCount": 5,
+    "capturedAt": "2026-11-16 14:40 UTC",
+    "source": "dump-cadastro.py → ssh root@200:f095:bb4:4e43:62ca:fbae:b36e:a2aa · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "name": "SW Teste ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 1, "is_slave": true, "temperature": true}]}, "created_at": "2026-05-25T20:58:09.527+00:00", "updated_at": "2026-05-25T22:00:57.007+00:00"},
+    {"id": 2, "name": "3F Teste", "image": null, "order": null, "config": null, "created_at": "2026-05-25T20:58:19.24+00:00", "updated_at": "2026-05-25T20:58:19.24+00:00"},
+    {"id": 3, "name": "3F SCSDIAC-TrafoEntrada x1877.2 x50A x36.31v", "image": null, "order": null, "config": null, "created_at": "2026-10-06T13:38:38.888+00:00", "updated_at": "2026-10-06T13:38:38.888+00:00"},
+    {"id": 4, "name": "3F SCSDIAC-TrafoCAG x1518 x40A X36.31v", "image": null, "order": null, "config": null, "created_at": "2026-10-06T13:41:36.494+00:00", "updated_at": "2026-10-06T13:41:36.494+00:00"},
+    {"id": 5, "name": "MQTT Sync - e89e15f2-4dac-4fdb-b62f-a7e49a7a8127", "image": null, "order": null, "config": null, "created_at": "2026-10-06T15:47:24.692087+00:00", "updated_at": "2026-10-06T15:47:24.692087+00:00"}
+  ]
+}

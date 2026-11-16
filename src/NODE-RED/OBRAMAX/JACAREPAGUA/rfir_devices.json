@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Jacarepaguá (Obramax)",
+    "table": "rfir_devices",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:48 UTC",
+    "source": "dump-cadastro.py → ssh root@201:91a5:f3eb:e718:946e:2c8c:ba67:1028 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

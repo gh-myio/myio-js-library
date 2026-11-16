@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Aricanduva (Obramax)",
+    "table": "rfir_remotes",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:47 UTC",
+    "source": "dump-cadastro.py → ssh root@200:bc45:34ee:59da:371a:cfe9:98d3:3805 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

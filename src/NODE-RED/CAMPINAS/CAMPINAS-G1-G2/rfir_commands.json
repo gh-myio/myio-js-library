@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Campinas Shopping — G1 G2 (Argo Plan)",
+    "table": "rfir_commands",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 15:00 UTC",
+    "source": "dump-cadastro.py → ssh root@203:5e50:3e69:89bd:5846:e41f:23b8:fd28 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

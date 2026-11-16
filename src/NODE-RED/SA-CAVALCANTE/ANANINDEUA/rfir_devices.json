@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Shopping Ananindeua (Sá Cavalcante)",
+    "table": "rfir_devices",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:41 UTC",
+    "source": "dump-cadastro.py → ssh root@201:ca6e:c33b:3a06:f4dd:d148:5d85:6315 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

@@ -1,106 +1,95 @@
-# Slaves Map — Central Maternidade (Souza Aguiar)
+# Slaves Map — Souza Aguiar — Maternidade Nova (Souza Aguiar)
 
-> Central: **Souza Aguiar — Maternidade Nova** (`cea3473b-6e46-4a2f-85b8-f228d2a8347a`)
+> Central: **Souza Aguiar — Maternidade Nova (Souza Aguiar)** · Gateway `—` · Central ID `—` · Frequência `—`
 > IPv6: `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67`
-> Total slaves: 41
+> Total slaves: **41** · channels: **9** · ambients: **21** · `ambients_rfir_slaves_rel`: **38** · `ambients_rfir_devices_rel`: **0**
+> RFIR: `rfir_devices`: **2** · `rfir_remotes`: **2** · `rfir_commands`: **0** · `rfir_buttons`: **0**
+> Capturado em **2026-11-16 14:42 UTC** por `dump-cadastro.py` (somente leitura).
+> Dados: [`slaves.json`](slaves.json) · [`channels.json`](channels.json) · [`ambients.json`](ambients.json) · [`ambients_slaves_rel.json`](ambients_slaves_rel.json) · [`ambients_devices_rel.json`](ambients_devices_rel.json)
+> Tipos de slave: `outlet` 22 · `infrared` 19
 
----
+## Slaves
 
-## 1. Climatização — IR + Switch (ar-condicionado / fan-coil)
+| id | addr_low | addr_high | type | name | ch | clamp | ambients | channels (nº · type · name) |
+|---:|---:|---:|---|---|---:|---:|---|---|
+| 1 | 122 | 249 | infrared | ir 16 | 1 | — | 1 caixa 16 | — |
+| 2 | 120 | 248 | outlet | swt 16 | 2 | — | 1 caixa 16 | — |
+| 3 | 239 | 249 | infrared | ir 17 | 1 | — | 2 caixa 17 | — |
+| 4 | 26 | 249 | infrared | ir 05 | 1 | — | 3 caixa 05 | — |
+| 5 | 192 | 249 | outlet | swt 05 | 2 | — | 3 caixa 05 | — |
+| 6 | 66 | 249 | infrared | ir 06 | 1 | — | 4 caixa 06 | — |
+| 7 | 134 | 249 | outlet | swt 06 | 2 | — | 4 caixa 06 | — |
+| 8 | 233 | 248 | infrared | OLD-T.e.m.p. Co2_Centro_Obstetrico_02 -3 | 1 | — | 5 centro obstético 02 | — |
+| 9 | 76 | 249 | infrared | ir 10 | 1 | — | ⚠ sem ambient | — |
+| 10 | 207 | 249 | outlet | Temp. Co2_Centro_Obstetrico_02 +0.75 | 2 | — | 5 centro obstético 02 | 0 · lamp · Check<br>1 · lamp · Check 2 |
+| 11 | 128 | 249 | infrared |  | 1 | — | ⚠ sem ambient | — |
+| 12 | 117 | 248 | infrared | ir 08 | 1 | — | 6 caixa 08 | — |
+| 13 | 147 | 248 | outlet | swt 08 | 2 | — | 6 caixa 08 | — |
+| 14 | 77 | 249 | infrared | ir 09 | 1 | — | 7 caixa 09 | — |
+| 15 | 247 | 248 | outlet |  | 2 | — | ⚠ sem ambient | — |
+| 16 | 221 | 248 | outlet | Swt 09 | 2 | — | 7 caixa 09 | — |
+| 17 | 230 | 248 | infrared | Ir 02 | 1 | — | 8 Caixa 02 | — |
+| 18 | 114 | 249 | outlet | Swt 02 | 2 | — | 8 Caixa 02 | — |
+| 19 | 115 | 249 | infrared | OLD-T.e.m.p. Co2_Centro_Obstetrico_01 -4 | 1 | — | 9 Centro obstétrico 01 | — |
+| 20 | 87 | 249 | outlet | Temp. Co2_Centro_Obstetrico_01 | 2 | — | 9 Centro obstétrico 01 | 0 · lamp · `Check ` ⚠ espaço<br>1 · lamp · Check 2 |
+| 21 | 85 | 248 | outlet | OLD-T.e.m.p. Co2_UTI_Neonatal | 2 | — | 10 UTI Neonatal | 0 · lamp · Check |
+| 22 | 64 | 249 | infrared | OLD-T.e.m.p. Co2_UTI_Neonatal -4 | 1 | — | 10 UTI Neonatal | — |
+| 23 | 119 | 248 | infrared | Ir 07 | 1 | — | 11 Caixa 07 | — |
+| 24 | 202 | 249 | outlet | Swt 07 | 2 | — | 11 Caixa 07 | — |
+| 25 | 41 | 248 | infrared | Ir 01 | 1 | — | 12 Caixa 01 | — |
+| 26 | 59 | 249 | outlet | Swt 01 | 2 | — | 12 Caixa 01 | — |
+| 27 | 70 | 248 | infrared | OLD-T.e.m.p. Co2_Centro_Obstetrico_03 -4 | 1 | — | 13 centro obstetrico 03 | — |
+| 28 | 2 | 249 | outlet | Temp. Co2_Centro_Obstetrico_03 | 2 | — | 13 centro obstetrico 03 | 0 · lamp · Check |
+| 29 | 132 | 248 | infrared | Ir 12 | 1 | — | 14 Caixa 12 | — |
+| 30 | 55 | 249 | outlet | Swt 12 | 2 | — | 14 Caixa 12 | — |
+| 31 | 244 | 249 | infrared | Caixa 14 | 1 | — | 15 Caixa 14 | — |
+| 32 | 32 | 249 | outlet | Swt 14 | 2 | — | 15 Caixa 14 | — |
+| 33 | 111 | 249 | infrared | Ir 15 | 1 | — | 16 Caixa 15 | — |
+| 34 | 209 | 249 | outlet | Swt 15 | 2 | — | 16 Caixa 15 | — |
+| 35 | 199 | 248 | infrared | Ir 13 | 1 | — | 17 Caixa 13 | — |
+| 36 | 243 | 249 | outlet | Swt 13 | 2 | — | 17 Caixa 13 | — |
+| 37 | 247 | 249 | outlet | Swt 17 | 2 | — | 2 caixa 17 | — |
+| 38 | 74 | 249 | outlet | GAS Nitroso_Matern 132 700 x3.9 | 2 | — | 18 `Oxido-Nitroso ` ⚠ espaço | 0 · lamp · Check |
+| 39 | 112 | 249 | outlet | GAS Vacuo_Maternidade 132 200 x0.378 | 2 | — | 19 `Vácuo Maternidade ` ⚠ espaço | 1 · lamp · `Check Vácuo Maternidade ` ⚠ espaço |
+| 40 | 4 | 249 | outlet | `SWReboot ` ⚠ espaço | 2 | — | 20 SW Reboot | — |
+| 41 | 230 | 249 | outlet | Temp. Co2_UTI_Neonatal | 2 | — | 21 UTI Neo 1 | 0 · lamp · Teste |
 
-Pares IR (sensor infravermelho) + Swt (switch de controle) por ambiente.
+## Ambients
 
-| Slave ID | Nome         | Central                       | Slave ID | Nome      | Central                       | Ambiente   |
-|----------|--------------|-------------------------------|----------|-----------|-------------------------------|------------|
-| 25       | Ir 01        | Souza Aguiar — Maternidade    | 26       | Swt 01    | Souza Aguiar — Maternidade    | Quarto 01  |
-| 17       | Ir 02        | Souza Aguiar — Maternidade    | 18       | Swt 02    | Souza Aguiar — Maternidade    | Quarto 02  |
-| 4        | ir 05        | Souza Aguiar — Maternidade    | 5        | swt 05    | Souza Aguiar — Maternidade    | Quarto 05  |
-| 6        | ir 06        | Souza Aguiar — Maternidade    | 7        | swt 06    | Souza Aguiar — Maternidade    | Quarto 06  |
-| 23       | Ir 07        | Souza Aguiar — Maternidade    | 24       | Swt 07    | Souza Aguiar — Maternidade    | Quarto 07  |
-| 12       | ir 08        | Souza Aguiar — Maternidade    | 13       | swt 08    | Souza Aguiar — Maternidade    | Quarto 08  |
-| 14       | ir 09        | Souza Aguiar — Maternidade    | 16       | Swt 09    | Souza Aguiar — Maternidade    | Quarto 09  |
-| 9        | ir 10        | Souza Aguiar — Maternidade    | —        | —         | —                             | Quarto 10  |
-| 29       | Ir 12        | Souza Aguiar — Maternidade    | 30       | Swt 12    | Souza Aguiar — Maternidade    | Quarto 12  |
-| 35       | Ir 13        | Souza Aguiar — Maternidade    | 36       | Swt 13    | Souza Aguiar — Maternidade    | Quarto 13  |
-| 31       | Caixa 14     | Souza Aguiar — Maternidade    | 32       | Swt 14    | Souza Aguiar — Maternidade    | Quarto 14  |
-| 33       | Ir 15        | Souza Aguiar — Maternidade    | 34       | Swt 15    | Souza Aguiar — Maternidade    | Quarto 15  |
-| 1        | ir 16        | Souza Aguiar — Maternidade    | 2        | swt 16    | Souza Aguiar — Maternidade    | Quarto 16  |
-| 3        | ir 17        | Souza Aguiar — Maternidade    | 37       | Swt 17    | Souza Aguiar — Maternidade    | Quarto 17  |
+| id | name | slaves |
+|---:|---|---|
+| 1 | caixa 16 | 1, 2 |
+| 2 | caixa 17 | 3, 37 |
+| 3 | caixa 05 | 4, 5 |
+| 4 | caixa 06 | 6, 7 |
+| 5 | centro obstético 02 | 8, 10 |
+| 6 | caixa 08 | 12, 13 |
+| 7 | caixa 09 | 14, 16 |
+| 8 | Caixa 02 | 17, 18 |
+| 9 | Centro obstétrico 01 | 19, 20 |
+| 10 | UTI Neonatal | 21, 22 |
+| 11 | Caixa 07 | 23, 24 |
+| 12 | Caixa 01 | 25, 26 |
+| 13 | centro obstetrico 03 | 27, 28 |
+| 14 | Caixa 12 | 29, 30 |
+| 15 | Caixa 14 | 31, 32 |
+| 16 | Caixa 15 | 33, 34 |
+| 17 | Caixa 13 | 35, 36 |
+| 18 | `Oxido-Nitroso ` ⚠ espaço | 38 |
+| 19 | `Vácuo Maternidade ` ⚠ espaço | 39 |
+| 20 | SW Reboot | 40 |
+| 21 | UTI Neo 1 | 41 |
 
-> Nota: Quarto 10 não tem Swt mapeado. Quarto 14 usa `Caixa 14` em vez de `Ir 14`.
+## RFIR devices
 
----
+| id | type | category | name | output | slave | cmd ON | cmd OFF |
+|---:|---|---|---|---|---|---|---|
+| 1 | ir | other | Geral | both | 29 Ir 12 | — | — |
+| 2 | ir | other | teste | both | 22 OLD-T.e.m.p. Co2_UTI_Neonatal -4 | — | — |
 
-## 2. Temperatura CO2 — Ativos (pós-fix, sem offset no nome)
+## RFIR remotes → buttons
 
-| Slave ID | Nome                           | Central                    | Ambiente             | Obs                          |
-|----------|--------------------------------|----------------------------|----------------------|------------------------------|
-| 20       | Temp. Co2_Centro_Obstetrico_01 | Souza Aguiar — Maternidade | Centro Obstétrico 01 | Migrado de id=19             |
-| 10       | Temp. Co2_Centro_Obstetrico_02 | Souza Aguiar — Maternidade | Centro Obstétrico 02 | Migrado de id=8              |
-| 28       | Temp. Co2_Centro_Obstetrico_03 | Souza Aguiar — Maternidade | Centro Obstétrico 03 | Migrado de id=27             |
-| 21       | Temp. Co2_UTI_Neonatal         | Souza Aguiar — Maternidade | UTI Neonatal         | Ex-GAS — migrado de id=22 (mesmo padrão batch3 CO2: slave GAS assumiu lugar do Temp com offset) |
-
----
-
-## 3. Temperatura CO2 — Legados (pré-fix, renomeados com OLD-)
-
-| Slave ID | Nome                                      | Central                    | Offset | Migrado para |
-|----------|-------------------------------------------|----------------------------|--------|--------------|
-| 19       | OLD-T.e.m.p. Co2_Centro_Obstetrico_01 -4 | Souza Aguiar — Maternidade | -4°C   | id=20        |
-| 8        | OLD-T.e.m.p. Co2_Centro_Obstetrico_02 -3 | Souza Aguiar — Maternidade | -3°C   | id=10        |
-| 27       | OLD-T.e.m.p. Co2_Centro_Obstetrico_03 -4 | Souza Aguiar — Maternidade | -4°C   | id=28        |
-| 22       | OLD-T.e.m.p. Co2_UTI_Neonatal -4         | Souza Aguiar — Maternidade | -4°C   | id=21        |
-| 41       | OLD-T.e.m.p. Co2_UTI_Neonatal -4         | Souza Aguiar — Maternidade | -4°C   | id=21 (?)    |
-
-> ⚠️ Slaves 22 e 41 têm **nome idêntico** (`OLD-T.e.m.p. Co2_UTI_Neonatal -4`). Provável artefato de um segundo fix-pass ou criação manual. Verificar:
-> ```sql
-> SELECT id, MIN(timestamp), MAX(timestamp), COUNT(*) FROM temperature_history WHERE slave_id IN (22, 41) GROUP BY 1;
-> ```
-
-> SQL de renomeação Centro Obstétrico: ver fix-temp-registry (rows 015, 016, 017).
-
----
-
-## 4. Gases Medicinais
-
-| Slave ID | Nome                                  | Central                    | Gás           | Range  | Fator  |
-|----------|---------------------------------------|----------------------------|---------------|--------|--------|
-| 38       | GAS Nitroso_Matern 132 700 x3.9       | Souza Aguiar — Maternidade | Óxido Nitroso | 0–700  | ×3.9   |
-| 39       | GAS Vacuo_Maternidade 132 200 x0.378  | Souza Aguiar — Maternidade | Vácuo         | 0–200  | ×0.378 |
-
-> Formato: `GAS <tag> <addr_modbus> <range_max> <fator>` — addr=132 é o registrador Modbus de leitura bruta.
->
-> Nota: o ex-slave 21 (`GAS Co2_UTI_Neonatal 132 5000 x9.47`) foi removido desta seção — agora é `Temp. Co2_UTI_Neonatal` (seção 2).
-
----
-
-## 5. Controle / Sistema
-
-| Slave ID | Nome      | Central                    | Função                            |
-|----------|-----------|----------------------------|-----------------------------------|
-| 40       | SWReboot  | Souza Aguiar — Maternidade | Reinicialização remota da central |
-
----
-
-## 6. Sem nome (a identificar)
-
-| Slave ID | Nome | Central                    | Obs             |
-|----------|------|----------------------------|-----------------|
-| 11       | —    | Souza Aguiar — Maternidade | Não identificado |
-| 15       | —    | Souza Aguiar — Maternidade | Não identificado |
-
----
-
-## Resumo por categoria
-
-| Categoria              | Qtd    |
-|------------------------|--------|
-| IR (climatização)      | 13     |
-| Switch (climatização)  | 13     |
-| Caixa (climatização)   | 1      |
-| Temp CO2 (ativos)      | 4      |
-| Temp CO2 (legados OLD) | 5      |
-| Gases medicinais       | 2      |
-| Controle/Sistema       | 1      |
-| Sem nome               | 2      |
-| **Total**              | **41** |
+| id | name | rfir_device | buttons (nome · command_id) |
+|---:|---|---:|---|
+| 1 | Controle  - Geral | 1 | ⚠ sem botões |
+| 2 | Controle  - teste | 2 | ⚠ sem botões |

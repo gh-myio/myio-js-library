@@ -1,11 +1,11 @@
 {
   "_meta": {
-    "central": "Contagem (Soul Malls)",
+    "central": "Shopping Contagem (Soul Malls)",
     "table": "ambients_rfir_devices_rel",
     "rowCount": 0,
-    "capturedAt": "2026-07-07 (pós-revert do import + restauração de nomes)",
-    "source": "/tmp/dump-cadastro.sh na central (psql -U hubot, sem pager) — logMaps-v2-CONTAGEM.log, capturado 2026-07-07 12:33 UTC",
-    "note": "Vazia — central sem RFIR devices."
+    "capturedAt": "2026-11-16 14:39 UTC",
+    "source": "dump-cadastro.py → ssh root@200:12b0:b768:7ba0:32b5:1c15:bec7:33aa · psql -U hubot (SELECT json_agg, somente leitura)"
   },
-  "rows": []
+  "rows": [
+  ]
 }

@@ -1,0 +1,32 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — Maternidade Nova (Souza Aguiar)",
+    "table": "ambients",
+    "rowCount": 21,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@201:ce30:f047:7f02:a27c:cbac:ffb7:2b67 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "name": "caixa 16", "image": null, "order": null, "config": null, "created_at": "2024-10-01T02:45:40.423+00:00", "updated_at": "2024-10-01T02:45:40.423+00:00"},
+    {"id": 2, "name": "caixa 17", "image": null, "order": null, "config": null, "created_at": "2024-10-01T02:49:53.266+00:00", "updated_at": "2024-10-01T02:49:53.266+00:00"},
+    {"id": 3, "name": "caixa 05", "image": null, "order": null, "config": null, "created_at": "2024-10-01T02:54:23.285+00:00", "updated_at": "2024-10-01T02:54:23.285+00:00"},
+    {"id": 4, "name": "caixa 06", "image": null, "order": null, "config": null, "created_at": "2024-10-01T03:00:35.811+00:00", "updated_at": "2024-10-01T03:00:35.811+00:00"},
+    {"id": 5, "name": "centro obstético 02", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 8, "is_slave": true, "temperature": true}, {"slave_id": 10, "is_slave": true, "energy": true}]}, "created_at": "2024-10-01T03:04:09.306+00:00", "updated_at": "2026-04-05T02:27:12.426+00:00"},
+    {"id": 6, "name": "caixa 08", "image": null, "order": null, "config": null, "created_at": "2024-10-01T03:08:30.541+00:00", "updated_at": "2024-10-01T03:08:30.541+00:00"},
+    {"id": 7, "name": "caixa 09", "image": null, "order": null, "config": null, "created_at": "2024-10-01T03:13:00.444+00:00", "updated_at": "2024-10-01T03:13:00.444+00:00"},
+    {"id": 8, "name": "Caixa 02", "image": null, "order": null, "config": null, "created_at": "2024-10-01T03:22:10.604+00:00", "updated_at": "2024-10-01T03:22:10.604+00:00"},
+    {"id": 9, "name": "Centro obstétrico 01", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 19, "is_slave": true, "temperature": true}]}, "created_at": "2024-10-01T03:27:28.272+00:00", "updated_at": "2026-05-05T20:08:54.113+00:00"},
+    {"id": 10, "name": "UTI Neonatal", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 21, "is_slave": true, "temperature": true}]}, "created_at": "2024-10-01T03:30:21.786+00:00", "updated_at": "2026-05-19T17:32:11.903+00:00"},
+    {"id": 11, "name": "Caixa 07", "image": null, "order": null, "config": null, "created_at": "2024-10-01T03:32:42.633+00:00", "updated_at": "2024-10-01T03:32:42.633+00:00"},
+    {"id": 12, "name": "Caixa 01", "image": null, "order": null, "config": null, "created_at": "2024-10-01T03:35:50.304+00:00", "updated_at": "2024-10-01T03:35:50.304+00:00"},
+    {"id": 13, "name": "centro obstetrico 03", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 27, "is_slave": true, "temperature": true}, {"slave_id": 28, "is_slave": true, "energy": true}]}, "created_at": "2024-10-01T03:46:25.351+00:00", "updated_at": "2026-04-13T21:50:01.935+00:00"},
+    {"id": 14, "name": "Caixa 12", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 30, "is_slave": true, "temperature": true}]}, "created_at": "2024-10-01T03:51:11.542+00:00", "updated_at": "2024-12-28T21:15:38.179+00:00"},
+    {"id": 15, "name": "Caixa 14", "image": null, "order": null, "config": null, "created_at": "2024-10-01T03:54:47.845+00:00", "updated_at": "2024-10-01T03:54:47.845+00:00"},
+    {"id": 16, "name": "Caixa 15", "image": null, "order": null, "config": null, "created_at": "2024-10-01T04:01:32.637+00:00", "updated_at": "2024-10-01T04:01:32.637+00:00"},
+    {"id": 17, "name": "Caixa 13", "image": null, "order": null, "config": null, "created_at": "2024-10-01T04:11:22.49+00:00", "updated_at": "2024-10-01T04:11:22.49+00:00"},
+    {"id": 18, "name": "Oxido-Nitroso ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 38, "is_slave": true, "temperature": true}]}, "created_at": "2024-11-01T19:51:08.605+00:00", "updated_at": "2024-11-01T19:53:40.693+00:00"},
+    {"id": 19, "name": "Vácuo Maternidade ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 39, "is_slave": true, "temperature": true}]}, "created_at": "2024-11-25T16:26:47.639+00:00", "updated_at": "2024-11-25T16:26:58.85+00:00"},
+    {"id": 20, "name": "SW Reboot", "image": null, "order": null, "config": null, "created_at": "2026-02-20T14:39:41.755+00:00", "updated_at": "2026-02-20T14:39:41.755+00:00"},
+    {"id": 21, "name": "UTI Neo 1", "image": null, "order": null, "config": null, "created_at": "2026-05-12T19:33:09.398+00:00", "updated_at": "2026-05-12T19:33:09.398+00:00"}
+  ]
+}

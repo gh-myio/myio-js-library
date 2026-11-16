@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — Gerador (Souza Aguiar)",
+    "table": "ambients",
+    "rowCount": 7,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@200:dd4c:53b0:28d5:33dc:fbef:2c98:b23 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "name": "ignorar", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 2, "is_slave": true, "temperature": true}]}, "created_at": "2024-09-12T22:01:28.047+00:00", "updated_at": "2024-09-13T12:48:33.396+00:00"},
+    {"id": 2, "name": "QTA 1", "image": null, "order": null, "config": null, "created_at": "2024-09-13T12:18:32.112+00:00", "updated_at": "2024-09-13T12:18:32.112+00:00"},
+    {"id": 3, "name": "QTA 2", "image": null, "order": null, "config": null, "created_at": "2024-09-13T12:25:04.584+00:00", "updated_at": "2024-09-13T12:25:04.584+00:00"},
+    {"id": 4, "name": "QTA 3", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 5, "is_slave": true, "temperature": true}]}, "created_at": "2024-09-13T12:28:16.45+00:00", "updated_at": "2024-09-13T12:28:22.484+00:00"},
+    {"id": 5, "name": "QTA 4", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 6, "is_slave": true, "temperature": true}]}, "created_at": "2024-09-13T12:32:29.228+00:00", "updated_at": "2024-09-13T12:32:38.356+00:00"},
+    {"id": 6, "name": "QTAs", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 4, "is_slave": true, "energy": true}, {"slave_id": 5, "is_slave": true, "temperature": true}, {"slave_id": 5, "is_slave": true, "energy": true}, {"slave_id": 6, "is_slave": true, "temperature": true}, {"slave_id": 3, "is_slave": true, "energy": true}, {"slave_id": 6, "is_slave": true, "energy": true}]}, "created_at": "2024-09-13T12:48:43.286+00:00", "updated_at": "2024-11-07T21:57:37.017+00:00"},
+    {"id": 7, "name": "Todos", "image": null, "order": null, "config": null, "created_at": "2025-04-15T10:03:39.299+00:00", "updated_at": "2025-04-15T10:03:39.299+00:00"}
+  ]
+}

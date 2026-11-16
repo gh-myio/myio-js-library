@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — CO2 (Souza Aguiar)",
+    "table": "ambients_rfir_devices_rel",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:41 UTC",
+    "source": "dump-cadastro.py → ssh root@201:3941:4753:9232:901b:19fa:4978:51aa · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

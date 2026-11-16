@@ -3,7 +3,7 @@
     "central": "Central Raiz Educação (Raiz Educação)",
     "table": "ambients_rfir_slaves_rel",
     "rowCount": 188,
-    "capturedAt": "2026-11-16 14:33 UTC",
+    "capturedAt": "2026-11-16 14:39 UTC",
     "source": "dump-cadastro.py → ssh root@201:3bed:541b:8c61:3e69:9:d453:1bef · psql -U hubot (SELECT json_agg, somente leitura)"
   },
   "rows": [

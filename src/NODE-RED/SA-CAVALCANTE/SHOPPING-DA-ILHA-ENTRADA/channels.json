@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "central": "Central Shopping da Ilha - ENTRADA - 2026-10-06 (Sá Cavalcante)",
+    "table": "channels",
+    "rowCount": 3,
+    "capturedAt": "2026-11-16 14:40 UTC",
+    "source": "dump-cadastro.py → ssh root@200:f095:bb4:4e43:62ca:fbae:b36e:a2aa · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": 1, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2026-05-25T21:00:00.926+00:00", "updated_at": "2026-05-25T21:00:07.571+00:00"},
+    {"id": 2, "type": "presence_sensor", "channel": 1, "name": "Hidrometro", "channel_id": null, "slave_id": 1, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-05-25T21:00:33.286+00:00", "updated_at": "2026-05-25T21:00:33.286+00:00"},
+    {"id": 3, "type": "plug", "channel": 0, "name": "MQTT Sync - e89e15f2-4dac-4fdb-b62f-a7e49a7a8127", "channel_id": null, "slave_id": 5, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2026-10-06T15:47:24.692087+00:00", "updated_at": "2026-10-06T15:47:24.692087+00:00"}
+  ]
+}

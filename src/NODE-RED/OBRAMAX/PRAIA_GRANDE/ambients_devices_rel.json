@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Praia Grande (Obramax)",
+    "table": "ambients_rfir_devices_rel",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:47 UTC",
+    "source": "dump-cadastro.py → ssh root@200:a12e:4703:c680:dfb7:936b:88b9:6f4b · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

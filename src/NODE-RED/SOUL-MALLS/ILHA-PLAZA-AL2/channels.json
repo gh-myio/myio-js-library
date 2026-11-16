@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "central": "Central Ilha Plaza AL2 - 2026-10-22 (Soul Malls)",
+    "table": "channels",
+    "rowCount": 2,
+    "capturedAt": "2026-11-16 14:43 UTC",
+    "source": "dump-cadastro.py → ssh root@202:c116:b4a1:d987:7cc5:e7da:148e:1614 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "lamp", "channel": 0, "name": "Reboot 1", "channel_id": null, "slave_id": 52, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-05-26T12:48:04.708+00:00", "updated_at": "2026-05-26T12:48:04.708+00:00"},
+    {"id": 2, "type": "lamp", "channel": 1, "name": "Reboot2", "channel_id": null, "slave_id": 52, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-05-26T12:48:11.511+00:00", "updated_at": "2026-05-26T12:48:11.511+00:00"}
+  ]
+}

@@ -9,7 +9,8 @@ banco hubot com `psql -U hubot` e gera na pasta --out:
   slaves.json · channels.json · ambients.json
   ambients_slaves_rel.json   (tabela ambients_rfir_slaves_rel)
   ambients_devices_rel.json  (tabela ambients_rfir_devices_rel)
-  slaves-map.md              (mapa legível slave → channels → ambients)
+  rfir_devices.json · rfir_remotes.json · rfir_commands.json · rfir_buttons.json
+  slaves-map.md              (mapa legível slave → channels → ambients + resumo RFIR)
 
 Formato igual ao de SOUL-MALLS/CONTAGEM: { "_meta": {...}, "rows": [...] }.
 
@@ -54,13 +55,26 @@ TABLES = [
     ("ambients.json", "ambients", "id"),
     ("ambients_slaves_rel.json", "ambients_rfir_slaves_rel", "1, 2"),
     ("ambients_devices_rel.json", "ambients_rfir_devices_rel", "1, 2"),
+    # RFIR (infravermelho): device lógico → comandos on/off; controle remoto → botões → comando
+    ("rfir_devices.json", "rfir_devices", "id"),
+    ("rfir_remotes.json", "rfir_remotes", "id"),
+    ("rfir_commands.json", "rfir_commands", "id"),
+    ("rfir_buttons.json", "rfir_buttons", "id"),
 ]
 SEP = "@@@MYIO-TABLE@@@"
+ERR = "@@@PSQL-ERR@@@ "
 
 
 def build_remote_script() -> str:
     """Script sh enviado pelo stdin para a central (evita aspas aninhadas no salto)."""
-    lines = []
+    # Algumas centrais têm o psql apontando p/ socket em /tmp, mas o Postgres escuta
+    # em /var/run/postgresql (ou só TCP) → detecta a conexão que funciona.
+    lines = [
+        "export PGCONNECT_TIMEOUT=5",
+        'P="psql -U hubot -X -At"',
+        '$P -c "select 1" >/dev/null 2>&1 || for h in /var/run/postgresql /run/postgresql localhost; do '
+        'psql -h $h -U hubot -X -At -w -c "select 1" >/dev/null 2>&1 && { P="psql -h $h -U hubot -X -At -w"; break; }; done',
+    ]
     for _, tbl, order in TABLES:
         sql = (
             f"SELECT coalesce(json_agg(row_to_json(t) ORDER BY {order}), '[]'::json) "
@@ -68,7 +82,10 @@ def build_remote_script() -> str:
         )
         # tabela ausente → imprime null em vez de abortar o dump
         lines.append(f"echo '{SEP}{tbl}'")
-        lines.append(f"psql -U hubot -X -At -v ON_ERROR_STOP=1 -c \"{sql}\" 2>/dev/null || echo null")
+        # erro do psql vai para stdout com prefixo (não some mais no 2>/dev/null)
+        lines.append(f"$P -v ON_ERROR_STOP=1 -c \"{sql}\" 2>/tmp/.dump_err "
+                     f"|| {{ echo null; sed 's/^/{ERR}/' /tmp/.dump_err; }}")
+    lines.append("rm -f /tmp/.dump_err")
     return "\n".join(lines) + "\n"
 
 
@@ -130,20 +147,26 @@ def run_ssh(a) -> str:
         if a.box_key:
             cmd += ["-i", a.box_key]
         cmd += [a.via, inner]
-    res = subprocess.run(cmd, input=build_remote_script(), capture_output=True,
-                         text=True, encoding="utf-8", errors="replace")
-    if res.returncode != 0 and SEP not in res.stdout:
-        sys.exit(f"ERRO ssh (rc={res.returncode}): {res.stderr.strip()}")
-    return res.stdout
+    # stdin em BYTES: no Windows o modo texto converte \n → \r\n e quebra o sh remoto.
+    res = subprocess.run(cmd, input=build_remote_script().encode("utf-8"), capture_output=True)
+    out = res.stdout.decode("utf-8", errors="replace")
+    err = res.stderr.decode("utf-8", errors="replace")
+    if res.returncode != 0 and SEP not in out:
+        sys.exit(f"ERRO ssh (rc={res.returncode}): {err.strip()}")
+    return out
 
 
 def parse(out: str) -> dict:
-    data = {}
+    data, errors = {}, {}
     for chunk in out.split(SEP)[1:]:
         tbl, _, body = chunk.partition("\n")
-        body = body.strip()
-        data[tbl.strip()] = None if body in ("", "null") else json.loads(body)
-    return data
+        tbl = tbl.strip()
+        err = [l[len(ERR):] for l in body.splitlines() if l.startswith(ERR)]
+        body = "\n".join(l for l in body.splitlines() if not l.startswith(ERR)).strip()
+        if err:
+            errors[tbl] = " ".join(err).strip()
+        data[tbl] = None if body in ("", "null") else json.loads(body)
+    return data, errors
 
 
 def write_json(folder: Path, fname: str, tbl: str, rows, captured: str, host: str):
@@ -201,6 +224,8 @@ def write_map(folder: Path, data: dict, captured: str, host: str):
     o.append(f"> IPv6: `{host}`")
     o.append(f"> Total slaves: **{len(slaves)}** · channels: **{len(channels)}** · ambients: **{len(ambients)}** · "
              f"`ambients_rfir_slaves_rel`: **{len(srel)}** · `ambients_rfir_devices_rel`: **{len(drel) if drel is not None else 'n/a'}**")
+    rf = {t: data.get(t) for t in ("rfir_devices", "rfir_remotes", "rfir_commands", "rfir_buttons")}
+    o.append("> RFIR: " + " · ".join(f"`{t}`: **{len(v) if v is not None else 'n/a'}**" for t, v in rf.items()))
     o.append(f"> Capturado em **{captured}** por `dump-cadastro.py` (somente leitura).")
     o.append("> Dados: [`slaves.json`](slaves.json) · [`channels.json`](channels.json) · [`ambients.json`](ambients.json) · "
              "[`ambients_slaves_rel.json`](ambients_slaves_rel.json) · [`ambients_devices_rel.json`](ambients_devices_rel.json)")
@@ -238,6 +263,34 @@ def write_map(folder: Path, data: dict, captured: str, host: str):
         for r in drel:
             o.append("| " + " | ".join(md_cell(r.get(k)) for k in cols) + " |")
 
+    rdev = rf["rfir_devices"] or []
+    if rdev:
+        cmd_name = {c["id"]: c.get("name") for c in (rf["rfir_commands"] or [])}
+        slave_name = {s["id"]: s["name"] for s in slaves}
+        o.append("\n## RFIR devices\n")
+        o.append("| id | type | category | name | output | slave | cmd ON | cmd OFF |")
+        o.append("|---:|---|---|---|---|---|---|---|")
+        for d in sorted(rdev, key=lambda x: x["id"]):
+            sl = d.get("slave_id")
+            on, off = d.get("command_on_id"), d.get("command_off_id")
+            o.append(f"| {d['id']} | {md_cell(d.get('type'))} | {md_cell(d.get('category'))} | {md_cell(d.get('name'))} | "
+                     f"{md_cell(d.get('output'))} | {sl if sl is None else f'{sl} {md_cell(slave_name.get(sl))}'} | "
+                     f"{'—' if on is None else f'{on} {md_cell(cmd_name.get(on))}'} | "
+                     f"{'—' if off is None else f'{off} {md_cell(cmd_name.get(off))}'} |")
+
+    rrem = rf["rfir_remotes"] or []
+    if rrem:
+        btn_by_rem = {}
+        for b in rf["rfir_buttons"] or []:
+            btn_by_rem.setdefault(b["rfir_remote_id"], []).append(b)
+        o.append("\n## RFIR remotes → buttons\n")
+        o.append("| id | name | rfir_device | buttons (nome · command_id) |")
+        o.append("|---:|---|---:|---|")
+        for r in sorted(rrem, key=lambda x: x["id"]):
+            bt = sorted(btn_by_rem.get(r["id"], []), key=lambda b: (b.get("order") or 0, b["id"]))
+            bttxt = "<br>".join(f"{md_cell(b.get('name'))} · {b.get('rfir_command_id')}" for b in bt) or "⚠ sem botões"
+            o.append(f"| {r['id']} | {md_cell(r.get('name'))} | {md_cell(r.get('rfir_device_id'))} | {bttxt} |")
+
     (folder / "slaves-map.md").write_text("\n".join(o) + "\n", encoding="utf-8")
 
 
@@ -260,11 +313,15 @@ def main():
     global CENTRAL, GATEWAY_ID, CENTRAL_ID, FREQ
     CENTRAL, GATEWAY_ID, CENTRAL_ID, FREQ = a.name, a.gateway, a.central_id, a.freq
     folder = Path(a.out)
-    folder.mkdir(parents=True, exist_ok=True)
     captured = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    data = parse(run_ssh(a))
-    if not data:
-        sys.exit("ERRO: nenhuma saída das tabelas (psql falhou?)")
+    data, errors = parse(run_ssh(a))
+    for tbl, msg in errors.items():
+        print(f"  psql [{tbl}]: {msg}", file=sys.stderr)
+    # Fail-safe: se o slaves (tabela-base) não veio, NÃO sobrescreve nada.
+    if not data or data.get("slaves") is None:
+        sys.exit("ERRO: psql não retornou a tabela slaves — nada foi gravado. "
+                 + (f"Motivo: {errors.get('slaves')}" if errors.get("slaves") else ""))
+    folder.mkdir(parents=True, exist_ok=True)
 
     for fname, tbl, _ in TABLES:
         rows = data.get(tbl)

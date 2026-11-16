@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Campinas Shopping — G1 G2 Hidrômetros (Argo Plan)",
+    "table": "rfir_commands",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 15:01 UTC",
+    "source": "dump-cadastro.py → ssh root@200:a107:d79f:55d0:65:212e:15f6:d27b · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

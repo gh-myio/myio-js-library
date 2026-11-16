@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Shopping Capim Dourado 2.0 - 2026-07-30 (Soul Malls)",
+    "table": "rfir_devices",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:44 UTC",
+    "source": "dump-cadastro.py → ssh root@200:9738:d165:f821:68d3:2852:d822:a748 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

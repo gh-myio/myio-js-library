@@ -1,0 +1,30 @@
+{
+  "_meta": {
+    "central": "Praia Grande (Obramax)",
+    "table": "rfir_buttons",
+    "rowCount": 19,
+    "capturedAt": "2026-11-16 14:47 UTC",
+    "source": "dump-cadastro.py → ssh root@200:a12e:4703:c680:dfb7:936b:88b9:6f4b · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 5, "name": "on", "indexes": "0", "color": 0, "type": null, "rfir_remote_id": 2, "rfir_command_id": 8, "single_send": false, "order": 0, "created_at": "2024-02-01T15:54:52.171+00:00", "updated_at": "2024-02-01T15:54:52.203+00:00"},
+    {"id": 6, "name": "24a", "indexes": "1", "color": 0, "type": null, "rfir_remote_id": 2, "rfir_command_id": 9, "single_send": false, "order": 1, "created_at": "2024-02-01T15:56:02.271+00:00", "updated_at": "2024-02-01T15:56:34.259+00:00"},
+    {"id": 8, "name": "19C M", "indexes": "2", "color": 0, "type": null, "rfir_remote_id": 1, "rfir_command_id": 13, "single_send": false, "order": 2, "created_at": "2024-02-01T17:09:12.554+00:00", "updated_at": "2024-02-01T17:09:12.591+00:00"},
+    {"id": 9, "name": "20C M", "indexes": "3", "color": 0, "type": null, "rfir_remote_id": 1, "rfir_command_id": 14, "single_send": false, "order": 3, "created_at": "2024-02-01T17:09:41.641+00:00", "updated_at": "2024-02-01T17:09:41.675+00:00"},
+    {"id": 10, "name": "21C M", "indexes": "4", "color": 0, "type": null, "rfir_remote_id": 1, "rfir_command_id": 15, "single_send": false, "order": 4, "created_at": "2024-02-01T17:10:46.972+00:00", "updated_at": "2024-02-01T17:10:47.002+00:00"},
+    {"id": 11, "name": "22C M", "indexes": "5", "color": 0, "type": null, "rfir_remote_id": 1, "rfir_command_id": 17, "single_send": false, "order": 5, "created_at": "2024-02-01T17:11:12.75+00:00", "updated_at": "2024-02-01T17:11:12.785+00:00"},
+    {"id": 12, "name": "23 C M", "indexes": "6", "color": 0, "type": null, "rfir_remote_id": 1, "rfir_command_id": 18, "single_send": false, "order": 6, "created_at": "2024-02-01T17:11:27.264+00:00", "updated_at": "2024-02-01T17:11:27.294+00:00"},
+    {"id": 13, "name": "24C M", "indexes": "7", "color": 0, "type": null, "rfir_remote_id": 1, "rfir_command_id": 19, "single_send": false, "order": 7, "created_at": "2024-02-01T17:11:55.786+00:00", "updated_at": "2024-02-01T17:11:55.816+00:00"},
+    {"id": 14, "name": "Dry 21C", "indexes": "8", "color": 0, "type": null, "rfir_remote_id": 1, "rfir_command_id": 20, "single_send": false, "order": 8, "created_at": "2024-02-01T17:12:54.601+00:00", "updated_at": "2024-02-01T17:12:54.632+00:00"},
+    {"id": 15, "name": "Desligar", "indexes": "9", "color": 0, "type": null, "rfir_remote_id": 1, "rfir_command_id": 21, "single_send": false, "order": 9, "created_at": "2024-02-01T17:13:13.091+00:00", "updated_at": "2024-02-01T17:13:13.125+00:00"},
+    {"id": 16, "name": "19C M", "indexes": "1", "color": 0, "type": null, "rfir_remote_id": 3, "rfir_command_id": 24, "single_send": false, "order": 1, "created_at": "2024-02-01T17:38:54.864+00:00", "updated_at": "2024-02-01T17:38:54.896+00:00"},
+    {"id": 17, "name": "20C M", "indexes": "2", "color": 0, "type": null, "rfir_remote_id": 3, "rfir_command_id": 27, "single_send": false, "order": 2, "created_at": "2024-02-01T18:16:00.397+00:00", "updated_at": "2024-02-01T18:16:00.447+00:00"},
+    {"id": 18, "name": "21C M", "indexes": "3", "color": 0, "type": null, "rfir_remote_id": 3, "rfir_command_id": 28, "single_send": false, "order": 3, "created_at": "2024-02-01T18:16:31.534+00:00", "updated_at": "2024-02-01T18:16:31.574+00:00"},
+    {"id": 19, "name": "22C M", "indexes": "4", "color": 0, "type": null, "rfir_remote_id": 3, "rfir_command_id": 29, "single_send": false, "order": 4, "created_at": "2024-02-01T18:16:52.457+00:00", "updated_at": "2024-02-01T18:16:52.488+00:00"},
+    {"id": 20, "name": "Dry 21 M", "indexes": "5", "color": 0, "type": null, "rfir_remote_id": 3, "rfir_command_id": 30, "single_send": false, "order": 5, "created_at": "2024-02-01T18:17:43.601+00:00", "updated_at": "2024-02-01T18:17:43.632+00:00"},
+    {"id": 21, "name": "Desligar", "indexes": "6", "color": 0, "type": null, "rfir_remote_id": 3, "rfir_command_id": 31, "single_send": false, "order": 6, "created_at": "2024-02-01T18:18:02.108+00:00", "updated_at": "2024-02-01T18:18:02.138+00:00"},
+    {"id": 22, "name": "19C M", "indexes": "0", "color": 0, "type": null, "rfir_remote_id": 4, "rfir_command_id": 43, "single_send": false, "order": 0, "created_at": "2024-02-01T21:16:47.857+00:00", "updated_at": "2024-02-01T21:16:47.892+00:00"},
+    {"id": 24, "name": "23C M", "indexes": "2", "color": 0, "type": null, "rfir_remote_id": 4, "rfir_command_id": 45, "single_send": false, "order": 2, "created_at": "2024-02-01T21:17:42.675+00:00", "updated_at": "2024-02-01T21:17:42.704+00:00"},
+    {"id": 25, "name": "Desligar", "indexes": "3", "color": 0, "type": null, "rfir_remote_id": 4, "rfir_command_id": 47, "single_send": false, "order": 3, "created_at": "2024-02-01T21:34:49.47+00:00", "updated_at": "2024-02-01T21:34:49.5+00:00"}
+  ]
+}

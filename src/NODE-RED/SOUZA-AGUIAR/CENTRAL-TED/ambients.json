@@ -1,0 +1,23 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — T&D (Souza Aguiar)",
+    "table": "ambients",
+    "rowCount": 12,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 2, "name": "8° Andar Souza Aguiar ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 35, "is_slave": true, "temperature": true}, {"slave_id": 48, "is_slave": true, "temperature": true}]}, "created_at": "2024-08-16T18:56:53.691+00:00", "updated_at": "2024-09-12T20:13:02.983+00:00"},
+    {"id": 3, "name": "Repetidor ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 36, "is_slave": true, "temperature": true}, {"slave_id": 52, "is_slave": true, "temperature": true}, {"slave_id": 65, "is_slave": true, "temperature": true}]}, "created_at": "2024-08-16T20:08:15.35+00:00", "updated_at": "2025-01-23T01:31:59.122+00:00"},
+    {"id": 4, "name": "5° Andar Souza Aguiar ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 37, "is_slave": true, "temperature": true}, {"slave_id": 61, "is_slave": true, "temperature": true}]}, "created_at": "2024-08-16T20:19:35.023+00:00", "updated_at": "2024-10-01T13:58:30.285+00:00"},
+    {"id": 5, "name": "Prédio Regulação", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 41, "is_slave": true, "temperature": true}, {"slave_id": 53, "is_slave": true, "temperature": true}, {"slave_id": 54, "is_slave": true, "temperature": true}, {"slave_id": 54, "is_slave": true, "energy": true}]}, "created_at": "2024-08-22T15:23:10.842+00:00", "updated_at": "2024-09-11T18:13:43.568+00:00"},
+    {"id": 6, "name": "Maternidade ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 42, "is_slave": true, "temperature": true}, {"slave_id": 43, "is_slave": true, "temperature": true}, {"slave_id": 56, "is_slave": true, "temperature": true}, {"slave_id": 57, "is_slave": true, "temperature": true}, {"channel": 20, "is_channel": true}, {"slave_id": 56, "is_slave": true, "energy": true}, {"slave_id": 57, "is_slave": true, "energy": true}, {"slave_id": 58, "is_slave": true, "energy": true}]}, "created_at": "2024-08-22T16:48:17.629+00:00", "updated_at": "2025-08-07T14:49:44.394+00:00"},
+    {"id": 7, "name": "Alojamento Souza Aguiar ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 44, "is_slave": true, "temperature": true}]}, "created_at": "2024-08-22T17:24:58.693+00:00", "updated_at": "2024-08-23T18:40:36.227+00:00"},
+    {"id": 8, "name": "Cisterna Souza Aguiar ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 47, "is_slave": true, "temperature": true}, {"slave_id": 49, "is_slave": true, "temperature": true}, {"slave_id": 48, "is_slave": true, "temperature": true}, {"slave_id": 50, "is_slave": true, "temperature": true}, {"slave_id": 50, "is_slave": true, "energy": true}, {"slave_id": 51, "is_slave": true, "energy": true}, {"slave_id": 51, "is_slave": true, "temperature": true}]}, "created_at": "2024-09-10T15:29:15.335+00:00", "updated_at": "2024-09-10T17:52:02.353+00:00"},
+    {"id": 10, "name": "HidrometroUPA", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 60, "is_slave": true, "temperature": true}, {"slave_id": 60, "is_slave": true, "energy": true}]}, "created_at": "2024-09-30T17:07:07.439+00:00", "updated_at": "2024-09-30T17:45:04.093+00:00"},
+    {"id": 11, "name": "Hidrômetro Chiller ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 62, "is_slave": true, "temperature": true}, {"slave_id": 62, "is_slave": true, "energy": true}]}, "created_at": "2024-10-01T19:27:47.879+00:00", "updated_at": "2024-10-03T18:15:22.56+00:00"},
+    {"id": 12, "name": "Hidrometro Total", "image": null, "order": null, "config": {"hide_devices_v1": [{"channel": 10, "is_channel": true}, {"channel": 12, "is_channel": true}, {"channel": 15, "is_channel": true}, {"channel": 22, "is_channel": true}, {"channel": 26, "is_channel": true}]}, "created_at": "2024-10-16T19:05:06.399+00:00", "updated_at": "2025-01-23T01:31:04.82+00:00"},
+    {"id": 13, "name": "Co2 Lactário ", "image": null, "order": null, "config": {"hide_devices_v1": []}, "created_at": "2024-12-29T18:52:50.381+00:00", "updated_at": "2026-05-19T15:14:46.544+00:00"},
+    {"id": 14, "name": "Temp Cti Pediatrico", "image": null, "order": null, "config": null, "created_at": "2026-09-03T14:54:15.332+00:00", "updated_at": "2026-09-03T14:54:15.332+00:00"}
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — Maternidade Nova (Souza Aguiar)",
+    "table": "rfir_devices",
+    "rowCount": 2,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@201:ce30:f047:7f02:a27c:cbac:ffb7:2b67 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "ir", "category": "other", "name": "Geral", "output": "both", "slave_id": 29, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-28T21:24:34.447+00:00", "updated_at": "2024-12-28T21:24:34.447+00:00"},
+    {"id": 2, "type": "ir", "category": "other", "name": "teste", "output": "both", "slave_id": 22, "command_on_id": null, "command_off_id": null, "created_at": "2025-01-11T20:14:03.534+00:00", "updated_at": "2025-01-11T20:14:03.534+00:00"}
+  ]
+}

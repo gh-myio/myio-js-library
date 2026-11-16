@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Central Shopping da Ilha - ENTRADA - 2026-10-06 (Sá Cavalcante)",
+    "table": "rfir_devices",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:40 UTC",
+    "source": "dump-cadastro.py → ssh root@200:f095:bb4:4e43:62ca:fbae:b36e:a2aa · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

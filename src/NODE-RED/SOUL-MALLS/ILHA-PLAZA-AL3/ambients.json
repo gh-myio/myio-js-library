@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "central": "Ilha Plaza AL3 (Soul Malls)",
+    "table": "ambients",
+    "rowCount": 14,
+    "capturedAt": "2026-11-16 15:00 UTC",
+    "source": "dump-cadastro.py → ssh root@206:c160:eb69:3ddb:42c7:efce:511e:792a · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "name": "Myio 35", "image": null, "order": null, "config": null, "created_at": "2024-08-29T14:11:37.058+00:00", "updated_at": "2024-08-29T14:11:37.058+00:00"},
+    {"id": 2, "name": "Al3", "image": null, "order": null, "config": null, "created_at": "2024-09-02T13:45:10.007+00:00", "updated_at": "2024-09-02T13:45:10.007+00:00"},
+    {"id": 3, "name": "Restaurante Al3", "image": null, "order": null, "config": null, "created_at": "2024-09-07T20:09:54.282+00:00", "updated_at": "2024-09-07T20:09:54.282+00:00"},
+    {"id": 4, "name": "CAG", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 107, "is_slave": true, "temperature": true}, {"slave_id": 107, "is_slave": true, "energy": true}, {"slave_id": 108, "is_slave": true, "energy": true}, {"slave_id": 108, "is_slave": true, "temperature": true}, {"slave_id": 109, "is_slave": true, "energy": true}, {"slave_id": 109, "is_slave": true, "temperature": true}, {"slave_id": 110, "is_slave": true, "temperature": true}, {"slave_id": 110, "is_slave": true, "energy": true}, {"slave_id": 111, "is_slave": true, "energy": true}, {"slave_id": 111, "is_slave": true, "temperature": true}, {"slave_id": 112, "is_slave": true, "energy": true}, {"slave_id": 112, "is_slave": true, "temperature": true}, {"slave_id": 113, "is_slave": true, "energy": true}, {"slave_id": 113, "is_slave": true, "temperature": true}, {"slave_id": 115, "is_slave": true, "energy": true}, {"slave_id": 115, "is_slave": true, "temperature": true}]}, "created_at": "2025-03-28T04:46:58.732+00:00", "updated_at": "2026-10-07T15:44:28.383+00:00"},
+    {"id": 5, "name": "reboot", "image": null, "order": null, "config": null, "created_at": "2025-07-10T16:35:05.064+00:00", "updated_at": "2025-07-10T16:35:05.064+00:00"},
+    {"id": 6, "name": "CAG  energia ", "image": null, "order": null, "config": null, "created_at": "2025-07-25T14:21:54.972+00:00", "updated_at": "2025-07-25T15:41:14.615+00:00"},
+    {"id": 7, "name": "Cinema ", "image": null, "order": null, "config": null, "created_at": "2025-07-25T15:41:20.279+00:00", "updated_at": "2025-07-25T15:41:20.279+00:00"},
+    {"id": 8, "name": " Internet QMG ", "image": null, "order": null, "config": null, "created_at": "2025-07-25T20:09:33.585+00:00", "updated_at": "2025-07-25T20:09:33.585+00:00"},
+    {"id": 9, "name": "Antena Vivo", "image": null, "order": null, "config": null, "created_at": "2025-07-29T13:07:22.64+00:00", "updated_at": "2025-07-29T13:07:22.64+00:00"},
+    {"id": 10, "name": "Nextel/Tim", "image": null, "order": null, "config": null, "created_at": "2025-07-29T13:40:36.553+00:00", "updated_at": "2025-07-29T13:40:36.553+00:00"},
+    {"id": 11, "name": "Game Point", "image": null, "order": null, "config": null, "created_at": "2025-07-29T15:14:06.262+00:00", "updated_at": "2025-07-29T15:37:01.962+00:00"},
+    {"id": 12, "name": "Chillers ", "image": null, "order": null, "config": null, "created_at": "2025-07-31T01:04:12.571+00:00", "updated_at": "2025-07-31T01:04:12.571+00:00"},
+    {"id": 13, "name": "Reeboot Automático ", "image": null, "order": null, "config": null, "created_at": "2025-08-25T12:35:41.361+00:00", "updated_at": "2025-08-25T12:35:41.361+00:00"},
+    {"id": 14, "name": "ANTENAS", "image": null, "order": null, "config": null, "created_at": "2026-06-16T18:48:38.074+00:00", "updated_at": "2026-06-16T18:50:18.884+00:00"}
+  ]
+}

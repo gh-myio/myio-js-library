@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Ilha Plaza AL3 (Soul Malls)",
+    "table": "rfir_commands",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 15:00 UTC",
+    "source": "dump-cadastro.py → ssh root@206:c160:eb69:3ddb:42c7:efce:511e:792a · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "São Gonçalo (Obramax)",
+    "table": "ambients_rfir_devices_rel",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:48 UTC",
+    "source": "dump-cadastro.py → ssh root@201:16bc:18d:dd1f:373c:c603:92bf:b83d · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

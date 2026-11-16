@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "central": "Ilha Plaza AL3 (Soul Malls)",
+    "table": "channels",
+    "rowCount": 22,
+    "capturedAt": "2026-11-16 15:00 UTC",
+    "source": "dump-cadastro.py → ssh root@206:c160:eb69:3ddb:42c7:efce:511e:792a · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": 107, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T04:46:07.223+00:00", "updated_at": "2025-03-28T04:46:07.223+00:00"},
+    {"id": 2, "type": "flow_sensor", "channel": 1, "name": "Hidr. Recalque_Torre x1", "channel_id": null, "slave_id": 107, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T04:46:32.496+00:00", "updated_at": "2025-03-28T04:46:32.496+00:00"},
+    {"id": 3, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": 108, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T05:31:32.353+00:00", "updated_at": "2025-03-28T05:31:32.353+00:00"},
+    {"id": 4, "type": "flow_sensor", "channel": 1, "name": "Hidr. Prado_Rejeito x100", "channel_id": null, "slave_id": 108, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T05:31:56.441+00:00", "updated_at": "2025-03-28T05:31:56.441+00:00"},
+    {"id": 5, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": 109, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T05:36:51.595+00:00", "updated_at": "2025-03-28T05:36:51.595+00:00"},
+    {"id": 6, "type": "flow_sensor", "channel": 1, "name": "Hidr. Produ_penerado x10", "channel_id": null, "slave_id": 109, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2025-03-28T05:37:11.847+00:00", "updated_at": "2025-04-09T13:34:57.451+00:00"},
+    {"id": 7, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": 110, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T06:34:14.821+00:00", "updated_at": "2025-03-28T06:34:14.821+00:00"},
+    {"id": 8, "type": "flow_sensor", "channel": 1, "name": "Hidr. Poco11 x10", "channel_id": null, "slave_id": 110, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2025-03-28T06:34:30.504+00:00", "updated_at": "2026-10-07T18:57:53.921+00:00"},
+    {"id": 9, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": 111, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T06:38:28.195+00:00", "updated_at": "2025-03-28T06:38:28.195+00:00"},
+    {"id": 10, "type": "flow_sensor", "channel": 1, "name": "Hidr. Biogel_Brasil x10", "channel_id": null, "slave_id": 111, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T06:38:51.729+00:00", "updated_at": "2025-03-28T06:38:51.729+00:00"},
+    {"id": 11, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": 112, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T08:41:37.992+00:00", "updated_at": "2025-03-28T08:41:37.992+00:00"},
+    {"id": 12, "type": "flow_sensor", "channel": 1, "name": "Hidr. Permeável_Torre x10", "channel_id": null, "slave_id": 112, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T08:42:01.454+00:00", "updated_at": "2025-03-28T08:42:01.454+00:00"},
+    {"id": 13, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": 113, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T08:46:02.111+00:00", "updated_at": "2025-03-28T08:46:02.111+00:00"},
+    {"id": 14, "type": "flow_sensor", "channel": 1, "name": "Hidr. Azulão_80 x10", "channel_id": null, "slave_id": 113, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T08:46:20.499+00:00", "updated_at": "2025-03-28T08:46:20.499+00:00"},
+    {"id": 15, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": 115, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-28T09:34:49.675+00:00", "updated_at": "2025-03-28T09:34:49.675+00:00"},
+    {"id": 16, "type": "flow_sensor", "channel": 1, "name": "Hidr. Hidro_Descarte x1", "channel_id": null, "slave_id": 115, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2025-03-28T09:35:17.888+00:00", "updated_at": "2025-03-28T10:32:46.021+00:00"},
+    {"id": 17, "type": "lamp", "channel": 0, "name": "ignorar", "channel_id": null, "slave_id": 43, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-05-25T20:49:12.187+00:00", "updated_at": "2026-05-25T20:49:12.187+00:00"},
+    {"id": 18, "type": "lamp", "channel": 0, "name": "ignorar", "channel_id": null, "slave_id": 104, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-05-25T20:49:30.347+00:00", "updated_at": "2026-05-25T20:49:30.347+00:00"},
+    {"id": 19, "type": "lamp", "channel": 0, "name": "Saía 1", "channel_id": null, "slave_id": 107, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-10-12T19:54:23.235+00:00", "updated_at": "2026-10-12T19:54:23.235+00:00"},
+    {"id": 20, "type": "presence_sensor", "channel": 1, "name": "e2 entrada", "channel_id": null, "slave_id": 115, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-10-12T20:07:34.85+00:00", "updated_at": "2026-10-12T20:07:34.85+00:00"},
+    {"id": 22, "type": "presence_sensor", "channel": 1, "name": "e2", "channel_id": null, "slave_id": 113, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-10-12T20:21:22.769+00:00", "updated_at": "2026-10-12T20:21:22.769+00:00"},
+    {"id": 23, "type": "presence_sensor", "channel": 1, "name": "e2", "channel_id": null, "slave_id": 107, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-10-12T20:45:50.027+00:00", "updated_at": "2026-10-12T20:45:50.027+00:00"}
+  ]
+}

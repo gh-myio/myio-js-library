@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "central": "West Plaza - NOVA - 2026-09-28 (Soul Malls)",
+    "table": "channels",
+    "rowCount": 2,
+    "capturedAt": "2026-11-16 14:44 UTC",
+    "source": "dump-cadastro.py → ssh root@200:4bfa:32e0:da5f:74bd:ab68:202b:20a7 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "plug", "channel": 0, "name": "MQTT Sync - 61b789a3-23cc-45b2-91a3-5ec1dfc2ac6d", "channel_id": null, "slave_id": 280, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2026-08-12T01:20:51.53781+00:00", "updated_at": "2026-09-28T21:37:15.144991+00:00"},
+    {"id": 2, "type": "lamp", "channel": 0, "name": "Test", "channel_id": null, "slave_id": 284, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-09-25T13:55:05.242+00:00", "updated_at": "2026-09-25T13:55:05.242+00:00"}
+  ]
+}

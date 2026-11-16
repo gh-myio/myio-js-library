@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Central Moxuara 2.0 - 2026-07-13 (Sá Cavalcante)",
+    "table": "rfir_buttons",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:59 UTC",
+    "source": "dump-cadastro.py → ssh root@201:bc00:2a0e:6e36:a50f:9ef6:9b23:d097 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

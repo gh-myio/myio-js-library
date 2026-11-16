@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "central": "Campinas Shopping — Subestação Principal (Argo Plan)",
+    "table": "channels",
+    "rowCount": 4,
+    "capturedAt": "2026-11-16 15:01 UTC",
+    "source": "dump-cadastro.py → ssh root@202:7cde:b52f:7210:12a5:91d6:1fe5:4d6e · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-11T01:30:18.763+00:00", "updated_at": "2025-03-11T01:30:18.763+00:00"},
+    {"id": 2, "type": "presence_sensor", "channel": 1, "name": "Hidr Bk Quiosque ", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-03-11T01:30:44.063+00:00", "updated_at": "2025-03-11T01:30:44.063+00:00"},
+    {"id": 3, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": 36, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-12-12T17:38:48.616+00:00", "updated_at": "2025-12-12T17:38:48.616+00:00"},
+    {"id": 4, "type": "flow_sensor", "channel": 1, "name": "Hidr. Torre Resfriamento x100", "channel_id": null, "slave_id": 36, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2025-12-12T17:39:10.504+00:00", "updated_at": "2025-12-30T02:17:53.031+00:00"}
+  ]
+}

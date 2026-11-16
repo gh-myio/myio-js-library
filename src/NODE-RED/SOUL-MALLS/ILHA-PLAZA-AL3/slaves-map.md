@@ -1,192 +1,106 @@
 # Slaves Map — Ilha Plaza AL3 (Soul Malls)
 
-> Central: **Ilha Plaza AL3** (`91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d`)
+> Central: **Ilha Plaza AL3 (Soul Malls)** · Gateway `91b719b7-f2d2-4d3f-9fb9-ab3d4edbac0d` · Central ID `—` · Frequência `—`
 > IPv6: `206:c160:eb69:3ddb:42c7:efce:511e:792a`
-> Grupo: **Soul Malls** · Shopping: **Ilha Plaza Shopping**
-> Total slaves: **67** · Total channels: **18**
-> Fonte: `slave-and-channels.log` (dump `select * from slaves;` + `channels;`)
-> `version`: **`6.0.0`** em todos, **exceto** os 2 `infrared` (`7.0.0`) · `aggregate`: `t` em todos
+> Total slaves: **73** · channels: **22** · ambients: **14** · `ambients_rfir_slaves_rel`: **70** · `ambients_rfir_devices_rel`: **0**
+> RFIR: `rfir_devices`: **0** · `rfir_remotes`: **0** · `rfir_commands`: **0** · `rfir_buttons`: **0**
+> Capturado em **2026-11-16 15:00 UTC** por `dump-cadastro.py` (somente leitura).
+> Dados: [`slaves.json`](slaves.json) · [`channels.json`](channels.json) · [`ambients.json`](ambients.json) · [`ambients_slaves_rel.json`](ambients_slaves_rel.json) · [`ambients_devices_rel.json`](ambients_devices_rel.json)
+> Tipos de slave: `three_phase_sensor` 60 · `outlet` 11 · `infrared` 2
 
-> Status: **🟢 mapeado** (AL3 de 3: AL1/AL2/AL3).
->
-> Central **mais completa** do Ilha Plaza: além das lojas (ala L3/AL3), concentra a
-> **infraestrutura predial** — **água** (recalque/poços/permeado, 8 hidrômetros),
-> **climatização** (CAG, 3 Chillers), **cinema**, **antenas/telecom** e **repetidores IR**.
-> Legenda `code`: **`002`** = `…-015` (3F) · **`003`** = `003-003-003-015` (3F) · `012` = outlet · `014` = infrared.
+## Slaves
 
----
+| id | addr_low | addr_high | type | name | ch | clamp | ambients | channels (nº · type · name) |
+|---:|---:|---:|---|---|---:|---:|---|---|
+| 1 | 132 | 248 | three_phase_sensor | 3F Garage N_ 317( Al3) | 3 | 0 | 2 Al3 | — |
+| 2 | 150 | 248 | three_phase_sensor | 3F Havaianas N_318(AL3) | 3 | 0 | 2 Al3 | — |
+| 3 | 37 | 249 | three_phase_sensor | 3F Reserva N_321(Al3) | 3 | 0 | 2 Al3 | — |
+| 4 | 34 | 249 | three_phase_sensor | 3F SemLoja N_319/230(Al3) | 3 | 0 | 2 Al3 | — |
+| 5 | 151 | 249 | three_phase_sensor | 3F Melissa N_316(AL3) | 3 | 0 | 2 Al3 | — |
+| 6 | 244 | 248 | three_phase_sensor | 3F Josefina N_315(Al3) | 3 | 0 | 2 Al3 | — |
+| 7 | 217 | 248 | three_phase_sensor | 3F Sapattela N_314(AL3) | 3 | 0 | 2 Al3 | — |
+| 8 | 2 | 249 | three_phase_sensor | 3F Puket N_310A(Al3) | 3 | 0 | 2 Al3 | — |
+| 41 | 235 | 249 | three_phase_sensor | 3F alphabeto N_307(Al3j | 3 | 0 | 2 Al3 | — |
+| 42 | 86 | 248 | three_phase_sensor | 3F CacauShow N_310B/309(Al3) | 3 | 1 | 2 Al3 | — |
+| 43 | 9 | 248 | three_phase_sensor | 3F Futebol* N_375Al(3) | 3 | 0 | 2 Al3 | 0 · lamp · ignorar |
+| 44 | 135 | 248 | three_phase_sensor | 3F Semloja N_301/302(AL3) | 3 | 0 | 2 Al3 | — |
+| 45 | 71 | 249 | three_phase_sensor | 3F Vivo N_303/304(AL3) | 3 | 1 | 2 Al3 | — |
+| 46 | 78 | 249 | three_phase_sensor | 3F Peahi N_311/312(AL3) | 3 | 0 | 2 Al3 | — |
+| 47 | 251 | 249 | three_phase_sensor | 3F DI SANTINI N_343/344 L3 | 3 | 1 | 2 Al3 | — |
+| 48 | 29 | 248 | three_phase_sensor | 3F WERNER N_305/306 L3 | 3 | 1 | 2 Al3 | — |
+| 49 | 247 | 248 | three_phase_sensor | 3F RIHAPPY N_340/341/342 L3 | 3 | — | 2 Al3 | — |
+| 50 | 133 | 249 | three_phase_sensor | 3F BELCOSMÉTICOS N_373/374 L3 | 3 | — | 2 Al3 | — |
+| 51 | 171 | 248 | three_phase_sensor | 3F ALL MINI N_361/362/363/364 L3 | 3 | — | 2 Al3 | — |
+| 52 | 117 | 249 | three_phase_sensor | 3F PAVÃO N_323/324 L3 | 3 | — | 2 Al3 | — |
+| 53 | 14 | 249 | three_phase_sensor | 3F TIME ESTÉTICA N_322 L3 | 3 | — | 2 Al3 | — |
+| 54 | 109 | 248 | three_phase_sensor | 3F LIZIE N_355 L3 | 3 | — | 2 Al3 | — |
+| 55 | 138 | 249 | three_phase_sensor | 3F LÁPIS DE COR N_356 L3 | 3 | — | 2 Al3 | — |
+| 56 | 52 | 248 | three_phase_sensor | 3F BAGAGIO N_354/355 L3 | 3 | — | 2 Al3 | — |
+| 57 | 95 | 248 | three_phase_sensor | 3F CLOVER N_353 L3 | 3 | — | 2 Al3 | — |
+| 58 | 132 | 249 | three_phase_sensor | 3F ZINZANE N_352 L3 | 3 | — | 2 Al3 | — |
+| 59 | 230 | 248 | three_phase_sensor | 3F AVIATOR N_351 L3 | 3 | — | 2 Al3 | — |
+| 60 | 182 | 248 | three_phase_sensor | 3F FISICO E FORMA N_350 L3 | 3 | — | 2 Al3 | — |
+| 93 | 48 | 248 | three_phase_sensor | 3F HERING N_348/349 L3 | 3 | — | 2 Al3 | — |
+| 94 | 55 | 249 | three_phase_sensor | 3F OBSECIÓN N_347 L3 | 3 | — | 2 Al3 | — |
+| 95 | 217 | 249 | three_phase_sensor | 3F Sombrancelha N_346(AL3) | 3 | 0 | 2 Al3 | — |
+| 96 | 215 | 248 | three_phase_sensor | 3F Euro colchões N_345(AL3) | 3 | 0 | 2 Al3 | — |
+| 97 | 216 | 249 | three_phase_sensor | 3F Centauro N_LB3Parte1(AL3) | 3 | 2 | 2 Al3 | — |
+| 98 | 141 | 248 | three_phase_sensor | 3F Bel Art N_333A/334/335 | 3 | 2 | 2 Al3 | — |
+| 99 | 229 | 248 | three_phase_sensor | 3F Casas Bahia N_LB3Parte2(AL3) | 3 | 2 | 2 Al3 | — |
+| 100 | 14 | 248 | three_phase_sensor | 3F Espacoilha N_364A(Al3) | 3 | 0 | 2 Al3 | — |
+| 101 | 16 | 249 | three_phase_sensor | 3F Pizzahut N_XXX(AL2) x0.95 | 3 | 1 | 3 Restaurante Al3 | — |
+| 102 | 177 | 249 | three_phase_sensor | 3F PastaDiColina N_xxx(AL2) | 3 | 0 | 3 Restaurante Al3 | — |
+| 103 | 226 | 248 | three_phase_sensor | 3F Outback N_371(AL3) | 3 | 2 | 3 Restaurante Al3 | — |
+| 104 | 75 | 249 | three_phase_sensor | 3F EspetoCarioca N_327/328/329/330/331(AL3) | 3 | 1 | 3 Restaurante Al3 | 0 · lamp · ignorar |
+| 105 | 159 | 248 | three_phase_sensor | 3F La mole N_xxx(AL2) | 3 | 2 | 3 Restaurante Al3 | — |
+| 106 | 62 | 249 | three_phase_sensor | 3F Havana N_XXX(AL3) | 3 | 1 | 3 Restaurante Al3 | — |
+| 107 | 47 | 248 | outlet | Hidr. Recalque _Torre x1 | 2 | — | 4 CAG | 0 · presence_sensor · `Energia ` ⚠ espaço<br>0 · lamp · Saía 1<br>1 · flow_sensor · Hidr. Recalque_Torre x1<br>1 · presence_sensor · e2 |
+| 108 | 21 | 248 | outlet | Hidr. Prato_Rejeito x100 | 2 | — | 4 CAG | 0 · presence_sensor · `Energia ` ⚠ espaço<br>1 · flow_sensor · Hidr. Prado_Rejeito x100 |
+| 109 | 116 | 248 | outlet | Hidr. Prod_permeado x10 | 2 | — | 4 CAG | 0 · presence_sensor · `Energia ` ⚠ espaço<br>1 · flow_sensor · Hidr. Produ_penerado x10 |
+| 110 | 242 | 249 | outlet | Hidr. Poco11 x10 | 2 | — | 4 CAG | 0 · presence_sensor · `Energia ` ⚠ espaço<br>1 · flow_sensor · Hidr. Poco11 x10 |
+| 111 | 151 | 248 | outlet | Hidr. Biogel_Brasil x10 | 2 | — | 4 CAG | 0 · presence_sensor · `Energia ` ⚠ espaço<br>1 · flow_sensor · Hidr. Biogel_Brasil x10 |
+| 112 | 1 | 248 | outlet | Hidr. Permeável_Torre x10 | 2 | — | 4 CAG | 0 · presence_sensor · `Energia ` ⚠ espaço<br>1 · flow_sensor · Hidr. Permeável_Torre x10 |
+| 113 | 157 | 248 | outlet | Hidr. Azulão_80 x10 | 2 | — | 4 CAG | 0 · presence_sensor · `Energia ` ⚠ espaço<br>1 · flow_sensor · Hidr. Azulão_80 x10<br>1 · presence_sensor · e2 |
+| 115 | 223 | 249 | outlet | Hidr. Hidro_Descarte x1 | 2 | — | 4 CAG | 0 · presence_sensor · `Energia ` ⚠ espaço<br>1 · flow_sensor · Hidr. Hidro_Descarte x1<br>1 · presence_sensor · e2 entrada |
+| 116 | 40 | 249 | outlet | Sw Reboot L3 Ilha Plaza | 2 | — | 5 reboot | — |
+| 117 | 226 | 248 | outlet | Reboot L2 Ilha Plaza | 2 | — | 5 reboot | — |
+| 118 | 81 | 249 | three_phase_sensor | 3F CAG Bombas x160 x160A | 3 | — | 6 `CAG  energia ` ⚠ espaço | — |
+| 119 | 67 | 248 | three_phase_sensor | 3F Cinema | 3 | 2 | 7 `Cinema ` ⚠ espaço | — |
+| 120 | 10 | 249 | three_phase_sensor | 3F Cinema_Bombas | 3 | 2 | 7 `Cinema ` ⚠ espaço | — |
+| 121 | 197 | 248 | three_phase_sensor | 3F Antena_QMC | 3 | 1 | 8 ` Internet QMG ` ⚠ espaço | — |
+| 123 | 37 | 248 | infrared | Reperidor 01 | 1 | — | 10 Nextel/Tim | — |
+| 124 | 124 | 249 | infrared | Reperidor 02 | 1 | — | 10 Nextel/Tim | — |
+| 125 | 27 | 249 | three_phase_sensor | 3F Antena_Vivo | 3 | 0 | 9 Antena Vivo | — |
+| 126 | 99 | 249 | three_phase_sensor | 3F Nextel/Tim( 2GXX3G) | 3 | 0 | 10 Nextel/Tim | — |
+| 127 | 127 | 249 | three_phase_sensor | 3F Game_Point | 3 | 1 | 11 Game Point | — |
+| 128 | 141 | 249 | three_phase_sensor | 3F Chiller(01) x200 x200A | 3 | 0 | 12 `Chillers ` ⚠ espaço | — |
+| 129 | 30 | 249 | three_phase_sensor | 3F Chiller(02) x200 x200A | 3 | 0 | 12 `Chillers ` ⚠ espaço | — |
+| 130 | 35 | 248 | three_phase_sensor |  | 3 | — | ⚠ sem ambient | — |
+| 131 | 198 | 248 | three_phase_sensor | 3F Chillers(3/4/5) x200 x200A | 3 | 0 | 12 `Chillers ` ⚠ espaço | — |
+| 132 | 192 | 248 | outlet | Sw Reborn | 2 | — | 13 `Reeboot Automático ` ⚠ espaço | — |
+| 133 | 142 | 248 | three_phase_sensor | Teste | 3 | — | ⚠ sem ambient | — |
+| 134 | 17 | 248 | three_phase_sensor |  | 3 | — | ⚠ sem ambient | — |
+| 135 | 201 | 249 | three_phase_sensor | 3F ANTENA TIM | 3 | — | 14 ANTENAS | — |
+| 136 | 114 | 249 | three_phase_sensor | 3F ANTENA CLARO | 3 | — | 14 ANTENAS | — |
+| 137 | 25 | 249 | three_phase_sensor | 3F ANTENA QMC | 3 | — | 14 ANTENAS | — |
+| 138 | 126 | 249 | three_phase_sensor | 3F ANTENA VIVO | 3 | — | 14 ANTENAS | — |
+| 139 | 170 | 249 | three_phase_sensor | 3F KAWARI N_332/333(AL3) | 3 | — | 3 Restaurante Al3 | — |
 
-## 🔑 Padrões de nomenclatura
+## Ambients
 
-| Padrão | Tipo | Significado | Exemplo |
-|--------|------|-------------|---------|
-| `3F <Loja> N_<num>(AL3)` / `… L3` | three_phase_sensor | **Medidor de loja** (`3F_MEDIDOR`) — sufixo ora `(AL3)` ora `L3` | `3F Havaianas N_318(AL3)` |
-| `3F CAG Bombas x160 x160A` | three_phase_sensor | **Bomba CAG** (`BOMBA_CAG`) — multiplicador no nome | `x160 x160A` |
-| `3F Chiller(NN) x200 x200A` | three_phase_sensor | **Chiller** (`CHILLER`) | `3F Chiller(01)` |
-| `3F Antena_… / Nextel/Tim` | three_phase_sensor | Carga de **telecom/antena** | `3F Antena_Vivo` |
-| `Hidr. <Ponto> xNN` | outlet | **Hidrômetro** (`HIDROMETRO`) — channels `Energia` + `flow_sensor` | `Hidr. Poco11 x10` |
-| `Sw Reboot / Reboot Lx / Sw Reborn` | outlet | **Switch de reboot remoto** | `Sw Reboot L3 Ilha Plaza` |
-| `Reperidor NN` | infrared | **Repetidor IR** (typo de "Repetidor") · `version 7.0.0` | `Reperidor 01` |
-| ` xNNN` / ` xNNNA` / ` x0.95` | — | **Multiplicador de clamp** embutido no nome | `x200 x200A` |
-
----
-
-## 1. Energia — Medidores de Loja (`3F … N_<num>`)  · 42 slaves · `3F_MEDIDOR`
-
-| ID | Nome | Loja | Ala | code | clamp |
-|----|------|------|-----|------|------:|
-| 1   | `3F Garage N_ 317( Al3)` | 317 | AL3 | 002 | 0 |
-| 2   | `3F Havaianas N_318(AL3)` | 318 | AL3 | 002 | 0 |
-| 3   | `3F Reserva N_321(Al3)` | 321 | AL3 | 002 | 0 |
-| 4   | `3F SemLoja N_319/230(Al3)` | 319/230 | AL3 | 002 | 0 |
-| 5   | `3F Melissa N_316(AL3)` | 316 | AL3 | 002 | 0 |
-| 6   | `3F Josefina N_315(Al3)` | 315 | AL3 | 002 | 0 |
-| 7   | `3F Sapattela N_314(AL3)` | 314 | AL3 | 002 | 0 |
-| 8   | `3F Puket N_310A(Al3)` | 310A | AL3 | 002 | 0 |
-| 41  | `3F alphabeto N_308(Al3j` | 308 | AL3 | 002 | 0 |
-| 42  | `3F CacauShow N_310B/309(Al3)` | 310B/309 | AL3 | 002 | 1 |
-| 43  | `3F Futebol* N_375Al(3)` | 375 | AL3 | 002 | 0 |
-| 44  | `3F Semloja N_301/302(AL3)` | 301/302 | AL3 | 002 | 0 |
-| 45  | `3F Vivo N_303/304(AL3)` | 303/304 | AL3 | 002 | 1 |
-| 46  | `3F Peahi N_311/312(AL3)` | 311/312 | AL3 | 002 | 0 |
-| 47  | `3F DI SANTINI N_343/344 L3` | 343/344 | L3 | 002 | 1 |
-| 48  | `3F WERNER N_305/306 L3` | 305/306 | L3 | 002 | 1 |
-| 49  | `3F RIHAPPY N_340/341/342 L3` | 340–342 | L3 | 002 | 0 |
-| 50  | `3F BELCOSMÉTICOS N_373/374 L3` | 373/374 | L3 | 002 | 0 |
-| 51  | `3F ALL MINI N_361/362/363/364 L3` | 361–364 | L3 | 002 | 0 |
-| 52  | `3F PAVÃO N_323/324 L3` | 323/324 | L3 | 002 | 0 |
-| 53  | `3F TIME ESTÉTICA N_322 L3` | 322 | L3 | 002 | 0 |
-| 54  | `3F LIZIE N_355 L3` | 355 | L3 | 002 | 0 |
-| 55  | `3F LÁPIS DE COR N_356 L3` | 356 | L3 | 002 | 0 |
-| 56  | `3F BAGAGIO N_354/355 L3` | 354/355 | L3 | 002 | 0 |
-| 57  | `3F CLOVER N_353 L3` | 353 | L3 | 002 | 0 |
-| 58  | `3F ZINZANE N_352 L3` | 352 | L3 | 002 | 0 |
-| 59  | `3F AVIATOR N_351 L3` | 351 | L3 | 002 | 0 |
-| 60  | `3F FISICO E FORMA N_350 L3` | 350 | L3 | 002 | 0 |
-| 93  | `3F HERING N_348/349 L3` | 348/349 | L3 | 002 | 0 |
-| 94  | `3F OBSECIÓN N_347 L3` | 347 | L3 | 002 | 0 |
-| 95  | `3F Sombrancelha N_346(AL3)` | 346 | AL3 | 002 | 0 |
-| 96  | `3F Euro colchões N_345(AL3)` | 345 | AL3 | 002 | 0 |
-| 97  | `3F Centauro N_LB3Parte1(AL3)` | LB3Parte1 | AL3 | 002 | **2** |
-| 98  | `3F Bel Art N_333A/334/335` | 333A/334/335 | — | 002 | **2** |
-| 99  | `3F Casas Bahia N_LB3Parte2(AL3)` | LB3Parte2 | AL3 | 002 | **2** |
-| 100 | `3F Espacoilha N_364A(Al3)` | 364A | AL3 | 002 | 0 |
-| 101 | `3F Pizzahut N_XXX(AL2) x0.95` | **XXX** | **AL2** | 003 | 1 |
-| 102 | `3F PastaDiColina N_xxx(AL2)` | **xxx** | **AL2** | 003 | 0 |
-| 103 | `3F Outback N_371(AL3)` | 371 | AL3 | 003 | **2** |
-| 104 | `3F EspetoCarioca N_327/328/329/330/331(AL3)` | 327–331 | AL3 | 003 | 1 |
-| 105 | `3F La mole N_xxx(AL2)` | **xxx** | **AL2** | 003 | **2** |
-| 106 | `3F Havana N_XXX(AL3)` | **XXX** | AL3 | 003 | 1 |
-
-> `clamp_type` da maioria é `0`. **`x0.95`** (101) é multiplicador no nome.
-> ⚠️ Slaves **101, 102, 105** estão rotulados **`(AL2)`** dentro da central **AL3** (lojas com `N_xxx` a identificar).
-
----
-
-## 2. Energia — Climatização / Infra / Área Comum (`3F …`)  · 12 slaves
-
-| ID | Nome | Categoria sugerida | Multiplicador | clamp |
-|----|------|--------------------|---------------|------:|
-| 118 | `3F CAG Bombas x160 x160A` | `BOMBA_CAG` | x160 / x160A | 0 |
-| 128 | `3F Chiller(01) x200 x200A` | `CHILLER` | x200 / x200A | 0 |
-| 129 | `3F Chiller(02) x200 x200A` | `CHILLER` | x200 / x200A | 0 |
-| 131 | `3F Chillers(3/4/5) x200 x200A` | `CHILLER` (3 unidades) | x200 / x200A | 0 |
-| 119 | `3F Cinema` | Cinema (carga) | — | **2** |
-| 120 | `3F Cinema_Bombas` | Bombas do cinema | — | **2** |
-| 121 | `3F Antena_QMC` | Telecom/antena | — | 1 |
-| 125 | `3F Antena_Vivo` | Telecom/antena | — | 0 |
-| 126 | `3F Nextel/Tim( 2GXX3G)` | Telecom/antena | — | 0 |
-| 127 | `3F Game_Point` | Loja/área (games) | — | 1 |
-| 130 | _(nome vazio)_ | **SEM NOME — a identificar** | — | _(null)_ |
-| 133 | `Teste` | **TESTE — slave de teste** (criado 2026-06-08) | — | _(null)_ |
-
----
-
-## 3. Água — Hidrômetros (`Hidr. …`)  · 8 slaves · `outlet` · `HIDROMETRO`
-
-Cada hidrômetro tem **2 channels**: `presence_sensor` **"Energia"** + `flow_sensor` (vazão).
-Todos com `channelConfig` `REMOTE_INPUT` (ch0) + `PULSE_ON_POWER` (ch1).
-
-| ID | Nome (slave) | Mult. | Channel `flow_sensor` | Obs |
-|----|--------------|-------|------------------------|-----|
-| 107 | `Hidr. Recalque _Torre x1` | x1 | `Hidr. Recalque_Torre x1` | espaço extra no slave |
-| 108 | `Hidr. Prato_Rejeito x100` | x100 | `Hidr. Prado_Rejeito x100` | **typo** channel: `Prado`≠`Prato` |
-| 109 | `Hidr. Prod_permeado x10` | x10 | `Hidr. Produ_penerado x10` | **typo** channel: `Produ_penerado`≠`Prod_permeado`; `{"confirm":false}` |
-| 110 | `Hidr. Poco11 x10` | x10 | `Hidr. Poco11 x10` | — |
-| 111 | `Hidr. Biogel_Brasil x10` | x10 | `Hidr. Biogel_Brasil x10` | — |
-| 112 | `Hidr. Permeável_Torre x10` | x10 | `Hidr. Permeável_Torre x10` | `config_clamp` value null |
-| 113 | `Hidr. Azulão_80 x10` | x10 | `Hidr. Azulão_80 x10` | — |
-| 115 | `Hidr. Hidro_Descarte x1` | x1 | `Hidr. Hidro_Descarte x1` | flow `{"confirm":false}` |
-
----
-
-## 4. Switch / BAS — Reboots remotos (`outlet`)  · 3 slaves
-
-| ID | Nome | Obs |
-|----|------|-----|
-| 116 | `Sw Reboot L3 Ilha Plaza` | reboot L3 |
-| 117 | `Reboot L2 Ilha Plaza` | reboot L2 |
-| 132 | `Sw Reborn` | **"Reborn"** = provável typo de "Reboot" |
-
----
-
-## 5. Infravermelho — Repetidores (`infrared`)  · 2 slaves · `version 7.0.0`
-
-| ID | Nome | code | Obs |
-|----|------|------|-----|
-| 123 | `Reperidor 01` | 014 | **"Reperidor"** = typo de "Repetidor" |
-| 124 | `Reperidor 02` | 014 | idem |
-
----
-
-## 6. Temperatura / Seletor Auto/Manual
-
-> **Nenhum** nesta central.
-
----
-
-## Estrutura de `channels`  · 18 channels
-
-| Tipo | Qtd | Pertence a |
-|------|-----|-----------|
-| `presence_sensor` ("Energia") | 8 | hidrômetros (slaves 107–115) |
-| `flow_sensor` ("Hidr. …") | 8 | hidrômetros — a vazão |
-| `lamp` ("ignorar") | 2 | slaves **43** (Futebol) e **104** (EspetoCarioca) — **descartar** |
-
-> Os medidores `3F` **não têm channel materializado** (leitura direto do slave).
-> Os 8 `outlet` de hidrômetro têm o par `Energia` + `flow_sensor`.
-
----
-
-## ⚠️ Inconsistências
-
-1. **Sufixo de ala** bagunçado: `(AL3)`, `(Al3)`, `L3`, `( Al3)` (espaço), `Al(3)` (43), **`(Al3j`** (41, bracket errado).
-2. **Slaves rotulados `(AL2)` dentro da central AL3**: 101 (Pizzahut), 102 (PastaDiColina), 105 (La mole) — lojas `N_xxx`/`N_XXX` a identificar.
-3. **Lojas não identificadas**: `N_XXX`/`N_xxx` em 101, 102, 105, 106; `N_LB3Parte1/2` em 97, 99.
-4. **Slave 130 sem nome** — identificar. **Slave 133 `Teste`** (novo, 2026-06-08) — slave de teste, provável descartar/identificar.
-5. **Typos de nome de channel vs slave**: 108 `Prado`≠`Prato`; 109 `Produ_penerado`≠`Prod_permeado`.
-6. **Typos**: `Reperidor` (123/124 → Repetidor), `Sw Reborn` (132 → Reboot), `SemLoja`/`Semloja` (4, 44), `Futebol*` (43, asterisco), `N_319/230` (4, `230`≈typo `320`).
-7. **2 channels `lamp` "ignorar"** (slaves 43, 104) — placeholders a descartar.
-8. **`version 7.0.0`** só nos 2 `infrared` (resto `6.0.0`).
-9. **Multiplicadores embutidos no nome** (`x1`/`x10`/`x100`/`x0.95`/`x160 x160A`/`x200 x200A`) — parseados no Node-RED (`getMultiplier`).
-
----
-
-## Resumo por categoria
-
-| Categoria | Slaves |
-|-----------|--------|
-| Energia — Medidores de Loja (3F) | 42 |
-| Energia — Climatização/Infra/Antenas (3F) | 12 |
-| Água — Hidrômetros (outlet) | 8 |
-| Switch — Reboots remotos (outlet) | 3 |
-| Infravermelho — Repetidores | 2 |
-| **Total** | **67** |
-
-| Métrica | Valor |
-|---------|-------|
-| `three_phase_sensor` | 54 |
-| `outlet` | 11 (8 hidrômetros + 3 reboots) |
-| `infrared` | 2 |
-| `channels` (8 presence + 8 flow + 2 lamp) | 18 |
-| `version` | `6.0.0` (65) · `7.0.0` (2 infrared) |
+| id | name | slaves |
+|---:|---|---|
+| 1 | Myio 35 | ⚠ vazio |
+| 2 | Al3 | 1, 2, 3, 4, 5, 6, 7, 8, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 93, 94, 95, 96, 97, 98, 99, 100 |
+| 3 | Restaurante Al3 | 101, 102, 103, 104, 105, 106, 139 |
+| 4 | CAG | 107, 108, 109, 110, 111, 112, 113, 115 |
+| 5 | reboot | 116, 117 |
+| 6 | `CAG  energia ` ⚠ espaço | 118 |
+| 7 | `Cinema ` ⚠ espaço | 119, 120 |
+| 8 | ` Internet QMG ` ⚠ espaço | 121 |
+| 9 | Antena Vivo | 125 |
+| 10 | Nextel/Tim | 123, 124, 126 |
+| 11 | Game Point | 127 |
+| 12 | `Chillers ` ⚠ espaço | 128, 129, 131 |
+| 13 | `Reeboot Automático ` ⚠ espaço | 132 |
+| 14 | ANTENAS | 135, 136, 137, 138 |

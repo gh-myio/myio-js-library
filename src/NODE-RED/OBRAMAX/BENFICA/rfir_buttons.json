@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Benfica (Obramax)",
+    "table": "rfir_buttons",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:47 UTC",
+    "source": "dump-cadastro.py → ssh root@200:47f1:8bf6:36da:65fa:4124:bcdb:dbb4 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

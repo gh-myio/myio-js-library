@@ -1,290 +1,212 @@
-# Slaves Map — Central CO2 (Souza Aguiar)
+# Slaves Map — Souza Aguiar — CO2 (Souza Aguiar)
 
-> Central: **Souza Aguiar — CO2** (`295628b1-75c6-4854-8031-107cd9a2ab91`)
+> Central: **Souza Aguiar — CO2 (Souza Aguiar)** · Gateway `—` · Central ID `—` · Frequência `—`
 > IPv6: `201:3941:4753:9232:901b:19fa:4978:51aa`
-> Total slaves: 77 | Total channels: 72
-> Snapshot DB: 2026-05-18 (`allSlaves.log` + dump de channels)
+> Total slaves: **77** · channels: **72** · ambients: **36** · `ambients_rfir_slaves_rel`: **73** · `ambients_rfir_devices_rel`: **0**
+> RFIR: `rfir_devices`: **22** · `rfir_remotes`: **23** · `rfir_commands`: **1** · `rfir_buttons`: **1**
+> Capturado em **2026-11-16 14:41 UTC** por `dump-cadastro.py` (somente leitura).
+> Dados: [`slaves.json`](slaves.json) · [`channels.json`](channels.json) · [`ambients.json`](ambients.json) · [`ambients_slaves_rel.json`](ambients_slaves_rel.json) · [`ambients_devices_rel.json`](ambients_devices_rel.json)
+> Tipos de slave: `outlet` 40 · `infrared` 37
 
----
+## Slaves
 
-## Convenções de Type / Code
+| id | addr_low | addr_high | type | name | ch | clamp | ambients | channels (nº · type · name) |
+|---:|---:|---:|---|---|---:|---:|---|---|
+| 44 | 254 | 249 | infrared | OLD-T.e.m.p. Co2_Cirurgia4 -7 | 1 | — | 110 CC04 | — |
+| 45 | 246 | 248 | outlet | Temp. Co2_Cirurgia4 | 2 | — | 110 CC04 | 0 · lamp · Check |
+| 50 | 169 | 249 | outlet | Temp. Co2_Cirurgia8 +1.31 | 2 | — | 113 CC08 | 0 · lamp · Check Sala 08 |
+| 52 | 34 | 249 | outlet | Temp. Co2_CC_03 | 2 | — | 106 CC03 | 0 · lamp · Check<br>1 · lamp · check2 |
+| 53 | 237 | 249 | infrared | OLD-T.e.m.p. Co2_CC_03 -8 | 1 | — | 106 CC03 | — |
+| 54 | 98 | 249 | outlet | Temp. Co2_Cirurgia9 +0.77 | 2 | — | 117 CC09 | 0 · lamp · Check Sala 09 |
+| 63 | 96 | 248 | infrared | OLD-T.e.m.p. Co2_Cirurgia7 -2 | 1 | — | 107 CC07 | — |
+| 64 | 89 | 249 | outlet | Temp. Co2_Cirurgia7 +1.15 | 2 | — | 107 CC07 | 0 · lamp · Check Sala 07 |
+| 74 | 18 | 249 | infrared | OLD-T.e.m.p. Co2_Sala_Vermelha_Adulto -8 | 1 | — | 127 `Sala Vermelha Adulto ` ⚠ espaço | — |
+| 75 | 130 | 248 | infrared | OLD-T.e.m.p. Co2_Cirurgia1 -3 | 1 | — | ⚠ sem ambient | — |
+| 76 | 217 | 249 | outlet | Temp. Co2_Cirurgia1 | 2 | — | 108 CC01 | 0 · lamp · Check Sala 01 |
+| 79 | 31 | 248 | outlet | Temp. Co2_Laboratorio | 2 | — | 128 `Laboratório ` ⚠ espaço | 0 · lamp · Check |
+| 80 | 251 | 249 | infrared | OLD-T.e.m.p. Co2_Laboratorio -6 | 1 | — | 128 `Laboratório ` ⚠ espaço | — |
+| 84 | 33 | 249 | infrared | OLD-T.e.m.p. Co2_CTI_04 -5 | 1 | — | 123 CTI 04( cx 24) | — |
+| 87 | 242 | 249 | outlet | Temp. Co2_CTI_01 +1 | 2 | — | 105 CTI 01 | 0 · lamp · Check<br>0 · presence_sensor · `Energia ` ⚠ espaço<br>1 · lamp · check2 |
+| 88 | 9 | 248 | infrared | OLD-T.e.m.p. Co2_CTI_01 -2 | 1 | — | 105 CTI 01 | — |
+| 91 | 141 | 248 | outlet | Temp. Co2_CTI_04 | 2 | — | 123 CTI 04( cx 24) | 0 · lamp · Check |
+| 98 | 102 | 249 | outlet | GAS Co2_Raio-X2 132 5000 x9.47 | 2 | — | 101 Co2_Raio-X2 | 0 · lamp · Check |
+| 99 | 172 | 249 | infrared | OLD-T.e.m.p. Co2_Raiox4 -5 | 1 | — | 102 Co2_Raiox4 | — |
+| 100 | 79 | 248 | outlet | Temp. Co2_Raiox4 | 2 | — | 102 Co2_Raiox4 | 0 · lamp · `Check ` ⚠ espaço<br>1 · lamp · `Check2 ` ⚠ espaço |
+| 101 | 39 | 248 | infrared | Temp. Co2_Raiox2 -3 | 1 | — | 101 Co2_Raio-X2 | — |
+| 102 | 31 | 249 | outlet | Temp. Co2_Raiox1 | 2 | — | 103 Co2_Raio-X1 | 0 · lamp · Check<br>1 · lamp · checl2 |
+| 103 | 118 | 248 | infrared | OLD-T.e.m.p. Co2_Raiox1 -5 | 1 | — | 103 Co2_Raio-X1 | — |
+| 104 | 40 | 249 | outlet | Temp. Co2_Raiox3 +1.7 | 2 | — | 104 Co2_ Raiox3 | 0 · lamp · Check<br>1 · lamp · check2 |
+| 105 | 16 | 248 | infrared | OLD-T.e.m.p. Co2_Raiox3 -4 | 1 | — | 104 Co2_ Raiox3 | — |
+| 106 | 106 | 249 | infrared | OLD-T.e.m.p. Co2_Cirurgia06 -4 | 1 | — | 111 CC06 | — |
+| 107 | 85 | 249 | outlet | Temp. Co2_Cirurgia06 +1.4 | 2 | — | 111 CC06 | 0 · lamp · Check |
+| 108 | 91 | 248 | outlet | Temp. CO2_RPA | 2 | — | 112 RPA | 0 · lamp · `Check ` ⚠ espaço |
+| 109 | 111 | 248 | infrared | OLD-T.e.m.p. CO2_RPA -8 | 1 | — | 112 RPA | — |
+| 110 | 182 | 249 | outlet | Temp. CO2_CC02 +1.1 | 2 | — | 114 CC02 | 0 · lamp · Check |
+| 111 | 144 | 248 | infrared | OLD-T.e.m.p. CO2_CC02 -5 | 1 | — | 114 CC02 | — |
+| 112 | 190 | 248 | outlet | Temp. CO2_CC10 | 2 | — | 115 CC10 | 0 · lamp · Check CC10 |
+| 113 | 92 | 249 | infrared | OLD-T.e.m.p. CO2_CC10 -5 | 1 | — | 115 CC10 | — |
+| 114 | 26 | 248 | outlet | Temp. Co2_CC05 +2 | 2 | — | 116 CC05 | 0 · lamp · Check |
+| 115 | 164 | 249 | infrared | OLD-T.e.m.p. Co2_CC05 -6 | 1 | — | 116 CC05 | — |
+| 121 | 84 | 249 | infrared | OLD-T.e.m.p. Co2_CME_SL01 -6 | 1 | — | 118 CME Sala Limpa 1 | — |
+| 122 | 176 | 248 | outlet | Temp. Co2_CME_SL01 | 2 | — | 118 CME Sala Limpa 1 | 0 · lamp · `Check ` ⚠ espaço<br>1 · lamp · Check2 |
+| 123 | 108 | 249 | outlet | Temp. Co2_CME_SL02 -0.76 | 2 | — | 119 CME Sala Limpa 2 | 0 · presence_sensor · `Energia ` ⚠ espaço<br>0 · lamp · `Check ` ⚠ espaço<br>1 · lamp · Check 2 |
+| 124 | 71 | 248 | infrared | OLD-T.e.m.p. Co2_CME_SL02 -7 | 1 | — | 119 CME Sala Limpa 2 | — |
+| 125 | 32 | 249 | outlet | GAS Co2_CTI_Pediatrico 132 5000 x9.47 | 2 | — | 120 CTI_Pediatrico | — |
+| 126 | 21 | 249 | infrared | OLD-T.e.m.p. Co2_CTI_Pediatrico -6 | 1 | — | 120 CTI_Pediatrico | — |
+| 127 | 67 | 248 | outlet | Temp. Co2_CTI_03 | 2 | — | 124 CTI 03 | 0 · lamp · Check |
+| 128 | 123 | 249 | infrared | OLD-T.e.m.p. Co2_CTI_03 -9 | 1 | — | 124 CTI 03 | — |
+| 130 | 211 | 248 | infrared | OLD-T.e.m.p. Co2_Hemodialise -6 | 1 | — | 125 `Hemodiálise ` ⚠ espaço | — |
+| 131 | 126 | 249 | outlet | Temp. Co2_Hemodialise | 2 | — | 125 `Hemodiálise ` ⚠ espaço | 0 · lamp · Check<br>1 · lamp · Check 2 |
+| 132 | 223 | 248 | infrared | OLD-T.e.m.p. Co2_Tomografia -6 | 1 | — | 126 Tomografia 1 | — |
+| 133 | 135 | 248 | outlet | Temp. Co2_Tomografia +2.3 | 2 | — | 126 Tomografia 1 | 0 · lamp · Check |
+| 134 | 17 | 249 | outlet | Temp. Co2_Sala_Vermelha_Infantil | 2 | — | 129 `Sala Vermelha Infantil ` ⚠ espaço | 0 · lamp · Teste<br>1 · lamp · c2 |
+| 135 | 104 | 249 | infrared | OLD-T.e.m.p. Co2_Sala_Vermelha_Infantil -8 | 1 | — | 129 `Sala Vermelha Infantil ` ⚠ espaço | — |
+| 137 | 24 | 249 | infrared | OLD-T.e.m.p. Co2_Agencia_Transfusional -5 | 1 | — | 130 `Agência Transfusional ` ⚠ espaço | — |
+| 138 | 132 | 249 | outlet | Temp. Co2_Agencia_Transfusional | 2 | — | 130 `Agência Transfusional ` ⚠ espaço | 0 · lamp · Check<br>1 · lamp · Check2 |
+| 140 | 22 | 249 | infrared | OLD-T.e.m.p. Co2_Farmácia_Satelite -7 | 1 | — | 132 `Farmácia Satélite ` ⚠ espaço | — |
+| 141 | 234 | 248 | outlet | Temp. Co2_Farmácia_Satelite | 2 | — | 132 `Farmácia Satélite ` ⚠ espaço | 0 · plug · c1.0<br>1 · lamp · c2.9 |
+| 143 | 33 | 248 | infrared | OLD-T.e.m.p. Co2_Cirurgia8 -3 | 1 | — | 113 CC08 | — |
+| 144 | 56 | 248 | infrared | OLD-T.e.m.p. Co2_CTI_02 -4 | 1 | — | 122 CTI 02 | — |
+| 145 | 117 | 249 | outlet | GAS Co2_Sala_Vermelha_Adulto 132 5000 x9.47 | 2 | — | 127 `Sala Vermelha Adulto ` ⚠ espaço | — |
+| 146 | 251 | 248 | infrared | Mesh Remote Cti 2°And. | 1 | — | 131 Mesh | — |
+| 147 | 21 | 248 | infrared | `Mesh Farmácia ` ⚠ espaço | 1 | — | 131 Mesh | — |
+| 148 | 36 | 248 | outlet | GAS Co2_CAF 132 5000 x9.47 | 2 | — | 133 CAF | — |
+| 149 | 5 | 248 | infrared | OLD-T.e.m.p. Co2_CAF -7 | 1 | — | 133 CAF | — |
+| 150 | 158 | 249 | infrared | OLD-T.e.m.p. Co2_Queimados -4 | 1 | — | 134 Queimados | — |
+| 151 | 87 | 248 | outlet | Temp. Co2_Queimados | 2 | — | 134 Queimados | 0 · lamp · Check<br>1 · lamp · Check 2 |
+| 152 | 179 | 249 | outlet | Temp. Co2_CTI_02 | 2 | — | 122 CTI 02 | 0 · lamp · `Check ` ⚠ espaço<br>1 · lamp · Check 2 |
+| 153 | 175 | 248 | infrared | `RM Repetidor Centro Cirúrgico ` ⚠ espaço | 1 | — | 131 Mesh | — |
+| 155 | 241 | 248 | infrared | OLD-T.e.m.p. Co2_Cirurgia9 -3 | 1 | — | 117 CC09 | — |
+| 156 | 239 | 248 | outlet | `Lactário ` ⚠ espaço | 2 | — | 135 Lactário | — |
+| 157 | 113 | 248 | infrared | `Lactário ` ⚠ espaço | 1 | — | 135 Lactário | — |
+| 158 | 143 | 249 | infrared | OLD-T.e.m.p. Co2_Cirurgia7_Apos_04_Fev_2026 -4 | 1 | — | 107 CC07 | — |
+| 159 | 65 | 248 | infrared | `Repetidor Queimados ` ⚠ espaço | 1 | — | 134 Queimados | — |
+| 160 | 90 | 248 | outlet | Temp Sala_vermelha_infantil | 2 | — | ⚠ sem ambient | 0 · lamp · Teste |
+| 161 | 124 | 249 | outlet |  | 2 | — | ⚠ sem ambient | — |
+| 162 | 6 | 249 | outlet | Temp. Co2_CTI_Pediatrico | 2 | — | 137 `CTI pediátrico 7° andar ` ⚠ espaço | 0 · lamp · Teste |
+| 164 | 106 | 248 | outlet | Temp. Co2_CAF | 2 | — | 138 Farmácia CAF | 0 · lamp · `Teste ` ⚠ espaço |
+| 165 | 128 | 249 | outlet | Temp. Co2_Sala_Vermelha_Adulto | 2 | — | 127 `Sala Vermelha Adulto ` ⚠ espaço | 0 · lamp · Teste |
+| 166 | 160 | 249 | outlet | Temp Sala_vermelha_infantil | 2 | — | ⚠ sem ambient | 0 · lamp · Teste |
+| 167 | 161 | 248 | outlet | Temp. Sala_Vermelha_Infantil | 2 | — | 129 `Sala Vermelha Infantil ` ⚠ espaço | 0 · lamp · check<br>1 · lamp · check2 |
+| 168 | 248 | 248 | outlet | `Temp. Farmacia_satelite ` ⚠ espaço | 2 | — | 132 `Farmácia Satélite ` ⚠ espaço | 0 · lamp · c1<br>1 · lamp · c2 |
 
-| Type       | Code            | Versão | Significado                                        |
-|------------|-----------------|--------|----------------------------------------------------|
-| `infrared` | `002-002-002-014` | 7.0.0  | Sensor de temperatura (Temp original / OLD- / Repetidor) |
-| `outlet`   | `002-002-002-012` | 6.0.0  | Sensor GAS / Temp já migrado (ex-GAS) / novos          |
-| `outlet`   | `003-003-003-012` | 6.0.0  | ⚠️ Anômalo — usado apenas no slave 145 (GAS Sala Vermelha Adulto) |
+## Ambients
 
-> **Regra prática**: após migrar GAS → Temp, o slave fica **`outlet`** (mantém código `002-002-002-012`). Os Temp ainda com offset são todos **`infrared`** (sensores originais).
+| id | name | slaves |
+|---:|---|---|
+| 101 | Co2_Raio-X2 | 98, 101 |
+| 102 | Co2_Raiox4 | 99, 100 |
+| 103 | Co2_Raio-X1 | 102, 103 |
+| 104 | Co2_ Raiox3 | 104, 105 |
+| 105 | CTI 01 | 87, 88 |
+| 106 | CC03 | 52, 53 |
+| 107 | CC07 | 63, 64, 158 |
+| 108 | CC01 | 76 |
+| 110 | CC04 | 44, 45 |
+| 111 | CC06 | 106, 107 |
+| 112 | RPA | 108, 109 |
+| 113 | CC08 | 50, 143 |
+| 114 | CC02 | 110, 111 |
+| 115 | CC10 | 112, 113 |
+| 116 | CC05 | 114, 115 |
+| 117 | CC09 | 54, 155 |
+| 118 | CME Sala Limpa 1 | 121, 122 |
+| 119 | CME Sala Limpa 2 | 123, 124 |
+| 120 | CTI_Pediatrico | 125, 126 |
+| 122 | CTI 02 | 144, 152 |
+| 123 | CTI 04( cx 24) | 84, 91 |
+| 124 | CTI 03 | 127, 128 |
+| 125 | `Hemodiálise ` ⚠ espaço | 130, 131 |
+| 126 | Tomografia 1 | 132, 133 |
+| 127 | `Sala Vermelha Adulto ` ⚠ espaço | 74, 145, 165 |
+| 128 | `Laboratório ` ⚠ espaço | 79, 80 |
+| 129 | `Sala Vermelha Infantil ` ⚠ espaço | 134, 135, 167 |
+| 130 | `Agência Transfusional ` ⚠ espaço | 137, 138 |
+| 131 | Mesh | 146, 147, 153 |
+| 132 | `Farmácia Satélite ` ⚠ espaço | 140, 141, 168 |
+| 133 | CAF | 148, 149 |
+| 134 | Queimados | 150, 151, 159 |
+| 135 | Lactário | 156, 157 |
+| 136 | UTI NEO 1 | ⚠ vazio |
+| 137 | `CTI pediátrico 7° andar ` ⚠ espaço | 162 |
+| 138 | Farmácia CAF | 164 |
 
----
+## Channels sem slave_id
 
-## 1. Temperatura CO2 — Ativos, já renomeados (sem offset no nome)
+| id | channel | type | name |
+|---:|---:|---|---|
+| 1 | 0 | lamp | Tomada 02 |
+| 2 | 1 | lamp | `Tomada 01 ` ⚠ espaço |
+| 3 | 0 | presence_sensor | Rede Elétrica |
+| 4 | 1 | door_sensor | Porta Caixa SLS |
+| 5 | 0 | lamp | Rele 01 |
+| 6 | 1 | lamp | Rele 02 |
+| 7 | 0 | presence_sensor | Relé 1 |
+| 8 | 1 | presence_sensor | Relé 2 |
+| 9 | 0 | lamp | Rele 01 |
+| 10 | 1 | lamp | Rele 02 |
+| 11 | 0 | lamp | Luminaria Teste |
+| 12 | 1 | lamp | Teste 02 |
+| 13 | 0 | lamp | Luz 01 |
+| 14 | 1 | lamp | Nada |
+| 15 | 0 | lamp | Luz |
+| 16 | 1 | lamp | Nada |
+| 17 | 0 | lamp | Luz |
+| 18 | 1 | lamp | Luz 02 |
+| 23 | 0 | lamp | `Check ` ⚠ espaço |
+| 28 | 0 | lamp | `Check ` ⚠ espaço |
 
-Slaves cujo fix-temp-registry já foi concluído: histórico migrado, OLD renomeado, slave novo sem offset.
+## RFIR devices
 
-| Slave ID | Type   | Addr (low,high) | Nome                            | Ambiente             | fix-temp row | Migrado de |
-|----------|--------|-----------------|---------------------------------|----------------------|--------------|------------|
-| 76       | outlet | 217, 249        | Temp. Co2_Cirurgia1             | Centro Cirúrgico 01  | row_001      | id=75      |
-| 110      | outlet | 182, 249        | Temp. CO2_CC02                  | Centro Cirúrgico 02  | row_002      | id=111     |
-| 52       | outlet | 34, 249         | Temp. Co2_CC_03                 | Centro Cirúrgico 03  | row_003      | id=53      |
-| 114      | outlet | 26, 248         | Temp. Co2_CC05                  | Centro Cirúrgico 05  | row_004      | id=115     |
-| 107      | outlet | 85, 249         | Temp. Co2_Cirurgia06            | Centro Cirúrgico 06  | row_005      | id=106     |
-| 64       | outlet | 89, 249         | Temp. Co2_Cirurgia7             | Centro Cirúrgico 07  | row_006 / row_007 | id=63 / id=158 |
-| 50       | outlet | 169, 249        | Temp. Co2_Cirurgia8             | Centro Cirúrgico 08  | row_008      | id=143     |
-| 54       | outlet | 98, 249         | Temp. Co2_Cirurgia9             | Centro Cirúrgico 09  | row_009      | id=155     |
-| 108      | outlet | 91, 248         | Temp. CO2_RPA                   | RPA                  | row_010      | id=109     |
-| 112      | outlet | 190, 248        | Temp. CO2_CC10                  | Centro Cirúrgico 10  | row_011      | id=113     |
-| 79       | outlet | 31, 248         | Temp. Co2_Laboratorio           | Laboratório          | row_012      | id=80      |
-| 127      | outlet | 67, 248         | Temp. Co2_CTI_03                | CTI 03               | row_013      | id=128     |
-| 122      | outlet | 176, 248        | Temp. Co2_CME_SL01              | CME — SL01           | batch3_001   | id=121     |
-| 123      | outlet | 108, 249        | Temp. Co2_CME_SL02              | CME — SL02           | batch3_002 (0 rows) | id=124 |
-| 151      | outlet | 87, 248         | Temp. Co2_Queimados             | Queimados            | batch3_003   | id=150     |
-| 87       | outlet | 242, 249        | Temp. Co2_CTI_01                | CTI 01               | batch4 (sem log) | id=88   |
-| 45       | outlet | 246, 248        | Temp. Co2_Cirurgia4             | Centro Cirúrgico 04  | batch4 (sem log) | id=44   |
-| 152      | outlet | 179, 249        | Temp. Co2_CTI_02                | CTI 02               | batch4 (sem log) | id=144  |
-| 91       | outlet | 141, 248        | Temp. Co2_CTI_04                | CTI 04               | batch4 (sem log) | id=84   |
-| 104      | outlet | 40, 249         | Temp. Co2_Raiox3                | Raio-X 03            | batch4 (sem log) | id=105  |
-| 100      | outlet | 79, 248         | Temp. Co2_Raiox4                | Raio-X 04            | batch4 (sem log) | id=99   |
-| 133      | outlet | 135, 248        | Temp. Co2_Tomografia            | Tomografia           | batch4 (sem log) | id=132  |
-| 102      | outlet | 31, 249         | Temp. Co2_Raiox1                | Raio-X 01            | batch4 (sem log) | id=103  |
-| 131      | outlet | 126, 249        | Temp. Co2_Hemodialise           | Hemodiálise          | batch4 (sem log) | id=130  |
-| 138      | outlet | 132, 249        | Temp. Co2_Agencia_Transfusional | Agência Transfusional | batch4 (sem log) | id=137 |
-| 162      | outlet | 6, 249          | Temp. Co2_CTI_Pediatrico        | CTI Pediátrico       | batch5_001   | id=126 (novo HW) |
-| 164      | outlet | 106, 248        | Temp. Co2_CAF                   | CAF                  | batch5_002   | id=149 (novo HW) |
-| 165      | outlet | 128, 249        | Temp. Co2_Sala_Vermelha_Adulto  | Sala Vermelha Adulto | batch6_001   | id=74 (novo HW) |
-| 134      | outlet | 17, 249         | Temp. Co2_Sala_Vermelha_Infantil | Sala Vermelha Infantil | batch6_002 | id=135 (ex-GAS) |
-| 141      | outlet | 234, 248        | Temp. Co2_Farmácia_Satelite     | Farmácia Satélite    | batch6_003   | id=140 (ex-GAS) |
+| id | type | category | name | output | slave | cmd ON | cmd OFF |
+|---:|---|---|---|---|---|---|---|
+| 2 | ir | other | Cirurgia 01 | both | 75 OLD-T.e.m.p. Co2_Cirurgia1 -3 | — | — |
+| 3 | ir | other | Sala Cururgia 07 | both | 63 OLD-T.e.m.p. Co2_Cirurgia7 -2 | — | — |
+| 4 | ir | other | Temp. Co2_Cirurgia6 | both | 106 OLD-T.e.m.p. Co2_Cirurgia06 -4 | — | — |
+| 5 | ir | other | Check 02 | both | None | — | — |
+| 6 | ir | other | Check 24 | both | None | — | — |
+| 7 | ir | other | Check | both | None | — | — |
+| 8 | ir | other | Test | both | 74 OLD-T.e.m.p. Co2_Sala_Vermelha_Adulto -8 | — | — |
+| 9 | ir | other | Tete | both | 80 OLD-T.e.m.p. Co2_Laboratorio -6 | — | — |
+| 10 | ir | other | `Check ` ⚠ espaço | both | 140 OLD-T.e.m.p. Co2_Farmácia_Satelite -7 | — | — |
+| 11 | ir | other | Check | both | 144 OLD-T.e.m.p. Co2_CTI_02 -4 | — | — |
+| 12 | ir | other | Check | both | None | — | — |
+| 13 | ir | other | `Check ` ⚠ espaço | both | 84 OLD-T.e.m.p. Co2_CTI_04 -5 | — | — |
+| 14 | ir | other | `Cheguei ` ⚠ espaço | both | 143 OLD-T.e.m.p. Co2_Cirurgia8 -3 | — | — |
+| 15 | ir | other | Check | both | 106 OLD-T.e.m.p. Co2_Cirurgia06 -4 | — | — |
+| 16 | ir | other | Check | both | 146 Mesh Remote Cti 2°And. | — | — |
+| 17 | ir | other | `Check ` ⚠ espaço | both | 115 OLD-T.e.m.p. Co2_CC05 -6 | — | — |
+| 18 | ir | other | Teste | both | 155 OLD-T.e.m.p. Co2_Cirurgia9 -3 | — | — |
+| 19 | ir | other | AC Canto | both | 105 OLD-T.e.m.p. Co2_Raiox3 -4 | — | — |
+| 20 | ir | other | `Check ` ⚠ espaço | both | 44 OLD-T.e.m.p. Co2_Cirurgia4 -7 | — | — |
+| 21 | ir | other | `Check ` ⚠ espaço | both | 158 OLD-T.e.m.p. Co2_Cirurgia7_Apos_04_Fev_2026 -4 | — | — |
+| 22 | ir | other | Che | both | 128 OLD-T.e.m.p. Co2_CTI_03 -9 | — | — |
+| 23 | ir | other | Teste | both | 126 OLD-T.e.m.p. Co2_CTI_Pediatrico -6 | — | — |
 
-> ℹ️ **batch4 (sem log)**: 10 ambientes acima foram migrados entre `2026-05-12` (último log: batch3) e `2026-05-15` (snapshot). Não há SQL/log de execução no repo — `updated_at` dos slaves indica datas reais (87 em 2026-04-02, 45 em 2026-04-02, 152 em 2026-04-02, etc.) sugerindo que migrações foram **antes do batch3 do CME/Queimados**. Reordenar log se necessário.
->
-> ℹ️ **batch5 (2026-05-15)**: CTI Pediátrico (id=126→162, -6°C) e CAF (id=149→164, -7°C) — primeiro batch usando **sensores novos físicos** ao invés de reaproveitar o GAS. SQL em `fix-temp-registry-batch5-2026-05-15.sql` (Pass 1) + `fix-temp-registry-batch5-pass2-2026-05-15.sql` (Pass 2). Log: `fix-temp-registry-execution-log-2026-05-15.md`.
->
-> ℹ️ **batch6 (2026-05-18)**: estratégia mista — Sala V. Adulto (74→165) usou novo HW, Sala V. Infantil (135→134) e Farmácia Satélite (140→141) usaram GAS antigo. Rodado em one-shot 90 dias (não dividido em Pass 1+Pass 2). Total: **510.831 rows** migrados. SQL: `fix-temp-registry-batch6-2026-05-18.sql` + pass2. Log: `fix-temp-registry-execution-log-2026-05-18.md`.
+## RFIR remotes → buttons
 
----
-
-## 2. Temperatura CO2 — Ativos, com offset (candidatos a fix-temp-registry)
-
-| Slave ID | Type     | Addr (low,high) | Nome                                | Ambiente                  | Offset |
-|----------|----------|-----------------|-------------------------------------|---------------------------|--------|
-| 101      | infrared | 39, 248         | Temp. Co2_Raiox2 -3                 | Raio-X 02                 | -3°C   |
-
-> ℹ️ Único pendente. Slaves 74, 135, 140 migrados via batch6 (2026-05-18).
-
----
-
-## 3. GAS CO2 — Sensores Brutos (remanescentes)
-
-| Slave ID | Type   | Addr (low,high) | Nome                                          | Ambiente               | Range | Fator  | Status                          |
-|----------|--------|-----------------|-----------------------------------------------|------------------------|-------|--------|---------------------------------|
-| 145      | outlet | 117, 249        | GAS Co2_Sala_Vermelha_Adulto 132 5000 x9.47   | Sala Vermelha Adulto   | 5000  | ×9.47  | **ÓRFÃO** (batch6 usou 165 novo HW) ⚠️ code 003 |
-| 125      | outlet | 32, 249         | GAS Co2_CTI_Pediatrico 132 5000 x9.47         | CTI Pediátrico         | 5000  | ×9.47  | **ÓRFÃO** (batch5 usou 162)     |
-| 148      | outlet | 36, 248         | GAS Co2_CAF 132 5000 x9.47                    | CAF                    | 5000  | ×9.47  | **ÓRFÃO** (batch5 usou 164)     |
-| 98       | outlet | 102, 249        | GAS Co2_Raio-X2 132 5000 x9.47                | Raio-X 02              | 5000  | ×9.47  | Fica para batch7 (101 → 98)    |
-
-> ℹ️ Slaves 134 e 141 saíram desta seção após batch6 — agora em seção 1 como Temp ativos sem offset.
-
-> ⚠️ **GAS órfãos**: 3 slaves (145, 125, 148) sem destino — instalados em ambientes que escolheram outros caminhos (novo HW). Considerar desativação ou renomeação para `SPARE-` para sinalizar no UI.
-
-> ⚠️ Slave **145** tem `code = 003-003-003-012` (todos os demais GAS são `002-002-002-012`). Verificar se afeta migração.
->
-> ✅ **batch6 executado 2026-05-18** — 510.831 rows migrados (one-shot 90d):
-> - 74 → **165** (Sala Vermelha Adulto, -8°C) — 165.284 rows
-> - 135 → **134** (Sala Vermelha Infantil, -8°C) — 167.778 rows
-> - 140 → **141** (Farmácia Satélite, -7°C) — 177.769 rows
->
-> 📋 **Pendente (batch7)**:
-> - 101 → 98 (Raio-X 02, -3°C) — sem novo HW, vai usar GAS 98
-> - Lactário (156/157) — ainda a identificar
-
----
-
-## 4. Temperatura CO2 — Legados (pré-fix, renomeados com OLD-)
-
-Todos `type=infrared`, `code=002-002-002-014`, `version=7.0.0`.
-
-| Slave ID | Addr (low,high) | Nome                                            | Offset | Migrado para | fix-temp row    |
-|----------|-----------------|-------------------------------------------------|--------|--------------|-----------------|
-| 75       | 130, 248        | OLD-T.e.m.p. Co2_Cirurgia1 -3                   | -3°C   | id=76        | row_001         |
-| 111      | 144, 248        | OLD-T.e.m.p. CO2_CC02 -5                        | -5°C   | id=110       | row_002         |
-| 53       | 237, 249        | OLD-T.e.m.p. Co2_CC_03 -8                       | -8°C   | id=52        | row_003         |
-| 115      | 164, 249        | OLD-T.e.m.p. Co2_CC05 -6                        | -6°C   | id=114       | row_004         |
-| 106      | 106, 249        | OLD-T.e.m.p. Co2_Cirurgia06 -4                  | -4°C   | id=107       | row_005         |
-| 63       | 96, 248         | OLD-T.e.m.p. Co2_Cirurgia7 -2                   | -2°C   | id=64        | row_006         |
-| 158      | 143, 249        | OLD-T.e.m.p. Co2_Cirurgia7_Apos_04_Fev_2026 -4  | -4°C   | id=64        | row_007         |
-| 143      | 33, 248         | OLD-T.e.m.p. Co2_Cirurgia8 -3                   | -3°C   | id=50        | row_008         |
-| 155      | 241, 248        | OLD-T.e.m.p. Co2_Cirurgia9 -3                   | -3°C   | id=54        | row_009         |
-| 109      | 111, 248        | OLD-T.e.m.p. CO2_RPA -8                         | -8°C   | id=108       | row_010         |
-| 113      | 92, 249         | OLD-T.e.m.p. CO2_CC10 -5                        | -5°C   | id=112       | row_011         |
-| 80       | 251, 249        | OLD-T.e.m.p. Co2_Laboratorio -6                 | -6°C   | id=79        | row_012         |
-| 128      | 123, 249        | OLD-T.e.m.p. Co2_CTI_03 -9                      | -9°C   | id=127       | row_013         |
-| 121      | 84, 249         | OLD-T.e.m.p. Co2_CME_SL01 -6                    | -6°C   | id=122       | batch3_001      |
-| 124      | 71, 248         | OLD-T.e.m.p. Co2_CME_SL02 -7                    | -7°C   | id=123       | batch3_002 (0 rows) |
-| 150      | 158, 249        | OLD-T.e.m.p. Co2_Queimados -4                   | -4°C   | id=151       | batch3_003      |
-| 88       | 9, 248          | OLD-T.e.m.p. Co2_CTI_01 -2                      | -2°C   | id=87        | batch4 (sem log) |
-| 44       | 254, 249        | OLD-T.e.m.p. Co2_Cirurgia4 -7                   | -7°C   | id=45        | batch4 (sem log) |
-| 144      | 56, 248         | OLD-T.e.m.p. Co2_CTI_02 -4                      | -4°C   | id=152       | batch4 (sem log) |
-| 84       | 33, 249         | OLD-T.e.m.p. Co2_CTI_04 -5                      | -5°C   | id=91        | batch4 (sem log) |
-| 105      | 16, 248         | OLD-T.e.m.p. Co2_Raiox3 -4                      | -4°C   | id=104       | batch4 (sem log) |
-| 99       | 172, 249        | OLD-T.e.m.p. Co2_Raiox4 -5                      | -5°C   | id=100       | batch4 (sem log) |
-| 132      | 223, 248        | OLD-T.e.m.p. Co2_Tomografia -6                  | -6°C   | id=133       | batch4 (sem log) |
-| 103      | 118, 248        | OLD-T.e.m.p. Co2_Raiox1 -5                      | -5°C   | id=102       | batch4 (sem log) |
-| 130      | 211, 248        | OLD-T.e.m.p. Co2_Hemodialise -6                 | -6°C   | id=131       | batch4 (sem log) |
-| 137      | 24, 249         | OLD-T.e.m.p. Co2_Agencia_Transfusional -5       | -5°C   | id=138       | batch4 (sem log) |
-| 126      | 21, 249         | OLD-T.e.m.p. Co2_CTI_Pediatrico -6              | -6°C   | id=162       | batch5_001       |
-| 149      | 5, 248          | OLD-T.e.m.p. Co2_CAF -7                         | -7°C   | id=164       | batch5_002       |
-| 74       | 18, 249         | OLD-T.e.m.p. Co2_Sala_Vermelha_Adulto -8        | -8°C   | id=165       | batch6_001       |
-| 135      | 104, 249        | OLD-T.e.m.p. Co2_Sala_Vermelha_Infantil -8      | -8°C   | id=134       | batch6_002       |
-| 140      | 22, 249         | OLD-T.e.m.p. Co2_Farmácia_Satelite -7           | -7°C   | id=141       | batch6_003       |
-
----
-
-## 5. Repetidores / Mesh
-
-Todos `type=infrared`, `code=002-002-002-014`.
-
-| Slave ID | Addr (low,high) | Nome                          | Local                       |
-|----------|-----------------|-------------------------------|-----------------------------|
-| 146      | 251, 248        | Mesh Remote Cti 2°And.        | CTI — 2° Andar              |
-| 147      | 21, 248         | Mesh Farmácia                 | Farmácia                    |
-| 153      | 175, 248        | RM Repetidor Centro Cirúrgico | Centro Cirúrgico            |
-| 159      | 65, 248         | Repetidor Queimados           | Queimados                   |
-
----
-
-## 6. A identificar / Pendentes de classificação
-
-| Slave ID | Type     | Addr (low,high) | Nome                            | Created    | Obs                                                       |
-|----------|----------|-----------------|---------------------------------|------------|-----------------------------------------------------------|
-| 156      | outlet   | 239, 248        | Lactário                        | 2025-09-10 | Provável **GAS** Lactário (outlet) — sem prefixo          |
-| 157      | infrared | 113, 248        | Lactário                        | 2025-09-10 | Provável **Temp** Lactário (infrared) — sem prefixo       |
-| 161      | outlet   | 124, 249        | *(vazio)*                       | 2026-05-13 | Nome NULL — registro recém-criado, não configurado        |
-| 160      | outlet   | 90, 248         | Temp Sala_vermelha_infantil     | 2026-05-13 (rename 2026-05-15) | **Instalado, não usado** (batch6 usou GAS 134) |
-| 166      | outlet   | 160, 249        | Temp Sala_vermelha_infantil     | 2026-05-15 | **Instalado, não usado** (batch6 usou GAS 134) |
-| 167      | outlet   | 161, 248        | Temp. Sala_Vermelha_Infantil    | 2026-05-15 | **Instalado, não usado** (batch6 usou GAS 134) |
-| 168      | outlet   | 248, 248        | Temp. Farmacia_satelite         | 2026-05-15 | **Instalado, não usado** (batch6 usou GAS 141) |
-
-> ⚠️ ids 156/157 (Lactário): pelos types, 156 (outlet) deve ser GAS e 157 (infrared) deve ser Temp. Confirmar e renomear conforme padrão `GAS Co2_Lactario 132 5000 x9.47` + `Temp. Co2_Lactario -X`.
-> ⚠️ id 163 ausente (provável DELETE).
-> ⚠️ id 161 ainda com nome vazio — possível novo sensor sem ambiente designado ainda.
-> ⚠️ **Sala Vermelha Infantil: 3 candidatos (160, 166, 167)** — instalações múltiplas em 2026-05-15 (entre 17:48 e 18:27). Típico de campo: tenta um, não funciona, tenta outro. **Confirmar com equipe qual sensor ficou como definitivo antes do batch6.**
-> ℹ️ Slaves 162/164 saíram após batch5 e 165 saiu após batch6 — agora em seção 1 (ativos sem offset).
-
----
-
-## 7. Channels por Slave
-
-Padrão observado para Temp migrados: `lamp ch=0 "Check"` + `lamp ch=1 "Check 2"`. Alguns possuem `presence_sensor "Energia"` extra (energia da central no ambiente).
-
-### 7.1 Channels ativos (slaves migrados)
-
-| Slave | Ambiente              | Channels (id · type · ch · name)                                                  |
-|-------|-----------------------|-----------------------------------------------------------------------------------|
-| 76    | Cirurgia 01           | 19 · lamp · 0 · Check Sala 01                                                     |
-| 54    | Cirurgia 09           | 20 · lamp · 0 · Check Sala 09                                                     |
-| 50    | Cirurgia 08           | 21 · lamp · 0 · Check Sala 08                                                     |
-| 64    | Cirurgia 07           | 22 · lamp · 0 · Check Sala 07                                                     |
-| 112   | CC 10                 | 30 · lamp · 0 · Check CC10                                                        |
-| 110   | CC 02                 | 31 · lamp · 0 · Check                                                             |
-| 52    | CC 03                 | 32 · lamp · 0 · Check · 61 · lamp · 1 · check2                                    |
-| 114   | CC 05                 | 33 · lamp · 0 · Check                                                             |
-| 107   | Cirurgia 06           | 34 · lamp · 0 · Check                                                             |
-| 108   | RPA                   | 35 · lamp · 0 · Check                                                             |
-| 79    | Laboratório           | 36 · lamp · 0 · Check                                                             |
-| 127   | CTI 03                | 37 · lamp · 0 · Check                                                             |
-| 87    | CTI 01                | 38 · lamp · 0 · Check · 40 · presence · 0 · Energia · 60 · lamp · 1 · check2      |
-| 45    | Cirurgia 04           | 39 · lamp · 0 · Check                                                             |
-| 152   | CTI 02                | 29 · lamp · 0 · Check · 45 · lamp · 1 · Check 2                                   |
-| 133   | Tomografia            | 41 · lamp · 0 · Check                                                             |
-| 131   | Hemodiálise           | 42 · lamp · 0 · Check · 46 · lamp · 1 · Check 2                                   |
-| 138   | Agência Transfusional | 43 · lamp · 0 · Check · 47 · lamp · 1 · Check2                                    |
-| 91    | CTI 04                | 44 · lamp · 0 · Check                                                             |
-| 123   | CME SL02              | 48 · presence · 0 · Energia · 49 · lamp · 0 · Check · 50 · lamp · 1 · Check 2     |
-| 122   | CME SL01              | 51 · lamp · 0 · Check · 52 · lamp · 1 · Check2                                    |
-| 151   | Queimados             | 54 · lamp · 0 · Check · 55 · lamp · 1 · Check 2                                   |
-| 100   | Raio-X 04             | 25 · lamp · 0 · Check · 53 · lamp · 1 · Check2                                    |
-| 104   | Raio-X 03             | 27 · lamp · 0 · Check · 58 · lamp · 1 · check2                                    |
-| 102   | Raio-X 01             | 26 · lamp · 0 · Check · 59 · lamp · 1 · checl2 ⚠️ typo                            |
-
-### 7.2 Channels em GAS pendentes
-
-| Slave | Ambiente   | Channels                                                                  |
-|-------|------------|---------------------------------------------------------------------------|
-| 98    | Raio-X 02  | 24 · lamp · 0 · Check (config `{"confirm":false}`)                        |
-| 145   | Sala V. Adulto | (sem channels)                                                        |
-| 134   | Sala V. Infantil | 67 · lamp · 0 · Teste (`{"confirm":false}`) · 68 · lamp · 1 · c2 ⚠️ |
-| 125   | CTI Pediátrico | (sem channels) — **órfão pós-batch5**                                 |
-| 148   | CAF        | (sem channels) — **órfão pós-batch5**                                     |
-| 141   | Farmácia Satélite | 69 · **plug** · 0 · c1.0 (`{"confirm":false}`) · 70 · lamp · 1 · c2.9 (`{"confirm":false}`) ⚠️ |
-
-> ⚠️ Slaves GAS 134 e 141 ganharam channels em 2026-05-15 — comportamento atípico (GAS normalmente não tem channels). Provavelmente **testes** antes da migração. Os channels do 141 (`type=plug`, nomes "c1.0"/"c2.9") fogem do padrão `lamp / Check / Check 2`.
-
-### 7.3 Channels em novos slaves (instalações 2026-05-13 e 2026-05-15)
-
-| Slave | Nome (atual)                 | Channels                                                                      | Status                  |
-|-------|------------------------------|-------------------------------------------------------------------------------|-------------------------|
-| 160   | Temp Sala_vermelha_infantil  | 64 · lamp · 0 · Teste                                                         | Candidato Sala V. Infantil ⚠️ |
-| 162   | Temp. Co2_CTI_Pediatrico     | 56 · lamp · 0 · Teste                                                         | ✅ em uso (batch5)      |
-| 164   | Temp. Co2_CAF                | 57 · lamp · 0 · Teste                                                         | ✅ em uso (batch5)      |
-| 165   | Temp Sala_Vermelha_Adulto    | 62 · lamp · 0 · Teste                                                         | Candidato Sala V. Adulto |
-| 166   | Temp Sala_vermelha_infantil  | 63 · lamp · 0 · Teste                                                         | Candidato Sala V. Infantil ⚠️ |
-| 167   | Temp. Sala_Vermelha_Infantil | 65 · lamp · 0 · check · 66 · lamp · 1 · check2                                | **Provável definitivo** Sala V. Infantil (único com par Check/Check 2) |
-| 168   | Temp. Farmacia_satelite      | 71 · lamp · 0 · c1 · 72 · lamp · 1 · c2                                       | Candidato Farmácia Satélite |
-
-> 💡 **Pista forte sobre Sala V. Infantil**: dos 3 candidatos (160, 166, 167), apenas o **167** tem o par completo de channels (`check` + `check2`), padrão usado em todos os ambientes já migrados. Os outros dois (160, 166) só têm 1 channel "Teste" — provavelmente sensores que foram instalados e abandonados.
->
-> Os channels dos slaves 165 e 168 ainda estão com nomes provisórios (`Teste`, `c1`, `c2`) — precisam ser renomeados para o padrão `Check` / `Check 2` antes/durante batch6.
-
-### 7.4 Channels órfãos / lixo (slave_id NULL)
-
-20 channels sem `slave_id` (ids: 1–18, 23, 28) — registros legados/teste do período 2023-2024. Candidatos a **limpeza opcional** via `DELETE FROM channels WHERE slave_id IS NULL`.
-
----
-
-## Resumo por categoria
-
-| Categoria                                    | Qtd    |
-|----------------------------------------------|--------|
-| Temp CO2 ativos (sem offset)                 | 30     |
-| Temp CO2 ativos (com offset — pendentes fix) | 1 (101 Raio-X 02) |
-| GAS CO2 (brutos remanescentes)               | 4      |
-| ↳ destes: órfãos (sem par pendente)          | 3 (145, 125, 148) |
-| ↳ destes: pendentes batch7                   | 1 (98 Raio-X 02)  |
-| Temp CO2 legados (OLD-)                      | 31     |
-| Repetidores / Mesh                           | 4      |
-| A identificar                                | 7      |
-| ↳ destes: instalados não-usados pós-batch6   | 4 (160, 166, 167, 168) |
-| ↳ destes: Lactário pendente classificação    | 2 (156, 157) |
-| ↳ destes: nome vazio                         | 1 (161) |
-| **Total slaves**                             | **77** |
-| Channels com slave_id válido                 | 52     |
-| Channels órfãos (slave_id NULL)              | 20     |
-| **Total channels**                           | **72** |
-
----
-
-## Observações para próximos batches
-
-### Batch7 (pendente) — Raio-X 02
-
-Único ambiente restante com offset:
-- **101 → 98** (Raio-X 02, -3°C) — GAS antigo (padrão batch3). Slave 98 já tem channel id=24 (`Check`).
-
-### Padrão de migração (para referência)
-
-1. **Histórico**: `UPDATE temperature_history SET slave_id = <novo>, value = value + (<offset>)` cobrindo 90 dias (one-shot ou em 2 passes 0-30d + 30-90d).
-2. **Slaves**: Renomear OLD-T.e.m.p. (antigo infrared) + Temp. Co2_* (novo outlet).
-3. **Channels**: Padronizar para `lamp ch=0 "Check"` + `lamp ch=1 "Check 2"`. Ajustes via UI ou SQL.
-4. **Config JSON**: Slaves migrados ganham `config_temperature` + `channelConfig`. Replicar padrão (ver slaves 162/164/165 como referências pós-batch5/6).
-
-### Pontos de atenção residuais
-
-- **Channels dos novos Temp**: ainda com nomes provisórios — ajustar via UI:
-  - Slave 165: criar Check 2 (ch=1) + renomear Teste → Check
-  - Slave 134: renomear Teste → Check, c2 → Check 2
-  - Slave 141: renomear c1.0 → Check (+ mudar plug → lamp), c2.9 → Check 2
-- **GAS órfãos** (145, 125, 148): considerar desativar (atualizar `slaves.active = false`) ou renomear para `SPARE-` para sinalizar no UI que não estão em uso.
-- **Slaves instalados não-usados** (160, 166, 167, 168): equipe decidiu não usar. Mesma sugestão dos GAS órfãos.
-- **Lactário (156/157)**: identificar quem é GAS (156 outlet?) e quem é Temp (157 infrared?), renomear conforme padrão.
-- **Slave 161**: nome vazio desde 2026-05-13 — possível DELETE ou abandono.
+| id | name | rfir_device | buttons (nome · command_id) |
+|---:|---|---:|---|
+| 1 | Controle  - ac | — | ⚠ sem botões |
+| 2 | Controle  - Cirurgia 01 | 2 | ⚠ sem botões |
+| 3 | Controle  - Sala Cururgia 07 | 3 | ⚠ sem botões |
+| 4 | Controle  - Temp. Co2_Cirurgia6 | 4 | ⚠ sem botões |
+| 5 | Controle  - Check 02 | 5 | ⚠ sem botões |
+| 6 | Controle  - Check 24 | 6 | ⚠ sem botões |
+| 7 | Controle  - Check | 7 | ⚠ sem botões |
+| 8 | Controle  - Test | 8 | ⚠ sem botões |
+| 9 | Controle  - Tete | 9 | ⚠ sem botões |
+| 10 | `Controle  - Check ` ⚠ espaço | 10 | ⚠ sem botões |
+| 11 | Controle  - Check | 11 | ⚠ sem botões |
+| 12 | Controle  - Check | 12 | ⚠ sem botões |
+| 13 | `Controle  - Check ` ⚠ espaço | 13 | ⚠ sem botões |
+| 14 | `Controle  - Cheguei ` ⚠ espaço | 14 | ⚠ sem botões |
+| 15 | Controle  - Check | 15 | ⚠ sem botões |
+| 16 | Controle  - Check | 16 | ⚠ sem botões |
+| 17 | `Controle  - Check ` ⚠ espaço | 17 | ⚠ sem botões |
+| 18 | Controle  - Teste | 18 | ⚠ sem botões |
+| 19 | Controle  - AC Canto | 19 | ⚠ sem botões |
+| 20 | `Controle  - Check ` ⚠ espaço | 20 | ⚠ sem botões |
+| 21 | `Controle  - Check ` ⚠ espaço | 21 | check · 1 |
+| 22 | Controle  - Che | 22 | ⚠ sem botões |
+| 23 | Controle  - Teste | 23 | ⚠ sem botões |

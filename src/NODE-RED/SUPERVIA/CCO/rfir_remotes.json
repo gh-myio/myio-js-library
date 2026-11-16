@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "central": "Central Supervia CCO 2026-10-05 (Supervia Estações)",
+    "table": "rfir_remotes",
+    "rowCount": 29,
+    "capturedAt": "2026-11-16 14:46 UTC",
+    "source": "dump-cadastro.py → ssh root@201:4536:897d:52fc:3bd0:c93f:df9f:51e4 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "name": "Controle  - Teste", "rfir_device_id": 1, "created_at": "2022-07-19T14:57:34.681432+00:00", "updated_at": "2022-07-19T14:57:34.697319+00:00"},
+    {"id": 2, "name": "Controle  - Teste", "rfir_device_id": 2, "created_at": "2022-07-19T14:57:34.681432+00:00", "updated_at": "2022-07-19T14:57:34.697319+00:00"},
+    {"id": 3, "name": "Controle  - Teste", "rfir_device_id": 3, "created_at": "2022-07-19T14:57:34.681432+00:00", "updated_at": "2022-07-19T14:57:34.697319+00:00"},
+    {"id": 4, "name": "Controle  - Test", "rfir_device_id": 4, "created_at": "2022-07-19T14:57:34.681432+00:00", "updated_at": "2022-07-19T14:57:34.697319+00:00"},
+    {"id": 5, "name": "Controle  - Tet", "rfir_device_id": 5, "created_at": "2022-07-19T14:57:34.681432+00:00", "updated_at": "2022-07-19T14:57:34.697319+00:00"},
+    {"id": 6, "name": "Controle  - T1", "rfir_device_id": 6, "created_at": "2022-07-19T14:57:34.681432+00:00", "updated_at": "2022-07-19T14:57:34.697319+00:00"},
+    {"id": 7, "name": "Controle  - T2", "rfir_device_id": 7, "created_at": "2022-07-19T14:57:34.681432+00:00", "updated_at": "2022-07-19T14:57:34.697319+00:00"},
+    {"id": 8, "name": "Controle  - T3", "rfir_device_id": 8, "created_at": "2022-07-19T14:57:34.681432+00:00", "updated_at": "2022-07-19T14:57:34.697319+00:00"},
+    {"id": 9, "name": "Controle  - T4", "rfir_device_id": 9, "created_at": "2022-07-19T14:57:34.681432+00:00", "updated_at": "2022-07-19T14:57:34.697319+00:00"},
+    {"id": 10, "name": "Controle  - T5", "rfir_device_id": 10, "created_at": "2022-07-19T14:57:34.681432+00:00", "updated_at": "2022-07-19T14:57:34.697319+00:00"},
+    {"id": 11, "name": "Controle  - Ar porta", "rfir_device_id": 11, "created_at": "2025-04-10T14:04:36.034+00:00", "updated_at": "2025-04-10T14:04:36.065+00:00"},
+    {"id": 12, "name": "Controle  - AC Porta ", "rfir_device_id": 12, "created_at": "2025-04-10T14:51:05.707+00:00", "updated_at": "2025-04-10T14:51:05.732+00:00"},
+    {"id": 13, "name": "Controle  - Ar Canto", "rfir_device_id": 13, "created_at": "2025-04-10T15:12:41.494+00:00", "updated_at": "2025-04-10T15:12:41.516+00:00"},
+    {"id": 14, "name": "Controle  - AC Parede", "rfir_device_id": 14, "created_at": "2025-04-10T15:40:43.231+00:00", "updated_at": "2025-04-10T15:40:43.256+00:00"},
+    {"id": 15, "name": "Controle  - AC Meio", "rfir_device_id": 15, "created_at": "2025-04-10T15:40:54.395+00:00", "updated_at": "2025-04-10T15:40:54.409+00:00"},
+    {"id": 16, "name": "Controle  - AC Direita ", "rfir_device_id": 16, "created_at": "2025-04-10T15:50:17.054+00:00", "updated_at": "2025-04-10T15:50:17.076+00:00"},
+    {"id": 17, "name": "Controle  - Ar Relé Direita ", "rfir_device_id": 17, "created_at": "2025-04-10T17:01:27.423+00:00", "updated_at": "2025-04-10T17:01:27.448+00:00"},
+    {"id": 18, "name": "Controle  - Ar Relé Esquerda", "rfir_device_id": 18, "created_at": "2025-04-10T17:16:59.065+00:00", "updated_at": "2025-04-10T17:16:59.089+00:00"},
+    {"id": 19, "name": "Controle  - Esquerdo ", "rfir_device_id": 19, "created_at": "2025-04-11T17:05:32.274+00:00", "updated_at": "2025-04-11T17:05:32.302+00:00"},
+    {"id": 20, "name": "Controle  - Direito ", "rfir_device_id": 20, "created_at": "2025-04-11T17:05:51.211+00:00", "updated_at": "2025-04-11T17:05:51.224+00:00"},
+    {"id": 21, "name": "Controle  - AC Esquedo ", "rfir_device_id": 21, "created_at": "2025-04-11T19:00:29.896+00:00", "updated_at": "2025-04-11T19:00:29.926+00:00"},
+    {"id": 22, "name": "Controle  - Teste Interno", "rfir_device_id": 22, "created_at": "2025-04-11T19:22:28.112+00:00", "updated_at": "2025-04-11T19:22:28.135+00:00"},
+    {"id": 23, "name": "Controle  - Teste Interno", "rfir_device_id": 23, "created_at": "2025-04-11T19:22:49.813+00:00", "updated_at": "2025-04-11T19:22:49.826+00:00"},
+    {"id": 24, "name": "Controle  - Sala Maior", "rfir_device_id": 24, "created_at": "2025-04-15T14:17:15.491+00:00", "updated_at": "2025-04-15T14:17:15.524+00:00"},
+    {"id": 25, "name": "Controle  - Sala Menor", "rfir_device_id": 25, "created_at": "2025-04-15T15:27:38.82+00:00", "updated_at": "2025-04-15T15:27:38.85+00:00"},
+    {"id": 26, "name": "Controle  - AC01", "rfir_device_id": 26, "created_at": "2025-04-15T20:10:53.234+00:00", "updated_at": "2025-04-15T20:10:53.261+00:00"},
+    {"id": 27, "name": "Controle  - AC02", "rfir_device_id": 27, "created_at": "2025-04-15T20:11:14.245+00:00", "updated_at": "2025-04-15T20:11:14.259+00:00"},
+    {"id": 28, "name": "Controle  - Ac Guarita 2", "rfir_device_id": 28, "created_at": "2025-04-17T12:06:47.096+00:00", "updated_at": "2025-04-17T12:06:47.13+00:00"},
+    {"id": 29, "name": "Controle  - AC Guarita 1", "rfir_device_id": 29, "created_at": "2025-04-17T15:17:33.775+00:00", "updated_at": "2025-04-17T15:17:33.801+00:00"}
+  ]
+}

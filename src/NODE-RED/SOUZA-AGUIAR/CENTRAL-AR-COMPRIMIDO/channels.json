@@ -1,0 +1,25 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — Ar Comprimido (Souza Aguiar)",
+    "table": "channels",
+    "rowCount": 14,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@200:4dbc:14be:a704:6904:81cd:b62a:ab22 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "lamp", "channel": 0, "name": "check Ar compr.", "channel_id": null, "slave_id": 1, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2024-09-25T20:09:33.767+00:00", "updated_at": "2024-09-25T20:09:44.63+00:00"},
+    {"id": 2, "type": "presence_sensor", "channel": 0, "name": "Gerador QTA 1 Matern.", "channel_id": null, "slave_id": 2, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2024-10-01T16:47:41.131+00:00", "updated_at": "2024-10-01T16:49:04.853+00:00"},
+    {"id": 3, "type": "presence_sensor", "channel": 1, "name": "Rede QTA 1 Matern.", "channel_id": null, "slave_id": 2, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2024-10-01T16:48:51.858+00:00", "updated_at": "2024-10-01T16:49:27.5+00:00"},
+    {"id": 4, "type": "presence_sensor", "channel": 0, "name": "Gerador QTA 2 Matern.", "channel_id": null, "slave_id": 3, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2024-10-01T18:38:19.059+00:00", "updated_at": "2024-10-01T18:39:06.191+00:00"},
+    {"id": 5, "type": "presence_sensor", "channel": 1, "name": "Rede QTA 2 Matern.", "channel_id": null, "slave_id": 3, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2024-10-01T18:39:37.124+00:00", "updated_at": "2024-10-01T18:39:50.586+00:00"},
+    {"id": 6, "type": "lamp", "channel": 0, "name": "Check ", "channel_id": null, "slave_id": 4, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2024-10-31T16:00:17.277+00:00", "updated_at": "2024-10-31T16:00:17.277+00:00"},
+    {"id": 7, "type": "lamp", "channel": 0, "name": "Check", "channel_id": null, "slave_id": 5, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2024-10-31T17:49:01.637+00:00", "updated_at": "2024-10-31T17:49:01.637+00:00"},
+    {"id": 8, "type": "lamp", "channel": 0, "name": "Check", "channel_id": null, "slave_id": 6, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2024-10-31T19:28:26.868+00:00", "updated_at": "2024-10-31T19:28:26.868+00:00"},
+    {"id": 9, "type": "lamp", "channel": 0, "name": "Check", "channel_id": null, "slave_id": 7, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2024-10-31T19:55:16.588+00:00", "updated_at": "2024-10-31T19:55:16.588+00:00"},
+    {"id": 10, "type": "lamp", "channel": 0, "name": "Check Vácuo Sh", "channel_id": null, "slave_id": 8, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2024-11-25T15:11:24.203+00:00", "updated_at": "2024-11-25T15:11:24.203+00:00"},
+    {"id": 11, "type": "lamp", "channel": 0, "name": "Check Oxigênio Cer", "channel_id": null, "slave_id": 9, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2024-11-25T20:25:02.998+00:00", "updated_at": "2024-11-25T20:25:02.998+00:00"},
+    {"id": 12, "type": "presence_sensor", "channel": 0, "name": "Energia ", "channel_id": null, "slave_id": 12, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2025-08-07T15:02:53.765+00:00", "updated_at": "2025-08-07T15:02:53.765+00:00"},
+    {"id": 13, "type": "flow_sensor", "channel": 1, "name": "Hdr. Cisterna2_Maternidade x1", "channel_id": null, "slave_id": 12, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2025-08-07T15:03:09.124+00:00", "updated_at": "2025-08-07T15:34:09.905+00:00"},
+    {"id": 14, "type": "lamp", "channel": 0, "name": "Check", "channel_id": null, "slave_id": 11, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2026-03-28T03:35:20.97+00:00", "updated_at": "2026-03-28T03:35:20.97+00:00"}
+  ]
+}

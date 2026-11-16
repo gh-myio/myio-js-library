@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Central Ilha Plaza AL2 - 2026-10-22 (Soul Malls)",
+    "table": "rfir_buttons",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:43 UTC",
+    "source": "dump-cadastro.py → ssh root@202:c116:b4a1:d987:7cc5:e7da:148e:1614 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Rio Poty (Sá Cavalcante)",
+    "table": "rfir_buttons",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:40 UTC",
+    "source": "dump-cadastro.py → ssh root@203:bdfb:8fda:634d:c846:1404:f319:718c · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

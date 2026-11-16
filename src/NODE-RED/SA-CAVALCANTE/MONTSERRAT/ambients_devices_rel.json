@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Montserrat (Sá Cavalcante)",
+    "table": "ambients_rfir_devices_rel",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:59 UTC",
+    "source": "dump-cadastro.py → ssh root@200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

@@ -2,10 +2,11 @@
   "_meta": {
     "central": "Mestre Álvaro — Entrada (Sá Cavalcante)",
     "table": "channels",
-    "rowCount": 0,
-    "capturedAt": "2026-09-14",
-    "source": "psql -U hubot — SELECT * FROM channels; (colado pelo usuário)",
-    "note": "Central nova, ainda sem channels cadastrados (0 rows) — só o slave 3F de entrada existe até agora."
+    "rowCount": 1,
+    "capturedAt": "2026-11-16 14:59 UTC",
+    "source": "dump-cadastro.py → ssh root@204:5b68:177a:540d:91c4:143b:d3b7:2ae2 · psql -U hubot (SELECT json_agg, somente leitura)"
   },
-  "rows": []
+  "rows": [
+    {"id": 1, "type": "plug", "channel": 0, "name": "MQTT Sync - e6e9484d-af12-4209-b0aa-510378e01c1e", "channel_id": null, "slave_id": 2, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2026-09-14T19:59:49.14535+00:00", "updated_at": "2026-09-14T19:59:49.14535+00:00"}
+  ]
 }

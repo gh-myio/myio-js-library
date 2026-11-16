@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Central Supervia CCO 2026-10-05 (Supervia Estações)",
+    "table": "ambients_rfir_devices_rel",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:46 UTC",
+    "source": "dump-cadastro.py → ssh root@201:4536:897d:52fc:3bd0:c93f:df9f:51e4 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

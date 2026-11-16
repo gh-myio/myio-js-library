@@ -1,0 +1,16 @@
+{
+  "_meta": {
+    "central": "Central Shopping da Ilha - ENTRADA - 2026-10-06 (Sá Cavalcante)",
+    "table": "ambients_rfir_slaves_rel",
+    "rowCount": 5,
+    "capturedAt": "2026-11-16 14:40 UTC",
+    "source": "dump-cadastro.py → ssh root@200:f095:bb4:4e43:62ca:fbae:b36e:a2aa · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"created_at": "2026-05-25T22:00:57.093+00:00", "updated_at": "2026-05-25T22:00:57.093+00:00", "slave_id": 1, "ambient_id": 1},
+    {"created_at": "2026-05-26T00:11:58.093+00:00", "updated_at": "2026-05-26T00:11:58.093+00:00", "slave_id": 2, "ambient_id": 2},
+    {"created_at": "2026-10-06T13:43:10.19+00:00", "updated_at": "2026-10-06T13:43:10.19+00:00", "slave_id": 4, "ambient_id": 4},
+    {"created_at": "2026-10-06T13:43:19.135+00:00", "updated_at": "2026-10-06T13:43:19.135+00:00", "slave_id": 3, "ambient_id": 3},
+    {"created_at": "2026-10-06T15:47:24.692087+00:00", "updated_at": "2026-10-06T15:47:24.692087+00:00", "slave_id": 5, "ambient_id": 5}
+  ]
+}

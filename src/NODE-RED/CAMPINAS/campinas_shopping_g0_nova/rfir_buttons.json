@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Campinas Shopping — G0 Nova (Argo Plan)",
+    "table": "rfir_buttons",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 15:00 UTC",
+    "source": "dump-cadastro.py → ssh root@200:83a1:247a:8c7b:d428:3ed4:21dd:389f · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

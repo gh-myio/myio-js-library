@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Shopping da Ilha (Sá Cavalcante)",
+    "table": "rfir_devices",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:59 UTC",
+    "source": "dump-cadastro.py → ssh root@201:3447:911:5955:4018:3960:6838:ee12 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

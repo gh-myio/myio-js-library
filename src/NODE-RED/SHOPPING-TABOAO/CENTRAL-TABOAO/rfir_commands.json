@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Central Shopping Taboão - 2026-10-19 (Shopping Taboão)",
+    "table": "rfir_commands",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 15:01 UTC",
+    "source": "dump-cadastro.py → ssh root@200:223e:1e9f:71b9:f655:ed55:a5e8:295c · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — CO2 (Souza Aguiar)",
+    "table": "rfir_devices",
+    "rowCount": 22,
+    "capturedAt": "2026-11-16 14:41 UTC",
+    "source": "dump-cadastro.py → ssh root@201:3941:4753:9232:901b:19fa:4978:51aa · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 2, "type": "ir", "category": "other", "name": "Cirurgia 01", "output": "both", "slave_id": 75, "command_on_id": null, "command_off_id": null, "created_at": "2024-10-22T19:26:13.367+00:00", "updated_at": "2024-10-22T19:26:13.367+00:00"},
+    {"id": 3, "type": "ir", "category": "other", "name": "Sala Cururgia 07", "output": "both", "slave_id": 63, "command_on_id": null, "command_off_id": null, "created_at": "2024-10-29T08:37:22.142+00:00", "updated_at": "2024-10-29T08:37:22.142+00:00"},
+    {"id": 4, "type": "ir", "category": "other", "name": "Temp. Co2_Cirurgia6", "output": "both", "slave_id": 106, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-27T19:26:10.375+00:00", "updated_at": "2024-12-27T19:26:10.375+00:00"},
+    {"id": 5, "type": "ir", "category": "other", "name": "Check 02", "output": "both", "slave_id": null, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-28T20:17:21.276+00:00", "updated_at": "2024-12-28T20:17:21.276+00:00"},
+    {"id": 6, "type": "ir", "category": "other", "name": "Check 24", "output": "both", "slave_id": null, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-28T20:19:43.944+00:00", "updated_at": "2024-12-28T20:19:43.944+00:00"},
+    {"id": 7, "type": "ir", "category": "other", "name": "Check", "output": "both", "slave_id": null, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-28T20:24:04.266+00:00", "updated_at": "2024-12-28T20:24:04.266+00:00"},
+    {"id": 8, "type": "ir", "category": "other", "name": "Test", "output": "both", "slave_id": 74, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-29T15:27:02.03+00:00", "updated_at": "2024-12-29T15:27:02.03+00:00"},
+    {"id": 9, "type": "ir", "category": "other", "name": "Tete", "output": "both", "slave_id": 80, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-29T16:00:46.771+00:00", "updated_at": "2024-12-29T16:00:46.771+00:00"},
+    {"id": 10, "type": "ir", "category": "other", "name": "Check ", "output": "both", "slave_id": 140, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-29T19:53:19.13+00:00", "updated_at": "2024-12-29T19:53:19.13+00:00"},
+    {"id": 11, "type": "ir", "category": "other", "name": "Check", "output": "both", "slave_id": 144, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-30T12:13:26.008+00:00", "updated_at": "2024-12-30T12:13:26.008+00:00"},
+    {"id": 12, "type": "ir", "category": "other", "name": "Check", "output": "both", "slave_id": null, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-30T12:53:57.716+00:00", "updated_at": "2024-12-30T12:53:57.716+00:00"},
+    {"id": 13, "type": "ir", "category": "other", "name": "Check ", "output": "both", "slave_id": 84, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-30T12:54:36.799+00:00", "updated_at": "2024-12-30T12:54:36.799+00:00"},
+    {"id": 14, "type": "ir", "category": "other", "name": "Cheguei ", "output": "both", "slave_id": 143, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-30T13:11:10.618+00:00", "updated_at": "2024-12-30T13:11:10.618+00:00"},
+    {"id": 15, "type": "ir", "category": "other", "name": "Check", "output": "both", "slave_id": 106, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-30T13:22:53.035+00:00", "updated_at": "2024-12-30T13:22:53.035+00:00"},
+    {"id": 16, "type": "ir", "category": "other", "name": "Check", "output": "both", "slave_id": 146, "command_on_id": null, "command_off_id": null, "created_at": "2024-12-30T14:03:49.244+00:00", "updated_at": "2024-12-30T14:03:49.244+00:00"},
+    {"id": 17, "type": "ir", "category": "other", "name": "Check ", "output": "both", "slave_id": 115, "command_on_id": null, "command_off_id": null, "created_at": "2025-02-05T16:17:39.62+00:00", "updated_at": "2025-02-05T16:17:39.62+00:00"},
+    {"id": 18, "type": "ir", "category": "other", "name": "Teste", "output": "both", "slave_id": 155, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-06T21:10:02.156+00:00", "updated_at": "2025-04-06T21:10:02.156+00:00"},
+    {"id": 19, "type": "ir", "category": "other", "name": "AC Canto", "output": "both", "slave_id": 105, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-11T19:22:37.657+00:00", "updated_at": "2025-04-11T19:22:37.657+00:00"},
+    {"id": 20, "type": "ir", "category": "other", "name": "Check ", "output": "both", "slave_id": 44, "command_on_id": null, "command_off_id": null, "created_at": "2025-07-18T22:16:12.271+00:00", "updated_at": "2025-07-18T22:16:12.271+00:00"},
+    {"id": 21, "type": "ir", "category": "other", "name": "Check ", "output": "both", "slave_id": 158, "command_on_id": null, "command_off_id": null, "created_at": "2026-02-04T18:32:54.177+00:00", "updated_at": "2026-02-04T18:32:54.177+00:00"},
+    {"id": 22, "type": "ir", "category": "other", "name": "Che", "output": "both", "slave_id": 128, "command_on_id": null, "command_off_id": null, "created_at": "2026-02-04T19:23:57.338+00:00", "updated_at": "2026-02-04T19:23:57.338+00:00"},
+    {"id": 23, "type": "ir", "category": "other", "name": "Teste", "output": "both", "slave_id": 126, "command_on_id": null, "command_off_id": null, "created_at": "2026-05-06T00:18:07.553+00:00", "updated_at": "2026-05-06T00:18:07.553+00:00"}
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "central": "Campinas Shopping — Subestação Principal (Argo Plan)",
+    "table": "ambients_rfir_slaves_rel",
+    "rowCount": 25,
+    "capturedAt": "2026-11-16 15:01 UTC",
+    "source": "dump-cadastro.py → ssh root@202:7cde:b52f:7210:12a5:91d6:1fe5:4d6e · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"created_at": "2025-08-13T18:33:52.882+00:00", "updated_at": "2025-08-13T18:33:52.882+00:00", "slave_id": 22, "ambient_id": 12},
+    {"created_at": "2025-08-13T18:33:52.928+00:00", "updated_at": "2025-08-13T18:33:52.928+00:00", "slave_id": 23, "ambient_id": 12},
+    {"created_at": "2025-08-13T18:33:52.938+00:00", "updated_at": "2025-08-13T18:33:52.938+00:00", "slave_id": 24, "ambient_id": 12},
+    {"created_at": "2025-08-13T18:33:52.949+00:00", "updated_at": "2025-08-13T18:33:52.949+00:00", "slave_id": 25, "ambient_id": 12},
+    {"created_at": "2025-08-13T18:33:52.966+00:00", "updated_at": "2025-08-13T18:33:52.966+00:00", "slave_id": 26, "ambient_id": 12},
+    {"created_at": "2025-08-13T18:33:52.976+00:00", "updated_at": "2025-08-13T18:33:52.976+00:00", "slave_id": 27, "ambient_id": 12},
+    {"created_at": "2025-08-13T18:33:52.99+00:00", "updated_at": "2025-08-13T18:33:52.99+00:00", "slave_id": 28, "ambient_id": 12},
+    {"created_at": "2025-12-12T17:40:33.237+00:00", "updated_at": "2025-12-12T17:40:33.237+00:00", "slave_id": 36, "ambient_id": 13},
+    {"created_at": "2026-03-09T16:22:54.247+00:00", "updated_at": "2026-03-09T16:22:54.247+00:00", "slave_id": 37, "ambient_id": 14},
+    {"created_at": "2026-04-08T17:08:39.329+00:00", "updated_at": "2026-04-08T17:08:39.329+00:00", "slave_id": 22, "ambient_id": 15},
+    {"created_at": "2026-04-08T17:08:39.356+00:00", "updated_at": "2026-04-08T17:08:39.356+00:00", "slave_id": 23, "ambient_id": 15},
+    {"created_at": "2026-04-08T17:08:39.365+00:00", "updated_at": "2026-04-08T17:08:39.365+00:00", "slave_id": 24, "ambient_id": 15},
+    {"created_at": "2026-04-08T17:08:39.375+00:00", "updated_at": "2026-04-08T17:08:39.375+00:00", "slave_id": 25, "ambient_id": 15},
+    {"created_at": "2026-04-08T17:08:39.384+00:00", "updated_at": "2026-04-08T17:08:39.384+00:00", "slave_id": 26, "ambient_id": 15},
+    {"created_at": "2026-04-08T17:08:39.394+00:00", "updated_at": "2026-04-08T17:08:39.394+00:00", "slave_id": 27, "ambient_id": 15},
+    {"created_at": "2026-04-08T17:08:39.403+00:00", "updated_at": "2026-04-08T17:08:39.403+00:00", "slave_id": 28, "ambient_id": 15},
+    {"created_at": "2026-04-08T17:08:39.412+00:00", "updated_at": "2026-04-08T17:08:39.412+00:00", "slave_id": 36, "ambient_id": 15},
+    {"created_at": "2026-04-08T17:08:39.421+00:00", "updated_at": "2026-04-08T17:08:39.421+00:00", "slave_id": 37, "ambient_id": 15},
+    {"created_at": "2025-05-10T11:22:04.471+00:00", "updated_at": "2025-05-10T11:22:04.471+00:00", "slave_id": 23, "ambient_id": 7},
+    {"created_at": "2025-05-10T11:37:09.628+00:00", "updated_at": "2025-05-10T11:37:09.628+00:00", "slave_id": 22, "ambient_id": 8},
+    {"created_at": "2025-05-10T11:44:32.254+00:00", "updated_at": "2025-05-10T11:44:32.254+00:00", "slave_id": 25, "ambient_id": 9},
+    {"created_at": "2025-05-10T11:44:32.266+00:00", "updated_at": "2025-05-10T11:44:32.266+00:00", "slave_id": 26, "ambient_id": 9},
+    {"created_at": "2025-05-10T11:48:10.447+00:00", "updated_at": "2025-05-10T11:48:10.447+00:00", "slave_id": 28, "ambient_id": 10},
+    {"created_at": "2025-05-10T11:22:04.482+00:00", "updated_at": "2025-05-10T11:22:04.482+00:00", "slave_id": 27, "ambient_id": 7},
+    {"created_at": "2025-05-10T11:37:09.618+00:00", "updated_at": "2025-05-10T11:37:09.618+00:00", "slave_id": 24, "ambient_id": 8}
+  ]
+}

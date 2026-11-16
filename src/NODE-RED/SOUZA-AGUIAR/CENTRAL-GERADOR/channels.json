@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — Gerador (Souza Aguiar)",
+    "table": "channels",
+    "rowCount": 10,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@200:dd4c:53b0:28d5:33dc:fbef:2c98:b23 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 2, "type": "presence_sensor", "channel": 1, "name": "Rede", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2024-09-12T23:50:10.263+00:00", "updated_at": "2024-09-13T00:49:18.237+00:00"},
+    {"id": 3, "type": "presence_sensor", "channel": 0, "name": "Gerador", "channel_id": null, "slave_id": null, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2024-09-13T00:06:37.741+00:00", "updated_at": "2024-09-13T00:49:10.706+00:00"},
+    {"id": 4, "type": "presence_sensor", "channel": 1, "name": "Rede 1", "channel_id": null, "slave_id": 3, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2024-09-13T12:17:31.897+00:00", "updated_at": "2024-09-13T16:27:40.133+00:00"},
+    {"id": 5, "type": "presence_sensor", "channel": 0, "name": "Gerador 1", "channel_id": null, "slave_id": 3, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2024-09-13T12:17:42.47+00:00", "updated_at": "2024-09-13T16:27:47.45+00:00"},
+    {"id": 6, "type": "presence_sensor", "channel": 1, "name": "Rede 2", "channel_id": null, "slave_id": 4, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2024-09-13T12:24:08.781+00:00", "updated_at": "2024-09-13T12:24:08.781+00:00"},
+    {"id": 7, "type": "presence_sensor", "channel": 0, "name": "Gerador 2", "channel_id": null, "slave_id": 4, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2024-09-13T12:24:28.168+00:00", "updated_at": "2024-09-13T12:24:34.873+00:00"},
+    {"id": 8, "type": "presence_sensor", "channel": 1, "name": "Rede 3", "channel_id": null, "slave_id": 5, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2024-09-13T12:27:35.288+00:00", "updated_at": "2024-09-13T12:27:35.288+00:00"},
+    {"id": 9, "type": "presence_sensor", "channel": 0, "name": "Gerador 3", "channel_id": null, "slave_id": 5, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2024-09-13T12:27:45.251+00:00", "updated_at": "2024-09-13T12:27:45.251+00:00"},
+    {"id": 10, "type": "presence_sensor", "channel": 1, "name": "Rede 4", "channel_id": null, "slave_id": 6, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2024-09-13T12:31:46.209+00:00", "updated_at": "2024-09-13T12:31:46.209+00:00"},
+    {"id": 11, "type": "presence_sensor", "channel": 0, "name": "Gerador 4", "channel_id": null, "slave_id": 6, "scene_up_id": null, "scene_down_id": null, "config": null, "created_at": "2024-09-13T12:31:54.921+00:00", "updated_at": "2024-09-13T12:31:54.921+00:00"}
+  ]
+}

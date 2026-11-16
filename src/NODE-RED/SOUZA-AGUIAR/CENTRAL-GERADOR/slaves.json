@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — Gerador (Souza Aguiar)",
+    "table": "slaves",
+    "rowCount": 4,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@200:dd4c:53b0:28d5:33dc:fbef:2c98:b23 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 3, "type": "outlet", "addr_low": 140, "addr_high": 249, "channels": 2, "name": "QTA 1", "color": null, "code": "002-002-002-012", "clamp_type": null, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": {"channelConfig": {"channel0": {"slaveId": 3, "channel": 0, "channel_type": "REPLICATED", "pulses": 1, "output": "HOLDING"}, "channel1": {"slaveId": 3, "channel": 1, "channel_type": "REPLICATED", "pulses": 1, "output": "HOLDING"}}}, "created_at": "2024-09-13T12:16:59.76095+00:00", "updated_at": "2024-11-08T15:15:10.58+00:00"},
+    {"id": 4, "type": "outlet", "addr_low": 105, "addr_high": 248, "channels": 2, "name": "QTA 2", "color": null, "code": "002-002-002-012", "clamp_type": null, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": {"channelConfig": {"channel0": {"slaveId": 4, "channel": 0, "channel_type": "REPLICATED", "pulses": 1, "output": "HOLDING"}, "channel1": {"slaveId": 4, "channel": 1, "channel_type": "REPLICATED", "pulses": 1, "output": "HOLDING"}}}, "created_at": "2024-09-13T12:23:30.081052+00:00", "updated_at": "2024-11-08T15:15:26.824+00:00"},
+    {"id": 5, "type": "outlet", "addr_low": 96, "addr_high": 248, "channels": 2, "name": "QTA 3", "color": null, "code": "002-002-002-012", "clamp_type": null, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": {"channelConfig": {"channel0": {"slaveId": 5, "channel": 0, "channel_type": "REPLICATED", "pulses": 1, "output": "HOLDING"}, "channel1": {"slaveId": 5, "channel": 1, "channel_type": "REPLICATED", "pulses": 1, "output": "HOLDING"}}}, "created_at": "2024-09-13T12:27:18.793818+00:00", "updated_at": "2024-11-08T15:15:40.842+00:00"},
+    {"id": 6, "type": "outlet", "addr_low": 129, "addr_high": 248, "channels": 2, "name": "QTA 4", "color": null, "code": "002-002-002-012", "clamp_type": null, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": {"channelConfig": {"channel0": {"slaveId": 6, "channel": 0, "channel_type": "REPLICATED", "pulses": 1, "output": "HOLDING"}, "channel1": {"slaveId": 6, "channel": 1, "channel_type": "REPLICATED", "pulses": 1, "output": "HOLDING"}}}, "created_at": "2024-09-13T12:31:05.655457+00:00", "updated_at": "2024-11-08T15:15:59.243+00:00"}
+  ]
+}

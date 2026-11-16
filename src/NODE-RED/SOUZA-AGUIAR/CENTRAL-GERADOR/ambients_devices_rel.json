@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — Gerador (Souza Aguiar)",
+    "table": "ambients_rfir_devices_rel",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@200:dd4c:53b0:28d5:33dc:fbef:2c98:b23 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

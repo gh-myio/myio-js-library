@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — T&D (Souza Aguiar)",
+    "table": "rfir_remotes",
+    "rowCount": 4,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "name": "Controle  - Predio Regulador ", "rfir_device_id": 1, "created_at": "2024-08-21T16:53:56.881+00:00", "updated_at": "2024-08-21T16:53:56.911+00:00"},
+    {"id": 2, "name": "Controle  - Maternidade Térreo", "rfir_device_id": 2, "created_at": "2024-08-23T13:57:01.207+00:00", "updated_at": "2024-08-23T13:57:01.224+00:00"},
+    {"id": 3, "name": "Controle  - remote", "rfir_device_id": 3, "created_at": "2024-10-09T15:07:31.989+00:00", "updated_at": "2024-10-09T15:07:32.024+00:00"},
+    {"id": 4, "name": "Controle  - Check", "rfir_device_id": 4, "created_at": "2025-08-21T12:08:07.451+00:00", "updated_at": "2025-08-21T12:08:07.486+00:00"}
+  ]
+}

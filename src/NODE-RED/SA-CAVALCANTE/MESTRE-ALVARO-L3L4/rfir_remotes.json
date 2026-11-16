@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Mestre Álvaro — L3L4 (Sá Cavalcante)",
+    "table": "rfir_remotes",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:58 UTC",
+    "source": "dump-cadastro.py → ssh root@200:b0b1:81aa:49a4:c554:4fec:f110:9896 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — T&D (Souza Aguiar)",
+    "table": "ambients_rfir_devices_rel",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

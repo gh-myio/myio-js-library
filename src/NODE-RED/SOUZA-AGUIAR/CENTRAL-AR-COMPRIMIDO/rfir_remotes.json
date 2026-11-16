@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — Ar Comprimido (Souza Aguiar)",
+    "table": "rfir_remotes",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@200:4dbc:14be:a704:6904:81cd:b62a:ab22 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

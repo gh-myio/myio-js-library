@@ -2,11 +2,12 @@
   "_meta": {
     "central": "Mestre Álvaro — Entrada (Sá Cavalcante)",
     "table": "ambients",
-    "rowCount": 1,
-    "capturedAt": "2026-09-14",
-    "source": "psql -U hubot — SELECT * FROM ambients; (colado pelo usuário)"
+    "rowCount": 2,
+    "capturedAt": "2026-11-16 14:59 UTC",
+    "source": "dump-cadastro.py → ssh root@204:5b68:177a:540d:91c4:143b:d3b7:2ae2 · psql -U hubot (SELECT json_agg, somente leitura)"
   },
   "rows": [
-    { "id": 1, "name": "Medidor Geral De Energia", "image": null, "order": null, "config": null, "created_at": "2026-09-11 23:12:13.878+00", "updated_at": "2026-09-11 23:12:13.878+00" }
+    {"id": 1, "name": "Medidor Geral De Energia ", "image": null, "order": null, "config": null, "created_at": "2026-09-11T23:12:13.878+00:00", "updated_at": "2026-09-11T23:12:13.878+00:00"},
+    {"id": 2, "name": "MQTT Sync - e6e9484d-af12-4209-b0aa-510378e01c1e", "image": null, "order": null, "config": null, "created_at": "2026-09-14T19:59:49.14535+00:00", "updated_at": "2026-09-14T19:59:49.14535+00:00"}
   ]
 }

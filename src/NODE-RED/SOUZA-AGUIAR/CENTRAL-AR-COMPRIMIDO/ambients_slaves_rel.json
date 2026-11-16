@@ -1,0 +1,26 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — Ar Comprimido (Souza Aguiar)",
+    "table": "ambients_rfir_slaves_rel",
+    "rowCount": 15,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@200:4dbc:14be:a704:6904:81cd:b62a:ab22 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"created_at": "2024-09-25T20:10:44.158+00:00", "updated_at": "2024-09-25T20:10:44.158+00:00", "slave_id": 1, "ambient_id": 1},
+    {"created_at": "2024-10-01T18:39:10.681+00:00", "updated_at": "2024-10-01T18:39:10.681+00:00", "slave_id": 2, "ambient_id": 2},
+    {"created_at": "2024-10-01T18:39:10.691+00:00", "updated_at": "2024-10-01T18:39:10.691+00:00", "slave_id": 3, "ambient_id": 2},
+    {"created_at": "2024-10-31T16:01:31.031+00:00", "updated_at": "2024-10-31T16:01:31.031+00:00", "slave_id": 4, "ambient_id": 3},
+    {"created_at": "2024-10-31T17:49:42.677+00:00", "updated_at": "2024-10-31T17:49:42.677+00:00", "slave_id": 5, "ambient_id": 4},
+    {"created_at": "2024-10-31T19:55:29.602+00:00", "updated_at": "2024-10-31T19:55:29.602+00:00", "slave_id": 6, "ambient_id": 6},
+    {"created_at": "2024-10-31T19:55:29.612+00:00", "updated_at": "2024-10-31T19:55:29.612+00:00", "slave_id": 7, "ambient_id": 6},
+    {"created_at": "2024-11-25T15:12:20.705+00:00", "updated_at": "2024-11-25T15:12:20.705+00:00", "slave_id": 7, "ambient_id": 7},
+    {"created_at": "2024-11-25T15:12:20.715+00:00", "updated_at": "2024-11-25T15:12:20.715+00:00", "slave_id": 8, "ambient_id": 7},
+    {"created_at": "2025-08-07T15:18:01.968+00:00", "updated_at": "2025-08-07T15:18:01.968+00:00", "slave_id": 12, "ambient_id": 10},
+    {"created_at": "2025-08-07T15:18:01.976+00:00", "updated_at": "2025-08-07T15:18:01.976+00:00", "slave_id": 13, "ambient_id": 10},
+    {"created_at": "2025-08-07T15:18:01.985+00:00", "updated_at": "2025-08-07T15:18:01.985+00:00", "slave_id": 14, "ambient_id": 10},
+    {"created_at": "2026-03-28T03:35:29.702+00:00", "updated_at": "2026-03-28T03:35:29.702+00:00", "slave_id": 11, "ambient_id": 9},
+    {"created_at": "2026-03-28T03:35:29.714+00:00", "updated_at": "2026-03-28T03:35:29.714+00:00", "slave_id": 10, "ambient_id": 9},
+    {"created_at": "2026-04-01T14:58:56.536+00:00", "updated_at": "2026-04-01T14:58:56.536+00:00", "slave_id": 9, "ambient_id": 8}
+  ]
+}

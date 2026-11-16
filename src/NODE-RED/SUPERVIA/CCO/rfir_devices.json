@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "central": "Central Supervia CCO 2026-10-05 (Supervia Estações)",
+    "table": "rfir_devices",
+    "rowCount": 29,
+    "capturedAt": "2026-11-16 14:46 UTC",
+    "source": "dump-cadastro.py → ssh root@201:4536:897d:52fc:3bd0:c93f:df9f:51e4 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "ir", "category": "tv", "name": "Teste", "output": null, "slave_id": 26, "command_on_id": null, "command_off_id": null, "created_at": "2022-07-19T14:57:34.588044+00:00", "updated_at": "2022-07-19T14:57:34.604137+00:00"},
+    {"id": 2, "type": "ir", "category": "tv", "name": "Teste", "output": null, "slave_id": 30, "command_on_id": null, "command_off_id": null, "created_at": "2022-07-19T14:57:34.588044+00:00", "updated_at": "2022-07-19T14:57:34.604137+00:00"},
+    {"id": 3, "type": "ir", "category": "tv", "name": "Teste", "output": null, "slave_id": null, "command_on_id": null, "command_off_id": null, "created_at": "2022-07-19T14:57:34.588044+00:00", "updated_at": "2022-07-19T14:57:34.604137+00:00"},
+    {"id": 4, "type": "ir", "category": "tv", "name": "Test", "output": null, "slave_id": null, "command_on_id": null, "command_off_id": null, "created_at": "2022-07-19T14:57:34.588044+00:00", "updated_at": "2022-07-19T14:57:34.604137+00:00"},
+    {"id": 5, "type": "ir", "category": "tv", "name": "Tet", "output": null, "slave_id": 64, "command_on_id": null, "command_off_id": null, "created_at": "2022-07-19T14:57:34.588044+00:00", "updated_at": "2022-07-19T14:57:34.604137+00:00"},
+    {"id": 6, "type": "ir", "category": "ac", "name": "T1", "output": null, "slave_id": 88, "command_on_id": null, "command_off_id": null, "created_at": "2022-07-19T14:57:34.588044+00:00", "updated_at": "2022-07-19T14:57:34.604137+00:00"},
+    {"id": 7, "type": "ir", "category": "ac", "name": "T2", "output": null, "slave_id": null, "command_on_id": null, "command_off_id": null, "created_at": "2022-07-19T14:57:34.588044+00:00", "updated_at": "2022-07-19T14:57:34.604137+00:00"},
+    {"id": 8, "type": "ir", "category": "ac", "name": "T3", "output": null, "slave_id": 90, "command_on_id": null, "command_off_id": null, "created_at": "2022-07-19T14:57:34.588044+00:00", "updated_at": "2022-07-19T14:57:34.604137+00:00"},
+    {"id": 9, "type": "ir", "category": "ac", "name": "T4", "output": null, "slave_id": 91, "command_on_id": null, "command_off_id": null, "created_at": "2022-07-19T14:57:34.588044+00:00", "updated_at": "2022-07-19T14:57:34.604137+00:00"},
+    {"id": 10, "type": "ir", "category": "ac", "name": "T5", "output": null, "slave_id": 92, "command_on_id": null, "command_off_id": null, "created_at": "2022-07-19T14:57:34.588044+00:00", "updated_at": "2022-07-19T14:57:34.604137+00:00"},
+    {"id": 11, "type": "ir", "category": "other", "name": "AC Nobreak_2", "output": "intern", "slave_id": 114, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-10T14:04:35.995+00:00", "updated_at": "2025-05-20T18:41:59.129+00:00"},
+    {"id": 12, "type": "ir", "category": "other", "name": "AC Telecon 1 Porta(3)", "output": "extern", "slave_id": 115, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-10T14:51:05.682+00:00", "updated_at": "2025-05-27T16:41:37.604+00:00"},
+    {"id": 13, "type": "ir", "category": "other", "name": "AC Nobreak_1", "output": "extern", "slave_id": 114, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-10T15:12:41.476+00:00", "updated_at": "2025-05-20T18:43:42.554+00:00"},
+    {"id": 14, "type": "ir", "category": "other", "name": "AC Telecon 2 Parede", "output": "extern", "slave_id": 116, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-10T15:40:43.205+00:00", "updated_at": "2025-05-27T16:51:04.4+00:00"},
+    {"id": 15, "type": "ir", "category": "other", "name": "AC Telecon 2 Meio", "output": "intern", "slave_id": 116, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-10T15:40:54.379+00:00", "updated_at": "2025-05-27T16:51:22.391+00:00"},
+    {"id": 16, "type": "ir", "category": "other", "name": "AC Telecon 1 Direita (?)", "output": "intern", "slave_id": 115, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-10T15:50:17.034+00:00", "updated_at": "2025-05-28T14:35:52.699+00:00"},
+    {"id": 17, "type": "ir", "category": "other", "name": "Ar Relé Direita (5)", "output": "both", "slave_id": 117, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-10T17:01:27.398+00:00", "updated_at": "2025-04-17T14:02:04.944+00:00"},
+    {"id": 18, "type": "ir", "category": "other", "name": "Ar Relé Esquerda(6)", "output": "both", "slave_id": 118, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-10T17:16:59.041+00:00", "updated_at": "2025-04-17T14:03:23.574+00:00"},
+    {"id": 19, "type": "ir", "category": "other", "name": "AC CPD Esquerdo ", "output": "intern", "slave_id": 126, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-11T17:05:32.24+00:00", "updated_at": "2025-05-27T14:55:23.089+00:00"},
+    {"id": 20, "type": "ir", "category": "other", "name": "AC CPD Direito ", "output": "intern", "slave_id": 126, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-11T17:05:51.194+00:00", "updated_at": "2025-05-27T14:55:33.434+00:00"},
+    {"id": 21, "type": "ir", "category": "other", "name": "AC Baterias_AC01 ", "output": "intern", "slave_id": 127, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-11T19:00:29.871+00:00", "updated_at": "2025-05-20T18:58:16.155+00:00"},
+    {"id": 22, "type": "ir", "category": "other", "name": "AC 60k(Interna)", "output": "intern", "slave_id": 128, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-11T19:22:28.087+00:00", "updated_at": "2025-04-17T14:16:06.184+00:00"},
+    {"id": 23, "type": "ir", "category": "other", "name": "AC Baterias_AC02 ", "output": "extern", "slave_id": 128, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-11T19:22:49.797+00:00", "updated_at": "2025-05-20T18:58:31.483+00:00"},
+    {"id": 24, "type": "ir", "category": "other", "name": "AC Ti AC02", "output": "both", "slave_id": 129, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-15T14:17:15.458+00:00", "updated_at": "2025-05-28T15:06:47.183+00:00"},
+    {"id": 25, "type": "ir", "category": "other", "name": "AC Ti_AC01", "output": "intern", "slave_id": 130, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-15T15:27:38.794+00:00", "updated_at": "2025-05-28T15:06:58.986+00:00"},
+    {"id": 26, "type": "ir", "category": "other", "name": "AC Refeitório_AC01", "output": "both", "slave_id": 136, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-15T20:10:53.15+00:00", "updated_at": "2025-05-28T14:44:14.147+00:00"},
+    {"id": 27, "type": "ir", "category": "other", "name": "AC Refeitório_AC02", "output": "intern", "slave_id": 137, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-15T20:11:14.227+00:00", "updated_at": "2025-05-28T14:44:04.544+00:00"},
+    {"id": 28, "type": "ir", "category": "other", "name": "Ac Guarita Estacionamento", "output": "both", "slave_id": 133, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-17T12:06:46.997+00:00", "updated_at": "2025-05-28T15:03:06.549+00:00"},
+    {"id": 29, "type": "ir", "category": "other", "name": "AC Apoio_Logistico ", "output": "both", "slave_id": 131, "command_on_id": null, "command_off_id": null, "created_at": "2025-04-17T15:17:33.703+00:00", "updated_at": "2025-05-20T18:59:21.211+00:00"}
+  ]
+}

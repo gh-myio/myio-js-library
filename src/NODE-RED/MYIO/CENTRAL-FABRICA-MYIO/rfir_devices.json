@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Central Fábrica MYIO (MYIO Pré-Setup)",
+    "table": "rfir_devices",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:50 UTC",
+    "source": "dump-cadastro.py → ssh root@200:2235:c16a:707a:e0be:c1d9:29a4:fd65 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

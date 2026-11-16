@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "central": "Souza Aguiar — T&D (Souza Aguiar)",
+    "table": "rfir_devices",
+    "rowCount": 4,
+    "capturedAt": "2026-11-16 14:42 UTC",
+    "source": "dump-cadastro.py → ssh root@202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "ir", "category": "other", "name": "Predio Regulador ", "output": "both", "slave_id": 40, "command_on_id": null, "command_off_id": null, "created_at": "2024-08-21T16:53:56.842+00:00", "updated_at": "2024-08-21T16:53:56.842+00:00"},
+    {"id": 2, "type": "ir", "category": "other", "name": "Maternidade Térreo", "output": "both", "slave_id": 45, "command_on_id": null, "command_off_id": null, "created_at": "2024-08-23T13:57:01.175+00:00", "updated_at": "2024-08-23T13:57:01.175+00:00"},
+    {"id": 3, "type": "ir", "category": "other", "name": "remote", "output": "both", "slave_id": 38, "command_on_id": null, "command_off_id": null, "created_at": "2024-10-09T15:07:31.877+00:00", "updated_at": "2024-10-09T15:07:31.877+00:00"},
+    {"id": 4, "type": "ir", "category": "other", "name": "Check", "output": "both", "slave_id": 64, "command_on_id": null, "command_off_id": null, "created_at": "2025-08-21T12:08:07.342+00:00", "updated_at": "2025-08-21T12:08:07.342+00:00"}
+  ]
+}

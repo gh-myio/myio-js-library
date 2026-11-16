@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "central": "Campinas Shopping — G1 G2 Hidrômetros (Argo Plan)",
+    "table": "ambients",
+    "rowCount": 25,
+    "capturedAt": "2026-11-16 15:01 UTC",
+    "source": "dump-cadastro.py → ssh root@200:a107:d79f:55d0:65:212e:15f6:d27b · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "name": "G1/G2", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 1, "is_slave": true, "energy": true}, {"slave_id": 2, "is_slave": true, "energy": true}, {"slave_id": 3, "is_slave": true, "energy": true}]}, "created_at": "2025-01-14T23:22:05.788+00:00", "updated_at": "2025-01-15T19:34:03.899+00:00"},
+    {"id": 2, "name": "Pizza Hut", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 4, "is_slave": true, "temperature": true}, {"slave_id": 4, "is_slave": true, "energy": true}]}, "created_at": "2025-01-16T15:01:53.278+00:00", "updated_at": "2025-01-26T16:19:08.534+00:00"},
+    {"id": 3, "name": "Kopenhagen ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 5, "is_slave": true, "temperature": true}]}, "created_at": "2025-01-16T15:08:54.113+00:00", "updated_at": "2025-01-16T15:09:01.786+00:00"},
+    {"id": 4, "name": "Dez Pastéis ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 6, "is_slave": true, "temperature": true}, {"slave_id": 6, "is_slave": true, "energy": true}]}, "created_at": "2025-01-16T15:16:00.353+00:00", "updated_at": "2025-01-26T16:31:13.769+00:00"},
+    {"id": 6, "name": "Kogai Fresh", "image": null, "order": null, "config": null, "created_at": "2025-01-16T15:57:25.465+00:00", "updated_at": "2025-01-16T15:57:25.465+00:00"},
+    {"id": 7, "name": "Subway", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 9, "is_slave": true, "temperature": true}]}, "created_at": "2025-01-16T16:07:00.975+00:00", "updated_at": "2025-01-16T16:07:14.552+00:00"},
+    {"id": 10, "name": "Popeyes ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 10, "is_slave": true, "energy": true}]}, "created_at": "2025-01-21T13:16:48.307+00:00", "updated_at": "2025-01-21T13:17:00.282+00:00"},
+    {"id": 11, "name": "Brasil Cacau ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 11, "is_slave": true, "temperature": true}, {"slave_id": 11, "is_slave": true, "energy": true}]}, "created_at": "2025-01-21T13:22:26.182+00:00", "updated_at": "2025-01-21T14:00:38.059+00:00"},
+    {"id": 12, "name": "Burguer King ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 12, "is_slave": true, "energy": true}, {"slave_id": 12, "is_slave": true, "temperature": true}]}, "created_at": "2025-01-21T13:49:06.35+00:00", "updated_at": "2025-01-21T14:18:13.48+00:00"},
+    {"id": 13, "name": "Suco Bagaço ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 14, "is_slave": true, "temperature": true}, {"slave_id": 14, "is_slave": true, "energy": true}]}, "created_at": "2025-01-21T18:48:48.594+00:00", "updated_at": "2025-01-21T18:49:21.899+00:00"},
+    {"id": 14, "name": "Qoculos ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 15, "is_slave": true, "temperature": true}, {"slave_id": 15, "is_slave": true, "energy": true}]}, "created_at": "2025-01-21T20:23:13.447+00:00", "updated_at": "2025-01-21T20:24:08.677+00:00"},
+    {"id": 16, "name": "Rei Do  Mate ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 17, "is_slave": true, "energy": true}, {"slave_id": 17, "is_slave": true, "temperature": true}]}, "created_at": "2025-01-25T13:28:09.358+00:00", "updated_at": "2025-01-25T13:28:30.671+00:00"},
+    {"id": 17, "name": "Antony", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 18, "is_slave": true, "temperature": true}, {"slave_id": 18, "is_slave": true, "energy": true}]}, "created_at": "2025-01-25T13:41:52.159+00:00", "updated_at": "2025-01-25T13:42:04.765+00:00"},
+    {"id": 18, "name": "Cervejaria", "image": null, "order": null, "config": null, "created_at": "2025-01-25T13:48:24.188+00:00", "updated_at": "2025-01-25T13:48:24.188+00:00"},
+    {"id": 19, "name": "Barbearia ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 3, "is_slave": true, "energy": true}]}, "created_at": "2025-01-25T13:48:39.978+00:00", "updated_at": "2025-01-25T13:48:49.953+00:00"},
+    {"id": 20, "name": "Açaí Da Barra", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 2, "is_slave": true, "energy": true}]}, "created_at": "2025-01-25T13:49:02.39+00:00", "updated_at": "2025-01-25T13:49:12.56+00:00"},
+    {"id": 22, "name": "Vivenda Do Camarão ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 13, "is_slave": true, "energy": true}]}, "created_at": "2025-01-27T14:05:35.728+00:00", "updated_at": "2025-01-27T14:05:43.229+00:00"},
+    {"id": 23, "name": "McDonald'sG1", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 19, "is_slave": true, "temperature": true}, {"slave_id": 19, "is_slave": true, "energy": true}]}, "created_at": "2025-01-29T23:19:37.665+00:00", "updated_at": "2025-01-29T23:19:49.752+00:00"},
+    {"id": 24, "name": "Bobs", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 20, "is_slave": true, "temperature": true}, {"slave_id": 20, "is_slave": true, "energy": true}]}, "created_at": "2025-01-31T03:02:21.14+00:00", "updated_at": "2025-01-31T03:02:30.391+00:00"},
+    {"id": 25, "name": "Jin Jin", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 21, "is_slave": true, "temperature": true}, {"slave_id": 21, "is_slave": true, "energy": true}]}, "created_at": "2025-01-31T03:44:04.937+00:00", "updated_at": "2025-01-31T03:44:15.752+00:00"},
+    {"id": 26, "name": "Kobi", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 22, "is_slave": true, "energy": true}]}, "created_at": "2025-03-10T21:42:21.241+00:00", "updated_at": "2025-03-10T21:46:47.016+00:00"},
+    {"id": 27, "name": "Todos", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 10, "is_slave": true, "temperature": true}, {"slave_id": 5, "is_slave": true, "temperature": true}]}, "created_at": "2025-04-04T18:39:37.414+00:00", "updated_at": "2026-09-11T14:02:03.399+00:00"},
+    {"id": 28, "name": "Drogaria São Paulo ", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 23, "is_slave": true, "temperature": true}]}, "created_at": "2025-08-04T13:39:11.117+00:00", "updated_at": "2025-08-04T21:36:03.321+00:00"},
+    {"id": 29, "name": "SW REBORNE", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 24, "is_slave": true, "temperature": true}]}, "created_at": "2025-08-28T20:17:20.053+00:00", "updated_at": "2025-08-28T20:19:05.75+00:00"},
+    {"id": 30, "name": "Solenoide Água Potável/caixa De Reuso", "image": null, "order": null, "config": null, "created_at": "2026-03-12T18:14:26.317+00:00", "updated_at": "2026-03-12T18:14:26.317+00:00"}
+  ]
+}

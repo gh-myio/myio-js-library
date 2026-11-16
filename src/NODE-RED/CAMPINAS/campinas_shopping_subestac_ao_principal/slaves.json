@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "central": "Campinas Shopping — Subestação Principal (Argo Plan)",
+    "table": "slaves",
+    "rowCount": 9,
+    "capturedAt": "2026-11-16 15:01 UTC",
+    "source": "dump-cadastro.py → ssh root@202:7cde:b52f:7210:12a5:91d6:1fe5:4d6e · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 22, "type": "three_phase_sensor", "addr_low": 25, "addr_high": 248, "channels": 3, "name": "3F Bombas Secundária  x80 x80A", "color": null, "code": "002-002-002-015", "clamp_type": 0, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": null, "created_at": "2025-05-10T11:36:41.271663+00:00", "updated_at": "2025-05-10T11:36:53.77+00:00"},
+    {"id": 23, "type": "three_phase_sensor", "addr_low": 14, "addr_high": 249, "channels": 3, "name": "3F SCP0LXXX Outback", "color": null, "code": "002-002-002-015", "clamp_type": 2, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": null, "created_at": "2024-12-02T15:40:38.086604+00:00", "updated_at": "2026-11-11T18:10:57.436+00:00"},
+    {"id": 24, "type": "three_phase_sensor", "addr_low": 142, "addr_high": 249, "channels": 3, "name": "3F Chiller x700 x700A", "color": null, "code": "002-002-002-015", "clamp_type": 0, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": null, "created_at": "2025-05-10T11:32:48.271636+00:00", "updated_at": "2025-05-10T11:33:11.283+00:00"},
+    {"id": 25, "type": "three_phase_sensor", "addr_low": 113, "addr_high": 249, "channels": 3, "name": "3F ADM 1 x120 x120A", "color": null, "code": "002-002-002-015", "clamp_type": 0, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": null, "created_at": "2025-05-10T11:41:05.193929+00:00", "updated_at": "2025-05-10T11:41:52.557+00:00"},
+    {"id": 26, "type": "three_phase_sensor", "addr_low": 53, "addr_high": 249, "channels": 3, "name": "3F ADM 2 x120 x120A", "color": null, "code": "002-002-002-015", "clamp_type": 0, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": null, "created_at": "2025-05-10T11:44:06.575405+00:00", "updated_at": "2025-05-10T11:44:19.64+00:00"},
+    {"id": 27, "type": "three_phase_sensor", "addr_low": 175, "addr_high": 249, "channels": 3, "name": "3F Trafo Outback", "color": null, "code": "002-002-002-015", "clamp_type": null, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": {"config_clamp": {"confirmed": true, "value": 4}}, "created_at": "2025-05-10T11:20:36.928158+00:00", "updated_at": "2026-09-11T14:56:40.067+00:00"},
+    {"id": 28, "type": "three_phase_sensor", "addr_low": 250, "addr_high": 248, "channels": 3, "name": "Entrada_Subestação_01 x2072.8 x40A x51.82V", "color": null, "code": "002-002-002-015", "clamp_type": 0, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": null, "created_at": "2025-05-10T11:47:37.393316+00:00", "updated_at": "2025-05-10T11:47:50.985+00:00"},
+    {"id": 36, "type": "outlet", "addr_low": 194, "addr_high": 249, "channels": 2, "name": "Hidr. Torre Resfriamento", "color": null, "code": "002-002-002-012", "clamp_type": null, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": {"channelConfig": {"channel0": {"slaveId": 36, "channel": 0, "channel_type": "REMOTE_INPUT", "pulses": 1, "output": "HOLDING"}, "channel1": {"slaveId": 36, "channel": 1, "channel_type": "PULSE_ON_POWER", "pulses": 1, "output": "HOLDING"}}}, "created_at": "2025-12-12T17:37:55.744018+00:00", "updated_at": "2025-12-30T02:03:36.085+00:00"},
+    {"id": 37, "type": "three_phase_sensor", "addr_low": 67, "addr_high": 249, "channels": 3, "name": "3F Coco Bambu", "color": null, "code": "002-002-002-015", "clamp_type": 2, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": {"config_clamp": {"confirmed": true, "value": 2}}, "created_at": "2026-03-09T16:22:24.656382+00:00", "updated_at": "2026-05-21T13:57:53.432+00:00"}
+  ]
+}

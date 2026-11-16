@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Shopping Contagem (Soul Malls)",
+    "table": "rfir_remotes",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:39 UTC",
+    "source": "dump-cadastro.py → ssh root@200:12b0:b768:7ba0:32b5:1c15:bec7:33aa · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

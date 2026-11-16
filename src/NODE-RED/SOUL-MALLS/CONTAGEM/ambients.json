@@ -1,19 +1,23 @@
 {
   "_meta": {
-    "central": "Contagem (Soul Malls)",
+    "central": "Shopping Contagem (Soul Malls)",
     "table": "ambients",
-    "rowCount": 7,
-    "capturedAt": "2026-07-07 (pós-revert do import + restauração de nomes)",
-    "source": "/tmp/dump-cadastro.sh na central (psql -U hubot, sem pager) — logMaps-v2-CONTAGEM.log, capturado 2026-07-07 12:33 UTC",
-    "note": "Estado final após revert do import de 2026-07-06 (deletou os 218 ambients SCO*). Nomes dos ids 5/6/7 têm espaços reais (confirmados via pg_dump): \"L1 Medidores 3F \" e \"L2 ...\" com espaço à direita; id 7 com espaço à esquerda E à direita, e vazio (sem slaves). Piso G3 (229) também vazio."
+    "rowCount": 12,
+    "capturedAt": "2026-11-16 14:39 UTC",
+    "source": "dump-cadastro.py → ssh root@200:12b0:b768:7ba0:32b5:1c15:bec7:33aa · psql -U hubot (SELECT json_agg, somente leitura)"
   },
   "rows": [
-    { "id": 5, "name": "L1 Medidores 3F ", "image": null, "order": null, "config": null, "created_at": "2026-07-03 23:53:35.76+00", "updated_at": "2026-07-03 23:54:57.853+00" },
-    { "id": 6, "name": "L2 Medidores 3F ", "image": null, "order": null, "config": null, "created_at": "2026-07-03 23:53:49.957+00", "updated_at": "2026-07-03 23:55:11.769+00" },
-    { "id": 8, "name": "L3 Medidores 3F", "image": null, "order": null, "config": null, "created_at": "2026-07-03 23:55:33.79+00", "updated_at": "2026-07-03 23:55:33.79+00" },
-    { "id": 7, "name": " Serviço Medidores 3F ", "image": null, "order": null, "config": null, "created_at": "2026-07-03 23:54:21.962+00", "updated_at": "2026-07-03 23:55:58.501+00" },
-    { "id": 9, "name": "Piso G4", "image": null, "order": null, "config": null, "created_at": "2026-07-05 14:58:23.148+00", "updated_at": "2026-07-05 14:58:23.148+00" },
-    { "id": 10, "name": "Identificar", "image": null, "order": null, "config": null, "created_at": "2026-07-05 15:48:56.825+00", "updated_at": "2026-07-05 15:49:25.52+00" },
-    { "id": 229, "name": "Piso G3", "image": null, "order": null, "config": null, "created_at": "2026-07-07 03:14:17.396+00", "updated_at": "2026-07-07 03:14:17.396+00" }
+    {"id": 5, "name": "L1 Medidores 3F ", "image": null, "order": null, "config": null, "created_at": "2026-07-03T23:53:35.76+00:00", "updated_at": "2026-07-03T23:54:57.853+00:00"},
+    {"id": 6, "name": "L2 Medidores 3F ", "image": null, "order": null, "config": null, "created_at": "2026-07-03T23:53:49.957+00:00", "updated_at": "2026-07-03T23:55:11.769+00:00"},
+    {"id": 7, "name": " Serviço Medidores 3F ", "image": null, "order": null, "config": null, "created_at": "2026-07-03T23:54:21.962+00:00", "updated_at": "2026-07-03T23:55:58.501+00:00"},
+    {"id": 8, "name": "L3 Medidores 3F", "image": null, "order": null, "config": null, "created_at": "2026-07-03T23:55:33.79+00:00", "updated_at": "2026-07-03T23:55:33.79+00:00"},
+    {"id": 9, "name": "Piso G4", "image": null, "order": null, "config": null, "created_at": "2026-07-05T14:58:23.148+00:00", "updated_at": "2026-07-05T14:58:23.148+00:00"},
+    {"id": 10, "name": "Identificar", "image": null, "order": null, "config": null, "created_at": "2026-07-05T15:48:56.825+00:00", "updated_at": "2026-07-05T15:49:25.52+00:00"},
+    {"id": 229, "name": "Piso G3", "image": null, "order": null, "config": null, "created_at": "2026-07-07T03:14:17.396+00:00", "updated_at": "2026-07-07T03:14:17.396+00:00"},
+    {"id": 230, "name": "G1", "image": null, "order": null, "config": null, "created_at": "2026-07-17T22:57:37.67+00:00", "updated_at": "2026-07-17T22:57:37.67+00:00"},
+    {"id": 231, "name": "Cag", "image": null, "order": null, "config": null, "created_at": "2026-07-17T23:29:29.897+00:00", "updated_at": "2026-09-25T21:08:27.424+00:00"},
+    {"id": 232, "name": "Teste ", "image": null, "order": null, "config": null, "created_at": "2026-07-18T15:56:01.513+00:00", "updated_at": "2026-07-18T15:56:01.513+00:00"},
+    {"id": 234, "name": "Repetidor", "image": null, "order": null, "config": {"hide_devices_v1": [{"slave_id": 352, "is_slave": true, "energy": true}, {"slave_id": 353, "is_slave": true, "energy": true}, {"slave_id": 354, "is_slave": true, "energy": true}]}, "created_at": "2026-07-21T22:07:57.339+00:00", "updated_at": "2026-09-25T00:08:32.58+00:00"},
+    {"id": 235, "name": "Rebut", "image": null, "order": null, "config": null, "created_at": "2026-07-29T05:12:55.328+00:00", "updated_at": "2026-07-29T05:12:55.328+00:00"}
   ]
 }

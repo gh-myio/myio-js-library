@@ -1,0 +1,27 @@
+{
+  "_meta": {
+    "central": "Central Ilha Plaza AL2 - 2026-10-22 (Soul Malls)",
+    "table": "ambients",
+    "rowCount": 16,
+    "capturedAt": "2026-11-16 14:43 UTC",
+    "source": "dump-cadastro.py → ssh root@202:c116:b4a1:d987:7cc5:e7da:148e:1614 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "name": "Myio 36", "image": null, "order": null, "config": null, "created_at": "2024-08-29T14:19:11.618+00:00", "updated_at": "2024-08-29T14:19:11.618+00:00"},
+    {"id": 34, "name": "AL2", "image": null, "order": null, "config": null, "created_at": "2024-09-04T18:21:07.277+00:00", "updated_at": "2024-09-04T18:21:07.277+00:00"},
+    {"id": 35, "name": "Al2 Restaurante ", "image": null, "order": null, "config": null, "created_at": "2024-09-07T12:32:41.298+00:00", "updated_at": "2024-09-07T12:32:41.298+00:00"},
+    {"id": 36, "name": "reboot automático ", "image": null, "order": null, "config": null, "created_at": "2025-08-24T00:55:44.542+00:00", "updated_at": "2025-08-25T12:39:16.787+00:00"},
+    {"id": 37, "name": "Drogasmil 228", "image": null, "order": null, "config": null, "created_at": "2026-06-08T19:42:11.865+00:00", "updated_at": "2026-06-08T19:42:11.865+00:00"},
+    {"id": 38, "name": "254", "image": null, "order": null, "config": null, "created_at": "2026-06-08T20:28:59.924+00:00", "updated_at": "2026-06-08T20:28:59.924+00:00"},
+    {"id": 39, "name": "259( L2)", "image": null, "order": null, "config": null, "created_at": "2026-06-08T21:28:09.69+00:00", "updated_at": "2026-06-08T21:28:09.69+00:00"},
+    {"id": 40, "name": "366( Al2 )", "image": null, "order": null, "config": null, "created_at": "2026-06-08T22:19:58.9+00:00", "updated_at": "2026-06-15T10:51:32.249+00:00"},
+    {"id": 41, "name": "000A( vaga antigo ponto frio)", "image": null, "order": null, "config": null, "created_at": "2026-06-09T00:09:36.387+00:00", "updated_at": "2026-06-09T00:09:54.026+00:00"},
+    {"id": 42, "name": "113(L1)", "image": null, "order": null, "config": null, "created_at": "2026-06-09T15:00:08.412+00:00", "updated_at": "2026-06-09T15:00:08.412+00:00"},
+    {"id": 43, "name": "149/150", "image": null, "order": null, "config": null, "created_at": "2026-06-09T18:05:19.792+00:00", "updated_at": "2026-06-09T18:05:19.792+00:00"},
+    {"id": 44, "name": "Quiosques", "image": null, "order": null, "config": null, "created_at": "2026-06-10T18:35:16.851+00:00", "updated_at": "2026-06-10T18:35:16.851+00:00"},
+    {"id": 45, "name": "227", "image": null, "order": null, "config": null, "created_at": "2026-06-15T14:10:02.869+00:00", "updated_at": "2026-06-15T14:10:02.869+00:00"},
+    {"id": 46, "name": "266B", "image": null, "order": null, "config": null, "created_at": "2026-06-15T14:31:16.604+00:00", "updated_at": "2026-06-15T14:31:16.604+00:00"},
+    {"id": 47, "name": "376/377", "image": null, "order": null, "config": null, "created_at": "2026-06-15T15:49:33.396+00:00", "updated_at": "2026-06-15T15:49:33.396+00:00"},
+    {"id": 48, "name": "139", "image": null, "order": null, "config": null, "created_at": "2026-06-15T20:15:42.744+00:00", "updated_at": "2026-06-15T20:15:42.744+00:00"}
+  ]
+}

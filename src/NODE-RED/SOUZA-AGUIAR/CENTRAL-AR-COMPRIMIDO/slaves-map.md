@@ -1,75 +1,42 @@
-# Slaves Map — Central Ar Comprimido (Souza Aguiar)
+# Slaves Map — Souza Aguiar — Ar Comprimido (Souza Aguiar)
 
-> Central: **Souza Aguiar — Ar Comprimido** (`200:4dbc:14be:a704:6904:81cd:b62a:ab22`)
+> Central: **Souza Aguiar — Ar Comprimido (Souza Aguiar)** · Gateway `—` · Central ID `—` · Frequência `—`
 > IPv6: `200:4dbc:14be:a704:6904:81cd:b62a:ab22`
-> Total slaves: 14
+> Total slaves: **14** · channels: **14** · ambients: **9** · `ambients_rfir_slaves_rel`: **15** · `ambients_rfir_devices_rel`: **0**
+> RFIR: `rfir_devices`: **0** · `rfir_remotes`: **0** · `rfir_commands`: **0** · `rfir_buttons`: **0**
+> Capturado em **2026-11-16 14:42 UTC** por `dump-cadastro.py` (somente leitura).
+> Dados: [`slaves.json`](slaves.json) · [`channels.json`](channels.json) · [`ambients.json`](ambients.json) · [`ambients_slaves_rel.json`](ambients_slaves_rel.json) · [`ambients_devices_rel.json`](ambients_devices_rel.json)
+> Tipos de slave: `outlet` 13 · `infrared` 1
 
----
+## Slaves
 
-## 1. Gases Medicinais
+| id | addr_low | addr_high | type | name | ch | clamp | ambients | channels (nº · type · name) |
+|---:|---:|---:|---|---|---:|---:|---|---|
+| 1 | 15 | 249 | outlet | GAS Ar_comprimido_SH_Matern 132 700 x1.97 | 2 | — | 1 Ar comprimido/ Vácuo / O2 | 0 · lamp · check Ar compr. |
+| 2 | 219 | 248 | outlet | `Sw QTA 1 Maternidade ` ⚠ espaço | 2 | — | 2 `Subestação maternidade ` ⚠ espaço | 0 · presence_sensor · Gerador QTA 1 Matern.<br>1 · presence_sensor · Rede QTA 1 Matern. |
+| 3 | 139 | 248 | outlet | Sw QTA 2 Matern. | 2 | — | 2 `Subestação maternidade ` ⚠ espaço | 0 · presence_sensor · Gerador QTA 2 Matern.<br>1 · presence_sensor · Rede QTA 2 Matern. |
+| 4 | 233 | 248 | outlet | GAS Oxigênio_SH 132 700 x1.97 | 2 | — | 3 Oxigênio Souza | 0 · lamp · `Check ` ⚠ espaço |
+| 5 | 178 | 249 | outlet | GAS Nitroso_SH 132 700 x1.97 | 2 | — | 4 Nitroso Souza | 0 · lamp · Check |
+| 6 | 46 | 249 | outlet | GAS Ar_comprimido_CER 132 700 x1.97 | 2 | — | 6 UPA (CER) | 0 · lamp · Check |
+| 7 | 232 | 249 | outlet | GAS Vacuo_CER 132 200 x0.378 | 2 | — | 6 UPA (CER), 7 `Vácuo Souza Aguiar ` ⚠ espaço | 0 · lamp · Check |
+| 8 | 153 | 249 | outlet | GAS Vacuo_SouzaAguiar 132 200 x0.378 | 2 | — | 7 `Vácuo Souza Aguiar ` ⚠ espaço | 0 · lamp · Check Vácuo Sh |
+| 9 | 7 | 248 | outlet | GAS Oxigênio_CER 132 700 x1.97 | 2 | — | 8 Oxigênio Cer | 0 · lamp · Check Oxigênio Cer |
+| 10 | 207 | 248 | infrared | OLD-T.e.m.p. Co2_Medicacao_CER -6 | 1 | — | 9 Co2_Medicacao_Cer | — |
+| 11 | 121 | 248 | outlet | Temp. Co2_Medicacao_CER | 2 | — | 9 Co2_Medicacao_Cer | 0 · lamp · Check |
+| 12 | 137 | 248 | outlet | Hdr. Cisterna2_Maternidade x1 | 2 | — | 10 `Cisterna Maternidade ` ⚠ espaço | 0 · presence_sensor · `Energia ` ⚠ espaço<br>1 · flow_sensor · Hdr. Cisterna2_Maternidade x1 |
+| 13 | 120 | 248 | outlet | SCD MaternidadeCisterna2 1064 244 x0.2705 | 2 | — | 10 `Cisterna Maternidade ` ⚠ espaço | — |
+| 14 | 175 | 248 | outlet | SCD MaternidadeCisterna1 1350 244 x0.2705 | 2 | — | 10 `Cisterna Maternidade ` ⚠ espaço | — |
 
-Formato: `GAS <tag> <addr_modbus> <range_max> <fator>` — addr=132 = registrador Modbus de leitura bruta.
+## Ambients
 
-| Slave ID | Nome                                    | Central                      | Gás           | Local          | Range | Fator  |
-|----------|-----------------------------------------|------------------------------|---------------|----------------|-------|--------|
-| 1        | GAS Ar_comprimido_SH_Matern 132 700 x1.97 | Souza Aguiar — Ar Comprimido | Ar Comprimido | SH / Maternidade | 0–700 | ×1.97  |
-| 5        | GAS Nitroso_SH 132 700 x1.97            | Souza Aguiar — Ar Comprimido | Óxido Nitroso | SH             | 0–700 | ×1.97  |
-| 4        | GAS Oxigênio_SH 132 700 x1.97           | Souza Aguiar — Ar Comprimido | Oxigênio      | SH             | 0–700 | ×1.97  |
-| 6        | GAS Ar_comprimido_CER 132 700 x1.97     | Souza Aguiar — Ar Comprimido | Ar Comprimido | CER            | 0–700 | ×1.97  |
-| 9        | GAS Oxigênio_CER 132 700 x1.97          | Souza Aguiar — Ar Comprimido | Oxigênio      | CER            | 0–700 | ×1.97  |
-| 7        | GAS Vacuo_CER 132 200 x0.378            | Souza Aguiar — Ar Comprimido | Vácuo         | CER            | 0–200 | ×0.378 |
-| 8        | GAS Vacuo_SouzaAguiar 132 200 x0.378    | Souza Aguiar — Ar Comprimido | Vácuo         | Souza Aguiar   | 0–200 | ×0.378 |
-
-> **SH** = Complexo Hospitalar Souza Aguiar (prédio principal)
-> **CER** = Centro de Especialidades e Reabilitação
-
----
-
-## 2. Sensores de Vazão — SCD (Sensor Contador D'água)
-
-| Slave ID | Nome                                    | Central                      | Local                    | Addr | Range | Fator   |
-|----------|-----------------------------------------|------------------------------|--------------------------|------|-------|---------|
-| 14       | SCD MaternidadeCisterna1 1350 244 x0.2705 | Souza Aguiar — Ar Comprimido | Maternidade — Cisterna 1 | 1350 | 244   | ×0.2705 |
-| 13       | SCD MaternidadeCisterna2 1064 244 x0.2705 | Souza Aguiar — Ar Comprimido | Maternidade — Cisterna 2 | 1064 | 244   | ×0.2705 |
-
----
-
-## 3. Hidrômetro
-
-| Slave ID | Nome                           | Central                      | Local                    | Obs         |
-|----------|--------------------------------|------------------------------|--------------------------|-------------|
-| 12       | Hdr. Cisterna2_Maternidade x1  | Souza Aguiar — Ar Comprimido | Maternidade — Cisterna 2 | Fator ×1    |
-
----
-
-## 4. Switches (QTA — Quadro de Tomadas de Ar?)
-
-| Slave ID | Nome                  | Central                      | Função                          |
-|----------|-----------------------|------------------------------|---------------------------------|
-| 2        | Sw QTA 1 Maternidade  | Souza Aguiar — Ar Comprimido | Controle QTA 1 — Maternidade    |
-| 3        | Sw QTA 2 Matern.      | Souza Aguiar — Ar Comprimido | Controle QTA 2 — Maternidade    |
-
----
-
-## 5. Temperatura CO2
-
-| Slave ID | Nome                       | Central                      | Local | Offset | Obs                              |
-|----------|----------------------------|------------------------------|-------|--------|----------------------------------|
-| 10       | OLD-T.e.m.p. Co2_Medicacao_CER -6 | Souza Aguiar — Ar Comprimido | CER — Sala Medicação | -6°C | Legado pré-fix — migrado para id=11 |
-| 11       | Temp. Co2_Medicacao_CER    | Souza Aguiar — Ar Comprimido | CER — Sala Medicação | —    | Ativo pós-fix (row_014 no fix-temp-registry) |
-
-> `OLD-T.e.m.p. Co2_Medicacao_CER -6` (id=10) → renomeado após migração para id=11.
-> SQL de renomeação: ver fix-temp-registry **row_014**.
-
----
-
-## Resumo por categoria
-
-| Categoria         | Qtd    |
-|-------------------|--------|
-| Gases medicinais  | 7      |
-| SCD (vazão)       | 2      |
-| Hidrômetro        | 1      |
-| Switches (QTA)    | 2      |
-| Temperatura CO2   | 2      |
-| **Total**         | **14** |
+| id | name | slaves |
+|---:|---|---|
+| 1 | Ar comprimido/ Vácuo / O2 | 1 |
+| 2 | `Subestação maternidade ` ⚠ espaço | 2, 3 |
+| 3 | Oxigênio Souza | 4 |
+| 4 | Nitroso Souza | 5 |
+| 6 | UPA (CER) | 6, 7 |
+| 7 | `Vácuo Souza Aguiar ` ⚠ espaço | 7, 8 |
+| 8 | Oxigênio Cer | 9 |
+| 9 | Co2_Medicacao_Cer | 10, 11 |
+| 10 | `Cisterna Maternidade ` ⚠ espaço | 12, 13, 14 |

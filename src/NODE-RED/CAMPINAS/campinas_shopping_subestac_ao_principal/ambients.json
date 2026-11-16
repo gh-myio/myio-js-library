@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "central": "Campinas Shopping — Subestação Principal (Argo Plan)",
+    "table": "ambients",
+    "rowCount": 9,
+    "capturedAt": "2026-11-16 15:01 UTC",
+    "source": "dump-cadastro.py → ssh root@202:7cde:b52f:7210:12a5:91d6:1fe5:4d6e · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 7, "name": "Outback ", "image": null, "order": null, "config": null, "created_at": "2024-12-02T15:41:10.925+00:00", "updated_at": "2024-12-02T15:41:10.925+00:00"},
+    {"id": 8, "name": "Chiller", "image": null, "order": null, "config": null, "created_at": "2024-12-02T16:53:20.513+00:00", "updated_at": "2024-12-02T16:53:20.513+00:00"},
+    {"id": 9, "name": "ADM ", "image": null, "order": null, "config": null, "created_at": "2024-12-02T20:40:21.486+00:00", "updated_at": "2024-12-02T20:40:21.486+00:00"},
+    {"id": 10, "name": "Trafo ", "image": null, "order": null, "config": null, "created_at": "2025-01-24T04:15:30.771+00:00", "updated_at": "2025-01-24T04:15:30.771+00:00"},
+    {"id": 11, "name": "Bk", "image": null, "order": null, "config": null, "created_at": "2025-03-11T01:31:07.835+00:00", "updated_at": "2025-03-11T01:31:07.835+00:00"},
+    {"id": 12, "name": "Todos", "image": null, "order": null, "config": null, "created_at": "2025-04-08T01:12:33.881+00:00", "updated_at": "2025-04-08T01:12:33.881+00:00"},
+    {"id": 13, "name": "Torre Resfriamento ", "image": null, "order": null, "config": null, "created_at": "2025-12-12T17:40:27.931+00:00", "updated_at": "2025-12-12T17:40:27.931+00:00"},
+    {"id": 14, "name": "Coco Bambu", "image": null, "order": null, "config": null, "created_at": "2026-03-09T16:21:58.899+00:00", "updated_at": "2026-03-09T16:21:58.899+00:00"},
+    {"id": 15, "name": "Todos", "image": null, "order": null, "config": null, "created_at": "2026-04-08T17:08:28.574+00:00", "updated_at": "2026-04-08T17:08:28.574+00:00"}
+  ]
+}

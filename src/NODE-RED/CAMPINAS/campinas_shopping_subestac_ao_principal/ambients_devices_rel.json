@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Campinas Shopping — Subestação Principal (Argo Plan)",
+    "table": "ambients_rfir_devices_rel",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 15:01 UTC",
+    "source": "dump-cadastro.py → ssh root@202:7cde:b52f:7210:12a5:91d6:1fe5:4d6e · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

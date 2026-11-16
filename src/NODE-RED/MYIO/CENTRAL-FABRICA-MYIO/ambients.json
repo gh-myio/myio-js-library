@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "central": "Central Fábrica MYIO (MYIO Pré-Setup)",
+    "table": "ambients",
+    "rowCount": 13,
+    "capturedAt": "2026-11-16 14:50 UTC",
+    "source": "dump-cadastro.py → ssh root@200:2235:c16a:707a:e0be:c1d9:29a4:fd65 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "name": "Teste Rodrigo", "image": null, "order": null, "config": null, "created_at": "2026-08-27T19:22:35.919+00:00", "updated_at": "2026-08-27T19:22:35.919+00:00"},
+    {"id": 2, "name": "Teste com o claude", "image": null, "order": null, "config": null, "created_at": "2026-10-06T22:31:47.749+00:00", "updated_at": "2026-10-06T22:31:59.798+00:00"},
+    {"id": 3, "name": "MQTT Sync - 9065a118-90be-49fc-8998-45f46c205381", "image": null, "order": null, "config": null, "created_at": "2026-10-14T18:32:11.628273+00:00", "updated_at": "2026-10-14T18:32:11.628273+00:00"},
+    {"id": 4, "name": "CITTA_LAB_SALA_01", "image": null, "order": 0, "config": {}, "created_at": "2026-10-15T14:47:46.251787+00:00", "updated_at": "2026-10-15T14:54:09.496+00:00"},
+    {"id": 5, "name": "CITTA_LAB_SALA_02", "image": null, "order": 0, "config": {}, "created_at": "2026-10-15T14:47:46.251787+00:00", "updated_at": "2026-10-15T14:47:46.251787+00:00"},
+    {"id": 6, "name": "CITTA_LAB_SALA_03", "image": null, "order": 0, "config": {}, "created_at": "2026-10-15T14:47:46.251787+00:00", "updated_at": "2026-10-15T14:47:46.251787+00:00"},
+    {"id": 7, "name": "CITTA_LAB_SALA_04", "image": null, "order": 0, "config": {}, "created_at": "2026-10-15T14:47:46.251787+00:00", "updated_at": "2026-10-15T14:47:46.251787+00:00"},
+    {"id": 8, "name": "CITTA_LAB_SALA_05", "image": null, "order": 0, "config": {}, "created_at": "2026-10-15T14:47:46.251787+00:00", "updated_at": "2026-10-15T14:47:46.251787+00:00"},
+    {"id": 9, "name": "CITTA_LAB_SALA_06", "image": null, "order": 0, "config": {}, "created_at": "2026-10-15T14:47:46.251787+00:00", "updated_at": "2026-10-15T14:47:46.251787+00:00"},
+    {"id": 10, "name": "CITTA_LAB_SALA_07", "image": null, "order": 0, "config": {}, "created_at": "2026-10-15T14:47:46.251787+00:00", "updated_at": "2026-10-15T14:47:46.251787+00:00"},
+    {"id": 11, "name": "CITTA_LAB_SALA_08", "image": null, "order": 0, "config": {}, "created_at": "2026-10-15T14:47:46.251787+00:00", "updated_at": "2026-10-15T14:47:46.251787+00:00"},
+    {"id": 12, "name": "CITTA_LAB_SALA_09", "image": null, "order": 0, "config": {}, "created_at": "2026-10-15T14:47:46.251787+00:00", "updated_at": "2026-10-15T14:47:46.251787+00:00"},
+    {"id": 13, "name": "CITTA_LAB_SALA_10", "image": null, "order": 0, "config": {}, "created_at": "2026-10-15T14:47:46.251787+00:00", "updated_at": "2026-10-15T14:47:46.251787+00:00"}
+  ]
+}

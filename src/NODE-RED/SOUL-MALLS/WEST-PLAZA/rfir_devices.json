@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "West Plaza - NOVA - 2026-09-28 (Soul Malls)",
+    "table": "rfir_devices",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:44 UTC",
+    "source": "dump-cadastro.py → ssh root@200:4bfa:32e0:da5f:74bd:ab68:202b:20a7 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

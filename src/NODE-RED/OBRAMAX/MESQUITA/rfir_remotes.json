@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Mesquita (Obramax)",
+    "table": "rfir_remotes",
+    "rowCount": 0,
+    "capturedAt": "2026-11-16 14:48 UTC",
+    "source": "dump-cadastro.py → ssh root@203:1800:d709:3207:2e0e:bfc1:8aa1:4281 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}
