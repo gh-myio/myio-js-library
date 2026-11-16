@@ -45,6 +45,33 @@
 -- antigo ignora chave de topo desconhecida, mas ignoraria `channel` dentro do
 -- rename[] e faria o rename completo. Consumidor deve checar result.version
 -- >= '5.6' (ou a presença de channels_renamed_single) antes de confiar na escrita.
+--
+-- v5.7 (2026-11-16): AC infravermelho ("AC <n>") no MESMO formato que o app cria
+-- (gateways/api/lib/routes/devices.js → create: rfir_device + rfir_remote numa
+-- transação) e que o erlradio lê (db.erl row_to_slave só conhece outlet,
+-- light_switch, three_phase_sensor e infrared — um slave 'remote' quebraria o
+-- get_slaves). Padrão confirmado nos dumps de 2026-11-16 (149 slaves IR na frota,
+-- Raiz Educação/Souza Aguiar/Supervia CCO/Praia Grande):
+--   - slaves: type 'infrared' (era 'remote'), code '002-002-002-014',
+--     temperature_correction 0, channels 1, version = devices[].version ou '7.0.0'
+--     (firmware IR; NÃO usa o payload.version, que é o dos medidores);
+--   - channels: NENHUMA row (o slave IR é montado a partir de rfir_devices; antes
+--     caía no default v4 e criava 1 canal 'remote' inútil). `channels` explícito
+--     no device continua sendo honrado;
+--   - rfir_devices: type 'ir' (era devices[].type/'outlet'), category
+--     devices[].category ou 'ac', output devices[].output ou 'both';
+--     command_on_id/command_off_id ficam NULL (capturados depois pelo app);
+--   - rfir_remotes: 1 por device, CRU (sem botões/comandos), nome
+--     'Controle  - <AC n>' (dois espaços, igual ao app) — só cria se o device
+--     ainda não tiver remote (idempotente). É nele que o app pendura os botões
+--     (rfir_buttons INNER JOIN rfir_remotes);
+--   - ambient: só ambients_rfir_slaves_rel (deixa de gravar
+--     ambients_rfir_devices_rel, que tem 0 linhas em toda a frota).
+--   remove[]: apaga rfir_buttons → rfir_remotes → rfir_commands dos rfir_devices
+--   do slave antes do próprio rfir_device (FKs são ON DELETE SET NULL → antes
+--   sobravam remotes/comandos órfãos, ex.: remote 31 da Raiz Educação).
+--   Contadores novos: rfir_remotes_created, rfir_remotes_removed,
+--   rfir_commands_removed, rfir_buttons_removed.
 
 CREATE OR REPLACE FUNCTION provision_central(payload JSONB)
 RETURNS JSONB
@@ -95,8 +122,11 @@ DECLARE
   rc_type TEXT;
   rc_matches INT;
   rc_row_id INT;
+  -- v5.7 — AC infravermelho
+  dev_version TEXT;
+  cnt INT;
   result JSONB := '{
-    "version":"5.6",
+    "version":"5.7",
     "ambients_created":0, "ambients_reused":0,
     "ambients_cleaned":0, "ambient_rels_cleaned":0,
     "slaves_created":0, "slaves_reused":0,
@@ -107,6 +137,8 @@ DECLARE
     "channels_renamed_single":0,
     "rfir_devices_created":0, "rfir_devices_reused":0,
     "rfir_devices_removed":0, "rfir_devices_renamed":0,
+    "rfir_remotes_created":0, "rfir_remotes_removed":0,
+    "rfir_commands_removed":0, "rfir_buttons_removed":0,
     "environment_updated":[],
     "errors":[]
   }'::JSONB;
@@ -176,10 +208,13 @@ BEGIN
 
     IF is_ac THEN
       rm_name := 'RM ' || substring(device_name from 4);
-      slave_type := 'remote';
+      -- v5.7 — 'infrared' (o erlradio não conhece 'remote'); firmware IR = 7.0.0
+      slave_type := 'infrared';
+      dev_version := COALESCE(device->>'version', '7.0.0');
     ELSE
       rm_name := device_name;
       slave_type := COALESCE(device->>'type','outlet');
+      dev_version := slave_version;
     END IF;
 
     -- slave create/reuse (v4) — sets slave_id_var + slave_was_created
@@ -193,7 +228,7 @@ BEGIN
         INSERT INTO slaves (id, name, type, addr_low, addr_high, channels, aggregate, version, created_at, updated_at)
         VALUES (explicit_slave_id, rm_name, slave_type,
                 (device->>'addr_low')::INT, (device->>'addr_high')::INT,
-                1, TRUE, slave_version, NOW(), NOW())
+                1, TRUE, dev_version, NOW(), NOW())
         RETURNING id INTO slave_id_var;
         slave_was_created := TRUE;
         result := jsonb_set(result, '{slaves_created}', to_jsonb((result->>'slaves_created')::INT + 1));
@@ -212,7 +247,7 @@ BEGIN
         INSERT INTO slaves (name, type, addr_low, addr_high, channels, aggregate, version, created_at, updated_at)
         VALUES (rm_name, slave_type,
                 (device->>'addr_low')::INT, (device->>'addr_high')::INT,
-                1, TRUE, slave_version, NOW(), NOW())
+                1, TRUE, dev_version, NOW(), NOW())
         RETURNING id INTO slave_id_var;
         slave_was_created := TRUE;
         result := jsonb_set(result, '{slaves_created}', to_jsonb((result->>'slaves_created')::INT + 1));
@@ -224,8 +259,16 @@ BEGIN
     -- v5.3 — slave REUSADO: atualiza o version para o configurado (corrige '1.0.0'
     -- antigos e mantém consistente entre re-provisionamentos).
     IF NOT slave_was_created THEN
-      UPDATE slaves SET version = slave_version, updated_at = NOW()
-       WHERE id = slave_id_var AND version IS DISTINCT FROM slave_version;
+      UPDATE slaves SET version = dev_version, updated_at = NOW()
+       WHERE id = slave_id_var AND version IS DISTINCT FROM dev_version;
+    END IF;
+
+    -- v5.7 — slave IR recém-criado: completa os campos que o app grava
+    -- (code do produto IR + temperature_correction 0). Slave IR reusado: intocado.
+    IF is_ac AND slave_was_created THEN
+      UPDATE slaves
+         SET code = '002-002-002-014', temperature_correction = 0, channels = 1, updated_at = NOW()
+       WHERE id = slave_id_var;
     END IF;
 
     -- v5.5 — clamp opcional: só age se a chave `clamp_type` vier no device.
@@ -327,6 +370,10 @@ BEGIN
       -- Antes caia no default v4 e criava 1 canal lixo (channel=1, type
       -- three_phase_sensor) — cf. Taboao 2026-10-19, 05-fix-three-phase-channels.sql.
       UPDATE slaves SET channels = 0, updated_at = NOW() WHERE id = slave_id_var;
+    ELSIF slave_was_created AND is_ac THEN
+      -- v5.7 — slave IR não tem channel row (o erlradio monta o infrared a partir
+      -- de rfir_devices; 0 channels nos 149 IR da frota). slaves.channels fica 1.
+      NULL;
     ELSIF slave_was_created THEN
       INSERT INTO channels (type, channel, name, slave_id, config, created_at, updated_at)
       VALUES (slave_type, 1, rm_name, slave_id_var, '{}'::json, NOW(), NOW());
@@ -340,12 +387,15 @@ BEGIN
     VALUES (ambient_id_var, slave_id_var, NOW(), NOW())
     ON CONFLICT DO NOTHING;
 
-    -- AC also gets a rfir_device pointing to the RM slave (unchanged)
+    -- AC → rfir_device apontando p/ o slave RM + 1 rfir_remote cru (v5.7, padrão do app)
     IF is_ac THEN
       SELECT id INTO rfir_id_var FROM rfir_devices WHERE name = device_name LIMIT 1;
       IF rfir_id_var IS NULL THEN
-        INSERT INTO rfir_devices (name, type, category, slave_id, created_at, updated_at)
-        VALUES (device_name, COALESCE(device->>'type','outlet'), 'ac', slave_id_var, NOW(), NOW())
+        INSERT INTO rfir_devices (name, type, category, output, slave_id, created_at, updated_at)
+        VALUES (device_name, 'ir',
+                COALESCE(device->>'category', 'ac'),
+                COALESCE(device->>'output', 'both'),
+                slave_id_var, NOW(), NOW())
         RETURNING id INTO rfir_id_var;
         result := jsonb_set(result, '{rfir_devices_created}', to_jsonb((result->>'rfir_devices_created')::INT + 1));
       ELSE
@@ -354,9 +404,13 @@ BEGIN
         result := jsonb_set(result, '{rfir_devices_reused}', to_jsonb((result->>'rfir_devices_reused')::INT + 1));
       END IF;
 
-      INSERT INTO ambients_rfir_devices_rel (ambient_id, rfir_device_id, created_at, updated_at)
-      VALUES (ambient_id_var, rfir_id_var, NOW(), NOW())
-      ON CONFLICT DO NOTHING;
+      -- remote cru (sem botões/comandos) — só se o device ainda não tiver um
+      IF NOT EXISTS (SELECT 1 FROM rfir_remotes WHERE rfir_device_id = rfir_id_var) THEN
+        INSERT INTO rfir_remotes (name, rfir_device_id, created_at, updated_at)
+        VALUES ('Controle  - ' || device_name, rfir_id_var, NOW(), NOW());
+        result := jsonb_set(result, '{rfir_remotes_created}', to_jsonb((result->>'rfir_remotes_created')::INT + 1));
+      END IF;
+      -- v5.7 — sem ambients_rfir_devices_rel (o vínculo do ambient é o do slave, acima)
     END IF;
   END LOOP;
 
@@ -367,6 +421,22 @@ BEGIN
     SELECT value FROM jsonb_array_elements(COALESCE(payload->'remove', '[]'::jsonb))
   LOOP
     slave_id_var := (remove_entry->>'slave_id')::INTEGER;
+    -- v5.7 — limpa a cadeia RFIR do slave antes do rfir_device (FKs SET NULL
+    -- deixariam órfãos): botões → remotes → comandos.
+    DELETE FROM rfir_buttons
+     WHERE rfir_remote_id IN (SELECT r.id FROM rfir_remotes r
+                                JOIN rfir_devices d ON d.id = r.rfir_device_id
+                               WHERE d.slave_id = slave_id_var);
+    GET DIAGNOSTICS cnt = ROW_COUNT;
+    result := jsonb_set(result, '{rfir_buttons_removed}', to_jsonb((result->>'rfir_buttons_removed')::INT + cnt));
+    DELETE FROM rfir_remotes
+     WHERE rfir_device_id IN (SELECT id FROM rfir_devices WHERE slave_id = slave_id_var);
+    GET DIAGNOSTICS cnt = ROW_COUNT;
+    result := jsonb_set(result, '{rfir_remotes_removed}', to_jsonb((result->>'rfir_remotes_removed')::INT + cnt));
+    DELETE FROM rfir_commands
+     WHERE rfir_device_id IN (SELECT id FROM rfir_devices WHERE slave_id = slave_id_var);
+    GET DIAGNOSTICS cnt = ROW_COUNT;
+    result := jsonb_set(result, '{rfir_commands_removed}', to_jsonb((result->>'rfir_commands_removed')::INT + cnt));
     DELETE FROM ambients_rfir_devices_rel
      WHERE rfir_device_id IN (SELECT id FROM rfir_devices WHERE slave_id = slave_id_var);
     DELETE FROM ambients_rfir_slaves_rel WHERE slave_id = slave_id_var;
