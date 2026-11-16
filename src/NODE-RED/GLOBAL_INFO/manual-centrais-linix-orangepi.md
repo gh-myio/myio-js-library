@@ -90,6 +90,7 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Shopping Capim Dourado 2.0 - 2026-07-30                                                                                                                                         | `200:9738:d165:f821:68d3:2852:d822:a748`     | `84638207-ac49-4adf-a033-4731dbb920c2`     | `75.216.106.156`     | `102`      |
 | ~~West Plaza~~ ⚠️ **SUBSTITUÍDA 2026-09-28** — substituída pela central nova abaixo                                                                                             | ~~`203:1211:7a3a:89f:4ce2:4482:13:e8b`~~     | ~~`1982b47d-2e82-40df-94cc-f89ae12cba58`~~ | ~~`137.177.222.39`~~ | ~~`1117`~~ |
 | West Plaza - NOVA - 2026-09-28                                                                                                                                                  | `200:4bfa:32e0:da5f:74bd:ab68:202b:20a7`     | `61b789a3-23cc-45b2-91a3-5ec1dfc2ac6d`     | `70.96.63.2222`      | `77`       |
+| Goiabeiras Shopping                                                                                                                                                             | `200:658:d18d:2fc2:26ce:e013:29ac:5831`      | `9a99a1e2-b6de-47b7-962e-8675c8e81721`     | —                    | —          |
 
 > **Central Ilha Plaza AL2 - 2026-10-22** — a central de bancada **"CEntral Rodrigo Citta 5"** (IPv6 `202:c116:b4a1:d987:7cc5:e7da:148e:1614`, `central_uuid` = `c88ab239-8c22-4251-892a-02737590fefb`) foi **realocada para o lugar da Ilha Plaza AL2** (`200:24a5:8297:cce7:59d2:8126:6d67:7e4d`, gateway `53052549-cc8c-4ca2-a597-58e0577548a2`), que foi **condenada**. Restore do banco da AL2 antiga → central nova: ticket [ED-1356](https://myio.atlassian.net/browse/ED-1356). Central ID / frequência da nova: a preencher após o restore.
 
@@ -124,9 +125,9 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: RAIZ EDUCAÇÃO
 
-| Central               | IPv6                                  | Gateway ID | Central ID | Frequência |
-| --------------------- | ------------------------------------- | ---------- | ---------- | ---------- |
-| Central Raiz Educação | `201:3bed:541b:8c61:3e69:9:d453:1bef` | —          | —          | —          |
+| Central               | IPv6                                  | Gateway ID                             | Central ID      | Frequência |
+| --------------------- | ------------------------------------- | -------------------------------------- | --------------- | ---------- |
+| Central Raiz Educação | `201:3bed:541b:8c61:3e69:9:d453:1bef` | `1deb2d86-2b76-4f88-b86f-18b3a3f33b98` | `197.20.86.102` | `102`      |
 
 #### Holding: HCOR
 
@@ -295,6 +296,9 @@ ssh -i id_rsa root@200:9738:d165:f821:68d3:2852:d822:a748
 
 # West Plaza - NOVA - 2026-09-28 (Soul Malls)
 ssh -i id_rsa root@200:4bfa:32e0:da5f:74bd:ab68:202b:20a7
+
+# Goiabeiras Shopping (Soul Malls)
+ssh -i id_rsa root@200:658:d18d:2fc2:26ce:e013:29ac:5831
 
 # Deodoro (Supervia Estações) — ⚠️ CONDENADA 2026-10-22 (substituída pela central abaixo)
 # ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
