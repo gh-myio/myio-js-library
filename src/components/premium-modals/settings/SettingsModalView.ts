@@ -12,6 +12,7 @@ import { createTicketsTab } from './tickets/TicketsTab';
 import { renderDeviceIncidentsTab, renderDeviceWorkOrdersTab } from './myio-ops/DeviceOpsTabs';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import { loadStoreSegmentCatalog, activitiesForSegment } from './commercialCatalog';
+import { isCommercialProfile } from './commercialTwin';
 import type { UserInfo, PermissionSet } from './annotations/types';
 import {
   createInputDateRangePickerInsideDIV,
@@ -1239,6 +1240,8 @@ export class SettingsModalView {
    * opções preenchidas em initCommercialFields após carregar o catálogo).
    */
   private getCommercialFieldsHTML(): string {
+    // Dados de cadastro só fazem sentido para lojas: medidor 3F_MEDIDOR e hidrômetro HIDROMETRO
+    if (!isCommercialProfile(this.config.deviceProfile)) return '';
     const ro = this.canEditCommercial() ? '' : ' readonly';
     // Nome do customer: config → fallback MyIOUtils.customerName (setado pelo MAIN_VIEW)
     const customerName = String(
@@ -1272,6 +1275,7 @@ export class SettingsModalView {
             </select>
           </div>
         </div>
+        <div class="commercial-twin-note" id="commercial-twin-note" hidden></div>
       </div>
     `;
   }
@@ -1281,6 +1285,14 @@ export class SettingsModalView {
     const segmentEl = this.modal.querySelector('#segment') as HTMLSelectElement | null;
     const activityEl = this.modal.querySelector('#activity') as HTMLSelectElement | null;
     if (!segmentEl || !activityEl) return;
+
+    // Loja com medidor de energia + hidrômetro (mesmo identifier): dados compartilhados entre os dois
+    const twinNote = this.modal.querySelector('#commercial-twin-note') as HTMLElement | null;
+    const twinLabel = String(saved._commercialTwinLabel || '').trim();
+    if (twinNote && twinLabel) {
+      twinNote.textContent = `Compartilhado com ${twinLabel} (mesmo identificador) — ao salvar, grava nos dois.`;
+      twinNote.hidden = false;
+    }
 
     const esc = (s: string) =>
       s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -3202,6 +3214,14 @@ export class SettingsModalView {
           flex-direction: column;
           gap: 5px;
         }
+        .commercial-twin-note {
+          margin-top: 8px;
+          font-size: 11px;
+          color: #6b7280;
+        }
+        .commercial-twin-note[hidden] {
+          display: none;
+        }
         select.identity-input {
           height: 30px;
           cursor: pointer;
@@ -4248,6 +4268,7 @@ export class SettingsModalView {
         .theme-dark .commercial-title { color: #ced4da; }
         .theme-dark .commercial-sep { color: #495057; }
         .theme-dark .commercial-customer { color: #c4b5fd; }
+        .theme-dark .commercial-twin-note { color: #9ca3af; }
         .theme-dark select.identity-input:disabled { background: #1a1b1e; color: #6c757d; }
         .theme-dark .device-name-subtitle {
           color: #6c757d;

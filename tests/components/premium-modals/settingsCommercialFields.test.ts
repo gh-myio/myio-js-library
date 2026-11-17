@@ -20,6 +20,7 @@ function openView(overrides: Record<string, unknown> = {}, initialData: Record<s
   const view = new SettingsModalView({
     title: 'Settings',
     domain: 'energy',
+    deviceProfile: '3F_MEDIDOR', // dados de cadastro só existem para lojas (3F_MEDIDOR / HIDROMETRO)
     mapInstantaneousPower: {},
     deviceMapInstaneousPower: {},
     onSave: vi.fn().mockResolvedValue(undefined),
@@ -167,5 +168,36 @@ describe('SettingsModalView — campos comerciais', () => {
     expect(q<HTMLInputElement>('#contract')!.value).toBe('C-1');
     expect(q<HTMLSelectElement>('#segment')!.value).toBe('Alimentação');
     expect(q<HTMLSelectElement>('#activity')!.value).toBe('Food truck');
+  });
+});
+
+describe('SettingsModalView — dados de cadastro só para lojas', () => {
+  it('HIDROMETRO também mostra a seção', () => {
+    openView({ userEmail: 'rodrigo@myio.com.br', deviceProfile: 'HIDROMETRO', domain: 'water' });
+    expect(q('#abl')).not.toBeNull();
+    expect(q('#segment')).not.toBeNull();
+  });
+
+  it('outros deviceProfiles (ou sem profile) escondem a seção', () => {
+    for (const deviceProfile of ['ELEVADOR', 'HIDROMETRO_AREA_COMUM', 'TERMOSTATO', undefined]) {
+      openView({ userEmail: 'rodrigo@myio.com.br', deviceProfile });
+      expect(q('.commercial-block')).toBeNull();
+      expect(q('#abl')).toBeNull();
+      expect(q('#contract')).toBeNull();
+    }
+  });
+
+  it('nota "Compartilhado com …" quando há device gêmeo (mesmo identifier)', async () => {
+    openView({ userEmail: 'rodrigo@myio.com.br', deviceProfile: 'HIDROMETRO' }, { _commercialTwinLabel: 'LOJA 101 ENERGIA' });
+    await flush();
+    const note = q<HTMLElement>('#commercial-twin-note')!;
+    expect(note.hidden).toBe(false);
+    expect(note.textContent).toContain('LOJA 101 ENERGIA');
+  });
+
+  it('sem gêmeo, a nota fica escondida', async () => {
+    openView({ userEmail: 'rodrigo@myio.com.br' });
+    await flush();
+    expect(q<HTMLElement>('#commercial-twin-note')!.hidden).toBe(true);
   });
 });

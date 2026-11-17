@@ -2,8 +2,17 @@ import { OpenDashboardPopupSettingsParams, PersistResult, SettingsEvent } from '
 import { SettingsModalView } from './SettingsModalView';
 import { DefaultSettingsPersister } from './SettingsPersister';
 import { DefaultSettingsFetcher } from './SettingsFetcher';
+import {
+  CommercialTwin,
+  findCommercialTwins,
+  isCommercialProfile,
+  mergeTwinCommercial,
+  pickCommercial,
+} from './commercialTwin';
 
 export class SettingsController {
+  /** Device(s) gêmeo(s) da loja (3F_MEDIDOR ↔ HIDROMETRO, mesmo identifier) — recebem os dados comerciais no save. */
+  private commercialTwins: CommercialTwin[] = [];
   private view: SettingsModalView;
   private persister: DefaultSettingsPersister;
   private fetcher: DefaultSettingsFetcher;
@@ -134,7 +143,42 @@ export class SettingsController {
       }
     }
 
+    initialData = await this.loadCommercialTwins(initialData);
+
     this.view.render(initialData);
+  }
+
+  /**
+   * Lojas (3F_MEDIDOR / HIDROMETRO): acha o device gêmeo pelo `identifier` (mesmo customer).
+   * O hidrômetro herda ABL/Contrato/Segmento/Atividade do medidor de energia; o medidor de
+   * energia só completa campos vazios. Falha na busca → segue com os dados do próprio device.
+   */
+  private async loadCommercialTwins(initialData: Record<string, any>): Promise<Record<string, any>> {
+    this.commercialTwins = [];
+    if (!isCommercialProfile(this.params.deviceProfile) || !initialData.identifier) return initialData;
+    try {
+      this.commercialTwins = await findCommercialTwins({
+        tbBaseUrl: this.params.api?.tbBaseUrl || window.location.origin,
+        jwtToken: this.params.jwtToken,
+        customerId: this.params.customerId || (window as any).MyIOUtils?.customerTB_ID || null,
+        deviceId: this.params.deviceId,
+        deviceProfile: this.params.deviceProfile,
+        identifier: initialData.identifier,
+      });
+    } catch (error) {
+      console.warn('[SettingsModal] Busca do device gêmeo (dados comerciais) falhou:', error);
+      return initialData;
+    }
+    if (this.commercialTwins.length === 0) return initialData;
+    if (this.commercialTwins.length > 1) {
+      console.warn(
+        '[SettingsModal] Mais de um device gêmeo com o mesmo identifier — herda do primeiro, salva em todos:',
+        this.commercialTwins.map((t) => t.name)
+      );
+    }
+    const merged = mergeTwinCommercial(initialData, this.commercialTwins[0].attrs, this.params.deviceProfile);
+    merged._commercialTwinLabel = this.commercialTwins.map((t) => t.label || t.name).join(', ');
+    return merged;
   }
 
   /**
@@ -337,6 +381,31 @@ export class SettingsController {
       }
     }
 
+    // 3. Lojas: replica os dados comerciais no device gêmeo (energia ↔ água, mesmo identifier)
+    const commercial = pickCommercial(formData);
+    if (this.commercialTwins.length > 0 && Object.keys(commercial).length > 0) {
+      result.commercialTwins = [];
+      for (const twin of this.commercialTwins) {
+        const twinName = twin.label || twin.name;
+        try {
+          const twinResult = await this.persister.saveServerScopeAttributes(twin.id, {
+            ...commercial,
+            lastUpdatedTime: Date.now(),
+          });
+          result.commercialTwins.push({ deviceId: twin.id, name: twinName, ok: twinResult.ok, error: twinResult.error });
+          if (!twinResult.ok) result.ok = false;
+        } catch (error) {
+          result.commercialTwins.push({
+            deviceId: twin.id,
+            name: twinName,
+            ok: false,
+            error: { code: 'UNKNOWN_ERROR', message: error.message || 'Failed to save twin device', cause: error },
+          });
+          result.ok = false;
+        }
+      }
+    }
+
     return result;
   }
 
@@ -362,6 +431,12 @@ export class SettingsController {
 
     if (result.serverScope?.error) {
       errors.push(`Settings: ${result.serverScope.error.message}`);
+    }
+
+    for (const twin of result.commercialTwins || []) {
+      if (!twin.ok) {
+        errors.push(`Dados de cadastro não replicados em ${twin.name}: ${twin.error?.message || 'erro'}`);
+      }
     }
 
     return errors.length > 0 ? errors.join('; ') : 'Failed to save settings';

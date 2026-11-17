@@ -158,6 +158,13 @@ export interface PersistResult {
     updatedKeys?: string[]; 
     error?: { code: string; message: string; cause?: unknown } 
   };
+  /** Dados comerciais replicados no device gêmeo da loja (3F_MEDIDOR ↔ HIDROMETRO, mesmo identifier). */
+  commercialTwins?: Array<{
+    deviceId: string;
+    name: string;
+    ok: boolean;
+    error?: { code: string; message: string; cause?: unknown };
+  }>;
   timestamp?: string;
 }
 
