@@ -337,7 +337,7 @@ describe('openManualDeviceModal com provisioner (RFC-0240)', () => {
     fill();
     btn('Revisar').click();
     await flush();
-    expect(plan).toHaveBeenCalledWith({ domain: 'energy', label: 'Burger King', identifier: 'STB09999' });
+    expect(plan).toHaveBeenCalledWith({ domain: 'energy', label: 'Burger King', identifier: 'STB09999', kind: 'manual' });
     expect(apply).not.toHaveBeenCalled();
     expect(body().textContent).toContain('Nada foi gravado ainda');
     expect(body().textContent).toContain('3F STB_LOJA_001_MANUAL');
@@ -413,5 +413,131 @@ describe('openManualDeviceModal com provisioner (RFC-0240)', () => {
     expect(body().textContent).toContain('Nada foi criado: Ingestion HTTP 500');
     btn('Fechar').click();
     expect(onCreated).not.toHaveBeenCalled();
+  });
+
+  const select = (name: string) => document.querySelector<HTMLSelectElement>(`select[name="${name}"]`);
+  const CENTRALS = [
+    { id: 'c-1', name: 'Central A', deviceCount: 120 },
+    { id: 'c-2', name: 'Central B', deviceCount: 3 },
+  ];
+
+  it('várias centrais: exige escolher e passa centralId ao plano (vale também para o manual)', async () => {
+    const plan = vi.fn(async () => PLAN);
+    const options = vi.fn(async () => ({ centrals: CENTRALS }));
+    openManualDeviceModal({ domain: 'energy', customerId: CID, token: 't', provisioner: { options, plan, apply: vi.fn() } });
+    expect(select('centralId')!.disabled).toBe(true); // carregando
+    await flush();
+    expect(options).toHaveBeenCalledWith({ domain: 'energy', kind: 'manual' });
+    expect([...select('centralId')!.options].map((o) => o.value)).toEqual(['', 'c-1', 'c-2']);
+
+    fill();
+    btn('Revisar').click();
+    await flush();
+    expect(plan).not.toHaveBeenCalled();
+    expect(body().textContent).toContain('Escolha a central.');
+    expect(input('label').value).toBe('Burger King');
+
+    select('centralId')!.value = 'c-2';
+    btn('Revisar').click();
+    await flush();
+    expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'manual', centralId: 'c-2' }));
+  });
+
+  it('uma central só: sem select, usa ela', async () => {
+    const plan = vi.fn(async () => PLAN);
+    const options = vi.fn(async () => ({ centrals: [CENTRALS[0]] }));
+    openManualDeviceModal({ domain: 'water', customerId: CID, token: 't', provisioner: { options, plan, apply: vi.fn() } });
+    await flush();
+    expect(select('centralId')).toBeNull();
+    fill();
+    btn('Revisar').click();
+    await flush();
+    expect(plan).toHaveBeenCalledWith(expect.objectContaining({ centralId: 'c-1' }));
+  });
+
+  it('standard: título sem "manual", select de Tipo com default e deviceProfile no plano', async () => {
+    const plan = vi.fn(async () => PLAN);
+    openManualDeviceModal({
+      domain: 'energy',
+      customerId: CID,
+      token: 't',
+      kind: 'standard',
+      deviceProfiles: ['3F_MEDIDOR', 'ELEVADOR'],
+      defaultDeviceProfile: 'ELEVADOR',
+      provisioner: { plan, apply: vi.fn() },
+    });
+    expect(document.body.textContent).toContain('Novo medidor de energia');
+    expect(document.body.textContent).not.toContain('Novo medidor de energia manual');
+    expect(select('deviceProfile')!.value).toBe('ELEVADOR');
+
+    select('deviceProfile')!.value = '';
+    fill();
+    btn('Revisar').click();
+    await flush();
+    expect(body().textContent).toContain('Escolha o tipo.');
+
+    select('deviceProfile')!.value = '3F_MEDIDOR';
+    btn('Revisar').click();
+    await flush();
+    expect(plan).toHaveBeenCalledWith({
+      domain: 'energy',
+      label: 'Burger King',
+      identifier: 'STB09999',
+      kind: 'standard',
+      deviceProfile: '3F_MEDIDOR',
+    });
+  });
+
+  it('standard sem provisioner → erro', () => {
+    expect(() => openManualDeviceModal({ domain: 'energy', customerId: CID, token: 't', kind: 'standard' })).toThrow(/provisioner/);
+  });
+});
+
+describe('device normal (standard)', () => {
+  it('resolveStandardDeviceName: sigla do asset manual + LOJA + próximo NNN (sem _MANUAL)', async () => {
+    const { resolveStandardDeviceName } = await import('../../../src/components/premium-modals/manual-device');
+    const { calls, fetchImpl } = mockTb({ existing: [{ name: '3F STB_LOJA_003' }, { name: '3F STB_LOJA_009_MANUAL' }] });
+    const r = await resolveStandardDeviceName({ domain: 'energy', deviceProfile: '3F_MEDIDOR', customerId: CID, token: 't', fetchImpl });
+    expect(r).toMatchObject({ name: '3F STB_LOJA_004', deviceProfile: '3F_MEDIDOR', sigla: 'STB' });
+    expect(calls.every((c) => c.method === 'GET')).toBe(true);
+  });
+
+  it('createManualDevice com profile + asset: usa o asset dado e grava deviceProfile', async () => {
+    const { calls, fetchImpl } = mockTb();
+    const r = await createManualDevice({
+      domain: 'energy',
+      label: 'Loja X',
+      identifier: 'L1',
+      customerId: CID,
+      token: 't',
+      fetchImpl,
+      name: '3F STB_LOJA_004',
+      deviceProfile: '3F_MEDIDOR',
+      asset: { id: 'sem-1', name: 'DevicesSemAssetShopping X' },
+    });
+    expect(r).toMatchObject({ name: '3F STB_LOJA_004', deviceProfile: '3F_MEDIDOR', assetId: 'sem-1' });
+    expect(calls.some((c) => c.url.includes('/assets?'))).toBe(false); // não procura o asset manual
+    expect(calls.find((c) => c.url.endsWith('/api/relation'))!.body.from.id).toBe('sem-1');
+    expect(calls.find((c) => c.url.includes('/attributes/SERVER_SCOPE'))!.body.deviceProfile).toBe('3F_MEDIDOR');
+    expect(calls.find((c) => c.url.endsWith('/api/device'))!.body.type).toBe('3F_MEDIDOR');
+  });
+
+  it('asset sem nome reservado → erro', async () => {
+    const { fetchImpl } = mockTb();
+    await expect(
+      createManualDevice({ domain: 'energy', label: 'X', identifier: 'Y', customerId: CID, token: 't', fetchImpl, asset: { id: 'a', name: 'A' } })
+    ).rejects.toBeInstanceOf(ManualDeviceError);
+  });
+});
+
+describe('nome do device normal', () => {
+  it('lojas usam LOJA; demais usam o profile; ignora *_MANUAL na sequência', async () => {
+    const { standardDeviceName, nextStandardSeq } = await import('../../../src/components/premium-modals/manual-device');
+    expect(standardDeviceName('energy', 'STB', '3F_MEDIDOR', 14)).toBe('3F STB_LOJA_014');
+    expect(standardDeviceName('water', 'STB', 'HIDROMETRO', 2)).toBe('Hidr. STB_LOJA_002');
+    expect(standardDeviceName('energy', 'STB', 'ELEVADOR', 1)).toBe('3F STB_ELEVADOR_001');
+    expect(
+      nextStandardSeq('energy', 'STB', '3F_MEDIDOR', ['3F STB_LOJA_007', '3F STB_LOJA_009_MANUAL', 'Hidr. STB_LOJA_020', 'x'])
+    ).toBe(8);
   });
 });

@@ -12,6 +12,7 @@ import {
   createManualDevice,
   ManualDeviceError,
   MANUAL_DEVICE_PROFILES,
+  STANDARD_DEVICE_PROFILES,
   manualDeviceName,
   type CreateManualDeviceParams,
   type CreateManualDeviceResult,
@@ -56,8 +57,29 @@ export interface ManualProvisionResult {
   result?: CreateManualDeviceResult;
 }
 
+/** 'manual' = device *_MANUAL (aba Disp. Manuais); 'standard' = device real dos widgets normais. */
+export type ManualDeviceKind = 'manual' | 'standard';
+
+export interface ManualProvisionInput {
+  domain: ManualDeviceDomain;
+  label: string;
+  identifier: string;
+  kind: ManualDeviceKind;
+  /** Só 'standard': profile escolhido no select */
+  deviceProfile?: string;
+  /** Central escolhida (obrigatória quando o customer tem mais de uma) */
+  centralId?: string;
+}
+
+export interface ManualProvisionOptions {
+  /** Centrais do customer; com mais de uma, o formulário pede a escolha */
+  centrals: Array<{ id: string; name: string; deviceCount?: number }>;
+}
+
 export interface ManualDeviceProvisioner {
-  plan(input: { domain: ManualDeviceDomain; label: string; identifier: string }): Promise<ManualProvisionPlan>;
+  /** Opcional: dados do formulário (centrais) carregados ao abrir */
+  options?(input: { domain: ManualDeviceDomain; kind: ManualDeviceKind }): Promise<ManualProvisionOptions>;
+  plan(input: ManualProvisionInput): Promise<ManualProvisionPlan>;
   apply(plan: ManualProvisionPlan, onStep: (step: ManualProvisionStep) => void): Promise<ManualProvisionResult>;
 }
 
@@ -69,12 +91,40 @@ export interface OpenManualDeviceModalParams extends Omit<CreateManualDevicePara
   container?: HTMLElement;
   /** RFC-0240: cria nos 4 sistemas (plano → criar). Sem ele, cria só no ThingsBoard. */
   provisioner?: ManualDeviceProvisioner;
+  /** Default 'manual'. 'standard' exige `provisioner` e mostra o select de tipo. */
+  kind?: ManualDeviceKind;
+  /** 'standard': profiles do select (default STANDARD_DEVICE_PROFILES[domain]) */
+  deviceProfiles?: string[];
+  /** 'standard': profile pré-selecionado */
+  defaultDeviceProfile?: string;
 }
 
-const DOMAIN_TEXT: Record<ManualDeviceDomain, { title: string; icon: string; noun: string }> = {
-  energy: { title: 'Novo medidor de energia manual', icon: '⚡', noun: 'Medidor de energia' },
-  water: { title: 'Novo hidrômetro manual', icon: '💧', noun: 'Hidrômetro' },
+type DomainText = { title: string; icon: string; noun: string; hint: string };
+const MANUAL_HINT = 'Cadastre um ponto de leitura manual. Ele aparece nesta lista e não entra nos totais nem nos relatórios.';
+const STANDARD_HINT = 'Cadastre um medidor ligado à central. Ele é criado no GCDR, Ingestion, ThingsBoard e na central.';
+const DOMAIN_TEXT: Record<ManualDeviceKind, Record<ManualDeviceDomain, DomainText>> = {
+  manual: {
+    energy: { title: 'Novo medidor de energia manual', icon: '⚡', noun: 'Medidor de energia', hint: MANUAL_HINT },
+    water: { title: 'Novo hidrômetro manual', icon: '💧', noun: 'Hidrômetro', hint: MANUAL_HINT },
+  },
+  standard: {
+    energy: { title: 'Novo medidor de energia', icon: '⚡', noun: 'Medidor de energia', hint: STANDARD_HINT },
+    water: { title: 'Novo hidrômetro', icon: '💧', noun: 'Hidrômetro', hint: STANDARD_HINT },
+  },
 };
+
+/** Estado do formulário (valores + listas dos selects) */
+interface FormState {
+  kind: ManualDeviceKind;
+  domain: ManualDeviceDomain;
+  label: string;
+  identifier: string;
+  deviceProfile: string;
+  centralId: string;
+  profiles: string[];
+  /** null = carregando; [] ou 1 = sem select */
+  centrals: ManualProvisionOptions['centrals'] | null;
+}
 
 const STYLE_ID = 'myio-manualdev-styles';
 
@@ -142,12 +192,50 @@ function injectStyles(): void {
   document.head.appendChild(style);
 }
 
-function formHtml(domain: ManualDeviceDomain, values: { label: string; identifier: string }, error?: string, detail?: string): string {
-  const t = DOMAIN_TEXT[domain];
+function selectHtml(name: string, label: string, placeholder: string, opts: Array<{ value: string; text: string }>, value: string, disabled = false): string {
+  return `
+      <label class="myio-manualdev__field">
+        <span class="myio-manualdev__label">${escapeHtml(label)}</span>
+        <select class="myio-manualdev__input" name="${name}"${disabled ? ' disabled' : ''}>
+          <option value="">${escapeHtml(placeholder)}</option>
+          ${opts
+            .map((o) => `<option value="${escapeHtml(o.value)}"${o.value === value ? ' selected' : ''}>${escapeHtml(o.text)}</option>`)
+            .join('')}
+        </select>
+      </label>`;
+}
+
+/** Selects extras: Tipo (device normal) e Central (quando o customer tem mais de uma). */
+function extraFieldsHtml(s: FormState): string {
+  const profile =
+    s.kind === 'standard'
+      ? selectHtml('deviceProfile', 'Tipo', 'Selecione o tipo', s.profiles.map((p) => ({ value: p, text: p })), s.deviceProfile)
+      : '';
+  let central = '';
+  if (s.centrals === null) {
+    central = selectHtml('centralId', 'Central', 'Carregando centrais…', [], '', true);
+  } else if (s.centrals.length > 1) {
+    central = selectHtml(
+      'centralId',
+      'Central',
+      'Selecione a central',
+      s.centrals.map((c) => ({
+        value: c.id,
+        text: `${c.name || c.id}${typeof c.deviceCount === 'number' ? ` · ${c.deviceCount} devices` : ''}`,
+      })),
+      s.centralId
+    );
+  }
+  return profile + central;
+}
+
+function formHtml(s: FormState, error?: string, detail?: string): string {
+  const t = DOMAIN_TEXT[s.kind][s.domain];
+  const values = s;
   return `
     <form class="myio-manualdev" novalidate>
-      <p class="myio-manualdev__hint">Cadastre um ponto de leitura manual. Ele aparece nesta lista e não entra nos totais nem nos relatórios.</p>
-      <span class="myio-manualdev__type">${t.icon} ${escapeHtml(t.noun)} manual</span>
+      <p class="myio-manualdev__hint">${escapeHtml(t.hint)}</p>
+      <span class="myio-manualdev__type">${t.icon} ${escapeHtml(t.noun)}${s.kind === 'manual' ? ' manual' : ''}</span>
       <label class="myio-manualdev__field">
         <span class="myio-manualdev__label">Etiqueta</span>
         <input class="myio-manualdev__input" name="label" maxlength="80" autocomplete="off"
@@ -158,6 +246,7 @@ function formHtml(domain: ManualDeviceDomain, values: { label: string; identifie
         <input class="myio-manualdev__input" name="identifier" maxlength="40" autocomplete="off"
           placeholder="Ex.: STB01010" value="${escapeHtml(values.identifier)}" />
       </label>
+      ${extraFieldsHtml(s)}
       ${
         error
           ? `<p class="myio-manualdev__error" role="alert">${escapeHtml(error)}${
@@ -173,7 +262,7 @@ function successHtml(domain: ManualDeviceDomain, r: CreateManualDeviceResult, te
   return `
     <div class="myio-manualdev__ok">
       <div class="myio-manualdev__ok-icon">✅</div>
-      <p class="myio-manualdev__ok-title">${escapeHtml(DOMAIN_TEXT[domain].noun)} criado</p>
+      <p class="myio-manualdev__ok-title">${escapeHtml(DOMAIN_TEXT.manual[domain].noun)} criado</p>
       <p class="myio-manualdev__ok-text"><strong>${escapeHtml(r.label)}</strong> · ${escapeHtml(r.identifier)}</p>
       ${
         tech
@@ -254,20 +343,62 @@ function progressHtml(steps: ManualProvisionStep[], message?: string, ok?: boole
     </div>`;
 }
 
+function initialState(params: OpenManualDeviceModalParams, kind: ManualDeviceKind, loadsCentrals: boolean): FormState {
+  const profiles =
+    kind === 'standard'
+      ? (params.deviceProfiles?.length ? params.deviceProfiles : STANDARD_DEVICE_PROFILES[params.domain]).slice()
+      : [];
+  const def = String(params.defaultDeviceProfile || '').toUpperCase();
+  return {
+    kind,
+    domain: params.domain,
+    label: '',
+    identifier: '',
+    deviceProfile: profiles.includes(def) ? def : '',
+    centralId: '',
+    profiles,
+    centrals: loadsCentrals ? null : [],
+  };
+}
+
+/** Lê o que o usuário digitou/escolheu (preserva valores entre re-renderizações). */
+function readForm(body: HTMLElement, s: FormState): void {
+  const val = (name: string) =>
+    (body.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${name}"]`)?.value ?? '').trim();
+  s.label = val('label');
+  s.identifier = val('identifier');
+  if (s.kind === 'standard') s.deviceProfile = val('deviceProfile');
+  if (s.centrals && s.centrals.length > 1) s.centralId = val('centralId');
+}
+
+/** Primeiro campo obrigatório vazio + mensagem; null = formulário completo. */
+function missingField(s: FormState): { name: string; msg: string } | null {
+  if (!s.label) return { name: 'label', msg: 'Informe a etiqueta.' };
+  if (!s.identifier) return { name: 'identifier', msg: 'Informe o identificador.' };
+  if (s.kind === 'standard' && !s.deviceProfile) return { name: 'deviceProfile', msg: 'Escolha o tipo.' };
+  if (s.centrals === null) return { name: 'centralId', msg: 'Aguarde o carregamento das centrais.' };
+  if (s.centrals.length > 1 && !s.centralId) return { name: 'centralId', msg: 'Escolha a central.' };
+  return null;
+}
+
 export function openManualDeviceModal(params: OpenManualDeviceModalParams): StandardModalInstance {
   const domain = params.domain;
   if (!MANUAL_DEVICE_PROFILES[domain]) throw new Error(`[openManualDeviceModal] domínio inválido: ${domain}`);
+  const kind: ManualDeviceKind = params.kind === 'standard' ? 'standard' : 'manual';
+  if (kind === 'standard' && !params.provisioner) {
+    throw new Error('[openManualDeviceModal] kind "standard" exige provisioner');
+  }
   injectStyles();
-  if (params.provisioner) return openProvisionedModal(params, params.provisioner);
+  if (params.provisioner) return openProvisionedModal(params, params.provisioner, kind);
 
-  const values = { label: '', identifier: '' };
+  const state = initialState(params, 'manual', false);
   let busy = false;
   let created: CreateManualDeviceResult | null = null;
 
   const modal = openStandardModal({
-    title: DOMAIN_TEXT[domain].title,
-    icon: DOMAIN_TEXT[domain].icon,
-    bodyHtml: formHtml(domain, values),
+    title: DOMAIN_TEXT.manual[domain].title,
+    icon: DOMAIN_TEXT.manual[domain].icon,
+    bodyHtml: formHtml(state),
     width: 460,
     container: params.container,
     buttons: [
@@ -299,14 +430,13 @@ export function openManualDeviceModal(params: OpenManualDeviceModalParams): Stan
   async function submit(): Promise<void> {
     if (busy || created) return;
     const body = modal.getBodyEl();
-    values.label = (body.querySelector<HTMLInputElement>('input[name="label"]')?.value || '').trim();
-    values.identifier = (body.querySelector<HTMLInputElement>('input[name="identifier"]')?.value || '').trim();
+    readForm(body, state);
 
-    const missing = !values.label ? 'label' : !values.identifier ? 'identifier' : null;
+    const missing = missingField(state);
     if (missing) {
-      modal.setBodyHtml(formHtml(domain, values, missing === 'label' ? 'Informe a etiqueta.' : 'Informe o identificador.'));
+      modal.setBodyHtml(formHtml(state, missing.msg));
       bindForm(false);
-      const input = body.querySelector<HTMLInputElement>(`input[name="${missing}"]`);
+      const input = body.querySelector<HTMLElement>(`[name="${missing.name}"]`);
       input?.setAttribute('aria-invalid', 'true');
       input?.focus();
       return;
@@ -318,7 +448,7 @@ export function openManualDeviceModal(params: OpenManualDeviceModalParams): Stan
     body.querySelectorAll<HTMLInputElement>('input').forEach((i) => (i.disabled = true));
 
     try {
-      created = await createManualDevice({ ...params, label: values.label, identifier: values.identifier });
+      created = await createManualDevice({ ...params, label: state.label, identifier: state.identifier });
       modal.setBodyHtml(successHtml(domain, created, !!params.showTechnicalDetails));
       modal.setButton('cancel', { hidden: true });
       modal.setButton('create', { disabled: false, label: 'Concluir' });
@@ -327,7 +457,7 @@ export function openManualDeviceModal(params: OpenManualDeviceModalParams): Stan
       const detail = params.showTechnicalDetails
         ? (err instanceof ManualDeviceError ? err.detail : String((err as Error)?.message || err)) || undefined
         : undefined;
-      modal.setBodyHtml(formHtml(domain, values, msg, detail));
+      modal.setBodyHtml(formHtml(state, msg, detail));
       bindForm();
       modal.setButton('create', { disabled: false, label: 'Criar' });
       modal.setButton('cancel', { disabled: false });
@@ -342,18 +472,24 @@ export function openManualDeviceModal(params: OpenManualDeviceModalParams): Stan
 /**
  * RFC-0240: formulário → "Revisar" (plano por sistema, nada gravado) → "Criar" (progresso
  * passo a passo) → resultado. O host decide a ordem, as chamadas e o rollback.
+ * Centrais vêm de `provisioner.options()`; com mais de uma, o usuário escolhe.
  */
-function openProvisionedModal(params: OpenManualDeviceModalParams, provisioner: ManualDeviceProvisioner): StandardModalInstance {
+function openProvisionedModal(
+  params: OpenManualDeviceModalParams,
+  provisioner: ManualDeviceProvisioner,
+  kind: ManualDeviceKind
+): StandardModalInstance {
   const domain = params.domain;
-  const values = { label: '', identifier: '' };
+  const state = initialState(params, kind, typeof provisioner.options === 'function');
   let phase: 'form' | 'planning' | 'plan' | 'applying' | 'done' = 'form';
   let plan: ManualProvisionPlan | null = null;
   let outcome: ManualProvisionResult | null = null;
+  const text = DOMAIN_TEXT[kind][domain];
 
   const modal = openStandardModal({
-    title: DOMAIN_TEXT[domain].title,
-    icon: DOMAIN_TEXT[domain].icon,
-    bodyHtml: formHtml(domain, values),
+    title: text.title,
+    icon: text.icon,
+    bodyHtml: formHtml(state),
     width: 560,
     container: params.container,
     buttons: [
@@ -384,15 +520,6 @@ function openProvisionedModal(params: OpenManualDeviceModalParams, provisioner: 
   };
   bindForm();
 
-  function showForm(error?: string, detail?: string): void {
-    phase = 'form';
-    modal.setBodyHtml(formHtml(domain, values, error, detail));
-    bindForm();
-    modal.setButton('back', { hidden: true });
-    modal.setButton('cancel', { disabled: false, hidden: false });
-    modal.setButton('next', { disabled: false, label: 'Revisar' });
-  }
-
   const errorText = (err: unknown) => {
     const msg = err instanceof ManualDeviceError ? err.message : 'Não foi possível montar o plano.';
     const detail = params.showTechnicalDetails
@@ -401,15 +528,48 @@ function openProvisionedModal(params: OpenManualDeviceModalParams, provisioner: 
     return { msg, detail };
   };
 
+  // Centrais: carregadas ao abrir; re-renderiza o formulário preservando o que já foi digitado
+  if (provisioner.options) {
+    provisioner
+      .options({ domain, kind })
+      .then((o) => {
+        const centrals = Array.isArray(o?.centrals) ? o.centrals : [];
+        if (phase !== 'form') {
+          state.centrals = centrals;
+          return;
+        }
+        readForm(modal.getBodyEl(), state);
+        state.centrals = centrals;
+        if (centrals.length === 1) state.centralId = centrals[0].id;
+        showForm(undefined, undefined, false);
+      })
+      .catch((err) => {
+        state.centrals = [];
+        if (phase === 'form') {
+          readForm(modal.getBodyEl(), state);
+          const { detail } = errorText(err);
+          showForm('Não foi possível carregar as centrais.', detail, false);
+        }
+      });
+  }
+
+  function showForm(error?: string, detail?: string, focus = true): void {
+    phase = 'form';
+    modal.setBodyHtml(formHtml(state, error, detail));
+    bindForm(focus);
+    modal.setButton('back', { hidden: true });
+    modal.setButton('cancel', { disabled: false, hidden: false });
+    modal.setButton('next', { disabled: false, label: 'Revisar' });
+  }
+
   async function review(): Promise<void> {
     if (phase !== 'form') return;
     const body = modal.getBodyEl();
-    values.label = (body.querySelector<HTMLInputElement>('input[name="label"]')?.value || '').trim();
-    values.identifier = (body.querySelector<HTMLInputElement>('input[name="identifier"]')?.value || '').trim();
-    const missing = !values.label ? 'label' : !values.identifier ? 'identifier' : null;
+    readForm(body, state);
+    const missing = missingField(state);
     if (missing) {
-      showForm(missing === 'label' ? 'Informe a etiqueta.' : 'Informe o identificador.');
-      const input = modal.getBodyEl().querySelector<HTMLInputElement>(`input[name="${missing}"]`);
+      showForm(missing.msg);
+      const input = modal.getBodyEl().querySelector<HTMLElement>(`[name="${missing.name}"]`);
       input?.setAttribute('aria-invalid', 'true');
       input?.focus();
       return;
@@ -417,9 +577,16 @@ function openProvisionedModal(params: OpenManualDeviceModalParams, provisioner: 
 
     phase = 'planning';
     modal.setButton('next', { disabled: true, label: 'Revisando…' });
-    body.querySelectorAll<HTMLInputElement>('input').forEach((i) => (i.disabled = true));
+    body.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select').forEach((i) => (i.disabled = true));
     try {
-      plan = await provisioner.plan({ domain, label: values.label, identifier: values.identifier });
+      plan = await provisioner.plan({
+        domain,
+        label: state.label,
+        identifier: state.identifier,
+        kind,
+        ...(kind === 'standard' ? { deviceProfile: state.deviceProfile } : {}),
+        ...(state.centralId ? { centralId: state.centralId } : {}),
+      });
       phase = 'plan';
       modal.setBodyHtml(planHtml(plan));
       modal.setButton('back', { hidden: false, disabled: false });

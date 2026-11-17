@@ -4239,8 +4239,27 @@ function _isManualWidget() {
   return mapLabelWidgetToStateGroup(self.ctx?.settings?.labelWidget || '') === 'manual';
 }
 
-/** "+" nos widgets "…MANUAL": cadastro simples (etiqueta + identificador) no asset *_DEVICES_MANUAIS */
-function _openManualDeviceModal() {
+/**
+ * Profile pré-selecionado no "+" dos widgets normais: o mais comum entre os devices já listados
+ * neste widget (ex.: Lojas → 3F_MEDIDOR); sem itens → loja do domínio.
+ */
+function _defaultStandardProfile() {
+  const counts = {};
+  (STATE.itemsBase || []).forEach((i) => {
+    const p = String(i.deviceProfile || '').toUpperCase();
+    if (p && !p.endsWith('_MANUAL')) counts[p] = (counts[p] || 0) + 1;
+  });
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  return top || (WIDGET_DOMAIN === 'water' ? 'HIDROMETRO' : '3F_MEDIDOR');
+}
+
+/**
+ * "+" nos widgets: mesmo fluxo simples (etiqueta + identificador → revisar → criar nos 4 sistemas).
+ * - widget "…MANUAL": device *_MANUAL no asset *_DEVICES_MANUAIS
+ * - widget normal (kind 'standard'): + select de Tipo; asset DevicesSemAsset<Customer>
+ * Com mais de uma central no customer, o modal pede a central.
+ */
+function _openManualDeviceModal(kind = 'manual') {
   const open = window.MyIOUtils?.openManualDeviceModal || window.MyIOLibrary?.openManualDeviceModal;
   if (typeof open !== 'function') {
     console.error('[TELEMETRY] openManualDeviceModal unavailable — update the MyIO library bundle');
@@ -4255,6 +4274,8 @@ function _openManualDeviceModal() {
   }
   open({
     domain: WIDGET_DOMAIN === 'water' ? 'water' : 'energy',
+    kind,
+    ...(kind === 'standard' ? { defaultDeviceProfile: _defaultStandardProfile() } : {}),
     customerId,
     token: () => getTbToken(),
     provisioner,
@@ -4304,9 +4325,14 @@ function _openTelemetryImportModal() {
   });
 }
 
-function _openPresetupModal() {
+function _openPresetupModal(ev) {
   if (_isManualWidget()) {
-    _openManualDeviceModal();
+    _openManualDeviceModal('manual');
+    return;
+  }
+  // Widget normal: mesmo fluxo simples do manual. Shift+clique mantém o Pre-Setup do gateway.
+  if (!ev?.shiftKey) {
+    _openManualDeviceModal('standard');
     return;
   }
   const lib = window.MyIOUtils;
@@ -7488,8 +7514,12 @@ self.onInit = async function () {
     const btn = $root().find('#btnPresetup')[0];
     // Widget "…MANUAL": o "+" cria device manual e fica visível para todos os usuários
     if (btn) btn.style.display = isSuperAdmin || _isManualWidget() ? '' : 'none';
-    if (btn && _isManualWidget()) {
-      btn.title = WIDGET_DOMAIN === 'water' ? 'Novo hidrômetro manual' : 'Novo medidor de energia manual';
+    if (btn) {
+      btn.title = _isManualWidget()
+        ? WIDGET_DOMAIN === 'water'
+          ? 'Novo hidrômetro manual'
+          : 'Novo medidor de energia manual'
+        : `${WIDGET_DOMAIN === 'water' ? 'Novo hidrômetro' : 'Novo medidor de energia'} (Shift+clique: Pre-Setup)`;
       btn.setAttribute('aria-label', btn.title);
     }
     // "Importar dados" (planilha → Ingestion): só no widget de dispositivos manuais

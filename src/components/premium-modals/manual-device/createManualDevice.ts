@@ -48,9 +48,66 @@ export interface CreateManualDeviceParams {
   name?: string;
   /** RFC-0240: atributos SERVER_SCOPE extras (centralId, slaveId, ingestionId, gcdrDeviceId, …) */
   extraAttributes?: Record<string, unknown>;
+  /** Device normal (não manual): profile escolhido (ex.: 3F_MEDIDOR). Default = profile *_MANUAL do domínio. */
+  deviceProfile?: string;
+  /** Device normal: asset de destino já resolvido (ex.: DevicesSemAsset<Customer>). Exige `name`. */
+  asset?: { id: string; name: string };
 }
 
-export type ResolveManualDeviceNameParams = Omit<CreateManualDeviceParams, 'label' | 'identifier' | 'name' | 'extraAttributes'>;
+/** Profiles oferecidos no "+" dos widgets normais (device real, com central). */
+export const STANDARD_DEVICE_PROFILES: Record<ManualDeviceDomain, string[]> = {
+  energy: [
+    '3F_MEDIDOR',
+    'ENTRADA',
+    'RELOGIO',
+    'SUBESTACAO',
+    'TRANSFORMADOR',
+    'ELEVADOR',
+    'ESCADA_ROLANTE',
+    'CHILLER',
+    'FANCOIL',
+    'BOMBA_CAG',
+    'BOMBA_HIDRAULICA',
+    'BOMBA_INCENDIO',
+    'BOMBA_POCO',
+    'MOTOR',
+  ],
+  water: ['HIDROMETRO', 'HIDROMETRO_AREA_COMUM', 'HIDROMETRO_SHOPPING', 'HIDROMETRO_ENTRADA'],
+};
+
+/** Lojas (3F_MEDIDOR / HIDROMETRO) usam "LOJA" no nome; os demais, o próprio profile. */
+const standardNameToken = (deviceProfile: string) =>
+  ['3F_MEDIDOR', 'HIDROMETRO'].includes(deviceProfile) ? 'LOJA' : deviceProfile;
+
+/** Nome do device normal: "<prefixo> <SIGLA>_<LOJA|PROFILE>_<NNN>", ex.: "3F STB_LOJA_014", "3F STB_ELEVADOR_002". */
+export function standardDeviceName(domain: ManualDeviceDomain, sigla: string, deviceProfile: string, seq: number): string {
+  return `${NAME_PREFIX[domain]}${sigla}_${standardNameToken(deviceProfile)}_${String(seq).padStart(3, '0')}`;
+}
+
+/** Próximo NNN livre do padrão normal (ignora os *_MANUAL). */
+export function nextStandardSeq(
+  domain: ManualDeviceDomain,
+  sigla: string,
+  deviceProfile: string,
+  existingNames: string[]
+): number {
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`^${esc(NAME_PREFIX[domain])}${esc(sigla)}_${esc(standardNameToken(deviceProfile))}_(\\d+)$`, 'i');
+  const max = existingNames.reduce((acc, n) => {
+    const m = re.exec(String(n || '').trim());
+    return m ? Math.max(acc, Number(m[1])) : acc;
+  }, 0);
+  return max + 1;
+}
+
+export type ResolveManualDeviceNameParams = Omit<
+  CreateManualDeviceParams,
+  'label' | 'identifier' | 'name' | 'extraAttributes' | 'deviceProfile' | 'asset'
+>;
+
+export interface ResolveStandardDeviceNameParams extends ResolveManualDeviceNameParams {
+  deviceProfile: string;
+}
 
 export interface ResolvedManualDeviceName {
   name: string;
@@ -181,10 +238,41 @@ export async function resolveManualDeviceName(params: ResolveManualDeviceNamePar
   };
 }
 
+/**
+ * Reserva (sem criar) o nome do próximo device normal: sigla do shopping (asset *_DEVICES_MANUAIS)
+ * + "LOJA" ou o profile + próximo NNN livre no TB.
+ */
+export async function resolveStandardDeviceName(params: ResolveStandardDeviceNameParams): Promise<ResolvedManualDeviceName> {
+  const profile = String(params.deviceProfile || '').trim().toUpperCase();
+  if (!MANUAL_DEVICE_PROFILES[params.domain]) throw new ManualDeviceError(`Domínio inválido: ${params.domain}`);
+  if (!profile) throw new ManualDeviceError('Escolha o tipo do dispositivo.');
+  if (!params.customerId) throw new ManualDeviceError('Cliente não identificado.');
+  const api = await buildTbApi(params);
+  const { asset, sigla } = await findManualAsset(api, params.customerId);
+  const token = standardNameToken(profile);
+  const existing = await api(
+    'GET',
+    `/api/customer/${encodeURIComponent(params.customerId)}/devices?pageSize=1000&page=0&textSearch=${encodeURIComponent(`${sigla}_${token}_`)}`
+  );
+  const names = (existing?.data || []).map((d: any) => String(d?.name || ''));
+  const seq = nextStandardSeq(params.domain, sigla, profile, names);
+  return {
+    name: standardDeviceName(params.domain, sigla, profile, seq),
+    sigla,
+    seq,
+    assetId: asset.id.id,
+    assetName: asset.name,
+    deviceProfile: profile,
+  };
+}
+
 export async function createManualDevice(params: CreateManualDeviceParams): Promise<CreateManualDeviceResult> {
   const domain = params.domain;
-  const profile = MANUAL_DEVICE_PROFILES[domain];
-  if (!profile) throw new ManualDeviceError(`Domínio inválido: ${domain}`);
+  if (!MANUAL_DEVICE_PROFILES[domain]) throw new ManualDeviceError(`Domínio inválido: ${domain}`);
+  const profile = String(params.deviceProfile || '').trim() || MANUAL_DEVICE_PROFILES[domain];
+  if (params.asset && !String(params.name || '').trim()) {
+    throw new ManualDeviceError('Nome do dispositivo não reservado.', 'asset informado sem name');
+  }
   const label = String(params.label || '').trim();
   const identifier = String(params.identifier || '').trim();
   if (!label) throw new ManualDeviceError('Informe a etiqueta.');
@@ -194,8 +282,10 @@ export async function createManualDevice(params: CreateManualDeviceParams): Prom
   const api = await buildTbApi(params);
   const cid = encodeURIComponent(params.customerId);
 
-  // 1. asset *_DEVICES_MANUAIS do customer
-  const { asset, sigla } = await findManualAsset(api, params.customerId);
+  // 1. asset *_DEVICES_MANUAIS do customer (ou o asset já resolvido do device normal)
+  const { asset, sigla } = params.asset
+    ? { asset: { id: { id: params.asset.id }, name: params.asset.name }, sigla: '' }
+    : await findManualAsset(api, params.customerId);
 
   // 2. nome automático: sigla do asset + próximo sequencial livre do tipo (ou o nome fixo do plano)
   const fixedName = String(params.name || '').trim();

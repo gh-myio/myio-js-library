@@ -2290,53 +2290,122 @@ const _manualMqttEnabled = (v) =>
     .trim()
     .toLowerCase() === 'enable';
 
-async function _manualPlan({ domain, label, identifier }) {
+/** Árvore GCDR do customer (centrais, assets, devices) — usada no formulário e no plano. */
+async function _manualLoadTree() {
+  const orch = window.MyIOOrchestrator || {};
+  if (!orch.gcdrCustomerId) return null;
+  const tree = await _manualGcdr('GET', `/customers/${orch.gcdrCustomerId}/tree?deep=1`);
+  return tree?.tree ?? tree;
+}
+
+/** Centrais (uuid válido) com a contagem de devices, mais usada primeiro. */
+function _manualCentralsOf(tree) {
+  const gDevices = tree?.devices || [];
+  return (tree?.centrals || [])
+    .filter((c) => MANUAL_PROV_UUID_RE.test(String(c.id || '')))
+    .map((c) => ({
+      id: c.id,
+      name: c.name || c.displayName || c.id,
+      deviceCount: gDevices.filter((d) => d.centralId === c.id).length,
+    }))
+    .sort((a, b) => b.deviceCount - a.deviceCount);
+}
+
+/** Formulário do "+": centrais do customer (com mais de uma, o usuário escolhe). */
+async function _manualOptions() {
+  return { centrals: _manualCentralsOf(await _manualLoadTree()) };
+}
+
+/** Asset dos devices normais = padrão do GCDR Sync / Upsell: "DevicesSemAsset<Customer>". */
+async function _manualFindSemAsset(customerTB_ID) {
+  let customerTitle = window.MyIOUtils?.customerName || '';
+  try {
+    const cust = await _manualTb('GET', `/api/customer/${encodeURIComponent(customerTB_ID)}`);
+    customerTitle = cust?.title || cust?.name || customerTitle;
+  } catch {
+    /* fallback: MyIOUtils.customerName */
+  }
+  const wanted = `DevicesSemAsset${customerTitle}`;
+  const isSem = (a) =>
+    String(a?.name || '').toUpperCase() === wanted.toUpperCase() ||
+    String(a?.name || '')
+      .toUpperCase()
+      .startsWith('DEVICESSEMAS');
+  let asset = null;
+  try {
+    const list = await _manualTb(
+      'GET',
+      `/api/customer/${encodeURIComponent(customerTB_ID)}/assets?pageSize=100&page=0&textSearch=DevicesSemAsset`
+    );
+    asset = (list?.data || []).find(isSem) || null;
+  } catch {
+    /* segue para a busca no tenant */
+  }
+  if (!asset) {
+    // o Upsell cria o asset sem dono (só relação CUSTOMER→ASSET): busca pelo nome no tenant
+    try {
+      asset = await _manualTb('GET', `/api/tenant/assets?assetName=${encodeURIComponent(wanted)}`);
+    } catch {
+      asset = null; // 404 = não existe
+    }
+  }
+  const name = asset?.name || wanted;
+  return { name, tbAssetId: asset?.id?.id || null, customerTitle };
+}
+
+async function _manualPlan({ domain, label, identifier, kind = 'manual', deviceProfile, centralId }) {
   const lib = window.MyIOLibrary;
   const orch = window.MyIOOrchestrator || {};
   const customerTB_ID = widgetSettings.customerTB_ID || orch.customerTB_ID;
   const ingestionCustomerId = orch.getCredentials?.()?.CUSTOMER_ING_ID || '';
+  const standard = kind === 'standard';
   const blockers = [];
   const warnings = [];
-  if (typeof lib?.resolveManualDeviceName !== 'function') {
-    throw new Error(
-      'Biblioteca MyIO desatualizada (sem resolveManualDeviceName) — atualize a versão da lib.'
-    );
+  const needed = standard ? 'resolveStandardDeviceName' : 'resolveManualDeviceName';
+  if (typeof lib?.[needed] !== 'function') {
+    throw new Error(`Biblioteca MyIO desatualizada (sem ${needed}) — atualize a versão da lib.`);
   }
+  const tbToken = () => window.MyIOUtils?.getFreshTbToken?.() || localStorage.getItem('jwt_token');
 
-  // 1. TB: nome reservado (sigla do asset *_DEVICES_MANUAIS + próximo NNN) — o mesmo nos 4 sistemas
-  const tbName = await lib.resolveManualDeviceName({
-    domain,
-    customerId: customerTB_ID,
-    token: () => window.MyIOUtils?.getFreshTbToken?.() || localStorage.getItem('jwt_token'),
-  });
-  const assetName = tbName.assetName;
+  // 1. TB: nome reservado — o mesmo nos 4 sistemas
+  //    manual  → "3F <SIGLA>_LOJA_<NNN>_MANUAL" no asset *_DEVICES_MANUAIS
+  //    normal  → "3F <SIGLA>_<LOJA|PROFILE>_<NNN>" no asset DevicesSemAsset<Customer>
+  let tbName;
+  if (standard) {
+    const profile = String(deviceProfile || '').toUpperCase();
+    const allowed = lib.STANDARD_DEVICE_PROFILES?.[domain] || [];
+    if (!allowed.includes(profile)) throw new Error(`Tipo inválido para ${domain}: ${deviceProfile || '—'}`);
+    tbName = await lib.resolveStandardDeviceName({ domain, deviceProfile: profile, customerId: customerTB_ID, token: tbToken });
+  } else {
+    tbName = await lib.resolveManualDeviceName({ domain, customerId: customerTB_ID, token: tbToken });
+  }
+  const sem = standard ? await _manualFindSemAsset(customerTB_ID) : null;
+  const assetName = standard ? sem.name : tbName.assetName;
 
-  // 2. GCDR: central, asset de mesmo nome e slaveIds já usados
+  // 2. GCDR: central (a escolhida no formulário), asset de mesmo nome e slaveIds já usados
   if (!orch.gcdrCustomerId) blockers.push('Customer sem gcdrCustomerId no ThingsBoard.');
   let tree = null;
   try {
-    tree = orch.gcdrCustomerId
-      ? await _manualGcdr('GET', `/customers/${orch.gcdrCustomerId}/tree?deep=1`)
-      : null;
-    tree = tree?.tree ?? tree;
+    tree = await _manualLoadTree();
   } catch (e) {
     blockers.push(`Não foi possível ler o GCDR: ${e.message}`);
   }
   const gDevices = tree?.devices || [];
-  const centrals = (tree?.centrals || []).filter((c) => MANUAL_PROV_UUID_RE.test(String(c.id || '')));
-  const central = centrals
-    .map((c) => ({ ...c, n: gDevices.filter((d) => d.centralId === c.id).length }))
-    .sort((a, b) => b.n - a.n)[0];
-  if (tree && !central) blockers.push('Nenhuma central do customer no GCDR.');
-  if (centrals.length > 1) {
-    warnings.push(
-      `Customer com ${centrals.length} centrais — usando "${central?.name}" (a com mais devices).`
-    );
+  const centrals = _manualCentralsOf(tree);
+  let central = null;
+  if (centralId) {
+    central = centrals.find((c) => c.id === centralId) || null;
+    if (tree && !central) blockers.push(`Central ${centralId} não pertence a este customer no GCDR.`);
+  } else if (centrals.length === 1) {
+    central = centrals[0];
+  } else if (centrals.length > 1) {
+    blockers.push(`Customer com ${centrals.length} centrais — escolha a central no formulário.`);
   }
+  if (tree && !centrals.length) blockers.push('Nenhuma central do customer no GCDR.');
   const gAsset = (tree?.assets || []).find(
     (a) => String(a.name || '').toUpperCase() === assetName.toUpperCase()
   );
-  if (tree && !gAsset) blockers.push(`Asset ${assetName} não existe no GCDR.`);
+  if (tree && !gAsset && !standard) blockers.push(`Asset ${assetName} não existe no GCDR.`);
 
   // 3. Central: slaves atuais (o slaveId é o row id da central)
   let centralSlaves = null;
@@ -2389,12 +2458,53 @@ async function _manualPlan({ domain, label, identifier }) {
     }
   }
 
+  // Device normal: asset DevicesSemAsset<Customer> criado onde faltar (TB / GCDR; Ingestion no passo dele)
+  const missingAsset = standard
+    ? [!sem.tbAssetId && 'ThingsBoard', tree && !gAsset && 'GCDR'].filter(Boolean)
+    : [];
+
   const sys = { gcdr: 'GCDR', ing: 'Ingestion', tb: 'ThingsBoard', central: 'Central' };
+  const steps = [];
+  if (missingAsset.length) {
+    steps.push({
+      key: 'asset',
+      system: 'Asset',
+      title: `Criar ${assetName} (${missingAsset.join(' + ')})`,
+      status: 'pending',
+    });
+  }
+  steps.push(
+    { key: 'gcdr', system: sys.gcdr, title: 'Criar device (fonte da verdade)', status: 'pending' },
+    {
+      key: 'ingestion',
+      system: sys.ing,
+      title: ingestionAsset
+        ? 'Criar device no gateway da central'
+        : `Criar asset ${assetName} e o device no gateway`,
+      status: 'pending',
+    },
+    {
+      key: 'tb',
+      system: sys.tb,
+      title: 'Criar device com centralId, slaveId e ingestionId',
+      status: 'pending',
+    },
+    {
+      key: 'central',
+      system: sys.central,
+      title: `Adicionar slave ${slaveId} (${domain === 'water' ? 'outlet + 2 canais' : 'three_phase_sensor'})`,
+      status: centralSlaves ? 'pending' : 'skipped',
+      message: centralSlaves ? undefined : 'central inacessível no plano',
+    }
+  );
+
   return {
     summary: [
       { label: 'Nome', value: tbName.name },
       { label: 'Etiqueta', value: label },
       { label: 'Identificador', value: identifier },
+      ...(standard ? [{ label: 'Tipo', value: tbName.deviceProfile }] : []),
+      ...(centrals.length > 1 && central ? [{ label: 'Central', value: central.name }] : []),
     ],
     details: [
       { label: 'Tipo', value: tbName.deviceProfile },
@@ -2403,33 +2513,11 @@ async function _manualPlan({ domain, label, identifier }) {
       { label: 'Endereço Modbus', value: `${addrLow} / ${addrHigh}` },
       { label: 'Asset', value: assetName },
     ],
-    steps: [
-      { key: 'gcdr', system: sys.gcdr, title: 'Criar device (fonte da verdade)', status: 'pending' },
-      {
-        key: 'ingestion',
-        system: sys.ing,
-        title: ingestionAsset
-          ? 'Criar device no gateway da central'
-          : `Criar asset ${assetName} e o device no gateway`,
-        status: 'pending',
-      },
-      {
-        key: 'tb',
-        system: sys.tb,
-        title: 'Criar device com centralId, slaveId e ingestionId',
-        status: 'pending',
-      },
-      {
-        key: 'central',
-        system: sys.central,
-        title: `Adicionar slave ${slaveId} (${domain === 'water' ? 'outlet + 2 canais' : 'three_phase_sensor'})`,
-        status: centralSlaves ? 'pending' : 'skipped',
-        message: centralSlaves ? undefined : 'central inacessível no plano',
-      },
-    ],
+    steps,
     blockers,
     warnings,
     context: {
+      kind,
       domain,
       label,
       identifier,
@@ -2438,6 +2526,7 @@ async function _manualPlan({ domain, label, identifier }) {
       name: tbName.name,
       deviceProfile: tbName.deviceProfile,
       assetName,
+      tbAssetId: standard ? sem.tbAssetId : tbName.assetId,
       gcdrAssetId: gAsset?.id || null,
       centralId: central?.id || null,
       centralReachable: !!centralSlaves,
@@ -2448,6 +2537,50 @@ async function _manualPlan({ domain, label, identifier }) {
       addrHigh,
     },
   };
+}
+
+/** Device normal: cria o asset DevicesSemAsset<Customer> no TB e/ou GCDR (não é desfeito no rollback). */
+async function _manualEnsureSemAsset(c) {
+  const created = [];
+  if (!c.tbAssetId) {
+    const a = await _manualTb('POST', '/api/asset', {
+      name: c.assetName,
+      type: 'default',
+      label: c.assetName,
+      customerId: { id: c.customerTB_ID, entityType: 'CUSTOMER' },
+    });
+    c.tbAssetId = a?.id?.id;
+    if (!c.tbAssetId) throw new Error('ThingsBoard não devolveu o id do asset.');
+    await _manualTb('POST', '/api/relation', {
+      from: { id: c.customerTB_ID, entityType: 'CUSTOMER' },
+      to: { id: c.tbAssetId, entityType: 'ASSET' },
+      type: 'Contains',
+      typeGroup: 'COMMON',
+    });
+    created.push('ThingsBoard');
+  }
+  if (!c.gcdrAssetId) {
+    const g = await _manualGcdr('POST', '/assets', {
+      customerId: window.MyIOOrchestrator?.gcdrCustomerId,
+      parentAssetId: null,
+      name: c.assetName,
+      displayName: c.assetName,
+      code: c.assetName,
+      type: 'OTHER',
+      metadata: { tbId: c.tbAssetId, autoCreated: true, purpose: 'fallback-for-orphan-devices' },
+    });
+    c.gcdrAssetId = g?.id || g?.asset?.id;
+    if (!c.gcdrAssetId) throw new Error('GCDR não devolveu o id do asset.');
+    created.push('GCDR');
+  }
+  if (created.includes('GCDR') || created.includes('ThingsBoard')) {
+    // mesmo vínculo que o GCDR Sync grava no asset do TB
+    await _manualTb('POST', `/api/plugins/telemetry/ASSET/${c.tbAssetId}/attributes/SERVER_SCOPE`, {
+      gcdrAssetId: c.gcdrAssetId,
+      gcdrCustomerId: window.MyIOOrchestrator?.gcdrCustomerId || null,
+    }).catch(() => undefined);
+  }
+  return created;
 }
 
 async function _manualApply(plan, onStep) {
@@ -2476,6 +2609,13 @@ async function _manualApply(plan, onStep) {
   };
 
   try {
+    // 0. Device normal: asset DevicesSemAsset<Customer> onde faltar (fica mesmo se algo falhar depois)
+    if (steps.some((s) => s.key === 'asset')) {
+      set('asset', { status: 'running' });
+      const made = await _manualEnsureSemAsset(c);
+      set('asset', { status: 'ok', message: made.length ? `criado em ${made.join(' + ')}` : 'já existia' });
+    }
+
     // 1. GCDR (fonte da verdade) — falha aqui aborta tudo
     set('gcdr', { status: 'running' });
     const g = await _manualGcdr('POST', '/devices', {
@@ -2494,7 +2634,7 @@ async function _manualApply(plan, onStep) {
         channels: [],
         addr_low: c.addrLow,
         addr_high: c.addrHigh,
-        manual: true,
+        manual: c.kind !== 'standard',
       },
     });
     ids.gcdrDeviceId = g?.id || g?.device?.id;
@@ -2546,6 +2686,10 @@ async function _manualApply(plan, onStep) {
       customerId: c.customerTB_ID,
       token: () => window.MyIOUtils?.getFreshTbToken?.() || localStorage.getItem('jwt_token'),
       name: c.name,
+      // device normal: profile escolhido + asset DevicesSemAsset<Customer>
+      ...(c.kind === 'standard'
+        ? { deviceProfile: c.deviceProfile, asset: { id: c.tbAssetId, name: c.assetName } }
+        : {}),
       extraAttributes: {
         centralId: c.centralId,
         slaveId: c.slaveId,
@@ -2615,7 +2759,9 @@ async function _manualApply(plan, onStep) {
     steps.filter((s) => s.status === 'pending').forEach((s) => set(s.key, { status: 'skipped' }));
     await rollback();
     LogHelper.error('[MAIN_VIEW] RFC-0240 manual device: falhou e foi desfeito', err);
-    return { ok: false, steps, message: `Nada foi criado: ${err.message}` };
+    const assetStep = steps.find((s) => s.key === 'asset' && s.status === 'ok');
+    const keptAsset = assetStep && assetStep.message !== 'já existia' ? ` (o asset ${c.assetName} foi mantido)` : '';
+    return { ok: false, steps, message: `Device não criado${keptAsset}: ${err.message}` };
   }
 
   const centralStep = steps.find((s) => s.key === 'central');
@@ -2630,13 +2776,13 @@ async function _manualApply(plan, onStep) {
       label: c.label,
       identifier: c.identifier,
       deviceProfile: c.deviceProfile,
-      assetId: '',
+      assetId: c.tbAssetId || '',
       assetName: c.assetName,
     },
   };
 }
 
-const _manualDeviceProvisioner = { plan: _manualPlan, apply: _manualApply };
+const _manualDeviceProvisioner = { options: _manualOptions, plan: _manualPlan, apply: _manualApply };
 
 // RFC-0051.1: Global widget settings (will be populated in onInit)
 // IMPORTANT: customerTB_ID must NEVER be 'default' - it must always be a valid ThingsBoard ID
