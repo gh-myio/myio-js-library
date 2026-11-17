@@ -393,6 +393,7 @@ function createDateRangePicker($: any, input: HTMLInputElement, opts: AttachOpti
     // Date-only presets
     ranges = {
       'Hoje':           [moment().startOf('day'), moment().endOf('day')],
+      'Ontem':          [moment().subtract(1, 'day').startOf('day'), moment().subtract(1, 'day').endOf('day')],
       'Últimos 7 dias': [moment().subtract(6,  'days').startOf('day'), moment().endOf('day')],
       'Últimos 15 dias':[moment().subtract(14, 'days').startOf('day'), moment().endOf('day')],
       'Últimos 30 dias':[moment().subtract(29, 'days').startOf('day'), moment().endOf('day')],

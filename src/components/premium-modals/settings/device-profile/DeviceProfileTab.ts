@@ -343,6 +343,7 @@ export class DeviceProfileTab {
     const slaveIdNum = typeof slaveId === 'string' ? parseInt(slaveId, 10) : slaveId;
     let page = 1;
     let match: { id: string } | null = null;
+    let fallback: { id: string } | null = null;
     // Bounded to 50 pages (5000 devices) — matches the bulk tool's page=100/req ceiling in practice.
     for (; page <= 50 && !match; page++) {
       const res = await fetch(
@@ -355,16 +356,21 @@ export class DeviceProfileTab {
       const json = await res.json();
       const list: Array<{ id: string; slaveId?: number; gatewayId?: string; gateway?: { hardwareUuid?: string; id?: string } }> =
         json?.data || [];
+      // hardwareUuid first; if none matches on any page, fall back to gatewayId / gateway.id
+      // (replaced central: ingestion gateway keeps the OLD uuid as id — same rule as the bulk sync).
       for (const d of list) {
-        const gwId = d.gateway?.hardwareUuid || d.gatewayId || d.gateway?.id;
-        if (gwId === centralId && d.slaveId === slaveIdNum) {
+        if (d.slaveId !== slaveIdNum) continue;
+        if (d.gateway?.hardwareUuid === centralId) {
           match = { id: d.id };
           break;
         }
+        if (!fallback && (d.gatewayId === centralId || d.gateway?.id === centralId)) fallback = { id: d.id };
       }
+      if (match) break;
       const totalPages = json?.pagination?.pages || 1;
       if (page >= totalPages) break;
     }
+    if (!match && fallback) match = fallback;
 
     if (!match) {
       return { ok: false, message: `Nenhum device na Ingestion API com centralId=${centralId} e slaveId=${slaveIdNum}.` };

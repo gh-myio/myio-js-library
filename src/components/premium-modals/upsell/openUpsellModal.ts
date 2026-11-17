@@ -516,23 +516,27 @@ function findIngestionDeviceByCentralSlaveId(
 ): IngestionDeviceRecord | null {
   const slaveIdNum = typeof slaveId === 'string' ? parseInt(slaveId, 10) : slaveId;
 
-  for (const device of devices) {
-    // The TB device's centralId is the gateway HARDWARE uuid. Match against
-    // gateway.hardwareUuid first; gatewayId/gateway.id are the ingestion-internal
-    // ids and only coincide with the hardware uuid for some gateways.
-    const deviceGatewayId =
-      device.gateway?.hardwareUuid || device.gatewayId || device.gateway?.id;
-    if (deviceGatewayId === centralId && device.slaveId === slaveIdNum) {
-      console.log(
-        '[UpsellModal] Found matching device:',
-        device.name,
-        'gatewayId:',
-        deviceGatewayId,
-        'slaveId:',
-        device.slaveId
-      );
-      return device;
-    }
+  // The TB device's centralId is usually the gateway HARDWARE uuid, so match
+  // gateway.hardwareUuid first. When a central is replaced, the ingestion gateway
+  // keeps its id (= the OLD central uuid, still in TB centralId) and only
+  // hardwareUuid changes (e.g. Moxuara: id e982edf9…, hardwareUuid 6e88d9be…).
+  // So if no hardwareUuid match exists, fall back to gatewayId / gateway.id.
+  const bySlave = devices.filter((d) => d.slaveId === slaveIdNum);
+  const match =
+    bySlave.find((d) => d.gateway?.hardwareUuid === centralId) ||
+    bySlave.find((d) => d.gatewayId === centralId || d.gateway?.id === centralId);
+  if (match) {
+    console.log(
+      '[UpsellModal] Found matching device:',
+      match.name,
+      'via:',
+      match.gateway?.hardwareUuid === centralId ? 'hardwareUuid' : 'gatewayId',
+      'centralId:',
+      centralId,
+      'slaveId:',
+      match.slaveId
+    );
+    return match;
   }
 
   console.log('[UpsellModal] No match found. Looking for centralId:', centralId, 'slaveId:', slaveIdNum);
@@ -541,8 +545,10 @@ function findIngestionDeviceByCentralSlaveId(
     console.log(
       `[UpsellModal] Sample device ${i}:`,
       d.name,
-      'gateway(hwUuid|id):',
-      d.gateway?.hardwareUuid || d.gatewayId || d.gateway?.id,
+      'gateway hwUuid / id:',
+      d.gateway?.hardwareUuid,
+      '/',
+      d.gatewayId || d.gateway?.id,
       'slaveId:',
       d.slaveId
     );
