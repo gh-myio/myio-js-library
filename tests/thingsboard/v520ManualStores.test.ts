@@ -189,117 +189,137 @@ describe('v-5.2.0 HEADER — relatório geral × *_MANUAL', () => {
   });
 });
 
-describe('v-5.2.0 — atributo do opt-in ligado aos dois widgets', () => {
-  it('MAIN_VIEW lê o atributo antes do parse que pode lançar e grava só em window.MyIOUtils', () => {
-    const read = MAIN_SRC.indexOf('attrs?.includeManualStoresInLojas');
-    expect(read).toBeGreaterThan(0);
-    expect(read).toBeLessThan(MAIN_SRC.indexOf('attrs?.exclude_groups_totals'));
-    expect(MAIN_SRC).toContain('window.MyIOUtils.manualStoresInLojas =');
-    expect(HEADER_SRC).toContain('window.MyIOUtils?.manualStoresInLojas');
+type OptIn = {
+  _manualStoresOptInBegin: (customerId?: string | null) => void;
+  _manualStoresOptInSettle: (customerId: string | null | undefined, raw: unknown) => boolean;
+};
+
+/** Funções reais do opt-in (início do onInit / fim da leitura dos atributos) sobre o `window` dado. */
+function evaluateOptIn(win: { MyIOUtils: Record<string, unknown> }): OptIn {
+  const names = ['_manualStoresOptInOwner', '_manualStoresOptInBegin', '_manualStoresOptInSettle'];
+  // eslint-disable-next-line no-new-func
+  return new Function(
+    'window',
+    `${names.map((n) => extractFunction(MAIN_SRC, n)).join('\n')}\nreturn { _manualStoresOptInBegin, _manualStoresOptInSettle };`
+  )(win);
+}
+
+describe('v-5.2.0 MAIN_VIEW — opt-in por customer (início do onInit / fim da leitura)', () => {
+  it('corrida: avaliação nova no meio do onInit (leitura pendente) não tira os manuais de Lojas de uma antiga', () => {
+    const win = fakeWindowWith(undefined) as FakeWindow & { MyIOUtils: Record<string, unknown> };
+    // 1ª avaliação já leu os atributos do customer
+    const primeira = evaluateOptIn(win);
+    primeira._manualStoresOptInBegin('cust-1');
+    primeira._manualStoresOptInSettle('cust-1', true);
+    const antiga = evaluateMain(win);
+
+    // avaliação nova (troca de aba / widget recriado): início do onInit, leitura dos atributos pendente
+    const nova = evaluateOptIn(win);
+    nova._manualStoresOptInBegin('cust-1');
+
+    // a antiga emite nessa janela: os manuais continuam em Lojas
+    const { regular } = antiga._splitManualItems([loja, quiosque('q1'), quiosque('q2')]);
+    expect(antiga.categorizeItemsByGroup(regular).lojas.map((i) => i.id)).toEqual(['loja', 'q1', 'q2']);
+
+    // a leitura termina com o mesmo valor: nada muda, nada a reemitir
+    expect(nova._manualStoresOptInSettle('cust-1', true)).toBe(false);
+    expect(antiga._isManualStore(quiosque('q1'))).toBe(true);
   });
 
-  it('nenhuma cópia do opt-in no escopo do controller (fonte única da página)', () => {
-    expect(MAIN_SRC).not.toMatch(/\b_manualStoresInLojas\b/);
-    expect(extractFunction(MAIN_SRC, '_isManualStore')).toContain('window.MyIOUtils?.manualStoresInLojas');
+  it('customer novo (navegação interna do TB, sem reload): zera já no início do onInit', () => {
+    const win = fakeWindowWith(undefined) as FakeWindow & { MyIOUtils: Record<string, unknown> };
+    const optIn = evaluateOptIn(win);
+    optIn._manualStoresOptInSettle('cust-1', true);
+    optIn._manualStoresOptInBegin('cust-2');
+    expect(win.MyIOUtils.manualStoresInLojas).toBe(false);
+    expect(win.MyIOUtils.manualStoresInLojasCustomerId).toBe('cust-2');
+    expect(evaluateMain(win)._isManualStore(quiosque('q1'))).toBe(false);
   });
 
-  it('MAIN_VIEW conta as próprias avaliações e avisa a partir da segunda', () => {
-    expect(MAIN_SRC).toContain('window.__myioMainViewEvaluations = (window.__myioMainViewEvaluations || 0) + 1');
+  it('leitura que falha (ou sem customer/jwt) → false, sem herdar o customer anterior', () => {
+    const win = fakeWindowWith(undefined) as FakeWindow & { MyIOUtils: Record<string, unknown> };
+    const optIn = evaluateOptIn(win);
+    optIn._manualStoresOptInSettle('cust-1', true);
+    optIn._manualStoresOptInBegin('cust-2');
+    expect(optIn._manualStoresOptInSettle('cust-2', false)).toBe(false); // já estava false: nada a reemitir
+    expect(win.MyIOUtils.manualStoresInLojas).toBe(false);
+
+    // mesmo customer: leitura falha depois de um sucesso → desliga e pede reemissão
+    optIn._manualStoresOptInSettle('cust-2', true);
+    expect(optIn._manualStoresOptInSettle('cust-2', false)).toBe(true);
+    expect(win.MyIOUtils.manualStoresInLojas).toBe(false);
+  });
+
+  it('valor lido: true / "true" / 1 / "1" ligam, o resto desliga; devolve true só quando muda', () => {
+    const win = fakeWindowWith(undefined) as FakeWindow & { MyIOUtils: Record<string, unknown> };
+    const { _manualStoresOptInSettle: settle } = evaluateOptIn(win);
+    expect(settle('cust-1', 'true')).toBe(true);
+    expect(settle('cust-1', true)).toBe(false);
+    expect(settle('cust-1', 1)).toBe(false);
+    expect(settle('cust-1', '1')).toBe(false);
+    expect(settle('cust-1', undefined)).toBe(true);
+    expect(settle('cust-1', 'sim')).toBe(false);
+    expect(win.MyIOUtils.manualStoresInLojas).toBe(false);
   });
 });
 
-describe('v-5.2.0 MAIN_VIEW — opt-in recalculado a cada onInit (navegação interna do TB, sem reload)', () => {
-  const onInit = extractBlockAfter(MAIN_SRC, 'self.onInit = async function');
-  const RESET = 'window.MyIOUtils.manualStoresInLojas = false;';
-  const COND = 'if (customerTB_ID && jwt)';
-
-  /** Trecho REAL do onInit: reset + declarações + `if (customerTB_ID && jwt) {…} else {…}`. */
-  function attrsStep(): string {
-    const condAt = onInit.indexOf(COND);
-    const ifStart = onInit.indexOf('{', condAt);
-    const ifBlock = extractBlockAfter(onInit.slice(condAt), COND);
-    const rest = onInit.slice(ifStart + ifBlock.length);
-    expect(rest).toMatch(/^\s*else\s*\{/);
-    const elseBlock = extractBlockAfter(rest, 'else');
-    const decls = onInit.slice(onInit.indexOf("let CLIENT_ID = '';"), condAt);
-    return `${RESET}\n${decls}\n${COND} ${ifBlock} else ${elseBlock}`;
-  }
-
-  async function runAttrsStep(opts: {
-    previous: boolean;
-    customerTB_ID?: string;
-    jwt?: string | null;
-    fetchAttrs?: () => Promise<Record<string, unknown>>;
-  }) {
-    const win: { MyIOUtils: { manualStoresInLojas?: boolean } } = { MyIOUtils: { manualStoresInLojas: opts.previous } };
-    const LogHelper = { log: vi.fn(), warn: vi.fn(), error: vi.fn() };
-    const fetchAttrs = vi.fn(opts.fetchAttrs || (async () => ({})));
+describe('v-5.2.0 MAIN_VIEW — reemissão quando o opt-in muda', () => {
+  function loadReemit(data: Record<string, unknown>) {
+    const emitProvide = vi.fn();
     // eslint-disable-next-line no-new-func
-    const run = new Function(
+    const reemit = new Function(
       'window',
-      'MyIO',
-      'LogHelper',
-      'self',
-      'customerTB_ID',
-      'jwt',
-      '_applyTicketsGate',
-      '_moneySetCategoryRule',
-      'normalizeExcludeGroupsTotals',
-      'rfc0207LoadActiveProfile',
-      `return (async () => {\n${attrsStep()}\n})();`
-    );
-    await run(
-      win,
-      { fetchThingsboardCustomerAttrsFromStorage: fetchAttrs },
-      LogHelper,
-      { ctx: { settings: {} } },
-      opts.customerTB_ID ?? 'customer-2',
-      opts.jwt === undefined ? 'jwt' : opts.jwt,
-      () => {},
-      () => {},
-      (raw: unknown) => raw,
-      async () => {}
-    );
-    return { flag: win.MyIOUtils.manualStoresInLojas, fetchAttrs, LogHelper };
+      'emitProvide',
+      `${extractFunction(MAIN_SRC, 'reemitLoadedDomains')}\nreturn reemitLoadedDomains;`
+    )({ MyIOOrchestratorData: data }, emitProvide) as (domains: string[], customerId?: string) => void;
+    return { reemit, emitProvide };
   }
 
-  it('o reset é a primeira coisa do onInit: antes de qualquer await e da leitura dos atributos', () => {
-    const resetAt = onInit.indexOf(RESET);
-    expect(resetAt).toBeGreaterThan(0);
-    expect(resetAt).toBeLessThan(onInit.indexOf('await '));
-    expect(resetAt).toBeLessThan(onInit.indexOf('fetchThingsboardCustomerAttrsFromStorage('));
-    expect(resetAt).toBeLessThan(onInit.indexOf(COND));
-  });
-
-  it('leitura dos atributos falha → false, mesmo vindo de um customer com o opt-in ligado', async () => {
-    const r = await runAttrsStep({
-      previous: true,
-      fetchAttrs: async () => {
-        throw new Error('HTTP 500');
-      },
+  it('com customer: reemite só o cache desse customer, com periodKey novo e a lista completa', () => {
+    const { reemit, emitProvide } = loadReemit({
+      energy: { periodKey: 'cust-1:energy:2026-11-01:2026-11-10:day', allItems: [loja, quiosque('q1')] },
+      water: { periodKey: 'cust-0:water:2026-11-01:2026-11-10:day', allItems: [{ id: 'h' }] },
     });
-    expect(r.fetchAttrs).toHaveBeenCalledOnce();
-    expect(r.LogHelper.error).toHaveBeenCalled(); // caiu no catch
-    expect(r.flag).toBe(false);
+    reemit(['energy', 'water'], 'cust-1');
+    expect(emitProvide).toHaveBeenCalledOnce();
+    const [domain, key, items] = emitProvide.mock.calls[0];
+    expect(domain).toBe('energy');
+    expect(key).toMatch(/^cust-1:energy:2026-11-01:2026-11-10:day_recalc_\d+$/);
+    expect(items.map((i: { id: string }) => i.id)).toEqual(['loja', 'q1']);
   });
 
-  it('sem customerTB_ID ou sem jwt → false, sem ler atributos', async () => {
-    const semCustomer = await runAttrsStep({ previous: true, customerTB_ID: '' });
-    expect(semCustomer.fetchAttrs).not.toHaveBeenCalled();
-    expect(semCustomer.flag).toBe(false);
-
-    const semJwt = await runAttrsStep({ previous: true, jwt: null });
-    expect(semJwt.fetchAttrs).not.toHaveBeenCalled();
-    expect(semJwt.flag).toBe(false);
-  });
-
-  it('customer seguinte sem o atributo → false; com o atributo → true', async () => {
-    expect((await runAttrsStep({ previous: true, fetchAttrs: async () => ({}) })).flag).toBe(false);
-    expect(
-      (await runAttrsStep({ previous: false, fetchAttrs: async () => ({ includeManualStoresInLojas: 'true' }) })).flag
-    ).toBe(true);
-    expect(
-      (await runAttrsStep({ previous: false, fetchAttrs: async () => ({ includeManualStoresInLojas: true }) })).flag
-    ).toBe(true);
+  it('sem customer (filtro Status Disp.): reemite todos os domínios carregados, sem acumular _recalc_', () => {
+    const { reemit, emitProvide } = loadReemit({
+      energy: { periodKey: 'cust-1:energy:a:b:day_recalc_1', allItems: [loja] },
+      water: { periodKey: 'cust-1:water:a:b:day', items: [{ id: 'h' }] },
+      temperature: { periodKey: 'cust-1:temperature:a:b:day', allItems: [] },
+    });
+    reemit(['energy', 'water', 'temperature']);
+    expect(emitProvide.mock.calls.map(([d]) => d)).toEqual(['energy', 'water']);
+    expect(emitProvide.mock.calls[0][1]).toMatch(/^cust-1:energy:a:b:day_recalc_\d+$/);
   });
 });
+
+describe('v-5.2.0 MAIN_VIEW — onInit usa as funções do opt-in', () => {
+  const onInit = extractBlockAfter(MAIN_SRC, 'self.onInit = async function');
+  const attrsSrc = onInit.slice(onInit.search(/if\s*\(\s*customerTB_ID\s*&&\s*jwt\s*\)/));
+  const attrsIf = extractBlockAfter(attrsSrc, 'if');
+  const elseBlock = extractBlockAfter(attrsSrc.slice(attrsSrc.indexOf('{') + attrsIf.length), 'else');
+  const SETTLE_FALSE = /_manualStoresOptInSettle\(\s*customerTB_ID\s*,\s*false\s*\)/;
+
+  it('Begin antes do 1º await; o onInit não grava o flag direto', () => {
+    const begin = onInit.search(/_manualStoresOptInBegin\(/);
+    expect(begin).toBeGreaterThan(-1);
+    expect(begin).toBeLessThan(onInit.search(/\bawait\b/));
+    expect(onInit).not.toMatch(/manualStoresInLojas(CustomerId)?\s*=[^=]/);
+  });
+
+  it('Settle no sucesso (antes do parse de exclude_groups_totals, que pode lançar), no catch e no else', () => {
+    const success = attrsIf.search(/_manualStoresOptInSettle\(\s*customerTB_ID\s*,\s*attrs\b/);
+    expect(success).toBeGreaterThan(-1);
+    expect(success).toBeLessThan(attrsIf.search(/attrs\?\.exclude_groups_totals/));
+    expect(attrsIf.slice(attrsIf.search(/\bcatch\s*\(/))).toMatch(SETTLE_FALSE);
+    expect(elseBlock).toMatch(SETTLE_FALSE);
+  });
+});
+
