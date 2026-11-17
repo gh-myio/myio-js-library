@@ -1,0 +1,1041 @@
+{
+  "_meta": {
+    "central": "Campinas Shopping — G0 Hidrômetros Novo",
+    "centralIpv6": "200:a2db:17c5:bb1c:afa1:2caa:c73:4312",
+    "hardwareUuid": "989671ae-345c-4416-90ed-20939e363ea0",
+    "dataApiGatewayId": "b126ce91-6567-492b-96f8-b157b47e2600",
+    "dataApiGatewayName": "Campinas Shopping Hidrômetros G0",
+    "source": "GET api.data.apps.myio-bas.com/api/v1/management/devices?gatewayId=b126ce91-…&includeInactive=true",
+    "capturedAt": "2026-11-16T19:00:00-03:00",
+    "rowCount": 76,
+    "note": "NÃO é dump do Postgres da central (central sem SSH em 16/11). Sem addr_low/addr_high, channels, ambients. slaveId = slaves.id da central; multiplier=1 e adjustment=0 em todas as capabilities. lastTelemetryTs em UTC, truncado no minuto."
+  },
+  "rows": [
+    {
+      "slaveId": 1,
+      "name": "Hidr. Riachuelo x10 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "971ee4d6-2317-478c-8ff1-cc5a2ae4f44e"
+    },
+    {
+      "slaveId": 2,
+      "name": "Hidr. McDonald's x100 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "a2f91abc-c3ff-4d99-894a-b4bf110baf5a"
+    },
+    {
+      "slaveId": 3,
+      "name": "Hidr. Cinépolis x100 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "df849f15-e18e-44c9-8802-61e6297afb0a"
+    },
+    {
+      "slaveId": 4,
+      "name": "Hidr. ADM x10 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "86f1010a-2990-4ceb-a280-9de93f43cece"
+    },
+    {
+      "slaveId": 5,
+      "name": "Hidr. Detran x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "6e5f8d71-bfed-4ba4-8965-24082b8c439e"
+    },
+    {
+      "slaveId": 6,
+      "name": "Hidr. Consultare x10 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "363e2768-6105-4b0a-bb77-0fd33b07388f"
+    },
+    {
+      "slaveId": 7,
+      "name": "Hidr. Centauro x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "d7b68d1a-36c4-4bf0-b537-61378a7b8736"
+    },
+    {
+      "slaveId": 8,
+      "name": "Hidr. Chute_ao_gol x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "7dca8df7-a55b-4e30-9706-267b02823342"
+    },
+    {
+      "slaveId": 9,
+      "name": "Hidr. Diferentes x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "4a461930-c24e-4e5f-a665-f6defc2cda58"
+    },
+    {
+      "slaveId": 10,
+      "name": "Hidr. Americanas x10 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "cbc7313d-95af-4e4b-a4db-51061366cfa1"
+    },
+    {
+      "slaveId": 11,
+      "name": "Hidr. Face_Doctor x10 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "96969a55-af89-4d4a-a56d-1ec474d93697"
+    },
+    {
+      "slaveId": 12,
+      "name": "Hidr. Cacau_cafe x10 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "e0031a51-3d11-4a59-86b7-3b4ae9141b3d"
+    },
+    {
+      "slaveId": 13,
+      "name": "Hidr. C&A x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "378cf3f2-5b97-4562-b65b-903695dd089b"
+    },
+    {
+      "slaveId": 14,
+      "name": "Hidr. KFC x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "4b45e448-e76a-4707-99fe-0d29f11b9791"
+    },
+    {
+      "slaveId": 15,
+      "name": "Hidr. Parmeggio x10 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "f1d9a289-09cd-42a0-a885-0b27d90fb550"
+    },
+    {
+      "slaveId": 16,
+      "name": "Hidr. Spoleto x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "772f98fe-5e9f-4f09-a916-49630e571e17"
+    },
+    {
+      "slaveId": 17,
+      "name": "Hidr. Bobs x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "de46f56c-1834-4a67-b236-86a3867ad59a"
+    },
+    {
+      "slaveId": 18,
+      "name": "Hidr. Makibela x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "71429faa-6b3c-4359-9cea-1b24d3b00eba"
+    },
+    {
+      "slaveId": 19,
+      "name": "Hidr. Chiquinho_Sorvetes x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "1e835c96-5db2-4105-84a6-a875c04d1908"
+    },
+    {
+      "slaveId": 20,
+      "name": "Hidr. Morana x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "cdca53f3-a13d-41e6-bfc5-adae4b5c995c"
+    },
+    {
+      "slaveId": 21,
+      "name": "Hidr. Drogasil x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "b1791ffc-687b-4193-81ea-bfbc06b8a858"
+    },
+    {
+      "slaveId": 22,
+      "name": "Hidr. Agro_Bar x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "8a2a7264-617f-4a1f-922d-7b89beec8adc"
+    },
+    {
+      "slaveId": 23,
+      "name": "Hidr. Ferracine x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "6d223124-c8fd-4948-b563-dd1dc5b21949"
+    },
+    {
+      "slaveId": 24,
+      "name": "Hidr. Nina_Fiori x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "40439bb8-8aa6-4416-9a54-e57fb92b606e"
+    },
+    {
+      "slaveId": 25,
+      "name": "Hidr. GBK_Burguer x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "83445849-e92f-4f4f-914e-3df4ab123718"
+    },
+    {
+      "slaveId": 26,
+      "name": "Hidr. Usa_Flex x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "9ade6093-25d2-4e93-b00f-5afce47f1ebc"
+    },
+    {
+      "slaveId": 27,
+      "name": "Hidr. Hope x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "f26bc623-ec4a-4290-beb9-82f1fdf5e482"
+    },
+    {
+      "slaveId": 28,
+      "name": "Hidr. Milk Moo x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "7036dd4d-fefd-4846-954b-c6b2000d5b80"
+    },
+    {
+      "slaveId": 29,
+      "name": "Hidr. Pernambucanas x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "09734a42-74a4-46f4-8fbd-055c81754c01"
+    },
+    {
+      "slaveId": 30,
+      "name": "Hidr. Rosana_Joias x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "6633b1b2-08b4-4303-84c6-69ebdbc7abf4"
+    },
+    {
+      "slaveId": 32,
+      "name": "Hidr. Natura x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "28dd15d8-815c-452c-a74b-f22b97a92709"
+    },
+    {
+      "slaveId": 33,
+      "name": "Hidr. Marabraz x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "5bfc8297-7ab6-4bd3-9eb2-2258e2e47970"
+    },
+    {
+      "slaveId": 34,
+      "name": "Hidr. Di_gaspi x10 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "f332b31f-6e43-421a-b35d-c9ca091884ad"
+    },
+    {
+      "slaveId": 36,
+      "name": "Hidr. Face_Doctor x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "49711040-6b0c-424c-a6af-46771fe4e37e"
+    },
+    {
+      "slaveId": 37,
+      "name": "Hidr. Achei_na_lojinha x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "17487e59-e2b3-43e8-aa63-568e872db659"
+    },
+    {
+      "slaveId": 41,
+      "name": "Hidr. Casas_Bahia x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "60ae1ea2-72ec-4396-bc3a-12f2bc6dc95f"
+    },
+    {
+      "slaveId": 42,
+      "name": "Hidr. Leitura x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "1ccf2573-9ec9-4328-a3c9-fa12269a1af8"
+    },
+    {
+      "slaveId": 43,
+      "name": "Hidr. Patroni x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "b28b479f-6465-42b2-8301-73009fbc8fd6"
+    },
+    {
+      "slaveId": 44,
+      "name": "Hidr. Sushi_Fan x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "ea55558d-daf5-45be-9fe2-d42843d79d8e"
+    },
+    {
+      "slaveId": 45,
+      "name": "Hidr. Grileto x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "72d6b5e6-fc73-4ad7-83ee-4ac4d8cb1b3e"
+    },
+    {
+      "slaveId": 46,
+      "name": "Hidr. Grileto x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "dee30955-a329-4d2a-905d-821da3824f41"
+    },
+    {
+      "slaveId": 47,
+      "name": "Hidr. Sucao x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "5458ffe8-64c0-4214-bb12-5bdf70c26507"
+    },
+    {
+      "slaveId": 48,
+      "name": "Hidr. Divino Fogão x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "10a9db6a-b35f-4203-aeb7-ca5912afa04d"
+    },
+    {
+      "slaveId": 49,
+      "name": "Hidr. Maravilha_do_Lar x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "18fdbc16-0169-4ec7-87c8-0c3169adbe33"
+    },
+    {
+      "slaveId": 51,
+      "name": "Hidr. Boreli x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "5c4adae7-a141-410b-aeff-e8f5d6360c51"
+    },
+    {
+      "slaveId": 52,
+      "name": "Hidr. Colonial x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "b1a07c79-6473-47e7-9052-23efda8e6f20"
+    },
+    {
+      "slaveId": 53,
+      "name": "Hidr. Panqueca x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "1d89ef94-4698-4052-a124-fad135af0750"
+    },
+    {
+      "slaveId": 54,
+      "name": "Hidr. Fogao_Mineiro x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "9ed736b3-decc-4558-8dbe-c886ddfa094c"
+    },
+    {
+      "slaveId": 55,
+      "name": "Hidr. Galico x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "d4cfed77-bdf4-4c0d-9e62-753d40c2b953"
+    },
+    {
+      "slaveId": 56,
+      "name": "Hidr. Ja_acai x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "d8173fd0-2778-45a5-8497-234686fe56b5"
+    },
+    {
+      "slaveId": 57,
+      "name": "Hidr. Kopenhagen x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "d57b67b4-2d38-48fd-a4ca-dfbe84d6e909"
+    },
+    {
+      "slaveId": 58,
+      "name": "Hidr. McDonald_P7_G0 x10 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "093c427b-60c9-440b-a6ed-a7f02b7e5a6e"
+    },
+    {
+      "slaveId": 59,
+      "name": "Hidr. Baked_Potato x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": null,
+      "dataApiDeviceId": "ab515d07-7a89-425f-ac73-7937f7f28d8c"
+    },
+    {
+      "slaveId": 60,
+      "name": "Hidr. Matuto x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "cf3b2a6b-a90b-4b0d-b186-2d1466a7045f"
+    },
+    {
+      "slaveId": 62,
+      "name": "Temperatura G1 (Ponto 02)",
+      "deviceType": "temperature",
+      "profile": null,
+      "capabilities": [
+        "temperature"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:20",
+      "dataApiDeviceId": "64fc239b-c649-44e3-8255-0ad535ed5fe2"
+    },
+    {
+      "slaveId": 64,
+      "name": "Temperatura G2( Ponto 1)",
+      "deviceType": "temperature",
+      "profile": null,
+      "capabilities": [
+        "temperature"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:20",
+      "dataApiDeviceId": "a4038fc9-a01b-4ea5-b808-d9106380211b"
+    },
+    {
+      "slaveId": 65,
+      "name": "Temperatura Elevador G1( Ponto 03 )",
+      "deviceType": "temperature",
+      "profile": null,
+      "capabilities": [
+        "temperature"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:20",
+      "dataApiDeviceId": "439708f3-38cb-4e06-8ecf-09a270d311ff"
+    },
+    {
+      "slaveId": 66,
+      "name": "Temperatura Externa Terraço ( Ponto 10)",
+      "deviceType": "temperature",
+      "profile": null,
+      "capabilities": [
+        "temperature"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:20",
+      "dataApiDeviceId": "0129fea7-a865-4386-a28c-49157aa08ed4"
+    },
+    {
+      "slaveId": 67,
+      "name": "Temperatura Alimentação G0( Ponto 04)",
+      "deviceType": "temperature",
+      "profile": null,
+      "capabilities": [
+        "temperature"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T02:05",
+      "dataApiDeviceId": "70b212ad-2870-47b5-8f97-4cfcaf9747cd"
+    },
+    {
+      "slaveId": 68,
+      "name": "Temperatura G0( Ponto 06)",
+      "deviceType": "temperature",
+      "profile": null,
+      "capabilities": [
+        "temperature"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:20",
+      "dataApiDeviceId": "af5a0fce-1bab-489f-8b93-bf5a6c5c063f"
+    },
+    {
+      "slaveId": 69,
+      "name": "Temperatura Átrio G0 ( Ponto 05)",
+      "deviceType": "temperature",
+      "profile": null,
+      "capabilities": [
+        "temperature"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:20",
+      "dataApiDeviceId": "17700fcf-ff1a-495c-b600-d67f95c9b0f8"
+    },
+    {
+      "slaveId": 70,
+      "name": "Temperatura C&A(Ponto 07)",
+      "deviceType": "temperature",
+      "profile": null,
+      "capabilities": [
+        "temperature"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:20",
+      "dataApiDeviceId": "a86f58c6-4639-408f-a60d-75e4ccbc6e20"
+    },
+    {
+      "slaveId": 71,
+      "name": "Temperatua RiHappy(Ponto 9)",
+      "deviceType": "temperature",
+      "profile": null,
+      "capabilities": [
+        "temperature"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:20",
+      "dataApiDeviceId": "32d91c6c-7bf3-4020-8e2d-0b9a78644293"
+    },
+    {
+      "slaveId": 72,
+      "name": "Temperatura Melissa ( Ponto 8)",
+      "deviceType": "temperature",
+      "profile": null,
+      "capabilities": [
+        "temperature"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:20",
+      "dataApiDeviceId": "1c3fc533-ddc1-450f-ab7a-b11d19b5462a"
+    },
+    {
+      "slaveId": 75,
+      "name": "Hidr. Cia_da_crianca x0.2 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "d242eca4-33ec-4f37-902c-456f1941b737"
+    },
+    {
+      "slaveId": 76,
+      "name": "Hidr. Crepfy_g1 x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "4c8d268a-0966-463d-8a1c-92aea8789aa2"
+    },
+    {
+      "slaveId": 77,
+      "name": "Hidr. Youbella x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": null,
+      "dataApiDeviceId": "d8eff872-ce94-4a03-8ef1-b1ec1083a466"
+    },
+    {
+      "slaveId": 78,
+      "name": "Hidr. BK_Q_G1 x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "8436eee3-004b-4a57-976b-bdd60d6d3fac"
+    },
+    {
+      "slaveId": 80,
+      "name": "Hidr. Bk_Q_G0",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "408e0b88-6bc4-4bd5-8248-6903d63d4bd8"
+    },
+    {
+      "slaveId": 81,
+      "name": "Hidr. HappyMachine x1 0m3",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "93f5e602-0b5e-441d-959b-41dccbe1b536"
+    },
+    {
+      "slaveId": 84,
+      "name": "Hidr. Rihappy x1",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "energy",
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "66f97be6-d3e5-47fe-8410-8e8f6cfac1df"
+    },
+    {
+      "slaveId": 85,
+      "name": "Repetidor Rihappy",
+      "deviceType": "energy",
+      "profile": "default",
+      "capabilities": [
+        "energy"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": null,
+      "dataApiDeviceId": "4691bcfa-bcfb-47b7-8672-2d8876ed6411"
+    },
+    {
+      "slaveId": 86,
+      "name": "Cacau Show",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "8202631c-b7c1-4232-9db8-ad2fa507f4f5"
+    },
+    {
+      "slaveId": 87,
+      "name": "SW Reborne",
+      "deviceType": "temperature",
+      "profile": null,
+      "capabilities": [
+        "temperature"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-01-23T02:40",
+      "dataApiDeviceId": "d820ead0-7253-4ffe-90c2-69047e571e1d"
+    },
+    {
+      "slaveId": 89,
+      "name": "Hidr. K-hot",
+      "deviceType": "water",
+      "profile": "default",
+      "capabilities": [
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "7c87cac4-b030-464c-a018-13098c1f5a0a"
+    },
+    {
+      "slaveId": 90,
+      "name": "Hidr. Coco Bambu",
+      "deviceType": "water",
+      "profile": null,
+      "capabilities": [
+        "temperature",
+        "water"
+      ],
+      "isActive": true,
+      "lastTelemetryTs": "2026-11-16T18:15",
+      "dataApiDeviceId": "74847235-900b-47cf-a822-81af621b49c6"
+    }
+  ]
+}

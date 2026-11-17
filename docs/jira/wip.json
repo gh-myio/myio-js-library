@@ -2,7 +2,7 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-11-09",
+    "generatedAt": "2026-11-16",
     "status": [
       "Em Andamento",
       "EM REVISÃO"
@@ -10,16 +10,16 @@
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\" ou \"EM REVISÃO\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 23,
+  "total": 19,
   "peopleOver": 4,
   "people": [
     {
       "name": "Letícia Camargo",
-      "count": 8,
+      "count": 9,
       "over": true,
       "byStatus": {
         "Em Andamento": 1,
-        "EM REVISÃO": 7
+        "EM REVISÃO": 8
       },
       "tickets": [
         {
@@ -28,6 +28,13 @@
           "status": "Em Andamento",
           "summary": "[QA] [TABOÃO] 3. Cards virtuais",
           "updated": "2026-11-03"
+        },
+        {
+          "key": "ED-320",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "[GCDR][RULE][EDIT] - Ao entrar na tela de edição, ajustar em Scope Profile x Devices - Sem exibição de devices",
+          "updated": "2026-11-16"
         },
         {
           "key": "ED-1048",
@@ -77,66 +84,6 @@
           "status": "EM REVISÃO",
           "summary": "GCDR — Usuário bloqueado não é recuperado pela tela de usuários (Ativar, Redefinir senha e Reenviar verificação não funcionam)",
           "updated": "2026-11-09"
-        }
-      ]
-    },
-    {
-      "name": "Rodrigo Lago",
-      "count": 7,
-      "over": true,
-      "byStatus": {
-        "Em Andamento": 1,
-        "EM REVISÃO": 6
-      },
-      "tickets": [
-        {
-          "key": "ED-996",
-          "type": "Bug",
-          "status": "Em Andamento",
-          "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
-          "updated": "2026-10-06"
-        },
-        {
-          "key": "ED-1123",
-          "type": "Bug",
-          "status": "EM REVISÃO",
-          "summary": "[BUG] Comparação de Temperatura (Footer) não mostra dados — busca na API do TB em vez da Ingestion",
-          "updated": "2026-08-13"
-        },
-        {
-          "key": "ED-910",
-          "type": "Subtarefa",
-          "status": "EM REVISÃO",
-          "summary": "VM para emulação de imagem Yocto CM4 (aarch64)",
-          "updated": "2026-09-15"
-        },
-        {
-          "key": "ED-1231",
-          "type": "Bug",
-          "status": "EM REVISÃO",
-          "summary": "[BUG] Central: hidrômetro não lê após \"Replace Product\" até inserir manualmente em channel_pulse_log",
-          "updated": "2026-09-15"
-        },
-        {
-          "key": "ED-320",
-          "type": "Tarefa",
-          "status": "EM REVISÃO",
-          "summary": "[GCDR][RULE][EDIT] - Ao entrar na tela de edição, ajustar em Scope Profile x Devices - Sem exibição de devices",
-          "updated": "2026-09-21"
-        },
-        {
-          "key": "ED-1220",
-          "type": "Tarefa",
-          "status": "EM REVISÃO",
-          "summary": "[API] Public GET /v3/health — structured services (audit/sync/version), items, environment presence, backup",
-          "updated": "2026-09-29"
-        },
-        {
-          "key": "ED-989",
-          "type": "Tarefa",
-          "status": "EM REVISÃO",
-          "summary": "Campinas Shopping - Loja sem exibição no painel",
-          "updated": "2026-11-03"
         }
       ]
     },
@@ -215,6 +162,31 @@
           "status": "EM REVISÃO",
           "summary": "RFC-0229: Migrar Customer Server Scope (TB) → GCDR customer-config, atributo por atributo + settings do widget MAIN_VIEW",
           "updated": "2026-09-21"
+        }
+      ]
+    },
+    {
+      "name": "Rodrigo Lago",
+      "count": 2,
+      "over": true,
+      "byStatus": {
+        "Em Andamento": 1,
+        "EM REVISÃO": 1
+      },
+      "tickets": [
+        {
+          "key": "ED-1379",
+          "type": "Tarefa",
+          "status": "Em Andamento",
+          "summary": "Moxuara - Ressincronização e redistribuição do consumo",
+          "updated": "2026-11-16"
+        },
+        {
+          "key": "ED-1220",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "[API] Public GET /v3/health — structured services (audit/sync/version), items, environment presence, backup",
+          "updated": "2026-09-29"
         }
       ]
     }

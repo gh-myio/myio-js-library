@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-11-09",
-    "today": "2026-11-09",
+    "generatedAt": "2026-11-16",
+    "today": "2026-11-16",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -695,7 +695,7 @@
       "complete": "",
       "state": "future",
       "scope": 72,
-      "done": 32,
+      "done": 36,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -765,6 +765,11 @@
         {
           "date": "2026-11-09",
           "remaining": 40,
+          "ideal": 0
+        },
+        {
+          "date": "2026-11-16",
+          "remaining": 36,
           "ideal": 0
         }
       ],
@@ -3675,6 +3680,54 @@
       "type": "Bug",
       "priority": "High",
       "date": "2026-11-09"
+    },
+    {
+      "key": "ED-1319",
+      "summary": "Supervia CCO — restore do banco da central antiga na central nova (troca de central, 2026-10-05)",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Highest",
+      "date": "2026-11-16"
+    },
+    {
+      "key": "ED-989",
+      "summary": "Campinas Shopping - Loja sem exibição no painel",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "High",
+      "date": "2026-11-16"
+    },
+    {
+      "key": "ED-1350",
+      "summary": "Sá Cavalcante - Inclusão de granularidade de 30 minutos no gráfico de temperatura",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-11-16"
+    },
+    {
+      "key": "ED-1372",
+      "summary": "Myio Inclusão de campo de anotações nos eventos de incidentes do painel de alarmes",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-11-16"
+    },
+    {
+      "key": "ED-1123",
+      "summary": "[BUG] Comparação de Temperatura (Footer) não mostra dados — busca na API do TB em vez da Ingestion",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-16"
+    },
+    {
+      "key": "ED-996",
+      "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-16"
     }
   ]
 }

@@ -11,76 +11,74 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-11-09",
+    "generatedAt": "2026-11-16",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 40,
-    "backlogOpen": 584,
-    "total": 624
+    "sprintOpen": 36,
+    "backlogOpen": 585,
+    "total": 621
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "PENDENTE": 10,
-        "EM REVISÃO": 5,
-        "Itens Novos": 22,
-        "Em Andamento": 3
+        "PENDENTE": 9,
+        "EM REVISÃO": 4,
+        "Itens Novos": 19,
+        "Em Andamento": 4
       },
       "byType": {
         "Bug": 8,
-        "Tarefa": 32
+        "Tarefa": 28
       },
       "byPriority": {
-        "Medium": 20,
-        "Highest": 9,
+        "Medium": 18,
+        "Highest": 8,
         "Low": 1,
-        "High": 10
+        "High": 9
       },
       "byAssignee": {
-        "Rodrigo Lago": 29,
+        "Rodrigo Lago": 25,
         "Letícia Camargo": 7,
         "Victor Hugo da Silva": 3,
         "Luiz Guilherme Martinho Sampaio Ito": 1
       },
       "byGroup": {
-        "Outros": 2,
+        "Outros": 1,
         "GCDR / Plataforma": 12,
         "Relatórios / Dashboard": 9,
-        "TrensRJ": 1,
         "Souza Aguiar": 1,
         "Shopping da Ilha / SDI": 2,
-        "Campinas": 3,
+        "Campinas": 2,
         "Central / Firmware / HW": 3,
         "Taboão": 4,
         "Ilha Plaza": 1,
-        "Sá Cavalcante": 1,
         "Moxuara": 1
       }
     },
     "backlog": {
       "byStatus": {
-        "Itens Novos": 175,
-        "EM REVISÃO": 12,
+        "Itens Novos": 180,
+        "EM REVISÃO": 9,
         "PENDENTE": 394,
-        "Em Andamento": 3
+        "Em Andamento": 2
       },
       "byType": {
-        "Tarefa": 439,
+        "Tarefa": 440,
         "Subtarefa": 94,
         "Bug": 51
       },
       "byPriority": {
-        "High": 19,
-        "Medium": 557,
+        "High": 21,
+        "Medium": 556,
         "Low": 5,
         "Highest": 2,
         "Lowest": 1
       },
       "byAssignee": {
         "Rodrigo Lago": 120,
-        "Letícia Camargo": 28,
+        "Letícia Camargo": 29,
         "Luiz Guilherme Martinho Sampaio Ito": 385,
         "Leticia Saraiva": 5,
         "Victor Hugo da Silva": 45,
@@ -89,12 +87,12 @@
       "byGroup": {
         "Souza Aguiar": 3,
         "Relatórios / Dashboard": 8,
-        "GCDR / Plataforma": 116,
+        "GCDR / Plataforma": 115,
         "Raiz Educação": 2,
         "Central / Firmware / HW": 393,
         "Contagem": 3,
         "Outros": 21,
-        "Sá Cavalcante": 7,
+        "Sá Cavalcante": 6,
         "Mestre Álvaro": 2,
         "Rio Poty": 1,
         "Moxuara": 1,
@@ -103,10 +101,11 @@
         "West Plaza": 1,
         "Melicidade": 2,
         "Shopping da Ilha / SDI": 4,
-        "TrensRJ": 2,
+        "TrensRJ": 3,
         "Ilha Plaza": 1,
         "Taboão": 5,
-        "Obramax": 1
+        "Obramax": 1,
+        "Praia da Costa": 2
       }
     }
   },
@@ -214,19 +213,6 @@
       "updated": "2026-10-04",
       "group": "GCDR / Plataforma",
       "kind": "theme"
-    },
-    {
-      "key": "ED-1319",
-      "summary": "Supervia CCO — restore do banco da central antiga na central nova (troca de central, 2026-10-05)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Highest",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-05",
-      "group": "TrensRJ",
-      "kind": "unit"
     },
     {
       "key": "ED-1321",
@@ -528,32 +514,6 @@
       "kind": "unit"
     },
     {
-      "key": "ED-989",
-      "summary": "Campinas Shopping - Loja sem exibição no painel",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-11-03",
-      "group": "Campinas",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1350",
-      "summary": "Sá Cavalcante - Inclusão de granularidade de 30 minutos no gráfico de temperatura",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-11-03",
-      "group": "Sá Cavalcante",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1351",
       "summary": "Shopping da Ilha - Inserir offset de temperatura",
       "type": "Tarefa",
@@ -565,19 +525,6 @@
       "updated": "2026-11-03",
       "group": "Shopping da Ilha / SDI",
       "kind": "unit"
-    },
-    {
-      "key": "ED-1372",
-      "summary": "Myio Inclusão de campo de anotações nos eventos de incidentes do painel de alarmes",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-29",
-      "group": "Outros",
-      "kind": "other"
     },
     {
       "key": "ED-1374",
@@ -623,11 +570,11 @@
       "summary": "Moxuara - Ressincronização e redistribuição do consumo",
       "type": "Tarefa",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "Em Andamento",
+      "cat": "indeterminate",
       "priority": "Highest",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-11-05",
+      "updated": "2026-11-16",
       "group": "Moxuara",
       "kind": "unit"
     }
@@ -680,8 +627,8 @@
       "status": "EM REVISÃO",
       "cat": "indeterminate",
       "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-21",
+      "assignee": "Letícia Camargo",
+      "updated": "2026-11-16",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -5734,11 +5681,11 @@
       "summary": "VM para emulação de imagem Yocto CM4 (aarch64)",
       "type": "Subtarefa",
       "sub": true,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
+      "status": "Itens Novos",
+      "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-15",
+      "updated": "2026-11-16",
       "group": "Central / Firmware / HW",
       "kind": "theme"
     },
@@ -6064,19 +6011,6 @@
       "priority": "Medium",
       "assignee": "Victor Hugo da Silva",
       "updated": "2026-08-11",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1123",
-      "summary": "[BUG] Comparação de Temperatura (Footer) não mostra dados — busca na API do TB em vez da Ingestion",
-      "type": "Bug",
-      "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-08-13",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -6709,11 +6643,11 @@
       "summary": "[BUG] Central: hidrômetro não lê após \"Replace Product\" até inserir manualmente em channel_pulse_log",
       "type": "Bug",
       "sub": false,
-      "status": "EM REVISÃO",
-      "cat": "indeterminate",
+      "status": "Itens Novos",
+      "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-15",
+      "updated": "2026-11-16",
       "group": "Central / Firmware / HW",
       "kind": "theme"
     },
@@ -8031,19 +7965,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-996",
-      "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
-      "type": "Bug",
-      "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-06",
-      "group": "Sá Cavalcante",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1339",
       "summary": "RFC-0076: People Orchestrator — worker de produtividade (GitHub/Jira/Freshdesk/GCDR/OS), alertas de inatividade e cadastro de pessoas",
       "type": "Tarefa",
@@ -8223,6 +8144,45 @@
       "assignee": "Rodrigo Lago",
       "updated": "2026-11-03",
       "group": "Taboão",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1381",
+      "summary": "TrensRJ/Supervia Correção do fluxo de redefinição de senha e envio de link de ativação no App",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-13",
+      "group": "TrensRJ",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1382",
+      "summary": "Praia da Costa - Verificação de prováveis outliers no consumo de água",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-13",
+      "group": "Praia da Costa",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1383",
+      "summary": "Praia da Costa - Merge de histórico de consumo – Cards Vivo e Smart Case",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-13",
+      "group": "Praia da Costa",
       "kind": "unit"
     }
   ]
