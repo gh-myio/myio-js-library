@@ -3705,10 +3705,10 @@ Object.assign(window.MyIOUtils, {
 
   // ThingsBoard lifecycle
   self.onInit = async function () {
-    // Opt-in dos *_MANUAL em Lojas vale para a página inteira (window.MyIOUtils): zera aqui e só volta
-    // a true pela leitura dos atributos DESTE customer (mais abaixo). A navegação interna do TB não
-    // recarrega a página — sem o reset, uma leitura que falhe herdaria o opt-in do customer anterior.
-    window.MyIOUtils.manualStoresInLojas = false; // recomputed below from the customer attributes
+    // Opt-in dos *_MANUAL em Lojas (página inteira): zera só se o customer mudou. Mesmo customer
+    // (reavaliação do widget) mantém o valor até a leitura dos atributos terminar — zerar sempre
+    // abriria uma janela em que avaliações antigas regravariam Lojas sem os manuais.
+    _manualStoresOptInBegin(self.ctx.settings?.customerTB_ID);
 
     // FIRST: populate _dataApiHost from widget settings before any other logic
     _dataApiHost = self.ctx.settings?.dataApiHost || '';
@@ -4224,15 +4224,10 @@ Object.assign(window.MyIOUtils, {
             _applyTicketsGate();
 
             // Opt-in dos *_MANUAL de loja em Lojas/totais/relatórios (undefined → desligado).
-            // Fonte única da página (window.MyIOUtils): avaliações anteriores deste controller ainda
-            // emitem dados e têm que aplicar a mesma regra (ver window.__myioMainViewEvaluations).
             // Antes do parse abaixo: um JSON inválido em exclude_groups_totals interrompe este bloco.
-            const _rawManualStores = attrs?.includeManualStoresInLojas;
-            window.MyIOUtils.manualStoresInLojas =
-              _rawManualStores === true ||
-              _rawManualStores === 'true' ||
-              _rawManualStores === 1 ||
-              _rawManualStores === '1';
+            if (_manualStoresOptInSettle(customerTB_ID, attrs?.includeManualStoresInLojas)) {
+              window.MyIOOrchestrator?.reemitForManualStoresOptIn?.(customerTB_ID);
+            }
 
             // RFC-0241 Part B (Q3): regra opt-in grupo do dashboard → categoria tarifária
             _moneySetCategoryRule(attrs?.moneyCategoryRule);
@@ -4280,11 +4275,17 @@ Object.assign(window.MyIOUtils, {
               stack: err.stack,
               name: err.name,
             });
+            // Leitura falhou: opt-in desligado (nunca herda o valor de outro customer)
+            if (_manualStoresOptInSettle(customerTB_ID, false)) {
+              window.MyIOOrchestrator?.reemitForManualStoresOptIn?.(customerTB_ID);
+            }
           }
         } else {
           LogHelper.warn('[MAIN_VIEW] ⚠️ Cannot fetch credentials - missing required data:');
           if (!customerTB_ID) LogHelper.warn('[MAIN_VIEW]   - customerTB_ID is missing from settings');
           if (!jwt) LogHelper.warn('[MAIN_VIEW]   - JWT token is missing from localStorage');
+          // Sem customer/jwt não há leitura: opt-in desligado
+          _manualStoresOptInSettle(customerTB_ID, false);
         }
 
         // RFC-0180: Publish GCDR identifiers + API keys to orchestrator for ALARM and SETTINGS widgets
@@ -7152,6 +7153,35 @@ function _isManualDevice(item) {
 function _isManualStore(item) {
   if (window.MyIOUtils?.manualStoresInLojas !== true) return false;
   return /^(3F_MEDIDOR|HIDROMETRO)_MANUAL$/i.test(String(item?.deviceProfile || item?.deviceType || '').trim());
+}
+
+/**
+ * Opt-in dos *_MANUAL em Lojas — window.MyIOUtils.manualStoresInLojas (+ manualStoresInLojasCustomerId,
+ * o customer dono do valor). Vale para a página inteira e é escrito só por estas duas funções:
+ *  - _manualStoresOptInBegin (início do onInit): zera só quando o customer muda (navegação interna do
+ *    TB, sem reload). Mesmo customer mantém o valor durante a leitura dos atributos: sem janela em que
+ *    avaliações antigas do controller regravem Lojas sem os manuais.
+ *  - _manualStoresOptInSettle (fim da leitura): valor lido no sucesso; false na falha ou sem customer/jwt.
+ */
+function _manualStoresOptInOwner(customerId) {
+  return customerId && customerId !== 'default' ? String(customerId) : null;
+}
+
+function _manualStoresOptInBegin(customerId) {
+  const owner = _manualStoresOptInOwner(customerId);
+  if (window.MyIOUtils.manualStoresInLojasCustomerId !== owner) {
+    window.MyIOUtils.manualStoresInLojas = false;
+    window.MyIOUtils.manualStoresInLojasCustomerId = owner;
+  }
+}
+
+/** Devolve true quando o valor efetivo mudou (o chamador reemite o que já foi publicado). */
+function _manualStoresOptInSettle(customerId, rawValue) {
+  const enabled = rawValue === true || rawValue === 'true' || rawValue === 1 || rawValue === '1';
+  const changed = window.MyIOUtils.manualStoresInLojas !== enabled;
+  window.MyIOUtils.manualStoresInLojas = enabled;
+  window.MyIOUtils.manualStoresInLojasCustomerId = _manualStoresOptInOwner(customerId);
+  return changed;
 }
 
 function _splitManualItems(items) {
@@ -10575,17 +10605,23 @@ const MyIOOrchestrator = (() => {
     _moneyOnProvide(domain, pKey);
   }
 
-  // Re-emite todos os domínios já carregados a partir da lista completa, com periodKey
-  // novo (mesmo truque do `myio:device-exclusion-updated`: fura o dedup de 100ms e os
-  // guards de periodKey do TELEMETRY / TELEMETRY_INFO).
-  function reemitForDeviceStatusFilter() {
-    ['energy', 'water', 'temperature'].forEach((domain) => {
+  // Re-emite os domínios já carregados a partir da lista completa, com periodKey novo
+  // (mesmo truque do `myio:device-exclusion-updated`: fura o dedup de 100ms e os guards
+  // de periodKey do TELEMETRY / TELEMETRY_INFO). Com `customerId`, só o cache desse
+  // customer (periodKey = "customerTB_ID:domain:…") — nunca republica outro shopping.
+  function reemitLoadedDomains(domains, customerId) {
+    domains.forEach((domain) => {
       const cached = window.MyIOOrchestratorData?.[domain];
       const source = cached?.allItems || cached?.items;
       if (!source || source.length === 0) return;
       const baseKey = String(cached.periodKey || '').split('_recalc_')[0];
+      if (customerId && baseKey.split(':')[0] !== String(customerId)) return;
       emitProvide(domain, `${baseKey}_recalc_${Date.now()}`, source);
     });
+  }
+
+  function reemitForDeviceStatusFilter() {
+    reemitLoadedDomains(['energy', 'water', 'temperature']);
     try {
       window.MyIOOrchestrator?.requestSummary?.();
     } catch {
@@ -11248,6 +11284,18 @@ const MyIOOrchestrator = (() => {
 
     // Expose widget busy monitor
     widgetBusyMonitor,
+
+    // Opt-in dos *_MANUAL em Lojas mudou depois de dados já publicados: reemite energia/água
+    // DESTE customer, para Lojas/totais não ficarem com o retrato anterior.
+    reemitForManualStoresOptIn: (customerId) => {
+      if (!customerId) return;
+      reemitLoadedDomains(['energy', 'water'], customerId);
+      try {
+        window.MyIOOrchestrator?.requestSummary?.();
+      } catch {
+        // ENERGY summary é opcional neste dashboard
+      }
+    },
 
     // RFC-0181: Return classified groups from cached domain data
     // Returns { lojas, entrada, areacomum, ocultos } for energy
