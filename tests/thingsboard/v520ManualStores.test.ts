@@ -9,9 +9,9 @@
  *  - ficam ACTIVE no filtro "Status Disp." (sem conectividade, status fixo online).
  * Sem o opt-in, o comportamento é o anterior: ficam só na aba MANUAL e fora dos relatórios.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { resolveGroup } from '../../src/utils/devices/deviceClassificationProfile';
-import { extractFunction, readControllerSource } from './helpers/extractControllerFunction';
+import { extractBlockAfter, extractFunction, readControllerSource } from './helpers/extractControllerFunction';
 
 const MAIN_SRC = readControllerSource('MAIN_VIEW');
 const HEADER_SRC = readControllerSource('HEADER');
@@ -24,7 +24,15 @@ type Fns = {
   _resolveDeviceGcdrStatus: (item: any) => string;
 };
 
-function loadMain(manualStoresInLojas: boolean): Fns {
+type FakeWindow = { MyIOLibrary: { resolveGroup: typeof resolveGroup }; MyIOUtils: { manualStoresInLojas?: boolean } };
+
+const fakeWindowWith = (manualStoresInLojas?: boolean): FakeWindow => ({
+  MyIOLibrary: { resolveGroup },
+  MyIOUtils: manualStoresInLojas === undefined ? {} : { manualStoresInLojas },
+});
+
+/** Uma "avaliação" do controller: funções reais do MAIN_VIEW num escopo próprio, sobre o `window` dado. */
+function evaluateMain(win: FakeWindow): Fns {
   const names = [
     '_isManualDevice',
     '_isManualStore',
@@ -33,7 +41,6 @@ function loadMain(manualStoresInLojas: boolean): Fns {
     'categorizeItemsByGroupWater',
     '_resolveDeviceGcdrStatus',
   ];
-  const fakeWindow = { MyIOLibrary: { resolveGroup } };
   const LogHelper = { log: () => {}, warn: () => {}, error: () => {} };
   const gcdrIndex = { byGcdrId: new Map(), byTbId: new Map([['tb-loja', 'INACTIVE']]) };
   // eslint-disable-next-line no-new-func
@@ -41,11 +48,12 @@ function loadMain(manualStoresInLojas: boolean): Fns {
     'window',
     'LogHelper',
     '_gcdrDeviceStatusIndex',
-    '_manualStoresInLojas',
     `${names.map((n) => extractFunction(MAIN_SRC, n)).join('\n')}\nreturn { ${names.join(', ')} };`
   );
-  return factory(fakeWindow, LogHelper, gcdrIndex, manualStoresInLojas);
+  return factory(win, LogHelper, gcdrIndex);
 }
+
+const loadMain = (manualStoresInLojas: boolean): Fns => evaluateMain(fakeWindowWith(manualStoresInLojas));
 
 function loadHeaderMerge(win: unknown): (domain: string, items: any[] | null) => any[] {
   // eslint-disable-next-line no-new-func
@@ -127,6 +135,32 @@ describe('v-5.2.0 MAIN_VIEW — *_MANUAL SEM o opt-in (padrão)', () => {
   });
 });
 
+describe('v-5.2.0 MAIN_VIEW — várias avaliações do controller na mesma página', () => {
+  // Taboão: uma avaliação anterior do controller (listeners em window que o onDestroy não remove)
+  // continuava emitindo com o próprio flag = false e regravava Lojas sem os manuais ao trocar de aba.
+  it('o opt-in é lido do window na hora: um escopo criado antes da leitura dos atributos também o aplica', () => {
+    const win = fakeWindowWith(undefined); // atributos do customer ainda não lidos
+    const antigo = evaluateMain(win);
+    expect(antigo._isManualStore(quiosque('q1'))).toBe(false);
+
+    win.MyIOUtils.manualStoresInLojas = true; // leitura dos atributos (por qualquer avaliação)
+    const atual = evaluateMain(win);
+    for (const scope of [antigo, atual]) {
+      const { regular } = scope._splitManualItems([loja, quiosque('q1'), quiosque('q2')]);
+      expect(scope.categorizeItemsByGroup(regular).lojas.map((i) => i.id)).toEqual(['loja', 'q1', 'q2']);
+    }
+  });
+
+  it('desligar o opt-in no window vale para todos os escopos', () => {
+    const win = fakeWindowWith(true);
+    const a = evaluateMain(win);
+    const b = evaluateMain(win);
+    win.MyIOUtils.manualStoresInLojas = false;
+    expect(a._isManualStore(quiosque('q1'))).toBe(false);
+    expect(b._isManualStore(quiosque('q1'))).toBe(false);
+  });
+});
+
 describe('v-5.2.0 HEADER — relatório geral × *_MANUAL', () => {
   const manualItems = [
     { id: 'tb-q1', ingestionId: 'ing-q1', deviceProfile: '3F_MEDIDOR_MANUAL', identifier: 'STB_QV_L1', label: 'Quiosque 1' },
@@ -155,12 +189,137 @@ describe('v-5.2.0 HEADER — relatório geral × *_MANUAL', () => {
   });
 });
 
-describe('v-5.2.0 — atributo do opt-in ligado aos dois widgets', () => {
-  it('MAIN_VIEW lê o atributo antes do parse que pode lançar e publica para o HEADER', () => {
-    const read = MAIN_SRC.indexOf('attrs?.includeManualStoresInLojas');
-    expect(read).toBeGreaterThan(0);
-    expect(read).toBeLessThan(MAIN_SRC.indexOf('attrs?.exclude_groups_totals'));
-    expect(MAIN_SRC).toContain('window.MyIOUtils.manualStoresInLojas = _manualStoresInLojas');
-    expect(HEADER_SRC).toContain('window.MyIOUtils?.manualStoresInLojas');
+type OptIn = {
+  _manualStoresOptInBegin: (customerId?: string | null) => void;
+  _manualStoresOptInSettle: (customerId: string | null | undefined, raw: unknown) => boolean;
+};
+
+/** Funções reais do opt-in (início do onInit / fim da leitura dos atributos) sobre o `window` dado. */
+function evaluateOptIn(win: { MyIOUtils: Record<string, unknown> }): OptIn {
+  const names = ['_manualStoresOptInOwner', '_manualStoresOptInBegin', '_manualStoresOptInSettle'];
+  // eslint-disable-next-line no-new-func
+  return new Function(
+    'window',
+    `${names.map((n) => extractFunction(MAIN_SRC, n)).join('\n')}\nreturn { _manualStoresOptInBegin, _manualStoresOptInSettle };`
+  )(win);
+}
+
+describe('v-5.2.0 MAIN_VIEW — opt-in por customer (início do onInit / fim da leitura)', () => {
+  it('corrida: avaliação nova no meio do onInit (leitura pendente) não tira os manuais de Lojas de uma antiga', () => {
+    const win = fakeWindowWith(undefined) as FakeWindow & { MyIOUtils: Record<string, unknown> };
+    // 1ª avaliação já leu os atributos do customer
+    const primeira = evaluateOptIn(win);
+    primeira._manualStoresOptInBegin('cust-1');
+    primeira._manualStoresOptInSettle('cust-1', true);
+    const antiga = evaluateMain(win);
+
+    // avaliação nova (troca de aba / widget recriado): início do onInit, leitura dos atributos pendente
+    const nova = evaluateOptIn(win);
+    nova._manualStoresOptInBegin('cust-1');
+
+    // a antiga emite nessa janela: os manuais continuam em Lojas
+    const { regular } = antiga._splitManualItems([loja, quiosque('q1'), quiosque('q2')]);
+    expect(antiga.categorizeItemsByGroup(regular).lojas.map((i) => i.id)).toEqual(['loja', 'q1', 'q2']);
+
+    // a leitura termina com o mesmo valor: nada muda, nada a reemitir
+    expect(nova._manualStoresOptInSettle('cust-1', true)).toBe(false);
+    expect(antiga._isManualStore(quiosque('q1'))).toBe(true);
+  });
+
+  it('customer novo (navegação interna do TB, sem reload): zera já no início do onInit', () => {
+    const win = fakeWindowWith(undefined) as FakeWindow & { MyIOUtils: Record<string, unknown> };
+    const optIn = evaluateOptIn(win);
+    optIn._manualStoresOptInSettle('cust-1', true);
+    optIn._manualStoresOptInBegin('cust-2');
+    expect(win.MyIOUtils.manualStoresInLojas).toBe(false);
+    expect(win.MyIOUtils.manualStoresInLojasCustomerId).toBe('cust-2');
+    expect(evaluateMain(win)._isManualStore(quiosque('q1'))).toBe(false);
+  });
+
+  it('leitura que falha (ou sem customer/jwt) → false, sem herdar o customer anterior', () => {
+    const win = fakeWindowWith(undefined) as FakeWindow & { MyIOUtils: Record<string, unknown> };
+    const optIn = evaluateOptIn(win);
+    optIn._manualStoresOptInSettle('cust-1', true);
+    optIn._manualStoresOptInBegin('cust-2');
+    expect(optIn._manualStoresOptInSettle('cust-2', false)).toBe(false); // já estava false: nada a reemitir
+    expect(win.MyIOUtils.manualStoresInLojas).toBe(false);
+
+    // mesmo customer: leitura falha depois de um sucesso → desliga e pede reemissão
+    optIn._manualStoresOptInSettle('cust-2', true);
+    expect(optIn._manualStoresOptInSettle('cust-2', false)).toBe(true);
+    expect(win.MyIOUtils.manualStoresInLojas).toBe(false);
+  });
+
+  it('valor lido: true / "true" / 1 / "1" ligam, o resto desliga; devolve true só quando muda', () => {
+    const win = fakeWindowWith(undefined) as FakeWindow & { MyIOUtils: Record<string, unknown> };
+    const { _manualStoresOptInSettle: settle } = evaluateOptIn(win);
+    expect(settle('cust-1', 'true')).toBe(true);
+    expect(settle('cust-1', true)).toBe(false);
+    expect(settle('cust-1', 1)).toBe(false);
+    expect(settle('cust-1', '1')).toBe(false);
+    expect(settle('cust-1', undefined)).toBe(true);
+    expect(settle('cust-1', 'sim')).toBe(false);
+    expect(win.MyIOUtils.manualStoresInLojas).toBe(false);
   });
 });
+
+describe('v-5.2.0 MAIN_VIEW — reemissão quando o opt-in muda', () => {
+  function loadReemit(data: Record<string, unknown>) {
+    const emitProvide = vi.fn();
+    // eslint-disable-next-line no-new-func
+    const reemit = new Function(
+      'window',
+      'emitProvide',
+      `${extractFunction(MAIN_SRC, 'reemitLoadedDomains')}\nreturn reemitLoadedDomains;`
+    )({ MyIOOrchestratorData: data }, emitProvide) as (domains: string[], customerId?: string) => void;
+    return { reemit, emitProvide };
+  }
+
+  it('com customer: reemite só o cache desse customer, com periodKey novo e a lista completa', () => {
+    const { reemit, emitProvide } = loadReemit({
+      energy: { periodKey: 'cust-1:energy:2026-11-01:2026-11-10:day', allItems: [loja, quiosque('q1')] },
+      water: { periodKey: 'cust-0:water:2026-11-01:2026-11-10:day', allItems: [{ id: 'h' }] },
+    });
+    reemit(['energy', 'water'], 'cust-1');
+    expect(emitProvide).toHaveBeenCalledOnce();
+    const [domain, key, items] = emitProvide.mock.calls[0];
+    expect(domain).toBe('energy');
+    expect(key).toMatch(/^cust-1:energy:2026-11-01:2026-11-10:day_recalc_\d+$/);
+    expect(items.map((i: { id: string }) => i.id)).toEqual(['loja', 'q1']);
+  });
+
+  it('sem customer (filtro Status Disp.): reemite todos os domínios carregados, sem acumular _recalc_', () => {
+    const { reemit, emitProvide } = loadReemit({
+      energy: { periodKey: 'cust-1:energy:a:b:day_recalc_1', allItems: [loja] },
+      water: { periodKey: 'cust-1:water:a:b:day', items: [{ id: 'h' }] },
+      temperature: { periodKey: 'cust-1:temperature:a:b:day', allItems: [] },
+    });
+    reemit(['energy', 'water', 'temperature']);
+    expect(emitProvide.mock.calls.map(([d]) => d)).toEqual(['energy', 'water']);
+    expect(emitProvide.mock.calls[0][1]).toMatch(/^cust-1:energy:a:b:day_recalc_\d+$/);
+  });
+});
+
+describe('v-5.2.0 MAIN_VIEW — onInit usa as funções do opt-in', () => {
+  const onInit = extractBlockAfter(MAIN_SRC, 'self.onInit = async function');
+  const attrsSrc = onInit.slice(onInit.search(/if\s*\(\s*customerTB_ID\s*&&\s*jwt\s*\)/));
+  const attrsIf = extractBlockAfter(attrsSrc, 'if');
+  const elseBlock = extractBlockAfter(attrsSrc.slice(attrsSrc.indexOf('{') + attrsIf.length), 'else');
+  const SETTLE_FALSE = /_manualStoresOptInSettle\(\s*customerTB_ID\s*,\s*false\s*\)/;
+
+  it('Begin antes do 1º await; o onInit não grava o flag direto', () => {
+    const begin = onInit.search(/_manualStoresOptInBegin\(/);
+    expect(begin).toBeGreaterThan(-1);
+    expect(begin).toBeLessThan(onInit.search(/\bawait\b/));
+    expect(onInit).not.toMatch(/manualStoresInLojas(CustomerId)?\s*=[^=]/);
+  });
+
+  it('Settle no sucesso (antes do parse de exclude_groups_totals, que pode lançar), no catch e no else', () => {
+    const success = attrsIf.search(/_manualStoresOptInSettle\(\s*customerTB_ID\s*,\s*attrs\b/);
+    expect(success).toBeGreaterThan(-1);
+    expect(success).toBeLessThan(attrsIf.search(/attrs\?\.exclude_groups_totals/));
+    expect(attrsIf.slice(attrsIf.search(/\bcatch\s*\(/))).toMatch(SETTLE_FALSE);
+    expect(elseBlock).toMatch(SETTLE_FALSE);
+  });
+});
+
