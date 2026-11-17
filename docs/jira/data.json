@@ -11,14 +11,14 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-11-16",
+    "generatedAt": "2026-11-17",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
     "sprintOpen": 36,
-    "backlogOpen": 585,
-    "total": 621
+    "backlogOpen": 582,
+    "total": 618
   },
   "aggregates": {
     "sprint": {
@@ -59,25 +59,25 @@
     },
     "backlog": {
       "byStatus": {
-        "Itens Novos": 180,
+        "Itens Novos": 177,
         "EM REVISÃO": 9,
         "PENDENTE": 394,
         "Em Andamento": 2
       },
       "byType": {
-        "Tarefa": 440,
+        "Tarefa": 437,
         "Subtarefa": 94,
         "Bug": 51
       },
       "byPriority": {
         "High": 21,
-        "Medium": 556,
+        "Medium": 553,
         "Low": 5,
         "Highest": 2,
         "Lowest": 1
       },
       "byAssignee": {
-        "Rodrigo Lago": 120,
+        "Rodrigo Lago": 117,
         "Letícia Camargo": 29,
         "Luiz Guilherme Martinho Sampaio Ito": 385,
         "Leticia Saraiva": 5,
@@ -101,10 +101,8 @@
         "West Plaza": 1,
         "Melicidade": 2,
         "Shopping da Ilha / SDI": 4,
-        "TrensRJ": 3,
-        "Ilha Plaza": 1,
+        "TrensRJ": 2,
         "Taboão": 5,
-        "Obramax": 1,
         "Praia da Costa": 2
       }
     }
@@ -8030,32 +8028,6 @@
       "kind": "other"
     },
     {
-      "key": "ED-1357",
-      "summary": "Ilha Plaza - Restore de central AL2",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-22",
-      "group": "Ilha Plaza",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1358",
-      "summary": "TrensRJ - Restore da Central Estação Deodoro",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-23",
-      "group": "TrensRJ",
-      "kind": "unit"
-    },
-    {
       "key": "ED-1362",
       "summary": "[TABOÃO] 1. Automação dos poços — B1/B2/S nos cards de poço, modal de bombas e widget Poços / Cisternas",
       "type": "Subtarefa",
@@ -8105,19 +8077,6 @@
       "assignee": "Rodrigo Lago",
       "updated": "2026-10-27",
       "group": "Taboão",
-      "kind": "unit"
-    },
-    {
-      "key": "ED-1369",
-      "summary": "Inclusão de módulo Obramax Aricanduva",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-29",
-      "group": "Obramax",
       "kind": "unit"
     },
     {

@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-11-16",
-    "today": "2026-11-16",
+    "generatedAt": "2026-11-17",
+    "today": "2026-11-17",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -769,6 +769,11 @@
         },
         {
           "date": "2026-11-16",
+          "remaining": 36,
+          "ideal": 0
+        },
+        {
+          "date": "2026-11-17",
           "remaining": 36,
           "ideal": 0
         }
@@ -3726,6 +3731,30 @@
       "summary": "Sá Cavalcante - Relatório de temperatura apresentando temperatura zerada",
       "assignee": "Rodrigo Lago",
       "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-16"
+    },
+    {
+      "key": "ED-1357",
+      "summary": "Ilha Plaza - Restore de central AL2",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-11-16"
+    },
+    {
+      "key": "ED-1369",
+      "summary": "Inclusão de módulo Obramax Aricanduva",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-11-16"
+    },
+    {
+      "key": "ED-1358",
+      "summary": "TrensRJ - Restore da Central Estação Deodoro",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
       "priority": "Medium",
       "date": "2026-11-16"
     }
