@@ -15,14 +15,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   openDeviceCategoryPanel,
   deviceCategoryLabel,
-  deviceCategoryToPanelTerm,
-  panelTermToDeviceCategory,
 } from '../../../src/components/financial-goals/deviceCategoryPanel';
 import { createFakeDeviceCategoryPort } from '../../../src/components/financial-goals/deviceCategoryPort';
-import {
-  WIRE_TO_PANEL_CATEGORY,
-  PANEL_TO_WIRE_CATEGORY,
-} from '../../../src/components/pricing-panel/tariffApiAdapter';
+
+/** Categorias como vêm do GCDR (GET /tariff-categories) — única fonte das opções. */
+const CATS = [
+  { key: 'COMMON_AREA', customerId: null, label: 'Área comum', isActive: true },
+  { key: 'SPECIFIC', customerId: null, label: 'Específico', isActive: true },
+  { key: 'QUIOSQUES', customerId: 'c1', label: 'Quiosques', isActive: true },
+  { key: 'ANTIGA', customerId: 'c1', label: 'Antiga', isActive: false },
+];
 
 /** Flush microtasks + a macrotask so async port writes settle. */
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
@@ -45,7 +47,7 @@ beforeEach(() => {
 describe('openDeviceCategoryPanel — list & filter', () => {
   it('renders every device with its current category', async () => {
     const port = createFakeDeviceCategoryPort(seed);
-    const h = openDeviceCategoryPanel({ port, customerId: 'c1' });
+    const h = openDeviceCategoryPanel({ port, customerId: 'c1', categories: CATS });
     await h.ready;
     expect(h.getVisibleDeviceIds()).toEqual(['d1', 'd2', 'd3']);
     const root = h.getRoot();
@@ -57,7 +59,7 @@ describe('openDeviceCategoryPanel — list & filter', () => {
 
   it('uncategorized filter shows only tariffCategory === null', async () => {
     const port = createFakeDeviceCategoryPort(seed);
-    const h = openDeviceCategoryPanel({ port, customerId: 'c1' });
+    const h = openDeviceCategoryPanel({ port, customerId: 'c1', categories: CATS });
     await h.ready;
     h.setCategoryFilter('uncategorized');
     expect(h.getVisibleDeviceIds()).toEqual(['d2']);
@@ -65,7 +67,7 @@ describe('openDeviceCategoryPanel — list & filter', () => {
 
   it('search filters by label or code', async () => {
     const port = createFakeDeviceCategoryPort(seed);
-    const h = openDeviceCategoryPanel({ port, customerId: 'c1' });
+    const h = openDeviceCategoryPanel({ port, customerId: 'c1', categories: CATS });
     await h.ready;
     h.setSearch('praça');
     expect(h.getVisibleDeviceIds()).toEqual(['d3']);
@@ -78,7 +80,7 @@ describe('openDeviceCategoryPanel — single edit', () => {
   it('setting a row category calls port.setCategory with the right args and updates the row', async () => {
     const port = createFakeDeviceCategoryPort(seed);
     const spy = vi.spyOn(port, 'setCategory');
-    const h = openDeviceCategoryPanel({ port, customerId: 'c1' });
+    const h = openDeviceCategoryPanel({ port, customerId: 'c1', categories: CATS });
     await h.ready;
     const sel = h.getRoot().querySelector<HTMLSelectElement>('[data-devcat-rowselect="d2"]')!;
     sel.value = 'COMMON_AREA';
@@ -94,7 +96,7 @@ describe('openDeviceCategoryPanel — bulk edit', () => {
   it('bulk-sets N devices via a single setCategoryBulk with the selected ids', async () => {
     const port = createFakeDeviceCategoryPort(seed); // supportsBulk default true
     const bulkSpy = vi.spyOn(port, 'setCategoryBulk');
-    const h = openDeviceCategoryPanel({ port, customerId: 'c1' });
+    const h = openDeviceCategoryPanel({ port, customerId: 'c1', categories: CATS });
     await h.ready;
     const root = h.getRoot();
     const c1 = root.querySelector<HTMLInputElement>('[data-devcat-rowcheck="d1"]')!;
@@ -115,7 +117,7 @@ describe('openDeviceCategoryPanel — bulk edit', () => {
   it('falls back to N setCategory calls when the port has no setCategoryBulk', async () => {
     const port = createFakeDeviceCategoryPort(seed, { supportsBulk: false });
     const singleSpy = vi.spyOn(port, 'setCategory');
-    const h = openDeviceCategoryPanel({ port, customerId: 'c1' });
+    const h = openDeviceCategoryPanel({ port, customerId: 'c1', categories: CATS });
     await h.ready;
     const root = h.getRoot();
     const c1 = root.querySelector<HTMLInputElement>('[data-devcat-rowcheck="d1"]')!;
@@ -135,7 +137,7 @@ describe('openDeviceCategoryPanel — bulk edit', () => {
 describe('openDeviceCategoryPanel — focus deep-link', () => {
   it('focusDeviceId highlights the right row', async () => {
     const port = createFakeDeviceCategoryPort(seed);
-    const h = openDeviceCategoryPanel({ port, customerId: 'c1', focusDeviceId: 'd3' });
+    const h = openDeviceCategoryPanel({ port, customerId: 'c1', categories: CATS, focusDeviceId: 'd3' });
     await h.ready;
     const focused = h.getRoot().querySelectorAll('[data-focused="1"]');
     expect(focused.length).toBe(1);
@@ -146,7 +148,7 @@ describe('openDeviceCategoryPanel — focus deep-link', () => {
 describe('openDeviceCategoryPanel — version conflict', () => {
   it('surfaces a conflict on one device while preserving another pending edit', async () => {
     const port = createFakeDeviceCategoryPort(seed);
-    const h = openDeviceCategoryPanel({ port, customerId: 'c1' });
+    const h = openDeviceCategoryPanel({ port, customerId: 'c1', categories: CATS });
     await h.ready;
     const root = h.getRoot();
 
@@ -176,26 +178,34 @@ describe('openDeviceCategoryPanel — version conflict', () => {
   });
 });
 
-describe('category term mapping reuses A1 (no duplicate logic)', () => {
-  it('maps COMMON_AREA↔area_comum and SPECIFIC↔lojas via the shared A1 map', () => {
-    // The panel helpers must agree with A1's centralized map for every token.
-    expect(deviceCategoryToPanelTerm('COMMON_AREA')).toBe(WIRE_TO_PANEL_CATEGORY.COMMON_AREA);
-    expect(deviceCategoryToPanelTerm('SPECIFIC')).toBe(WIRE_TO_PANEL_CATEGORY.SPECIFIC);
-    expect(deviceCategoryToPanelTerm('COMMON_AREA')).toBe('area_comum');
-    expect(deviceCategoryToPanelTerm('SPECIFIC')).toBe('lojas');
-    expect(deviceCategoryToPanelTerm(null)).toBeNull();
-
-    expect(panelTermToDeviceCategory('area_comum')).toBe(PANEL_TO_WIRE_CATEGORY.area_comum);
-    expect(panelTermToDeviceCategory('lojas')).toBe(PANEL_TO_WIRE_CATEGORY.lojas);
-    expect(panelTermToDeviceCategory('area_comum')).toBe('COMMON_AREA');
-    expect(panelTermToDeviceCategory('lojas')).toBe('SPECIFIC');
-    expect(panelTermToDeviceCategory(null)).toBeNull();
+describe('categorias vêm do GCDR (sem lista embutida)', () => {
+  it('opções = "Sem categoria" + ativas do GCDR; inativa só aparece se for a atual', async () => {
+    const port = createFakeDeviceCategoryPort([
+      { deviceId: 'a', code: 'A', label: 'A', tariffCategory: 'ANTIGA', version: '0' },
+      { deviceId: 'b', code: 'B', label: 'B', tariffCategory: null, version: '0' },
+    ]);
+    const h = openDeviceCategoryPanel({ port, customerId: 'c1', categories: CATS });
+    await h.ready;
+    const opts = (id: string) =>
+      [...h.getRoot().querySelector<HTMLSelectElement>(`[data-devcat-rowselect="${id}"]`)!.options].map((o) => o.value);
+    expect(opts('b')).toEqual(['', 'COMMON_AREA', 'SPECIFIC', 'QUIOSQUES']);
+    expect(opts('a')).toEqual(['', 'COMMON_AREA', 'SPECIFIC', 'QUIOSQUES', 'ANTIGA']);
+    h.close();
   });
 
-  it('labels derive from the same map (round-trip)', () => {
-    expect(deviceCategoryLabel('COMMON_AREA')).toBe('Área Comum');
-    expect(deviceCategoryLabel('SPECIFIC')).toBe('Lojas');
-    expect(deviceCategoryLabel(null)).toContain('Sem categoria');
+  it('sem categorias informadas: só "Sem categoria"', async () => {
+    const port = createFakeDeviceCategoryPort([{ deviceId: 'b', code: 'B', label: 'B', tariffCategory: null, version: '0' }]);
+    const h = openDeviceCategoryPanel({ port, customerId: 'c1' });
+    await h.ready;
+    const sel = h.getRoot().querySelector<HTMLSelectElement>('[data-devcat-rowselect="b"]')!;
+    expect([...sel.options].map((o) => o.value)).toEqual(['']);
+    h.close();
+  });
+
+  it('labels vêm da lista do GCDR; chave desconhecida mostra a própria chave', () => {
+    expect(deviceCategoryLabel('QUIOSQUES', CATS)).toBe('Quiosques');
+    expect(deviceCategoryLabel('XYZ', CATS)).toBe('XYZ');
+    expect(deviceCategoryLabel(null, CATS)).toContain('Sem categoria');
   });
 });
 
@@ -205,7 +215,7 @@ describe('explicit-only discipline (RFC-0207)', () => {
     const port = createFakeDeviceCategoryPort([
       { deviceId: 'x1', code: 'SCP-X', label: 'Loja X', tariffCategory: null, version: '0' },
     ]);
-    const h = openDeviceCategoryPanel({ port, customerId: 'c1' });
+    const h = openDeviceCategoryPanel({ port, customerId: 'c1', categories: CATS });
     await h.ready;
     h.setCategoryFilter('uncategorized');
     expect(h.getVisibleDeviceIds()).toEqual(['x1']);

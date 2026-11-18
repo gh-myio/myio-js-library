@@ -18,56 +18,31 @@
  * device labeled "Loja 12" with `tariffCategory: null` stays uncategorized until a
  * human sets it. The label is display-only; it is never a classification input.
  *
- * ── CATEGORY TERM MAPPING REUSES A1 (no duplicate string-matching) ────────────
- * The value set is exactly `COMMON_AREA | SPECIFIC | null`. Its mapping to the
- * pricing panel's `area_comum`/`lojas` terms is A1's centralized map
- * (`tariffApiAdapter.ts`: `wireCategoryToPanel`/`panelCategoryToWire`). This file
- * imports that map and never re-matches these tokens itself.
+ * ── CATEGORIES COME FROM GCDR (never a list in the code) ─────────────────────
+ * The value set is the GCDR tariff-category keys (`GET /tariff-categories`) passed
+ * in `params.categories`, plus `null` (uncategorized). Labels come from that list;
+ * an unknown key shows the key itself. No categories → only "— Sem categoria —".
  *
  * ── WORDING (RFC-0228 §8) ─────────────────────────────────────────────────────
  * Categorization/coverage UX, never billing. No "Fatura"/"Faturamento"/"Total a
  * pagar" strings here.
  */
 
-import {
-  wireCategoryToPanel,
-  panelCategoryToWire,
-} from '../pricing-panel/tariffApiAdapter';
-import type { PricingCategory } from '../pricing-panel/types';
+import type { TariffCategory } from '../pricing-panel/types';
 import type { DeviceCategory, DeviceCategoryPort, DeviceCategoryRow } from './deviceCategoryPort';
 import { DeviceCategoryConflictError } from './deviceCategoryPort';
 import { injectDeviceCategoryStyles } from './deviceCategoryStyles';
 
-/** Category filter for the toolbar. `uncategorized` = the A4 deep-link entry. */
-export type DeviceCategoryFilter = 'all' | 'uncategorized' | 'COMMON_AREA' | 'SPECIFIC';
-
-/** pt-BR display labels, keyed by the A1 **panel** term (single source below). */
-const PANEL_TERM_LABEL: Record<PricingCategory, string> = {
-  lojas: 'Lojas',
-  area_comum: 'Área Comum',
-};
+/** Category filter for the toolbar. `uncategorized` = the A4 deep-link entry; else a GCDR key. */
+export type DeviceCategoryFilter = 'all' | 'uncategorized' | string;
 
 /** Label for the "no category" value — the honest uncategorized state. */
 const NONE_LABEL = '— Sem categoria —';
 
-/**
- * pt-BR label for a device category. Delegates the token→panel-term step to A1's
- * centralized `wireCategoryToPanel` map (RFC-0228 A1) — this function adds only the
- * final term→text lookup, never a second copy of the COMMON_AREA/SPECIFIC mapping.
- */
-export function deviceCategoryLabel(cat: DeviceCategory): string {
+/** Label of a device category from the GCDR list; unknown key → the key itself. */
+export function deviceCategoryLabel(cat: DeviceCategory, categories?: TariffCategory[] | null): string {
   if (cat == null) return NONE_LABEL;
-  return PANEL_TERM_LABEL[wireCategoryToPanel(cat)];
-}
-
-/** The A1 panel term for a device category (or `null` when uncategorized). */
-export function deviceCategoryToPanelTerm(cat: DeviceCategory): PricingCategory | null {
-  return cat == null ? null : wireCategoryToPanel(cat);
-}
-
-/** A device category from an A1 panel term (or `null`). Inverse of the above. */
-export function panelTermToDeviceCategory(term: PricingCategory | null): DeviceCategory {
-  return term == null ? null : panelCategoryToWire(term);
+  return (categories || []).find((c) => c.key === cat)?.label || String(cat);
 }
 
 export interface OpenDeviceCategoryPanelParams {
@@ -75,6 +50,8 @@ export interface OpenDeviceCategoryPanelParams {
   port: DeviceCategoryPort;
   /** Customer whose devices to list/edit. */
   customerId: string;
+  /** GCDR tariff categories (`GET /tariff-categories`) — the only source of options. */
+  categories?: TariffCategory[];
   /** Optional money domain scope. */
   domain?: 'ENERGY' | 'WATER';
   /** Device to scroll to + highlight on open (from A4's `onCategorizeDevice`). */
@@ -119,14 +96,16 @@ function esc(s: unknown): string {
     .replace(/'/g, '&#39;');
 }
 
-/** Category `<option>`s: none + the two explicit tokens (labels via A1 map). */
-function categoryOptionsHTML(selected: DeviceCategory): string {
+/** Category `<option>`s: none + the GCDR categories (active; the current one even if inactive). */
+function categoryOptionsHTML(selected: DeviceCategory, categories: TariffCategory[]): string {
   const opt = (value: string, label: string, isSel: boolean): string =>
-    `<option value="${value}"${isSel ? ' selected' : ''}>${esc(label)}</option>`;
+    `<option value="${esc(value)}"${isSel ? ' selected' : ''}>${esc(label)}</option>`;
+  const list = categories.filter((c) => c.isActive !== false || c.key === selected);
+  const known = list.some((c) => c.key === selected);
   return (
     opt('', NONE_LABEL, selected == null) +
-    opt('COMMON_AREA', deviceCategoryLabel('COMMON_AREA'), selected === 'COMMON_AREA') +
-    opt('SPECIFIC', deviceCategoryLabel('SPECIFIC'), selected === 'SPECIFIC')
+    list.map((c) => opt(c.key, c.label || c.key, selected === c.key)).join('') +
+    (selected != null && !known ? opt(selected, String(selected), true) : '')
   );
 }
 
@@ -147,6 +126,11 @@ export function openDeviceCategoryPanel(
   injectDeviceCategoryStyles(doc);
 
   const { port, customerId } = params;
+  const categories: TariffCategory[] = (params.categories || []).slice();
+  const activeOptions = categories
+    .filter((c) => c.isActive !== false)
+    .map((c) => `<option value="${esc(c.key)}">${esc(c.label || c.key)}</option>`)
+    .join('');
 
   // --- model ---------------------------------------------------------------
   let rows: DeviceCategoryRow[] = [];
@@ -176,8 +160,7 @@ export function openDeviceCategoryPanel(
         <select class="myio-devcat__filter" data-devcat-filter="1" aria-label="Filtrar por categoria">
           <option value="all">Todas as categorias</option>
           <option value="uncategorized">Sem categoria</option>
-          <option value="COMMON_AREA">${esc(deviceCategoryLabel('COMMON_AREA'))}</option>
-          <option value="SPECIFIC">${esc(deviceCategoryLabel('SPECIFIC'))}</option>
+          ${activeOptions}
         </select>
         <label class="myio-devcat__filter" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
           <input type="checkbox" data-devcat-selectall="1" /> Selecionar visíveis
@@ -187,8 +170,7 @@ export function openDeviceCategoryPanel(
         <span data-devcat-bulkcount="1">0 selecionados</span>
         <select data-devcat-bulkcat="1" aria-label="Categoria para os selecionados">
           <option value="">${esc(NONE_LABEL)}</option>
-          <option value="COMMON_AREA">${esc(deviceCategoryLabel('COMMON_AREA'))}</option>
-          <option value="SPECIFIC">${esc(deviceCategoryLabel('SPECIFIC'))}</option>
+          ${activeOptions}
         </select>
         <button type="button" class="myio-devcat__bulk-apply" data-devcat-bulkapply="1">Aplicar a selecionados</button>
       </div>
@@ -239,7 +221,7 @@ export function openDeviceCategoryPanel(
       `</div>` +
       `<select class="myio-devcat__row-select" data-devcat-rowselect="${esc(
         r.deviceId
-      )}" aria-label="Categoria de ${name}">${categoryOptionsHTML(r.tariffCategory)}</select>` +
+      )}" aria-label="Categoria de ${name}">${categoryOptionsHTML(r.tariffCategory, categories)}</select>` +
       `<div class="myio-devcat__row-conflict" data-devcat-conflict="${esc(r.deviceId)}"></div>` +
       `</div>`
     );
@@ -277,7 +259,7 @@ export function openDeviceCategoryPanel(
     body.querySelectorAll<HTMLSelectElement>('[data-devcat-rowselect]').forEach((sel) => {
       sel.addEventListener('change', () => {
         const id = sel.getAttribute('data-devcat-rowselect')!;
-        const value = sel.value; // '' | 'COMMON_AREA' | 'SPECIFIC'
+        const value = sel.value; // '' | GCDR category key
         const category: DeviceCategory = value === '' ? null : (value as DeviceCategory);
         void applySingle(id, category);
       });
@@ -481,6 +463,7 @@ export function openDeviceCategoryPanel(
 export function createCoverageDeepLink(config: {
   port: DeviceCategoryPort;
   customerId: string;
+  categories?: TariffCategory[];
   domain?: 'ENERGY' | 'WATER';
   theme?: Record<string, string>;
   document?: Document;
@@ -495,6 +478,7 @@ export function createCoverageDeepLink(config: {
     openDeviceCategoryPanel({
       port: config.port,
       customerId: config.customerId,
+      categories: config.categories,
       domain: config.domain,
       focusDeviceId,
       initialFilter,

@@ -22,11 +22,25 @@ export interface PricingCustomerRef {
 export type PricingDomain = 'energy' | 'water';
 
 /**
- * Usage category the price applies to:
- *  - `lojas`      — tenant stores.
- *  - `area_comum` — common-area equipment.
+ * Usage category the price applies to = the GCDR tariff-category **key**
+ * (`GET /api/v1/tariff-categories`), e.g. `COMMON_AREA`, `SPECIFIC`,
+ * `ENERGIA_QUIOSQUES_TABOAO`. Never a fixed list in the library.
  */
-export type PricingCategory = 'lojas' | 'area_comum';
+export type PricingCategory = string;
+
+/** One GCDR tariff category (`GET /api/v1/tariff-categories?customerId=`). */
+export interface TariffCategory {
+  key: string;
+  /** null = global (tenant-wide); otherwise the GCDR customer it belongs to. */
+  customerId: string | null;
+  label: string;
+  description?: string | null;
+  sortOrder?: number;
+  isSystem?: boolean;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 /** How a pricing period is expressed. */
 export type PricingPeriodType = 'month' | 'range';
@@ -112,8 +126,8 @@ export interface PricingKpis {
   lastUpdatedAt: string | null;
   /**
    * Coverage of (customer × domain × category) combinations that hold at least
-   * one price. `total` = customerCount × 4 when a customer count is provided,
-   * else equals `covered`.
+   * one price. `total` = customerCount × 2 domains × categoryCount when both
+   * counts are provided, else equals `covered`.
    */
   coverage: { covered: number; total: number; pct: number };
 }
@@ -133,8 +147,14 @@ export interface OpenPricingPanelParams {
   currentUserEmail?: string;
   /** Initial domain selection in the Add form. Default `'energy'`. */
   domain?: PricingDomain;
-  /** Initial category selection in the Add form. Default `'lojas'`. */
+  /** Initial category key in the Add form. Default: first active category from the source. */
   category?: PricingCategory;
+  /**
+   * Categories for the localStorage prototype path (no `tariffApi`). With
+   * `tariffApi` they always come from GCDR `GET /tariff-categories`. There is no
+   * built-in list: no source → the panel shows an error and blocks adding.
+   */
+  categories?: TariffCategory[];
   /** Host palette; falls back to `window.MyIOUtils.theme` when omitted. */
   theme?: PricingPanelThemeSource;
   /** Called with the full entry list after every mutation (add/edit/remove). */

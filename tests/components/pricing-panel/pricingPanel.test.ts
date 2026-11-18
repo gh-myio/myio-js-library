@@ -199,12 +199,12 @@ describe('computePricingKpis', () => {
     e = upsertEntry(e, entry('c1', 'energy', 'lojas', '2026-04', 1.0), { now }).entries;
     e = upsertEntry(e, entry('c1', 'water', 'area_comum', '2026-03', 10), { now }).entries;
 
-    const kpis = computePricingKpis(e, { customerCount: 2 });
+    const kpis = computePricingKpis(e, { customerCount: 2, categoryCount: 2 });
     expect(kpis.totalPeriods).toBe(3);
     expect(kpis.periodsByDomain).toEqual({ energy: 2, water: 1 });
     expect(kpis.avgEnergyPrice).toBeCloseTo(0.9, 6);
     expect(kpis.avgWaterPrice).toBe(10);
-    // 2 distinct combos (c1/energy/lojas, c1/water/area_comum) out of 2*4 = 8.
+    // 2 distinct combos (c1/energy/lojas, c1/water/area_comum) out of 2 customers × 2 domains × 2 categories = 8.
     expect(kpis.coverage).toEqual({ covered: 2, total: 8, pct: 25 });
     expect(kpis.lastUpdatedAt).toBe(now);
   });
@@ -213,6 +213,35 @@ describe('computePricingKpis', () => {
 // ---------------------------------------------------------------------------
 // openPricingPanel — gating & tabs (DOM)
 // ---------------------------------------------------------------------------
+// Categorias vêm do GCDR (ou de params.categories no protótipo) — nunca de uma lista embutida.
+const CATS = [
+  { key: 'lojas', customerId: null, label: 'Lojas', sortOrder: 10, isActive: true },
+  { key: 'area_comum', customerId: null, label: 'Área Comum', sortOrder: 20, isActive: true },
+  { key: 'velha', customerId: null, label: 'Velha', sortOrder: 30, isActive: false },
+];
+
+describe('openPricingPanel categories (no built-in list)', () => {
+  it('sem fonte de categorias: erro visível e Add período bloqueado', () => {
+    openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    const sel = q<HTMLSelectElement>('[data-testid="pricing-category"]');
+    expect(sel.disabled).toBe(true);
+    expect([...sel.options].map((o) => o.value)).toEqual(['']);
+    expect(q<HTMLButtonElement>('[data-testid="pricing-add"]').disabled).toBe(true);
+    expect(q('[data-testid="pricing-error"]').textContent).toMatch(/Categorias de tarifa não informadas/);
+  });
+
+  it('lista as categorias informadas; inativa aparece desabilitada', () => {
+    openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br', categories: CATS });
+    const sel = q<HTMLSelectElement>('[data-testid="pricing-category"]');
+    expect([...sel.options].map((o) => [o.value, o.textContent, o.disabled])).toEqual([
+      ['lojas', 'Lojas', false],
+      ['area_comum', 'Área Comum', false],
+      ['velha', 'Velha (inativa)', true],
+    ]);
+    expect(sel.value).toBe('lojas');
+  });
+});
+
 describe('openPricingPanel gating', () => {
   it('blocks non-MyIO users with the locked state and no form', () => {
     const handle = openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'user@client.com' });
@@ -263,6 +292,7 @@ describe('openPricingPanel add flow', () => {
     const onSave = vi.fn();
     const handle = openPricingPanel({
       customers: CUSTOMERS,
+      categories: CATS,
       currentUserEmail: 'op@myio.com.br',
       onSave,
     });
@@ -282,13 +312,13 @@ describe('openPricingPanel add flow', () => {
   });
 
   it('unit label switches to R$/m³ for water', () => {
-    openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    openPricingPanel({ customers: CUSTOMERS, categories: CATS, currentUserEmail: 'op@myio.com.br' });
     selectDomainCategory('water', 'area_comum');
     expect(q('[data-testid="pricing-unit"]').textContent).toBe('R$/m³');
   });
 
   it('blocks overlapping periods within the same category with an error', () => {
-    const handle = openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    const handle = openPricingPanel({ customers: CUSTOMERS, categories: CATS, currentUserEmail: 'op@myio.com.br' });
     selectDomainCategory('energy', 'lojas');
     addMonth('2026-03', '0,75');
     // Range overlapping March, same domain+category.
@@ -304,7 +334,7 @@ describe('openPricingPanel add flow', () => {
   });
 
   it('same month for water does NOT conflict with energy', () => {
-    const handle = openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    const handle = openPricingPanel({ customers: CUSTOMERS, categories: CATS, currentUserEmail: 'op@myio.com.br' });
     selectDomainCategory('energy', 'lojas');
     addMonth('2026-03', '0,75');
     selectDomainCategory('water', 'lojas');
@@ -314,7 +344,7 @@ describe('openPricingPanel add flow', () => {
   });
 
   it('records add/edit/delete in the audit log (most recent first)', () => {
-    const handle = openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    const handle = openPricingPanel({ customers: CUSTOMERS, categories: CATS, currentUserEmail: 'op@myio.com.br' });
     selectDomainCategory('energy', 'lojas');
     addMonth('2026-03', '0,75'); // created
     addMonth('2026-03', '0,90'); // price-changed
@@ -331,7 +361,7 @@ describe('openPricingPanel add flow', () => {
   });
 
   it('idempotent add: same month twice updates price, no duplicate row', () => {
-    const handle = openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    const handle = openPricingPanel({ customers: CUSTOMERS, categories: CATS, currentUserEmail: 'op@myio.com.br' });
     selectDomainCategory('energy', 'lojas');
     addMonth('2026-03', '0,75');
     addMonth('2026-03', '0,90');
@@ -342,7 +372,7 @@ describe('openPricingPanel add flow', () => {
   });
 
   it('Dashboard tab renders KPIs and a filterable report over energy AND water', () => {
-    const handle = openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    const handle = openPricingPanel({ customers: CUSTOMERS, categories: CATS, currentUserEmail: 'op@myio.com.br' });
     selectDomainCategory('energy', 'lojas');
     addMonth('2026-03', '0,80');
     selectDomainCategory('water', 'area_comum');
@@ -363,20 +393,20 @@ describe('openPricingPanel add flow', () => {
   });
 
   it('persists to localStorage and rehydrates on reopen', () => {
-    const h1 = openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    const h1 = openPricingPanel({ customers: CUSTOMERS, categories: CATS, currentUserEmail: 'op@myio.com.br' });
     selectDomainCategory('energy', 'lojas');
     addMonth('2026-05', '1,20');
     h1.close();
     vi.runAllTimers();
 
-    const h2 = openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    const h2 = openPricingPanel({ customers: CUSTOMERS, categories: CATS, currentUserEmail: 'op@myio.com.br' });
     expect(h2.getEntries()).toHaveLength(1);
     expect(h2.getEntries()[0].periodKey).toBe('2026-05');
     expect(h2.getAuditLog().length).toBeGreaterThan(0);
   });
 
   it('rejects an invalid (zero) price', () => {
-    const handle = openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    const handle = openPricingPanel({ customers: CUSTOMERS, categories: CATS, currentUserEmail: 'op@myio.com.br' });
     selectDomainCategory('energy', 'lojas');
     addMonth('2026-03', '0');
     expect(q('[data-testid="pricing-error"]').classList.contains('show')).toBe(true);

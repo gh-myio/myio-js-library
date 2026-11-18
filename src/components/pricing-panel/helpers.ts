@@ -12,6 +12,7 @@ import type {
   PricingDomain,
   PricingEntry,
   PricingKpis,
+  TariffCategory,
 } from './types';
 
 export const DOMAIN_LABEL: Record<PricingDomain, string> = {
@@ -19,10 +20,14 @@ export const DOMAIN_LABEL: Record<PricingDomain, string> = {
   water: 'Água',
 };
 
-export const CATEGORY_LABEL: Record<PricingCategory, string> = {
-  lojas: 'Lojas',
-  area_comum: 'Área Comum',
-};
+/**
+ * Label of a tariff category key, from the GCDR list (`GET /tariff-categories`).
+ * Unknown key → the key itself (never a built-in label table).
+ */
+export function categoryLabel(key: PricingCategory, categories: TariffCategory[] | null | undefined): string {
+  const hit = (categories || []).find((c) => c.key === key);
+  return hit?.label || String(key ?? '');
+}
 
 /** Price unit label for a domain (energy → R$/kWh, water → R$/m³). */
 export function unitLabel(domain: PricingDomain): string {
@@ -296,10 +301,10 @@ export function removeEntryByBounds(
 /** Compute Dashboard KPIs over a set of entries. */
 export function computePricingKpis(
   entries: PricingEntry[],
-  opts: { customerCount?: number } = {}
+  opts: { customerCount?: number; categoryCount?: number } = {}
 ): PricingKpis {
   const periodsByDomain: Record<PricingDomain, number> = { energy: 0, water: 0 };
-  const periodsByCategory: Record<PricingCategory, number> = { lojas: 0, area_comum: 0 };
+  const periodsByCategory: Record<PricingCategory, number> = {};
   let energySum = 0;
   let energyN = 0;
   let waterSum = 0;
@@ -322,7 +327,8 @@ export function computePricingKpis(
   }
 
   const covered = combos.size;
-  const total = opts.customerCount ? opts.customerCount * 4 : covered;
+  const total =
+    opts.customerCount && opts.categoryCount ? opts.customerCount * 2 * opts.categoryCount : covered;
   return {
     totalPeriods: entries.length,
     periodsByDomain,

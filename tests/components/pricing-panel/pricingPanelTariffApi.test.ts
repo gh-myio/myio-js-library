@@ -31,10 +31,31 @@ function addMonth(month: string, price: string): void {
   q<HTMLButtonElement>('[data-testid="pricing-add"]').click();
 }
 
-/** Empty tariff on GET; version bump on any write. */
-function makeFetchMock() {
-  return vi.fn(async (_url: string, init?: { method?: string }) => {
+/** Categorias reais do GCDR (envelope de produção). */
+const CATEGORIES_BODY = {
+  success: true,
+  data: {
+    items: [
+      { key: 'COMMON_AREA', customerId: null, label: 'Área comum', sortOrder: 10, isSystem: true, isActive: true },
+      { key: 'SPECIFIC', customerId: null, label: 'Específico', sortOrder: 20, isSystem: true, isActive: true },
+      { key: 'ENERGIA_QUIOSQUES_TABOAO', customerId: 'gc-1', label: 'Energia Quiosques Taboão', sortOrder: 30, isSystem: false, isActive: true },
+      { key: 'ANTIGA', customerId: 'gc-1', label: 'Antiga', sortOrder: 40, isSystem: false, isActive: false },
+    ],
+    total: 4,
+  },
+};
+
+/** Categories + empty tariff on GET; version bump on any write. */
+function makeFetchMock(opts: { categoriesStatus?: number } = {}) {
+  return vi.fn(async (url: string, init?: { method?: string }) => {
     const method = init?.method || 'GET';
+    if (method === 'GET' && String(url).includes('/tariff-categories')) {
+      const status = opts.categoriesStatus ?? 200;
+      return new Response(
+        JSON.stringify(status === 200 ? CATEGORIES_BODY : { success: false, error: { code: 'FORBIDDEN', message: 'x' } }),
+        { status, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
     if (method === 'GET') {
       return new Response(JSON.stringify({ version: 0, tree: {} }), {
         status: 200,
@@ -64,7 +85,7 @@ afterEach(() => {
 });
 
 describe('openPricingPanel — tariffApi gate ON', () => {
-  it('loads via the API on open (4 combos) and never persists pricing to localStorage', async () => {
+  it('loads categories from GCDR, then tariffs for every domain × category, never via localStorage', async () => {
     const fetchMock = makeFetchMock();
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
 
@@ -74,17 +95,35 @@ describe('openPricingPanel — tariffApi gate ON', () => {
       tariffApi: { baseUrl: 'https://gcdr.example', apiKey: 'gcdr_cust_X', year: 2026, fetchImpl: fetchMock as unknown as typeof fetch },
     });
     await flush();
+    await flush();
 
-    // Initial hydration read all four (domain × category) tariffs.
-    const gets = fetchMock.mock.calls.filter((c) => (c[1]?.method || 'GET') === 'GET');
-    expect(gets.length).toBe(4);
+    // 1) categorias do customer (globais + próprias, com inativas)
+    const catCall = fetchMock.mock.calls.find((c) => String(c[0]).includes('/tariff-categories'));
+    expect(String(catCall![0])).toBe('https://gcdr.example/api/v1/tariff-categories?customerId=gc-1&includeInactive=true');
+    // 2) select com as ativas na ordem do GCDR; inativa desabilitada
+    const sel = q<HTMLSelectElement>('[data-testid="pricing-category"]');
+    expect([...sel.options].map((o) => [o.value, o.disabled])).toEqual([
+      ['COMMON_AREA', false],
+      ['SPECIFIC', false],
+      ['ENERGIA_QUIOSQUES_TABOAO', false],
+      ['ANTIGA', true],
+    ]);
+    // 3) tarifas: 2 domínios × 4 categorias (inclui a inativa, para exibir o que já existe)
+    const tariffGets = fetchMock.mock.calls.filter(
+      (c) => (c[1]?.method || 'GET') === 'GET' && String(c[0]).includes('/tariffs?')
+    );
+    expect(tariffGets.length).toBe(8);
 
-    // Add a month → routes to a PATCH, not localStorage.
+    // Add a month in a customer-specific category → PATCH with that key, not localStorage.
+    sel.value = 'ENERGIA_QUIOSQUES_TABOAO';
+    sel.dispatchEvent(new Event('change'));
     addMonth('2026-03', '0,90');
     await flush();
 
     const patches = fetchMock.mock.calls.filter((c) => c[1]?.method === 'PATCH');
     expect(patches.length).toBe(1);
+    expect(String(patches[0][0])).toContain('category=ENERGIA_QUIOSQUES_TABOAO');
+    expect(q('[data-testid="pricing-list"]').textContent).toContain('Energia Quiosques Taboão');
     const body = JSON.parse((patches[0][1] as { body: string }).body);
     expect(body.buckets.length).toBe(31 * 24);
     expect(body.buckets[0].price).toBe('0.90');
@@ -92,6 +131,26 @@ describe('openPricingPanel — tariffApi gate ON', () => {
     // No pricing/audit keys were written to localStorage.
     const pricingWrites = setItem.mock.calls.filter((c) => String(c[0]).includes('pricing'));
     expect(pricingWrites.length).toBe(0);
+  });
+});
+
+describe('openPricingPanel — categorias GCDR indisponíveis', () => {
+  it('falha ao buscar categorias = erro (sem lista de fallback) e Add bloqueado', async () => {
+    const fetchMock = makeFetchMock({ categoriesStatus: 403 });
+    openPricingPanel({
+      customers: CUSTOMERS,
+      currentUserEmail: 'op@myio.com.br',
+      tariffApi: { baseUrl: 'https://gcdr.example', apiKey: 'k', year: 2026, fetchImpl: fetchMock as unknown as typeof fetch },
+    });
+    await flush();
+    await flush();
+    const sel = q<HTMLSelectElement>('[data-testid="pricing-category"]');
+    expect(sel.disabled).toBe(true);
+    expect([...sel.options].map((o) => o.value)).toEqual(['']);
+    expect(q<HTMLButtonElement>('[data-testid="pricing-add"]').disabled).toBe(true);
+    expect(q('[data-testid="pricing-error"]').textContent).toContain('categorias de tarifa do GCDR (FORBIDDEN)');
+    // sem categorias não busca tarifas
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/tariffs?'))).toBe(false);
   });
 });
 
@@ -106,6 +165,7 @@ describe('openPricingPanel — RFC-0241 allowed / lockCustomer', () => {
       lockCustomer: true,
       tariffApi: { baseUrl: 'https://gcdr.example', apiKey: 'test-key', year: 2026, fetchImpl: fetchMock as unknown as typeof fetch },
     });
+    await flush();
     await flush();
     expect(q('[data-testid="pricing-locked"]')).toBeNull();
     expect(q('[data-testid="pricing-add"]')).not.toBeNull();
@@ -139,7 +199,11 @@ describe('openPricingPanel — tariffApi gate OFF (localStorage prototype unchan
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const setItem = vi.spyOn(Storage.prototype, 'setItem');
 
-    const handle = openPricingPanel({ customers: CUSTOMERS, currentUserEmail: 'op@myio.com.br' });
+    const handle = openPricingPanel({
+      customers: CUSTOMERS,
+      currentUserEmail: 'op@myio.com.br',
+      categories: [{ key: 'SPECIFIC', customerId: null, label: 'Específico', isActive: true }],
+    });
     const d = q<HTMLSelectElement>('[data-testid="pricing-domain"]');
     d.value = 'energy';
     d.dispatchEvent(new Event('change'));

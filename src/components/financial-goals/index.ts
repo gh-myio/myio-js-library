@@ -101,8 +101,6 @@ export {
   openDeviceCategoryPanel,
   createCoverageDeepLink,
   deviceCategoryLabel,
-  deviceCategoryToPanelTerm,
-  panelTermToDeviceCategory,
 } from './deviceCategoryPanel';
 export type {
   OpenDeviceCategoryPanelParams,

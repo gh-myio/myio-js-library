@@ -3,13 +3,14 @@
  * the GCDR **hourly tariff** contract (RFC-0054, frozen).
  *
  * The panel thinks in `month | range` periods, `energy|water` domains,
- * `lojas|area_comum` categories and (legacy) numeric `pricePerKwh`. The server
+ * GCDR tariff-category keys and (legacy) numeric `pricePerKwh`. The server
  * stores **hourly buckets** keyed by `(customer × domain × category × year)`,
  * WIRE domains/categories, and **decimal-string** prices. This module is the
  * ONLY place those two worlds meet:
  *
- *  - **Category / domain maps** — centralized here (both directions). Nothing
- *    else in the codebase string-matches `SPECIFIC`/`COMMON_AREA`/`ENERGY`/…
+ *  - **Domain map** — centralized here (both directions). Categories are NOT
+ *    mapped: the panel uses the GCDR tariff-category key as is, and the list of
+ *    keys always comes from `GET /tariff-categories` (never a list in the code).
  *  - **Write (panel → PUT/PATCH):** a day price expands to its 24 hourly buckets,
  *    a range to every hour of its days, an intraday band to exactly its hours,
  *    a month to every hour of the month. Annual → PUT (replace year); everything
@@ -35,6 +36,7 @@ import type {
   TariffTreeResponse,
   WireCategory,
   WireDomain,
+  WireTariffCategory,
 } from './tariffApiClient';
 
 // ---------------------------------------------------------------------------
@@ -51,16 +53,6 @@ export const WIRE_TO_PANEL_DOMAIN: Record<WireDomain, PricingDomain> = {
   ENERGY: 'energy',
   WATER: 'water',
 };
-/** panel category → WIRE category (`lojas` = tenant/SPECIFIC, `area_comum` = COMMON_AREA). */
-export const PANEL_TO_WIRE_CATEGORY: Record<PricingCategory, WireCategory> = {
-  lojas: 'SPECIFIC',
-  area_comum: 'COMMON_AREA',
-};
-/** WIRE category → panel category. */
-export const WIRE_TO_PANEL_CATEGORY: Record<WireCategory, PricingCategory> = {
-  SPECIFIC: 'lojas',
-  COMMON_AREA: 'area_comum',
-};
 
 export function panelDomainToWire(d: PricingDomain): WireDomain {
   const w = PANEL_TO_WIRE_DOMAIN[d];
@@ -71,16 +63,6 @@ export function wireDomainToPanel(w: WireDomain): PricingDomain {
   const d = WIRE_TO_PANEL_DOMAIN[w];
   if (!d) throw new Error(`Unknown wire domain: ${String(w)}`);
   return d;
-}
-export function panelCategoryToWire(c: PricingCategory): WireCategory {
-  const w = PANEL_TO_WIRE_CATEGORY[c];
-  if (!w) throw new Error(`Unknown panel category: ${String(c)}`);
-  return w;
-}
-export function wireCategoryToPanel(w: WireCategory): PricingCategory {
-  const c = WIRE_TO_PANEL_CATEGORY[w];
-  if (!c) throw new Error(`Unknown wire category: ${String(w)}`);
-  return c;
 }
 
 // ---------------------------------------------------------------------------
@@ -237,7 +219,7 @@ export function bandSelector(band: TariffBand, customerId: string, year: number)
   return {
     customerId,
     domain: panelDomainToWire(band.domain),
-    category: panelCategoryToWire(band.category),
+    category: band.category,
     year,
   };
 }
@@ -528,13 +510,8 @@ export function collapseTreeToBands(
 // The adapter — orchestrates load / save / delete against the client.
 // ---------------------------------------------------------------------------
 
-/** The four `(domain × category)` combos a customer's tariffs span. */
-const WIRE_COMBOS: Array<[WireDomain, WireCategory]> = [
-  ['ENERGY', 'SPECIFIC'],
-  ['ENERGY', 'COMMON_AREA'],
-  ['WATER', 'SPECIFIC'],
-  ['WATER', 'COMMON_AREA'],
-];
+/** Both priced domains on the wire. */
+const WIRE_DOMAINS: WireDomain[] = ['ENERGY', 'WATER'];
 
 export interface TariffApiAdapterOptions {
   /** Tariff year to load (writes derive their own year from the period). */
@@ -557,14 +534,29 @@ export class TariffApiAdapter {
     return this.year;
   }
 
+  /** GCDR tariff categories of a customer (globals + own). Errors propagate. */
+  listCategories(customerId: string, opts?: { includeInactive?: boolean }): Promise<WireTariffCategory[]> {
+    return this.client.listCategories(customerId, opts);
+  }
+
   /**
    * Load every `(domain × category)` tariff for a customer and collapse each into
-   * panel entries. An empty tariff (`version: 0`) contributes no entries — it is
-   * "no entries", never an error. Read errors propagate (caller surfaces them).
+   * panel entries. `categories` = the GCDR category keys (from `listCategories`);
+   * there is no default list. An empty tariff (`version: 0`) contributes no
+   * entries — it is "no entries", never an error. Read errors propagate.
    */
-  async loadEntriesForCustomer(customerId: string, year: number = this.year): Promise<PricingEntry[]> {
+  async loadEntriesForCustomer(
+    customerId: string,
+    categories: WireCategory[],
+    year: number = this.year
+  ): Promise<PricingEntry[]> {
+    if (!Array.isArray(categories) || categories.length === 0) {
+      throw new Error('loadEntriesForCustomer requires the GCDR tariff-category keys.');
+    }
+    const combos: Array<[WireDomain, WireCategory]> = [];
+    for (const d of WIRE_DOMAINS) for (const c of categories) combos.push([d, c]);
     const out: PricingEntry[] = [];
-    for (const [domain, category] of WIRE_COMBOS) {
+    for (const [domain, category] of combos) {
       const sel: TariffSelector = { customerId, domain, category, year };
       const resp = await this.client.getTariff(sel, 'hour');
       this.versions.set(selectorKey(sel), resp.version);
@@ -572,7 +564,7 @@ export class TariffApiAdapter {
       const bands = collapseTreeToBands(resp.tree, {
         year,
         domain: wireDomainToPanel(domain),
-        category: wireCategoryToPanel(category),
+        category,
       });
       for (const b of bands) out.push(bandToPanelEntry(b, customerId));
     }
@@ -581,7 +573,7 @@ export class TariffApiAdapter {
 
   /** Convenience: read + collapse one specific tariff. */
   async loadBands(customerId: string, domain: PricingDomain, category: PricingCategory, year: number = this.year): Promise<{ bands: TariffBand[]; version: number }> {
-    const sel: TariffSelector = { customerId, domain: panelDomainToWire(domain), category: panelCategoryToWire(category), year };
+    const sel: TariffSelector = { customerId, domain: panelDomainToWire(domain), category, year };
     const resp = await this.client.getTariff(sel, 'hour');
     this.versions.set(selectorKey(sel), resp.version);
     const bands = resp.version === 0 ? [] : collapseTreeToBands(resp.tree, { year, domain, category });

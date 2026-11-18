@@ -15,11 +15,9 @@ import type {
 import { TariffApiError } from '../../../src/components/pricing-panel/tariffApiClient';
 import {
   PANEL_TO_WIRE_DOMAIN,
-  PANEL_TO_WIRE_CATEGORY,
   panelDomainToWire,
   wireDomainToPanel,
-  panelCategoryToWire,
-  wireCategoryToPanel,
+  bandSelector,
   normalizePriceString,
   isLeapYear,
   daysInMonthYear,
@@ -50,19 +48,9 @@ describe('category & domain maps', () => {
     expect(PANEL_TO_WIRE_DOMAIN.energy).toBe('ENERGY');
   });
 
-  it('maps categories both directions (lojas=SPECIFIC, area_comum=COMMON_AREA)', () => {
-    expect(panelCategoryToWire('lojas')).toBe('SPECIFIC');
-    expect(panelCategoryToWire('area_comum')).toBe('COMMON_AREA');
-    expect(wireCategoryToPanel('SPECIFIC')).toBe('lojas');
-    expect(wireCategoryToPanel('COMMON_AREA')).toBe('area_comum');
-    expect(PANEL_TO_WIRE_CATEGORY.area_comum).toBe('COMMON_AREA');
-  });
-
-  it('round-trips every value', () => {
-    (['energy', 'water'] as const).forEach((d) => expect(wireDomainToPanel(panelDomainToWire(d))).toBe(d));
-    (['lojas', 'area_comum'] as const).forEach((c) =>
-      expect(wireCategoryToPanel(panelCategoryToWire(c))).toBe(c)
-    );
+  it('categories are NOT mapped: the GCDR key travels as is (no built-in list)', () => {
+    const band = normalizeBand({ domain: 'energy', category: 'ENERGIA_QUIOSQUES_TABOAO', periodType: 'year', year: 2026, price: '1.0' });
+    expect(bandSelector(band, 'c', 2026)).toEqual({ customerId: 'c', domain: 'ENERGY', category: 'ENERGIA_QUIOSQUES_TABOAO', year: 2026 });
   });
 });
 
@@ -90,7 +78,7 @@ describe('normalizePriceString', () => {
   it('normalizeBand never echoes pricePerKwh; canonical price only', () => {
     const band = normalizeBand({
       domain: 'energy',
-      category: 'lojas',
+      category: 'SPECIFIC',
       periodType: 'day',
       date: '2026-07-01',
       pricePerKwh: 0.9,
@@ -154,7 +142,7 @@ describe('write expansion → hourly buckets', () => {
   it('a range expands to every hour of every day, grouped by year', () => {
     const band: TariffBand = {
       domain: 'energy',
-      category: 'lojas',
+      category: 'SPECIFIC',
       periodType: 'range',
       start: '2026-07-01',
       end: '2026-07-02',
@@ -168,7 +156,7 @@ describe('write expansion → hourly buckets', () => {
   it('a cross-year range writes once per year', () => {
     const band: TariffBand = {
       domain: 'energy',
-      category: 'lojas',
+      category: 'SPECIFIC',
       periodType: 'range',
       start: '2025-12-31',
       end: '2026-01-01',
@@ -184,7 +172,7 @@ describe('write expansion → hourly buckets', () => {
 // ---------------------------------------------------------------------------
 // Read collapse
 // ---------------------------------------------------------------------------
-const DIMS = { domain: 'energy', category: 'lojas' } as const;
+const DIMS = { domain: 'energy', category: 'SPECIFIC' } as const;
 
 describe('read collapse ← hourly tree', () => {
   it('24 equal hours collapse to a single day band', () => {
@@ -220,15 +208,15 @@ describe('read collapse ← hourly tree', () => {
   it('an annual uniform tree collapses to one year band', () => {
     const bands = collapseTreeToBands(
       { annual: { price: '0.892000' } },
-      { year: 2026, domain: 'energy', category: 'lojas' }
+      { year: 2026, domain: 'energy', category: 'SPECIFIC' }
     );
     expect(bands).toEqual([
-      { domain: 'energy', category: 'lojas', periodType: 'year', year: 2026, price: '0.892000' },
+      { domain: 'energy', category: 'SPECIFIC', periodType: 'year', year: 2026, price: '0.892000' },
     ]);
   });
 
   it('an empty tree collapses to no bands', () => {
-    expect(collapseTreeToBands({}, { year: 2026, domain: 'energy', category: 'lojas' })).toEqual([]);
+    expect(collapseTreeToBands({}, { year: 2026, domain: 'energy', category: 'SPECIFIC' })).toEqual([]);
   });
 
   it('a daily tree with a day price + intraday override collapses to day+band pieces', () => {
@@ -240,7 +228,7 @@ describe('read collapse ← hourly tree', () => {
         },
       },
     };
-    const bands = collapseTreeToBands(tree, { year: 2026, domain: 'energy', category: 'lojas' });
+    const bands = collapseTreeToBands(tree, { year: 2026, domain: 'energy', category: 'SPECIFIC' });
     // 00–14 @2, 15 @4, 16–23 @2
     expect(bands).toHaveLength(3);
     expect(bands.map((b) => b.price)).toEqual(['2.000000', '4.000000', '2.000000']);
@@ -255,7 +243,7 @@ describe('read collapse ← hourly tree', () => {
         '07-03': { price: '2.000000' },
       },
     };
-    const bands = collapseTreeToBands(tree, { year: 2026, domain: 'energy', category: 'lojas' });
+    const bands = collapseTreeToBands(tree, { year: 2026, domain: 'energy', category: 'SPECIFIC' });
     expect(bands).toHaveLength(1);
     expect(bands[0]).toMatchObject({
       periodType: 'range',
@@ -280,7 +268,7 @@ describe('decimal-string round-trip', () => {
     });
     const bands = collapseTreeToBands(
       { daily: { '07-01': { hourly } } },
-      { year: 2026, domain: 'energy', category: 'lojas' }
+      { year: 2026, domain: 'energy', category: 'SPECIFIC' }
     );
     expect(bands).toHaveLength(1);
     expect(bands[0].price).toBe('0.892000');
@@ -295,7 +283,7 @@ describe('panel entry ↔ band', () => {
     const e: PricingEntry = {
       customerId: 'c',
       domain: 'energy',
-      category: 'lojas',
+      category: 'SPECIFIC',
       periodType: 'month',
       periodKey: '2026-03',
       pricePerKwh: 0.75,
@@ -307,7 +295,7 @@ describe('panel entry ↔ band', () => {
 
   it('a band maps back to a PricingEntry with canonical price + numeric render view', () => {
     const entry = bandToPanelEntry(
-      { domain: 'water', category: 'area_comum', periodType: 'range', start: '2026-01-01', end: '2026-12-31', price: '9.500000' },
+      { domain: 'water', category: 'COMMON_AREA', periodType: 'range', start: '2026-01-01', end: '2026-12-31', price: '9.500000' },
       'c'
     );
     expect(entry.price).toBe('9.500000');
@@ -330,6 +318,8 @@ function emptyTariff(sel: { domain: string; category: string; year: number }): T
   };
 }
 
+const CATS = ['SPECIFIC', 'COMMON_AREA'];
+
 function mockClient(overrides: Partial<Record<keyof TariffApiClient, unknown>> = {}) {
   return {
     getTariff: vi.fn(async (sel: { domain: string; category: string; year: number }) => emptyTariff(sel)),
@@ -346,12 +336,18 @@ function mockClient(overrides: Partial<Record<keyof TariffApiClient, unknown>> =
 }
 
 describe('TariffApiAdapter', () => {
-  it('loads all four combos; an empty tariff (version 0) yields no entries', async () => {
+  it('loads every domain × GCDR category; an empty tariff (version 0) yields no entries', async () => {
     const client = mockClient();
     const adapter = new TariffApiAdapter(client, { year: 2026 });
-    const entries = await adapter.loadEntriesForCustomer('c');
-    expect(client.getTariff).toHaveBeenCalledTimes(4); // ENERGY/WATER × SPECIFIC/COMMON_AREA
+    const entries = await adapter.loadEntriesForCustomer('c', [...CATS, 'ENERGIA_QUIOSQUES_TABOAO']);
+    expect(client.getTariff).toHaveBeenCalledTimes(6); // ENERGY/WATER × 3 categorias
+    expect(client.getTariff.mock.calls.map((c: any[]) => c[0].category)).toContain('ENERGIA_QUIOSQUES_TABOAO');
     expect(entries).toEqual([]);
+  });
+
+  it('without the GCDR category keys it refuses to load (no default list)', async () => {
+    const adapter = new TariffApiAdapter(mockClient(), { year: 2026 });
+    await expect(adapter.loadEntriesForCustomer('c', [])).rejects.toThrow(/category/);
   });
 
   it('collapses a loaded annual tariff into one panel entry', async () => {
@@ -363,10 +359,10 @@ describe('TariffApiAdapter', () => {
       ),
     });
     const adapter = new TariffApiAdapter(client, { year: 2026 });
-    const entries = await adapter.loadEntriesForCustomer('c');
+    const entries = await adapter.loadEntriesForCustomer('c', CATS);
     expect(entries).toHaveLength(1);
     expect(entries[0].price).toBe('0.892000');
-    expect(entries[0]).toMatchObject({ domain: 'energy', category: 'lojas', periodType: 'range' });
+    expect(entries[0]).toMatchObject({ domain: 'energy', category: 'SPECIFIC', periodType: 'range' });
   });
 
   it('saveEntry(month) PATCHes hourly buckets with the seen version as the guard', async () => {
@@ -377,11 +373,11 @@ describe('TariffApiAdapter', () => {
       })),
     });
     const adapter = new TariffApiAdapter(client, { year: 2026 });
-    await adapter.loadEntriesForCustomer('c'); // seeds version cache to 5
+    await adapter.loadEntriesForCustomer('c', CATS); // seeds version cache to 5
     const entry: PricingEntry = {
       customerId: 'c',
       domain: 'energy',
-      category: 'lojas',
+      category: 'SPECIFIC',
       periodType: 'month',
       periodKey: '2026-03',
       pricePerKwh: 0.9,
@@ -401,7 +397,7 @@ describe('TariffApiAdapter', () => {
     const adapter = new TariffApiAdapter(client, { year: 2026 });
     await adapter.saveEntry('c', {
       domain: 'water',
-      category: 'area_comum',
+      category: 'COMMON_AREA',
       periodType: 'year',
       year: 2026,
       price: '7.500000',
@@ -418,7 +414,7 @@ describe('TariffApiAdapter', () => {
     const entry: PricingEntry = {
       customerId: 'c',
       domain: 'energy',
-      category: 'lojas',
+      category: 'SPECIFIC',
       periodType: 'range',
       start: '2026-07-01',
       end: '2026-07-01',
@@ -443,7 +439,7 @@ describe('TariffApiAdapter', () => {
     const entry: PricingEntry = {
       customerId: 'c',
       domain: 'energy',
-      category: 'lojas',
+      category: 'SPECIFIC',
       periodType: 'range',
       start: '2026-07-01',
       end: '2026-07-01',

@@ -2,7 +2,7 @@
 export { openPricingPanel } from './openPricingPanel';
 export {
   DOMAIN_LABEL,
-  CATEGORY_LABEL,
+  categoryLabel,
   unitLabel,
   formatBRL,
   parseBRL,
@@ -24,6 +24,7 @@ export type {
   PricingCustomerRef,
   PricingDomain,
   PricingCategory,
+  TariffCategory,
   PricingEntry,
   PricingPeriodType,
   PricingAuditAction,
@@ -50,18 +51,15 @@ export type {
   TariffGranularity,
   WireDomain,
   WireCategory,
+  WireTariffCategory,
 } from './tariffApiClient';
 export {
   TariffApiAdapter,
   createTariffApiAdapter,
   PANEL_TO_WIRE_DOMAIN,
   WIRE_TO_PANEL_DOMAIN,
-  PANEL_TO_WIRE_CATEGORY,
-  WIRE_TO_PANEL_CATEGORY,
   panelDomainToWire,
   wireDomainToPanel,
-  panelCategoryToWire,
-  wireCategoryToPanel,
   normalizePriceString,
   priceToNumber,
   isLeapYear,

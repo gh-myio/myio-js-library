@@ -24,8 +24,24 @@
 
 /** WIRE domain (RFC-0054 §3). */
 export type WireDomain = 'ENERGY' | 'WATER';
-/** WIRE tariff category (RFC-0054 §3). */
-export type WireCategory = 'COMMON_AREA' | 'SPECIFIC';
+/**
+ * WIRE tariff category = a GCDR tariff-category key (`GET /tariff-categories`):
+ * the system ones (`COMMON_AREA`, `SPECIFIC`) plus any customer-specific key.
+ */
+export type WireCategory = string;
+
+/** One row of `GET /api/v1/tariff-categories`. */
+export interface WireTariffCategory {
+  key: string;
+  customerId: string | null;
+  label: string;
+  description?: string | null;
+  sortOrder?: number;
+  isSystem?: boolean;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
 /** Tariff granularity for reads. `day` is the API default. */
 export type TariffGranularity = 'year' | 'month' | 'day' | 'hour';
 
@@ -184,6 +200,31 @@ export class TariffApiClient {
     if (this.cfg.jwt) h['Authorization'] = `Bearer ${this.cfg.jwt}`;
     if (this.cfg.tenantId) h['X-Tenant-Id'] = this.cfg.tenantId;
     return h;
+  }
+
+  /**
+   * Tariff categories: globals (`customerId` null) + the customer's own, ordered
+   * by `sortOrder`, then `key` (server order is kept). `includeInactive` defaults
+   * to `true` so existing tariffs of an inactive category still get a label.
+   */
+  async listCategories(
+    customerId: string,
+    opts: { includeInactive?: boolean } = {}
+  ): Promise<WireTariffCategory[]> {
+    const qs = new URLSearchParams();
+    if (customerId) qs.set('customerId', customerId);
+    qs.set('includeInactive', String(opts.includeInactive ?? true));
+    const url = joinUrl(this.cfg.baseUrl, this.basePath, `/tariff-categories?${qs.toString()}`);
+    const res = await this.fetchImpl(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json', ...this.authHeaders() },
+    });
+    const body = await this.readBody(res);
+    if (!res.ok) throw this.toError(res, body);
+    const data = unwrapGcdrEnvelope(body) as { items?: unknown } | unknown[] | null;
+    const items = Array.isArray(data) ? data : Array.isArray((data as { items?: unknown })?.items) ? (data as { items: unknown[] }).items : null;
+    if (!items) throw new TariffApiError('TARIFF_CATEGORIES_INVALID_RESPONSE', res.status, 'Resposta sem items');
+    return (items as WireTariffCategory[]).filter((c) => c && typeof c.key === 'string' && c.key);
   }
 
   /** Read the tariff tree. `granularity` defaults to `day` server-side. */

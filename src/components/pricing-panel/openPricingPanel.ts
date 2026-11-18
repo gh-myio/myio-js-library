@@ -24,9 +24,10 @@ import type {
   PricingPanelEvent,
   PricingPanelHandle,
   PricingPanelThemeSource,
+  TariffCategory,
 } from './types';
 import {
-  CATEGORY_LABEL,
+  categoryLabel,
   DOMAIN_LABEL,
   computePricingKpis,
   entryBounds,
@@ -251,7 +252,10 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   }
 
   const initDomain: PricingDomain = params.domain || 'energy';
-  const initCategory: PricingCategory = params.category || 'lojas';
+  // Categorias = GCDR GET /tariff-categories (com tariffApi) ou params.categories (protótipo).
+  // Não existe lista embutida: sem fonte → erro e "Add período" bloqueado.
+  let categories: TariffCategory[] | null = null; // null = carregando / falhou
+  let categoriesError: string | null = null;
 
   const customerOptions = customers
     .map((c) => `<option value="${escapeHtml(resolveCustomerId(c))}">${escapeHtml(c.title)}</option>`)
@@ -288,9 +292,8 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
             </div>
             <div class="myio-pricing__field">
               <label class="myio-pricing__label" for="myio-pricing-category">Categoria</label>
-              <select class="myio-pricing__select" id="myio-pricing-category" data-testid="pricing-category">
-                <option value="lojas">Lojas</option>
-                <option value="area_comum">Área Comum</option>
+              <select class="myio-pricing__select" id="myio-pricing-category" data-testid="pricing-category" disabled>
+                <option value="">Carregando categorias…</option>
               </select>
             </div>
             <div class="myio-pricing__field">
@@ -382,7 +385,39 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   const historyEmpty = $<HTMLElement>('[data-testid="history-empty"]');
 
   domainSel.value = initDomain;
-  categorySel.value = initCategory;
+
+  // ---- Categorias (GCDR) ----
+  const activeCategories = (): TariffCategory[] => (categories || []).filter((c) => c.isActive !== false);
+  function renderCategoryOptions(): void {
+    const previous = categorySel.value;
+    if (categories === null) {
+      categorySel.innerHTML = `<option value="">${escapeHtml(
+        categoriesError ? 'Erro ao carregar categorias' : 'Carregando categorias…'
+      )}</option>`;
+      categorySel.disabled = true;
+      addBtn.disabled = true;
+      return;
+    }
+    const active = activeCategories();
+    const inactive = categories.filter((c) => c.isActive === false);
+    categorySel.innerHTML =
+      active.map((c) => `<option value="${escapeHtml(c.key)}">${escapeHtml(c.label || c.key)}</option>`).join('') +
+      inactive
+        .map((c) => `<option value="${escapeHtml(c.key)}" disabled>${escapeHtml(`${c.label || c.key} (inativa)`)}</option>`)
+        .join('');
+    const keys = active.map((c) => c.key);
+    const wanted = [previous, params.category || ''].find((k) => k && keys.includes(k));
+    categorySel.value = wanted || keys[0] || '';
+    categorySel.disabled = keys.length === 0;
+    addBtn.disabled = keys.length === 0;
+    if (keys.length === 0) showError('Nenhuma categoria de tarifa ativa no GCDR para este customer.');
+  }
+  function setCategories(list: TariffCategory[] | null, error: string | null = null): void {
+    categories = list;
+    categoriesError = error;
+    renderCategoryOptions();
+    if (error) showError(error);
+  }
 
   // ---- Tabs ----
   modal.querySelectorAll<HTMLButtonElement>('.myio-pricing__tab').forEach((tab) => {
@@ -430,7 +465,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
       renderList();
     })
   );
-  // RFC-0228 A1 — reload the newly selected customer's tariffs from the API.
+  // RFC-0228 A1 — reload the newly selected customer's categories + tariffs from the API.
   if (adapter) {
     customerSel.addEventListener('change', () => {
       void loadFromApi();
@@ -457,13 +492,29 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
     showError(`Falha ao salvar a tarifa no servidor${code ? ` (${code})` : ''}.`);
   }
 
-  // Reload the selected customer's tariffs from the API and merge into state.
+  // Reload the selected customer's categories (GCDR) and tariffs, and merge into state.
   async function loadFromApi(): Promise<void> {
     if (!adapter) return;
     const customerId = customerSel.value;
     if (!customerId) return;
+    setCategories(null);
     try {
-      const loaded = await adapter.loadEntriesForCustomer(customerId);
+      setCategories(await adapter.listCategories(customerId, { includeInactive: true }));
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      setCategories(
+        null,
+        `Não foi possível carregar as categorias de tarifa do GCDR${code ? ` (${code})` : ''}.`
+      );
+      return;
+    }
+    clearError();
+    if (!categories || categories.length === 0) return;
+    try {
+      const loaded = await adapter.loadEntriesForCustomer(
+        customerId,
+        categories.map((c) => c.key)
+      );
       entries = entries.filter((e) => e.customerId !== customerId).concat(loaded);
       renderList();
     } catch (err) {
@@ -496,7 +547,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   const badge = (domain: PricingDomain, category: PricingCategory): string =>
     `<span class="myio-pricing__badge${domain === 'water' ? ' myio-pricing__badge--water' : ''}">${escapeHtml(
       DOMAIN_LABEL[domain]
-    )} · ${escapeHtml(CATEGORY_LABEL[category])}</span>`;
+    )} · ${escapeHtml(categoryLabel(category, categories))}</span>`;
 
   const renderList = (): void => {
     const customerId = customerSel.value;
@@ -559,6 +610,9 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
     if (!customerId) return { error: 'Selecione um customer.' };
     const domain = domainSel.value as PricingDomain;
     const category = categorySel.value as PricingCategory;
+    if (!category || !activeCategories().some((c) => c.key === category)) {
+      return { error: 'Selecione uma categoria.' };
+    }
 
     const price = parseBRL(priceInput.value);
     if (!Number.isFinite(price) || price <= 0) {
@@ -609,7 +663,10 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   reportDomainSel.addEventListener('change', renderReport);
 
   function renderDashboard(): void {
-    const kpis = computePricingKpis(entries, { customerCount: customers.length });
+    const kpis = computePricingKpis(entries, {
+      customerCount: customers.length,
+      categoryCount: activeCategories().length,
+    });
     const cards: Array<{ value: string; label: string }> = [
       { value: String(kpis.totalPeriods), label: 'Períodos definidos' },
       { value: String(kpis.periodsByDomain.energy), label: 'Períodos · Energia' },
@@ -661,7 +718,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
         <tr>
           <td>${escapeHtml(customerTitle(e.customerId))}</td>
           <td>${escapeHtml(DOMAIN_LABEL[e.domain])}</td>
-          <td>${escapeHtml(CATEGORY_LABEL[e.category])}</td>
+          <td>${escapeHtml(categoryLabel(e.category, categories))}</td>
           <td>${escapeHtml(formatPeriodLabel(e))}</td>
           <td>${escapeHtml(formatBRL(e.pricePerKwh))} ${escapeHtml(unitLabel(e.domain))}</td>
         </tr>`
@@ -702,8 +759,15 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
 
   renderList();
 
-  // RFC-0228 A1 — initial hydration from the tariff API (localStorage path skips this).
-  if (adapter) void loadFromApi();
+  // RFC-0228 A1 — initial hydration (categories + tariffs) from the GCDR API.
+  // Protótipo (sem tariffApi): categorias só via params.categories — sem fonte é erro.
+  if (adapter) {
+    void loadFromApi();
+  } else if (params.categories && params.categories.length) {
+    setCategories(params.categories.map((c) => ({ ...c })));
+  } else {
+    setCategories(null, 'Categorias de tarifa não informadas (configure a API de tarifas do GCDR).');
+  }
 
   return handle;
 }
