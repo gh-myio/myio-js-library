@@ -158,6 +158,11 @@ export interface MoneyDevice {
   key: string;
   /** Dashboard group (`lojas`, `areacomum`, `entrada`, …). */
   group: string;
+  /**
+   * Tariff category of the device itself (GCDR `device.tariffCategory`, RFC-0081). When set it
+   * wins over `rule`; empty → falls back to the rule. Non-convertible groups (Q8) stay physical.
+   */
+  category?: string | null;
 }
 
 export type QtyMap = Map<string, number> | Record<string, number>;
@@ -218,8 +223,9 @@ export async function valuateDomainMoney(opts: ValuateDomainOptions): Promise<Do
   const timezone = opts.timezone || TARIFF_DEFAULT_TIMEZONE;
   const devices = (opts.devices || []).filter((d) => d && d.key && isMoneyConvertibleGroup(opts.domain, d.group));
 
+  // The device's own category (GCDR) wins; the group rule is only the fallback.
   const categoryByKey = new Map<string, WireCategory | null>();
-  for (const d of devices) categoryByKey.set(d.key, resolveMoneyCategory(opts.rule, d.group));
+  for (const d of devices) categoryByKey.set(d.key, d.category || resolveMoneyCategory(opts.rule, d.group));
   const categories = Array.from(new Set(Array.from(categoryByKey.values()).filter(Boolean))) as WireCategory[];
 
   // 1) Tariff trees: (category × year) of the period. Empty tree (version 0) = no tariff.

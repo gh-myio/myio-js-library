@@ -181,6 +181,45 @@ describe('valuateDomainMoney — golden vectors', () => {
     expect(buildMoneyChipHTML(r.byKey.get('d1'))).toContain('Sem categoria');
   });
 
+  it('RFC-0081: the device category (GCDR) wins over the group rule; without it the rule is the fallback', async () => {
+    const load = loader({
+      ENERGIA_LOJAS: { 2026: { annual: { price: '2.000000' } } },
+      SPECIFIC: { 2026: { annual: { price: '0.500000' } } },
+    });
+    const r = await valuateDomainMoney({
+      domain: 'energy',
+      startTs: sp('2026-01-01'),
+      endTs: sp('2026-01-31'),
+      devices: [
+        { key: 'd1', group: 'lojas', category: 'ENERGIA_LOJAS' },
+        { key: 'd2', group: 'lojas', category: null },
+        { key: 'd3', group: 'entrada', category: 'ENERGIA_LOJAS' }, // Q8: Entrada stays physical
+      ],
+      rule: RULE,
+      loadTree: load,
+      periodTotals: { d1: 10, d2: 10, d3: 10 },
+    });
+    expect(r.categoryByKey.get('d1')).toBe('ENERGIA_LOJAS');
+    expect(r.categoryByKey.get('d2')).toBe('SPECIFIC');
+    expect(roundMoney2(r.byKey.get('d1')!.amount)).toBe('20.00');
+    expect(roundMoney2(r.byKey.get('d2')!.amount)).toBe('5.00');
+    expect(r.byKey.has('d3')).toBe(false);
+  });
+
+  it('RFC-0081: no rule but devices categorized in GCDR → valued (no "Sem categoria")', async () => {
+    const r = await valuateDomainMoney({
+      domain: 'energy',
+      startTs: sp('2026-01-01'),
+      endTs: sp('2026-01-31'),
+      devices: [{ key: 'd1', group: 'lojas', category: 'ENERGIA_LOJAS' }],
+      rule: null,
+      loadTree: loader({ ENERGIA_LOJAS: { 2026: { annual: { price: '1.500000' } } } }),
+      periodTotals: { d1: 2 },
+    });
+    expect(r.byKey.get('d1')).toMatchObject({ state: 'complete' });
+    expect(roundMoney2(r.byKey.get('d1')!.amount)).toBe('3.00');
+  });
+
   it('hourly band inside a day → partial ("tarifa horária ainda não suportada"), no per-hour fetching', async () => {
     const fetchSeg = vi.fn(async () => ({ d1: 10 }));
     const r = await valuateDomainMoney({

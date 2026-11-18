@@ -1352,6 +1352,14 @@ function _openGoalsTariffsPricing(tab) {
       })
     );
   });
+  // Aba Categorias pode ter movido devices entre categorias → revalora ao fechar (RFC-0081).
+  handle?.on?.('close', () => {
+    window.dispatchEvent(
+      new CustomEvent('myio:tariffs-updated', {
+        detail: { customerId: c.customerId, source: 'pricing-close', ts: Date.now() },
+      })
+    );
+  });
 }
 
 /**
@@ -1428,6 +1436,7 @@ const _moneyState = {
   results: { energy: null, water: null }, // { periodKey, rev, result }
   running: { energy: null, water: null }, // { periodKey, rev, promise }
   treeCache: new Map(), // `${rev}|${domain}|${category}|${year}` → Promise
+  deviceCats: null, // { rev, promise: Promise<Map<gcdrDeviceId, tariffCategory>> } (RFC-0081)
 };
 window.MyIOUtils.valueDisplayMode = 'physical';
 window.MyIOUtils.moneyDisplayAvailable = false;
@@ -1550,8 +1559,35 @@ function _moneyLoadTree(t, sel) {
   return _moneyState.treeCache.get(key);
 }
 
+/**
+ * Categoria tarifária de cada device (GCDR device.tariffCategory, RFC-0081) — é ela que
+ * define a tarifa; a regra moneyCategoryRule (grupo → categoria) fica só como reserva.
+ * 1 listagem paginada por revisão; falha → mapa vazio (cai na regra).
+ */
+function _moneyLoadDeviceCategories(t) {
+  const rev = _moneyState.rev;
+  if (_moneyState.deviceCats?.rev === rev) return _moneyState.deviceCats.promise;
+  // Lib antiga (sem listCustomerDevices) → sem categorias por device; vale só a regra.
+  if (typeof t.client?.listCustomerDevices !== 'function') return Promise.resolve(new Map());
+  const promise = Promise.resolve()
+    .then(() => t.client.listCustomerDevices(t.customerId))
+    .then((list) => {
+      const map = new Map();
+      (list || []).forEach((d) => d?.id && d.tariffCategory && map.set(String(d.id), String(d.tariffCategory)));
+      LogHelper.log(`[MAIN_VIEW] RFC-0241: ${map.size} device(s) com categoria tarifária no GCDR`);
+      return map;
+    })
+    .catch((err) => {
+      LogHelper.warn('[MAIN_VIEW] RFC-0241: categorias dos devices indisponíveis —', err?.code || err?.message || err);
+      if (_moneyState.deviceCats?.promise === promise) _moneyState.deviceCats = null; // não fixa a falha
+      return new Map();
+    });
+  _moneyState.deviceCats = { rev, promise };
+  return promise;
+}
+
 /** Devices valoráveis do domínio a partir do STATE (grupo RFC-0207) + totais do período. */
-function _moneyDevicesOf(domain) {
+function _moneyDevicesOf(domain, catByGcdrId) {
   const st = window.STATE?.[domain] || {};
   const devices = [];
   const totals = new Map();
@@ -1560,7 +1596,8 @@ function _moneyDevicesOf(domain) {
     (st[group]?.items || []).forEach((it) => {
       const key = it?.ingestionId ? String(it.ingestionId) : '';
       if (!key) return;
-      devices.push({ key, group });
+      const category = (it.gcdrDeviceId && catByGcdrId?.get(String(it.gcdrDeviceId))) || null;
+      devices.push({ key, group, category });
       totals.set(key, Number(it.value) || 0);
     });
   });
@@ -1599,30 +1636,34 @@ function _moneyValuateDomain(domain) {
   const t = _moneyTariffClient();
   if (!t || typeof Lib.valuateDomainMoney !== 'function') return Promise.resolve(null);
 
-  const { devices, totals } = _moneyDevicesOf(domain);
   const custIng = window.MyIOOrchestrator?.getCredentials?.()?.CUSTOMER_ING_ID || '';
   const fetchTotals = window.MyIOUtils?.fetchGoalsDayTotals;
   const valueOf = (row) => Number(row?.total_value ?? row?.total_volume ?? row?.total_pulses ?? 0);
 
-  const promise = Lib.valuateDomainMoney({
-    domain,
-    startTs: Date.parse(period.startISO),
-    endTs: Date.parse(period.endISO),
-    devices,
-    rule: _moneyState.rule,
-    loadTree: (sel) => _moneyLoadTree(t, sel),
-    periodTotals: totals,
-    // Segmento de preço constante → /devices/totals (mesmo deep/filtros da MAIN)
-    fetchSegmentTotals:
-      custIng && typeof fetchTotals === 'function'
-        ? async (startTs, endTs) => {
-            const rows = await fetchTotals(custIng, domain, startTs, endTs, null);
-            const map = new Map();
-            (rows || []).forEach((row) => row?.id && map.set(String(row.id), valueOf(row)));
-            return map;
-          }
-        : undefined,
-  })
+  // Categoria por device (GCDR) primeiro; a regra por grupo é só a reserva.
+  const promise = _moneyLoadDeviceCategories(t)
+    .then((catByGcdrId) => {
+      const { devices, totals } = _moneyDevicesOf(domain, catByGcdrId);
+      return Lib.valuateDomainMoney({
+        domain,
+        startTs: Date.parse(period.startISO),
+        endTs: Date.parse(period.endISO),
+        devices,
+        rule: _moneyState.rule,
+        loadTree: (sel) => _moneyLoadTree(t, sel),
+        periodTotals: totals,
+        // Segmento de preço constante → /devices/totals (mesmo deep/filtros da MAIN)
+        fetchSegmentTotals:
+          custIng && typeof fetchTotals === 'function'
+            ? async (startTs, endTs) => {
+                const rows = await fetchTotals(custIng, domain, startTs, endTs, null);
+                const map = new Map();
+                (rows || []).forEach((row) => row?.id && map.set(String(row.id), valueOf(row)));
+                return map;
+              }
+            : undefined,
+      });
+    })
     .then((result) => {
       // Período/regra mudou durante o cálculo → descarta (a run nova publica)
       if (_moneyBaseKey(window.MyIOOrchestratorData?.[domain]?.periodKey) !== pKey || _moneyState.rev !== rev) {

@@ -43,7 +43,7 @@ type Harness = {
   toastError: ReturnType<typeof vi.fn>;
 };
 
-function load(): Harness {
+function load(gcdrDevices?: Array<{ id: string; tariffCategory: string | null }>): Harness {
   const LogHelper = { log: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const toastError = vi.fn();
   const getTariff = vi.fn(async (sel: { category: string; year: number; domain: string }) => {
@@ -53,7 +53,9 @@ function load(): Harness {
   });
   (window as any).MyIOLibrary = {
     ...FG,
-    createTariffApiClient: vi.fn(() => ({ getTariff })),
+    createTariffApiClient: vi.fn(() =>
+      gcdrDevices ? { getTariff, listCustomerDevices: vi.fn(async () => gcdrDevices) } : { getTariff }
+    ),
   };
   const add = window.addEventListener.bind(window);
   const spy = vi.spyOn(window, 'addEventListener').mockImplementation((type: string, fn: any, opts?: any) => {
@@ -234,6 +236,23 @@ describe('RFC-0241 Part B — MAIN state & eligibility', () => {
     await U().setValueDisplayMode('money');
     expect(U().getItemMoney(items[0], 'energy')).toMatchObject({ state: 'uncategorized' });
     expect(h.getTariff).toHaveBeenCalledTimes(1); // availability probe only
+  });
+
+  it('RFC-0081: device category from GCDR (gcdrDeviceId) values the device even without moneyCategoryRule', async () => {
+    const items = setup();
+    (items[0] as any).gcdrDeviceId = 'g1';
+    (items[1] as any).gcdrDeviceId = 'g2'; // sem categoria no GCDR e sem regra → sem categoria
+    (items[2] as any).gcdrDeviceId = 'g3'; // Entrada continua física (Q8)
+    prices.ENERGIA_LOJAS = '2.000000';
+    load([
+      { id: 'g1', tariffCategory: 'ENERGIA_LOJAS' },
+      { id: 'g2', tariffCategory: null },
+      { id: 'g3', tariffCategory: 'ENERGIA_LOJAS' },
+    ]);
+    await U().setValueDisplayMode('money');
+    expect(FG.roundMoney2(U().getItemMoney(items[0], 'energy').amount)).toBe('200.00'); // 100 × 2,00
+    expect(U().getItemMoney(items[1], 'energy')).toMatchObject({ state: 'uncategorized' });
+    expect(U().getItemMoney(items[2], 'energy')).toBeNull();
   });
 
   it('AC-16: temperature is never valued', async () => {

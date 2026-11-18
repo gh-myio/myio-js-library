@@ -771,6 +771,16 @@ export class DeviceProfileTab {
         if (!client) throw new Error('GCDR não configurado.');
         const updated = await client.setDeviceCategory(this.gcdrDeviceId(), value || null);
         this.tariff = { ...this.tariff, current: updated.id ? updated.tariffCategory : value || null };
+        // Dashboard em modo R$ revalora com a nova categoria (MAIN escuta este evento).
+        try {
+          window.dispatchEvent(
+            new CustomEvent('myio:tariffs-updated', {
+              detail: { source: 'device-category', deviceId: this.gcdrDeviceId(), category: value || null, ts: Date.now() },
+            })
+          );
+        } catch {
+          /* sem window (testes/SSR) */
+        }
       } else if (kind === 'entity-label') {
         await this.saveEntityField({ label: value });
       } else if (kind === 'entity-profile') {

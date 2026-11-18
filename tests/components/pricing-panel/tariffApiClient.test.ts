@@ -58,6 +58,17 @@ describe('TariffApiClient — GET', () => {
     expect(resp.tree.annual?.price).toBe('0.892000');
   });
 
+  it('baseUrl already ending in /api/v1 (MyIOOrchestrator.gcdrApiBaseUrl) is not duplicated', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [] }));
+    const client = new TariffApiClient({
+      baseUrl: 'https://gcdr.example/api/v1/',
+      apiKey: 'k',
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+    await client.listCustomerDevices('cust-1');
+    expect(fetchMock.mock.calls[0][0]).toBe('https://gcdr.example/api/v1/devices?customerId=cust-1&limit=100');
+  });
+
   it('falls back to the ETag when the body omits version; empty tariff is version 0', async () => {
     const fetchMock = vi
       .fn()

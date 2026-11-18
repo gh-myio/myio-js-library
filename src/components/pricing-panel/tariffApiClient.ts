@@ -198,7 +198,9 @@ export class TariffApiError extends Error {
 
 function joinUrl(baseUrl: string, basePath: string, path: string): string {
   const b = baseUrl.replace(/\/+$/, '');
-  const bp = basePath ? `/${basePath.replace(/^\/+|\/+$/g, '')}` : '';
+  let bp = basePath ? `/${basePath.replace(/^\/+|\/+$/g, '')}` : '';
+  // Dashboards publicam o host já com `/api/v1` (MyIOOrchestrator.gcdrApiBaseUrl) → não duplica.
+  if (bp && b.toLowerCase().endsWith(bp.toLowerCase())) bp = '';
   const p = path.startsWith('/') ? path : `/${path}`;
   return `${b}${bp}${p}`;
 }
