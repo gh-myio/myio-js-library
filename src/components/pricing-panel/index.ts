@@ -41,7 +41,10 @@ export {
   TariffApiClient,
   TariffApiError,
   createTariffApiClient,
+  categoryKeyFromLabel,
 } from './tariffApiClient';
+export { mountCategoriesTab } from './categoriesTab';
+export type { CategoriesTabOptions, CategoriesTabHandle } from './categoriesTab';
 export type {
   TariffApiClientConfig,
   TariffSelector,
@@ -52,6 +55,10 @@ export type {
   WireDomain,
   WireCategory,
   WireTariffCategory,
+  CreateTariffCategoryInput,
+  UpdateTariffCategoryInput,
+  TariffCategoryUsage,
+  GcdrDeviceSummary,
 } from './tariffApiClient';
 export {
   TariffApiAdapter,

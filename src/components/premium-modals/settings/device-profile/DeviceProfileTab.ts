@@ -24,12 +24,33 @@
  * (SettingsModalView only mounts/shows this tab when isSuperAdmin()).
  */
 
+import { TariffApiClient, type WireTariffCategory } from '../../../pricing-panel/tariffApiClient';
+
 export interface DeviceProfileTabConfig {
   container: HTMLElement;
   /** ThingsBoard Device UUID */
   deviceId: string;
   jwtToken: string;
   tbBaseUrl: string;
+  /**
+   * GCDR (RFC-0081): mostra e altera a categoria de tarifa do device. Sem `baseUrl`
+   * ou sem gcdrDeviceId (config ou atributo SERVER_SCOPE) a linha avisa o motivo.
+   */
+  gcdr?: {
+    baseUrl?: string;
+    apiKey?: string;
+    tenantId?: string;
+    /** Default: atributo SERVER_SCOPE `gcdrDeviceId` */
+    deviceId?: string;
+  };
+}
+
+/** Estado da categoria de tarifa (GCDR) do device. */
+interface TariffCategoryState {
+  status: 'loading' | 'ok' | 'unavailable' | 'error';
+  current: string | null;
+  categories: WireTariffCategory[];
+  message?: string;
 }
 
 interface TbEntityRef {
@@ -133,6 +154,7 @@ export class DeviceProfileTab {
   private ownerName: string | null = null;
   private deviceProfileOptions: DeviceProfileOption[] | null = null;
   private customerOptions: CustomerOption[] | null = null;
+  private tariff: TariffCategoryState = { status: 'loading', current: null, categories: [] };
 
   constructor(config: DeviceProfileTabConfig) {
     this.config = config;
@@ -163,8 +185,82 @@ export class DeviceProfileTab {
     this.attributes = attributes;
 
     const customerId = entity?.customerId?.id;
-    this.ownerName =
-      customerId && customerId !== TB_NULL_CUSTOMER_ID ? await this.fetchCustomerName(customerId) : null;
+    const [ownerName] = await Promise.all([
+      customerId && customerId !== TB_NULL_CUSTOMER_ID ? this.fetchCustomerName(customerId) : Promise.resolve(null),
+      this.loadTariffCategory(),
+    ]);
+    this.ownerName = ownerName;
+  }
+
+  // ---- Categoria de tarifa (GCDR RFC-0081) ----------------------------------
+
+  private gcdrClient(): TariffApiClient | null {
+    const g = this.config.gcdr;
+    if (!g?.baseUrl || (!g.apiKey && !g.tenantId)) return null;
+    return new TariffApiClient({
+      baseUrl: String(g.baseUrl).replace(/\/api\/v1\/?$/, ''),
+      apiKey: g.apiKey,
+      tenantId: g.tenantId,
+    });
+  }
+
+  private gcdrDeviceId(): string {
+    return String(this.config.gcdr?.deviceId || this.attrValue('gcdrDeviceId') || '').trim();
+  }
+
+  /** Categoria atual do device + categorias do customer (globais + próprias) no GCDR. */
+  private async loadTariffCategory(): Promise<void> {
+    const client = this.gcdrClient();
+    const id = this.gcdrDeviceId();
+    if (!client) {
+      this.tariff = { status: 'unavailable', current: null, categories: [], message: 'GCDR não configurado no dashboard' };
+      return;
+    }
+    if (!id) {
+      this.tariff = { status: 'unavailable', current: null, categories: [], message: 'Device sem gcdrDeviceId' };
+      return;
+    }
+    try {
+      const device = await client.getDevice(id);
+      const categories = device.customerId
+        ? await client.listCategories(device.customerId, { includeInactive: true })
+        : [];
+      this.tariff = { status: 'ok', current: device.tariffCategory, categories };
+    } catch (e) {
+      const code = (e as { code?: string })?.code;
+      this.tariff = {
+        status: 'error',
+        current: null,
+        categories: [],
+        message: `Não foi possível ler o GCDR${code ? ` (${code})` : ''}`,
+      };
+    }
+  }
+
+  private tariffCategoryLabel(key: string | null): string {
+    if (!key) return '— sem categoria —';
+    const c = this.tariff.categories.find((x) => x.key === key);
+    return c ? `${c.label}${c.isActive === false ? ' (inativa)' : ''}` : key;
+  }
+
+  private renderTariffCategoryRow(): string {
+    const t = this.tariff;
+    if (t.status !== 'ok') {
+      const text = t.status === 'loading' ? 'Carregando…' : t.message || '—';
+      return `
+        <div class="dpt-row" data-field="tariffCategory">
+          <span class="dpt-label">Categoria de tarifa</span>
+          <span class="dpt-value dpt-muted" data-testid="dpt-tariff-category">${this.esc(text)}</span>
+        </div>`;
+    }
+    return `
+      <div class="dpt-row dpt-row--editable" data-field="tariffCategory" data-kind="tariff-category">
+        <span class="dpt-label">Categoria de tarifa</span>
+        <span class="dpt-value-wrap">
+          <span class="dpt-value" data-view data-testid="dpt-tariff-category">${this.esc(this.tariffCategoryLabel(t.current))}</span>
+          <button type="button" class="dpt-icon-btn" data-action="edit" title="Alterar categoria">✏️</button>
+        </span>
+      </div>`;
   }
 
   private async fetchEntity(): Promise<TbDeviceEntity | null> {
@@ -524,6 +620,7 @@ export class DeviceProfileTab {
         <div class="dpt-section">
           <div class="dpt-section-title">Classificação (atributos da aplicação)</div>
           <div class="dpt-card">
+            ${this.renderTariffCategoryRow()}
             ${editableAttrRows}
             ${ingestionRow}
             ${readonlyRows}
@@ -603,7 +700,24 @@ export class DeviceProfileTab {
     const wrap = row.querySelector('.dpt-value-wrap') as HTMLElement;
     if (!wrap) return;
 
-    if (kind === 'entity-profile') {
+    if (kind === 'tariff-category') {
+      // ativas (+ a atual, mesmo inativa); um device tem no máximo uma categoria
+      const current = this.tariff.current;
+      const options = this.tariff.categories.filter((c) => c.isActive !== false || c.key === current);
+      wrap.innerHTML = this.editorHtml(
+        `<select class="dpt-input" data-edit data-testid="dpt-tariff-category-select">
+          <option value="" ${current ? '' : 'selected'}>— sem categoria —</option>
+          ${options
+            .map(
+              (c) =>
+                `<option value="${this.esc(c.key)}" ${c.key === current ? 'selected' : ''}>${this.esc(
+                  c.label + (c.isActive === false ? ' (inativa)' : '')
+                )}</option>`
+            )
+            .join('')}
+        </select>`,
+      );
+    } else if (kind === 'entity-profile') {
       const options = await this.fetchDeviceProfileOptions();
       const currentId = this.entity?.deviceProfileId?.id || '';
       wrap.innerHTML = this.editorHtml(
@@ -652,7 +766,12 @@ export class DeviceProfileTab {
     if (saveBtn) saveBtn.disabled = true;
 
     try {
-      if (kind === 'entity-label') {
+      if (kind === 'tariff-category') {
+        const client = this.gcdrClient();
+        if (!client) throw new Error('GCDR não configurado.');
+        const updated = await client.setDeviceCategory(this.gcdrDeviceId(), value || null);
+        this.tariff = { ...this.tariff, current: updated.id ? updated.tariffCategory : value || null };
+      } else if (kind === 'entity-label') {
         await this.saveEntityField({ label: value });
       } else if (kind === 'entity-profile') {
         if (!value) throw new Error('Selecione um Device Profile.');
@@ -700,6 +819,7 @@ export class DeviceProfileTab {
       .dpt-value { font-size: 13px; color: #111827; text-align: right; word-break: break-word; }
       .dpt-value-wrap { display: flex; align-items: center; gap: 6px; }
       .dpt-rel { color: #9ca3af; font-size: 12px; }
+      .dpt-muted { color: #9ca3af; font-size: 12px; }
       .dpt-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
       .dpt-empty { padding: 16px 0; text-align: center; color: #9ca3af; font-size: 13px; }
       .dpt-icon-btn {

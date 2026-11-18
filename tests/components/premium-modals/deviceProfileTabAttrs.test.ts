@@ -75,3 +75,78 @@ describe('DeviceProfileTab — seção Todos os atributos', () => {
     expect(container.querySelector('[data-field="floor"] .dpt-value')!.textContent).toBe('L3');
   });
 });
+
+describe('DeviceProfileTab — categoria de tarifa (GCDR)', () => {
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  const open = async (opts: { gcdr?: boolean; attrs?: Array<{ key: string; value: unknown }> } = {}) => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.startsWith('https://gcdr.test')) {
+        if (init?.method === 'PATCH') {
+          const body = JSON.parse(String(init.body));
+          return json({ success: true, data: { id: 'g-dev', customerId: 'g-cust', tariffCategory: body.tariffCategory } });
+        }
+        if (u.includes('/tariff-categories')) {
+          return json({
+            success: true,
+            data: {
+              items: [
+                { key: 'SPECIFIC', customerId: null, label: 'Específico', isActive: true },
+                { key: 'QUIOSQUES', customerId: 'g-cust', label: 'Quiosques', isActive: true },
+                { key: 'VELHA', customerId: 'g-cust', label: 'Velha', isActive: false },
+              ],
+            },
+          });
+        }
+        return json({ success: true, data: { id: 'g-dev', customerId: 'g-cust', name: 'D', tariffCategory: 'SPECIFIC' } });
+      }
+      if (u.includes('/values/attributes/SERVER_SCOPE')) return json(opts.attrs ?? [{ key: 'gcdrDeviceId', value: 'g-dev' }]);
+      return json({ id: { id: 'dev-1', entityType: 'DEVICE' }, name: 'D', label: 'L' });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const tab = new DeviceProfileTab({
+      container,
+      deviceId: 'dev-1',
+      jwtToken: 'jwt',
+      tbBaseUrl: 'https://tb.test',
+      gcdr: opts.gcdr === false ? undefined : { baseUrl: 'https://gcdr.test', apiKey: 'k', tenantId: 't' },
+    });
+    await tab.init();
+    return { container, fetchMock };
+  };
+
+  it('sempre mostra a categoria atual do device (label do GCDR)', async () => {
+    const { container, fetchMock } = await open();
+    expect(container.querySelector('[data-testid="dpt-tariff-category"]')!.textContent).toBe('Específico');
+    expect(fetchMock.mock.calls.some(([u]) => String(u) === 'https://gcdr.test/api/v1/devices/g-dev')).toBe(true);
+    expect(
+      fetchMock.mock.calls.some(([u]) => String(u).includes('/tariff-categories?customerId=g-cust&includeInactive=true'))
+    ).toBe(true);
+  });
+
+  it('altera individualmente via PATCH /devices/:id (inativa não é oferecida)', async () => {
+    const { container, fetchMock } = await open();
+    (container.querySelector('[data-field="tariffCategory"] [data-action="edit"]') as HTMLButtonElement).click();
+    await tick();
+    const sel = container.querySelector('[data-testid="dpt-tariff-category-select"]') as HTMLSelectElement;
+    expect([...sel.options].map((o) => o.value)).toEqual(['', 'SPECIFIC', 'QUIOSQUES']);
+    sel.value = 'QUIOSQUES';
+    (container.querySelector('[data-field="tariffCategory"] [data-action="save"]') as HTMLButtonElement).click();
+    await tick();
+    await tick();
+    const patch = fetchMock.mock.calls.find(([, i]) => (i as RequestInit)?.method === 'PATCH')!;
+    expect(String(patch[0])).toBe('https://gcdr.test/api/v1/devices/g-dev');
+    expect(JSON.parse(String((patch[1] as RequestInit).body))).toEqual({ tariffCategory: 'QUIOSQUES' });
+    expect(container.querySelector('[data-testid="dpt-tariff-category"]')!.textContent).toBe('Quiosques');
+  });
+
+  it('sem gcdrDeviceId ou sem GCDR configurado: mostra o motivo', async () => {
+    const a = await open({ attrs: [] });
+    expect(a.container.querySelector('[data-testid="dpt-tariff-category"]')!.textContent).toBe('Device sem gcdrDeviceId');
+    document.body.innerHTML = '';
+    const b = await open({ gcdr: false });
+    expect(b.container.querySelector('[data-testid="dpt-tariff-category"]')!.textContent).toBe('GCDR não configurado no dashboard');
+  });
+});

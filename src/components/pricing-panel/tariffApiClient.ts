@@ -85,6 +85,66 @@ export interface TariffBucket {
   price: string;
 }
 
+/** POST /tariff-categories body (RFC-0081). `key` = ^[A-Z][A-Z0-9_]{1,39}$, imutável. */
+export interface CreateTariffCategoryInput {
+  key: string;
+  /** null = global; um customer = só ele usa a categoria. */
+  customerId?: string | null;
+  label: string;
+  description?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+/** PATCH /tariff-categories/:key body. */
+export type UpdateTariffCategoryInput = Partial<Omit<CreateTariffCategoryInput, 'key'>>;
+
+/** GET /tariff-categories/:key/usage. */
+export interface TariffCategoryUsage {
+  devices: number;
+  tariffs: number;
+  customers: string[];
+}
+
+/** Device do GCDR reduzido ao que a gestão de categorias precisa. */
+export interface GcdrDeviceSummary {
+  id: string;
+  customerId?: string;
+  name: string;
+  label?: string;
+  identifier?: string;
+  deviceProfile?: string;
+  tariffCategory: string | null;
+}
+
+function toDeviceSummary(d: Record<string, unknown> | null | undefined): GcdrDeviceSummary {
+  const s = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
+  const x = (d || {}) as Record<string, unknown>;
+  return {
+    id: String(x.id ?? ''),
+    customerId: s(x.customerId),
+    name: String(x.name ?? x.label ?? x.id ?? ''),
+    label: s(x.label) || s(x.displayName),
+    identifier: s(x.identifier),
+    deviceProfile: s(x.deviceProfile) || s(x.deviceType),
+    tariffCategory: s(x.tariffCategory) ?? null,
+  };
+}
+
+/** Gera uma key válida (^[A-Z][A-Z0-9_]{1,39}$) a partir do nome: "Quiosques Taboão" → "QUIOSQUES_TABOAO". */
+export function categoryKeyFromLabel(label: string): string {
+  let k = String(label || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  if (!k) return '';
+  if (!/^[A-Z]/.test(k)) k = `CAT_${k}`;
+  k = k.slice(0, 40).replace(/_+$/g, '');
+  return k.length >= 2 ? k : '';
+}
+
 /** Selects a single `(customer × domain × category × year)` tariff. */
 export interface TariffSelector {
   customerId: string;
@@ -225,6 +285,91 @@ export class TariffApiClient {
     const items = Array.isArray(data) ? data : Array.isArray((data as { items?: unknown })?.items) ? (data as { items: unknown[] }).items : null;
     if (!items) throw new TariffApiError('TARIFF_CATEGORIES_INVALID_RESPONSE', res.status, 'Resposta sem items');
     return (items as WireTariffCategory[]).filter((c) => c && typeof c.key === 'string' && c.key);
+  }
+
+  // -------------------------------------------------------------------------
+  // RFC-0081 — gestão de categorias (escrita) + classificação de devices
+  // -------------------------------------------------------------------------
+
+  /** POST /tariff-categories — cria (key imutável depois). */
+  async createCategory(input: CreateTariffCategoryInput): Promise<WireTariffCategory> {
+    return (await this.json('POST', '/tariff-categories', input)) as WireTariffCategory;
+  }
+
+  /** PATCH /tariff-categories/:key — label / description / sortOrder / isActive. */
+  async updateCategory(key: string, patch: UpdateTariffCategoryInput): Promise<WireTariffCategory> {
+    return (await this.json('PATCH', `/tariff-categories/${encodeURIComponent(key)}`, patch)) as WireTariffCategory;
+  }
+
+  /** GET /tariff-categories/:key/usage — quantos devices e tarifas usam a categoria. */
+  async getCategoryUsage(key: string): Promise<TariffCategoryUsage> {
+    const u = (await this.json('GET', `/tariff-categories/${encodeURIComponent(key)}/usage`)) as Partial<TariffCategoryUsage>;
+    return {
+      devices: Number(u?.devices ?? 0),
+      tariffs: Number(u?.tariffs ?? 0),
+      customers: Array.isArray(u?.customers) ? u!.customers! : [],
+    };
+  }
+
+  /**
+   * DELETE /tariff-categories/:key. Em uso (devices/tarifas) o GCDR responde 409
+   * TARIFF_CATEGORY_IN_USE; com `cascade: true` (o usuário já confirmou a perda)
+   * pede ao GCDR para apagar as tarifas e tirar a categoria dos devices.
+   */
+  async deleteCategory(key: string, opts: { cascade?: boolean } = {}): Promise<void> {
+    const qs = opts.cascade ? '?cascade=true' : '';
+    await this.json('DELETE', `/tariff-categories/${encodeURIComponent(key)}${qs}`);
+  }
+
+  /** GET /devices?customerId= (paginado) — devices do customer com a categoria atual. */
+  async listCustomerDevices(customerId: string, opts: { pageSize?: number; maxPages?: number } = {}): Promise<GcdrDeviceSummary[]> {
+    const pageSize = opts.pageSize ?? 100;
+    const maxPages = opts.maxPages ?? 50;
+    const out: GcdrDeviceSummary[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < maxPages; page++) {
+      const qs = new URLSearchParams({ customerId, limit: String(pageSize) });
+      if (cursor) qs.set('cursor', cursor);
+      const data = (await this.json('GET', `/devices?${qs.toString()}`)) as {
+        items?: Array<Record<string, unknown>>;
+        pagination?: { hasMore?: boolean; nextCursor?: string };
+        hasMore?: boolean;
+        nextCursor?: string;
+      } | Array<Record<string, unknown>>;
+      const items = Array.isArray(data) ? data : data?.items || [];
+      for (const d of items) out.push(toDeviceSummary(d));
+      const pg = Array.isArray(data) ? undefined : data?.pagination || data;
+      if (!pg?.hasMore || !pg?.nextCursor) break;
+      cursor = String(pg.nextCursor);
+    }
+    return out;
+  }
+
+  /** GET /devices/:id — resumo com a categoria atual. */
+  async getDevice(deviceId: string): Promise<GcdrDeviceSummary> {
+    return toDeviceSummary((await this.json('GET', `/devices/${encodeURIComponent(deviceId)}`)) as Record<string, unknown>);
+  }
+
+  /** PATCH /devices/:id { tariffCategory } — `null` tira o device de qualquer categoria. */
+  async setDeviceCategory(deviceId: string, key: string | null): Promise<GcdrDeviceSummary> {
+    const d = (await this.json('PATCH', `/devices/${encodeURIComponent(deviceId)}`, { tariffCategory: key })) as Record<string, unknown>;
+    return toDeviceSummary(d);
+  }
+
+  /** Chamada JSON genérica (envelope GCDR desembrulhado; erro → TariffApiError). */
+  private async json(method: string, path: string, body?: unknown): Promise<unknown> {
+    const url = joinUrl(this.cfg.baseUrl, this.basePath, path);
+    const headers: Record<string, string> = { Accept: 'application/json', ...this.authHeaders() };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    const res = await this.fetchImpl(url, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    if (res.status === 204) return null;
+    const parsed = await this.readBody(res);
+    if (!res.ok) throw this.toError(res, parsed);
+    return unwrapGcdrEnvelope(parsed);
   }
 
   /** Read the tariff tree. `granularity` defaults to `day` server-side. */

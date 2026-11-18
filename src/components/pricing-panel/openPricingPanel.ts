@@ -43,6 +43,7 @@ import {
 import { injectPricingPanelStyles } from './styles';
 import { TariffApiClient } from './tariffApiClient';
 import { TariffApiAdapter } from './tariffApiAdapter';
+import { mountCategoriesTab, type CategoriesTabHandle } from './categoriesTab';
 
 const MODAL_ID = 'myio-pricing-panel';
 
@@ -165,8 +166,9 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   // absent, the localStorage prototype path below is byte-identical (the gate).
   const tariffApi = params.tariffApi;
   let adapter: TariffApiAdapter | null = null;
+  let client: TariffApiClient | null = null;
   if (allowed && tariffApi) {
-    const client = new TariffApiClient({
+    client = new TariffApiClient({
       baseUrl: tariffApi.baseUrl,
       apiKey: tariffApi.apiKey,
       jwt: tariffApi.jwt,
@@ -272,6 +274,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
         <button class="myio-pricing__tab active" data-tab="define" data-testid="tab-define">Definir preços</button>
         <button class="myio-pricing__tab" data-tab="dashboard" data-testid="tab-dashboard">Dashboard</button>
         <button class="myio-pricing__tab" data-tab="history" data-testid="tab-history">Histórico</button>
+        ${adapter ? '<button class="myio-pricing__tab" data-tab="categories" data-testid="tab-categories">Categorias</button>' : ''}
       </div>
       <div class="myio-pricing__body">
         <!-- TAB: Definir preços -->
@@ -346,6 +349,9 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
             </table>
           </div>
         </div>
+
+        <!-- TAB: Categorias (só com a API de tarifas do GCDR) -->
+        ${adapter ? '<div class="myio-pricing__panel" data-panel="categories" data-testid="categories-panel" hidden></div>' : ''}
 
         <!-- TAB: Histórico -->
         <div class="myio-pricing__panel" data-panel="history" hidden>
@@ -432,6 +438,24 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
     });
     if (name === 'dashboard') renderDashboard();
     if (name === 'history') renderHistory();
+    if (name === 'categories') void categoriesTab?.refresh();
+  }
+
+  // ---- Aba Categorias (GCDR RFC-0081): gestão + devices de cada categoria ----
+  let categoriesTab: CategoriesTabHandle | null = null;
+  const categoriesPanel = modal.querySelector<HTMLElement>('[data-panel="categories"]');
+  if (client && categoriesPanel) {
+    const dialogHost = doc.createElement('div');
+    dialogHost.className = 'myio-pricing__dialog-host';
+    modal.appendChild(dialogHost);
+    categoriesTab = mountCategoriesTab({
+      container: categoriesPanel,
+      client,
+      getCustomerId: () => customerSel.value,
+      dialogContainer: dialogHost,
+      // categoria criada/alterada/excluída → recarrega o select e as tarifas
+      onChanged: () => void loadFromApi(),
+    });
   }
 
   // ---- Add form behavior ----
@@ -469,6 +493,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   if (adapter) {
     customerSel.addEventListener('change', () => {
       void loadFromApi();
+      if (categoriesPanel && !categoriesPanel.hidden) void categoriesTab?.refresh();
     });
   }
   syncPeriodFields();

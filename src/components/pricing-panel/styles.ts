@@ -49,6 +49,36 @@ const PRICING_PANEL_CSS = `
   .myio-pricing.show .myio-pricing__content {
     transform: translateY(0) scale(1);
   }
+  /* diálogo de confirmação montado acima do conteúdo do painel */
+  .myio-pricing__dialog-host { position: relative; z-index: 5; }
+  .myio-pricing__dialog-host .myio-dialog-overlay { z-index: 5; }
+  /* aba Categorias */
+  .myio-pricing__cat { display: flex; flex-direction: column; gap: 10px; }
+  .myio-pricing__cat-hint { margin: 0; font-size: 12px; color: var(--myio-text-muted, #6b7280); }
+  .myio-pricing__cat-new, .myio-pricing__cat-devbar { display: flex; gap: 8px; align-items: center; }
+  .myio-pricing__cat-new .myio-pricing__input, .myio-pricing__cat-devbar .myio-pricing__input { flex: 1; }
+  .myio-pricing__cat-btn { width: auto; padding: 8px 14px; white-space: nowrap; }
+  .myio-pricing__cat-notice { font-size: 12.5px; border-radius: 8px; padding: 8px 10px; }
+  .myio-pricing__cat-notice--ok { background: #ecfdf5; color: #065f46; }
+  .myio-pricing__cat-notice--error { background: #fee2e2; color: #991b1b; }
+  .myio-pricing__cat-item { list-style: none; border: 1px solid var(--myio-border, #e5e7eb); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+  .myio-pricing__cat-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .myio-pricing__cat-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+  .myio-pricing__cat-key { color: var(--myio-text-muted, #6b7280); font-size: 11px; }
+  .myio-pricing__badge--off { background: #f3f4f6 !important; color: #6b7280 !important; }
+  .myio-pricing__cat-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .myio-pricing__cat-actions button {
+    font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--myio-border, #d1d5db); background: var(--myio-card, #fff); color: var(--myio-text, #1f2937);
+  }
+  .myio-pricing__cat-actions button:disabled { opacity: 0.5; cursor: default; }
+  .myio-pricing__cat-actions .myio-pricing__cat-danger { color: #b91c1c; border-color: #fca5a5; }
+  .myio-pricing__cat-devices { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .myio-pricing__cat-devlist { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow: auto; }
+  .myio-pricing__cat-devlist li { padding: 4px 2px; font-size: 13px; }
+  .myio-pricing__cat-devlist label { display: flex; gap: 8px; align-items: center; cursor: pointer; flex-wrap: wrap; }
+  .myio-pricing__cat-devlist small { color: var(--myio-text-muted, #6b7280); font-size: 11px; }
+  .myio-pricing__cat-other { color: #92400e !important; }
   .myio-pricing__header {
     display: flex;
     align-items: center;

@@ -8757,10 +8757,15 @@ const MyIOOrchestrator = (() => {
     // RFC-0110 v5: Determine domain and telemetry timestamp for device status calculation
     // deviceType em desuso (2026-07-14) — domínio sai SÓ do deviceProfile
     const effectiveDeviceType = (meta.deviceProfile || '').toLowerCase();
+    // Reservatórios (CISTERNA / CISTERNA_ENTRADA / CAIXA_DAGUA) são água: o status usa
+    // waterLevelTs/waterPercentageTs. Sem isso caíam em energia (consumptionTs nulo → offline).
     const isWaterDevice =
       effectiveDeviceType.includes('hidrometro') ||
       effectiveDeviceType.includes('water') ||
-      effectiveDeviceType.includes('tank');
+      effectiveDeviceType.includes('tank') ||
+      // BOMBA_CISTERNA / BOMBA_POCO são bombas (energia), não reservatórios
+      ((effectiveDeviceType.includes('cisterna') || effectiveDeviceType.includes('caixa')) &&
+        !effectiveDeviceType.includes('bomba'));
     const isTempDevice =
       effectiveDeviceType.includes('termostato') || effectiveDeviceType.includes('temperature');
     const domain = isWaterDevice ? 'water' : isTempDevice ? 'temperature' : 'energy';

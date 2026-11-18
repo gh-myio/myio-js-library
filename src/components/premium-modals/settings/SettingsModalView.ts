@@ -537,11 +537,20 @@ export class SettingsModalView {
     }
 
     try {
+      // GCDR (categoria de tarifa): config do modal → fallback no orquestrador do MAIN_VIEW
+      const orch = (window as any).MyIOOrchestrator || {};
+      const cfg = this.config as any;
       this.deviceProfileTab = new DeviceProfileTab({
         container,
         deviceId,
         jwtToken,
         tbBaseUrl: tbBaseUrl ?? window.location.origin,
+        gcdr: {
+          baseUrl: cfg.gcdrApiBaseUrl || orch.gcdrApiBaseUrl || 'https://gcdr-api.a.myio-bas.com',
+          apiKey: cfg.gcdrApiKey || orch.gcdrApiKey,
+          tenantId: cfg.gcdrTenantId || orch.gcdrTenantId,
+          deviceId: this.config.gcdrDeviceId,
+        },
       });
       await this.deviceProfileTab.init();
       console.log('[SettingsModalView] DeviceProfileTab initialized');

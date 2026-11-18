@@ -322,6 +322,11 @@ describe('openTelemetryImportModal', () => {
     await new Promise((r) => setTimeout(r, 50)); // File.text() do jsdom é assíncrono
     await flush();
   };
+  /** Etapa 0 (Dispositivos): marca todos e avança para o Modelo. */
+  const chooseAll = () => {
+    document.querySelector<HTMLButtonElement>('[data-action="sel-all"]')!.click();
+    btn('next').click();
+  };
   const SHEET = `gateway_id;slave_id;date;hour;value_kwh\n${GW};3;2026-10-25;00:00;1,5\n${GW};3;2026-10-25;01:00;2\n`;
 
   function fakeApi(over: Partial<TelemetryImportApi> = {}): TelemetryImportApi & { calls: string[] } {
@@ -358,6 +363,7 @@ describe('openTelemetryImportModal', () => {
 
     expect(document.querySelector('.myio-modal-header__title')!.textContent).toBe('Importar dados de energia');
     expect(document.querySelector('.tlmi-banner.warn')!.textContent).toContain('1 dispositivo(s) sem central');
+    chooseAll();
     btn('next').click(); // → Planilha
     await flush();
     expect(btn('next').disabled).toBe(true);
@@ -384,6 +390,68 @@ describe('openTelemetryImportModal', () => {
     expect(document.querySelector('.myio-stdmodal')).toBeNull();
   });
 
+  describe('etapa Dispositivos', () => {
+    const MANY = [
+      { label: 'Quiosque Volante L1', identifier: 'STB.QV.L1', centralId: GW, slaveId: 10 },
+      { label: 'quiosque volante l2', identifier: 'STB.QV.L2', centralId: GW, slaveId: 11 },
+      { label: 'Praça Alimentação', identifier: 'STB.PA', centralId: GW, slaveId: 12 },
+    ];
+    const names = () =>
+      [...document.querySelectorAll('.tlmi-sel label .tlmi-dev')].map((e) => e.childNodes[0].textContent!.trim());
+    const search = (v: string) => {
+      const el = document.querySelector<HTMLInputElement>('input[data-field="sel-filter"]')!;
+      el.value = v;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return el;
+    };
+    const action = (a: string) => document.querySelector<HTMLButtonElement>(`[data-action="${a}"]`)!.click();
+
+    it('abre na escolha: nomes em maiúsculas, nenhum marcado e sem avançar', () => {
+      openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: MANY, api: fakeApi(), now: () => NOW });
+      expect(document.querySelector('.tlmi-stepper')!.textContent).toContain('Dispositivos');
+      expect(names()).toEqual(['QUIOSQUE VOLANTE L1', 'QUIOSQUE VOLANTE L2', 'PRAÇA ALIMENTAÇÃO']);
+      expect(document.querySelector('[data-role="sel-count"]')!.textContent).toBe('0 de 3 selecionado(s)');
+      expect(btn('next').disabled).toBe(true);
+      btn('next').click();
+      expect(document.querySelector('[data-role="sel-list"]')).not.toBeNull(); // continua na etapa
+    });
+
+    it('busca ignora maiúsculas/acentos, mantém o foco; marcar/desmarcar todos vale para o filtrado', () => {
+      openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: MANY, api: fakeApi(), now: () => NOW });
+      const input = search('QUIOSQUE vol');
+      expect(names()).toEqual(['QUIOSQUE VOLANTE L1', 'QUIOSQUE VOLANTE L2']);
+      expect(document.contains(input)).toBe(true);
+      action('sel-all');
+      expect(document.querySelector('[data-role="sel-count"]')!.textContent).toBe('2 de 3 selecionado(s)');
+      search('praca');
+      expect(names()).toEqual(['PRAÇA ALIMENTAÇÃO']);
+      search('');
+      action('sel-none');
+      expect(document.querySelector('[data-role="sel-count"]')!.textContent).toBe('0 de 3 selecionado(s)');
+      expect(btn('next').disabled).toBe(true);
+    });
+
+    it('só os marcados seguem para os valores e para o modelo', async () => {
+      openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: MANY, api: fakeApi(), now: () => NOW });
+      const cb = document.querySelector<HTMLInputElement>('input[data-sel]')!; // 1º da lista
+      cb.checked = true;
+      cb.dispatchEvent(new Event('change', { bubbles: true }));
+      expect(btn('next').disabled).toBe(false);
+      btn('next').click();
+      expect(document.querySelector('.tlmi')!.textContent).toContain('1 dispositivo(s) selecionado(s)');
+      const radio = document.querySelector<HTMLInputElement>('input[data-field="model"][value="accumulated"]')!;
+      radio.checked = true;
+      radio.dispatchEvent(new Event('change', { bubbles: true }));
+      btn('next').click();
+      await flush();
+      const rows = [...document.querySelectorAll('.tlmi-acc tbody tr td.tlmi-dev')].map((e) => e.textContent);
+      expect(rows).toEqual(['QUIOSQUE VOLANTE L1']);
+      btn('back').click();
+      btn('back').click();
+      expect(document.querySelector<HTMLInputElement>('input[data-sel]')!.checked).toBe(true); // seleção preservada
+    });
+  });
+
   describe('modelo acumulado', () => {
     const pick = () => {
       const radio = document.querySelector<HTMLInputElement>('input[data-field="model"][value="accumulated"]')!;
@@ -398,7 +466,7 @@ describe('openTelemetryImportModal', () => {
       }
     };
     const typeTotal = (v: string) => {
-      const el = document.querySelector<HTMLInputElement>('input[data-total="0"]')!;
+      const el = document.querySelector<HTMLInputElement>('input[data-total]')!;
       el.value = v;
       el.dispatchEvent(new Event('input', { bubbles: true }));
       return el;
@@ -407,6 +475,7 @@ describe('openTelemetryImportModal', () => {
     it('escolhe o modelo, digita o total na tela, vê a prévia e valida com sourceRef acumulado', async () => {
       const api = fakeApi();
       openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+      chooseAll();
       pick();
       setPeriod('2026-09-01', '2026-09-30');
       expect(document.querySelector('.tlmi')!.textContent).toContain('curva por hora é estimada');
@@ -433,17 +502,19 @@ describe('openTelemetryImportModal', () => {
     it('total inválido na tela bloqueia o envio', async () => {
       const api = fakeApi();
       openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+      chooseAll();
       pick();
       btn('next').click();
       await flush();
       typeTotal('abc');
-      expect(document.querySelector('.tlmi-errors')!.textContent).toContain('Loja A: total deve ser número');
+      expect(document.querySelector('.tlmi-errors')!.textContent).toContain('LOJA A: total deve ser número');
       expect(btn('next').disabled).toBe(true);
     });
 
     it('planilha de acumulado: usa as entradas do arquivo e permite voltar para a tela', async () => {
       const api = fakeApi();
       openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+      chooseAll();
       pick();
       btn('next').click();
       await flush();
@@ -456,13 +527,14 @@ describe('openTelemetryImportModal', () => {
       btn('back').click();
       await flush();
       document.querySelector<HTMLButtonElement>('[data-action="use-form"]')!.click();
-      expect(document.querySelector('input[data-total="0"]')).not.toBeNull();
+      expect(document.querySelector('input[data-total]')).not.toBeNull();
       expect(btn('next').disabled).toBe(true);
     });
 
     it('voltar para hora a hora limpa o que foi calculado', async () => {
       const api = fakeApi();
       openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+      chooseAll();
       pick();
       setPeriod('2026-09-01', '2026-09-30');
       btn('next').click();
@@ -483,6 +555,7 @@ describe('openTelemetryImportModal', () => {
   it('erros locais bloqueiam o envio (nada vai para a API)', async () => {
     const api = fakeApi();
     openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+    chooseAll();
     btn('next').click();
     await flush();
     await upload(`gateway_id;slave_id;date;hour;value_kwh\n${GW};3;2026-10-25;00:30;1\n`);
@@ -496,6 +569,7 @@ describe('openTelemetryImportModal', () => {
       validate: vi.fn(async () => ({ valid: false as const, invalidCount: 1, errors: [{ line: 2, reason: 'unknown_device' }] })),
     });
     openTelemetryImportModal({ domain: 'water', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+    chooseAll();
     btn('next').click();
     await flush();
     await upload(`gateway_id;slave_id;date;hour;value_m3\n${GW};3;2026-10-25;00:00;1\n`);
@@ -512,6 +586,7 @@ describe('openTelemetryImportModal', () => {
       getJob: vi.fn(async () => ({ status: 'executing', progress: 10 })),
     });
     openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, pollMs: 60000, now: () => NOW });
+    chooseAll();
     btn('next').click();
     await flush();
     await upload(SHEET);
@@ -539,6 +614,7 @@ describe('openTelemetryImportModal', () => {
       })),
     });
     openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, now: () => NOW });
+    chooseAll();
     btn('next').click();
     await flush();
     await upload(SHEET);
@@ -559,6 +635,7 @@ describe('openTelemetryImportModal', () => {
       }),
     });
     openTelemetryImportModal({ domain: 'energy', customerId: 'c', devices: DEVICES, api, pollMs: 1, now: () => NOW });
+    chooseAll();
     btn('next').click();
     await flush();
     await upload(SHEET);

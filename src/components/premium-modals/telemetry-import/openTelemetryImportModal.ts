@@ -62,14 +62,27 @@ export interface OpenTelemetryImportModalParams {
   container?: HTMLElement;
 }
 
-type Step = 1 | 2 | 3 | 4;
+/** 0 = escolha dos dispositivos; 1 = modelo; 2 = planilha/valores; 3 = validação; 4 = importação */
+type Step = 0 | 1 | 2 | 3 | 4;
 
 const STEPS: Array<{ n: Step; label: string }> = [
+  { n: 0, label: 'Dispositivos' },
   { n: 1, label: 'Modelo' },
   { n: 2, label: 'Planilha' },
   { n: 3, label: 'Validação' },
   { n: 4, label: 'Importação' },
 ];
+
+/** Chave estável do device na importação (central + endereço). */
+const devKey = (d: ImportDevice) => `${d.centralId}|${d.slaveId}`;
+/** Nome exibido: sempre em maiúsculas. */
+const devName = (d: ImportDevice) => String(d.label || d.identifier || '').toUpperCase();
+/** Busca sem diferenciar maiúsculas/minúsculas nem acentos. */
+const norm = (v: unknown) =>
+  String(v ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 
 const DOMAIN_TEXT: Record<ImportDomain, { noun: string; unit: string; icon: string }> = {
   energy: { noun: 'energia', unit: 'kWh', icon: '⚡' },
@@ -114,7 +127,19 @@ function injectStyles(): void {
   style.id = STYLE_ID;
   style.textContent = `
 .tlmi { --tlmi-ac: #3e1a7d; --tlmi-ac-soft: #f1ecfa; --tlmi-ok: #16a34a; --tlmi-warn: #d97706; --tlmi-err: #dc2626;
-  display: flex; flex-direction: column; gap: 12px; font-size: 14px; color: #1e293b; }
+  display: flex; flex-direction: column; gap: 12px; font-size: 14px; color: #1e293b;
+  font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+.tlmi input, .tlmi button, .tlmi table { font-family: inherit; }
+.tlmi-dev { font-size: 12.5px; font-weight: 700; color: #334155; letter-spacing: 0.2px; text-transform: uppercase; }
+.tlmi-dev small { display: block; font-weight: 500; color: #94a3b8; font-size: 11px; letter-spacing: 0; }
+.tlmi-sel-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.tlmi-sel-bar input[type="search"] { flex: 1; min-width: 200px; border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; font: inherit; }
+.tlmi-sel-count { font-size: 12.5px; color: #64748b; margin-left: auto; }
+.tlmi-sel { max-height: 320px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+.tlmi-sel label { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+.tlmi-sel label:hover { background: #f8fafc; }
+.tlmi-sel label:last-child { border-bottom: none; }
+.tlmi-sel input { width: 16px; height: 16px; accent-color: var(--tlmi-ac); flex-shrink: 0; }
 .tlmi-stepper { display: flex; gap: 6px; }
 .tlmi-step { flex: 1; display: flex; align-items: center; gap: 8px; color: #64748b; padding: 6px 8px; border-radius: 10px; font-size: 13px; }
 .tlmi-step b { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
@@ -133,7 +158,7 @@ function injectStyles(): void {
   background: #fff; color: #374151; cursor: pointer; }
 .tlmi-btn.primary { background: var(--tlmi-ac); border-color: var(--tlmi-ac); color: #fff; }
 .tlmi-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.tlmi-drop { border: 2px dashed #cbd5e1; border-radius: 12px; padding: 22px; text-align: center; color: #64748b; cursor: pointer; }
+.tlmi-drop { display: block; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 22px; text-align: center; color: #64748b; cursor: pointer; }
 .tlmi-drop[data-over="1"] { border-color: var(--tlmi-ac); background: var(--tlmi-ac-soft); }
 .tlmi-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
 .tlmi-kpi { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
@@ -192,13 +217,17 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
   const now = params.now ?? (() => Date.now());
   const api: TelemetryImportApi =
     'validate' in params.api ? (params.api as TelemetryImportApi) : createTelemetryImportApi(params.api as TelemetryImportApiConfig);
-  const { ok: importable, missingKey } = splitImportableDevices(params.devices);
+  const { ok: importableAll, missingKey } = splitImportableDevices(params.devices);
+  // Etapa 0: o usuário escolhe quais devices vai preencher (nenhum marcado de início)
+  const selected = new Set<string>();
+  let importable: ImportDevice[] = [];
+  let selFilter = '';
 
   const s = {
-    step: 1 as Step,
+    step: 0 as Step,
     model: 'hourly' as ImportModel,
-    /** Acumulado: total digitado por device (índice em `importable`) */
-    formTotals: {} as Record<number, string>,
+    /** Acumulado: total digitado por device (chave devKey) */
+    formTotals: {} as Record<string, string>,
     /** Acumulado: entradas vindas de planilha (null = preenchimento na tela) */
     fileEntries: null as AccumulatedEntry[] | null,
     fileErrors: [] as SheetIssue[],
@@ -253,8 +282,59 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     return `<div class="tlmi-stepper">${STEPS.map((st) => {
       const state = st.n === s.step ? 'current' : st.n < s.step ? 'done' : 'todo';
       const label = st.n === 2 && s.model === 'accumulated' ? 'Valores' : st.label;
-      return `<div class="tlmi-step" data-state="${state}"><b>${state === 'done' ? '✓' : st.n}</b>${label}</div>`;
+      return `<div class="tlmi-step" data-state="${state}"><b>${state === 'done' ? '✓' : st.n + 1}</b>${label}</div>`;
     }).join('')}</div>`;
+  }
+
+  /* ---- etapa 0: escolha dos dispositivos ---- */
+  const visibleDevices = () => {
+    const f = norm(selFilter.trim());
+    return importableAll.filter((d) => !f || norm(`${d.label} ${d.identifier || ''}`).includes(f));
+  };
+
+  function selListHtml(): string {
+    const list = visibleDevices();
+    if (!list.length) return '<p class="tlmi-muted" style="padding:10px">Nenhum dispositivo encontrado.</p>';
+    return list
+      .map((d) => {
+        const k = devKey(d);
+        const ident =
+          d.identifier && d.identifier.toUpperCase() !== devName(d) ? `<small>${esc(d.identifier.toUpperCase())}</small>` : '';
+        return `<label><input type="checkbox" data-sel="${esc(k)}" ${selected.has(k) ? 'checked' : ''} />
+          <span class="tlmi-dev">${esc(devName(d))}${ident}</span></label>`;
+      })
+      .join('');
+  }
+
+  const selCountText = () => `${fmtNum(selected.size)} de ${fmtNum(importableAll.length)} selecionado(s)`;
+
+  function step0(): string {
+    const warn = missingKey.length
+      ? `<div class="tlmi-banner warn">${missingKey.length} dispositivo(s) sem central/endereço cadastrados não podem ser importados: ${esc(
+          missingKey.slice(0, 5).map(devName).join(', ')
+        )}${missingKey.length > 5 ? '…' : ''}</div>`
+      : '';
+    return `
+      <div class="tlmi-card"><h3>Quais dispositivos você quer preencher?</h3>
+        <div class="tlmi-sel-bar">
+          <input type="search" data-field="sel-filter" placeholder="Buscar dispositivo…" value="${esc(selFilter)}" aria-label="Buscar dispositivo" />
+          <button class="tlmi-btn" type="button" data-action="sel-all">Marcar todos</button>
+          <button class="tlmi-btn" type="button" data-action="sel-none">Desmarcar todos</button>
+          <span class="tlmi-sel-count" data-role="sel-count">${selCountText()}</span>
+        </div>
+        <div class="tlmi-sel" data-role="sel-list">${selListHtml()}</div>
+        <p class="tlmi-muted" style="margin-top:6px">Com a busca preenchida, Marcar/Desmarcar todos vale só para os dispositivos encontrados.</p>
+      </div>
+      ${warn}`;
+  }
+
+  /** Atualiza só a lista e o contador (não tira o foco da busca). */
+  function refreshSelection(): void {
+    const list = root.querySelector<HTMLElement>('[data-role="sel-list"]');
+    if (list) list.innerHTML = selListHtml();
+    const count = root.querySelector<HTMLElement>('[data-role="sel-count"]');
+    if (count) count.textContent = selCountText();
+    syncFooter();
   }
 
   function apiErrorBanner(): string {
@@ -263,11 +343,7 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
   }
 
   function step1(): string {
-    const warn = missingKey.length
-      ? `<div class="tlmi-banner warn">${missingKey.length} dispositivo(s) sem central/endereço cadastrados ficam fora do modelo: ${esc(
-          missingKey.slice(0, 5).map((d) => d.label).join(', ')
-        )}${missingKey.length > 5 ? '…' : ''}</div>`
-      : '';
+    const warn = '';
     const model = (value: ImportModel, title: string, hint: string) => `
       <label class="tlmi-model" data-selected="${s.model === value ? 1 : 0}">
         <input type="radio" name="tlmi-model" data-field="model" value="${value}" ${s.model === value ? 'checked' : ''} />
@@ -299,7 +375,7 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
           <label class="tlmi-field">Fim<input type="date" data-field="end" value="${esc(s.period.end)}" /></label>
           <button class="tlmi-btn" type="button" data-action="template" ${importable.length ? '' : 'disabled'}>⬇ Baixar modelo (CSV)</button>
         </div>
-        <p class="tlmi-muted" style="margin-top:8px">${importable.length} dispositivo(s) no modelo. ${
+        <p class="tlmi-muted" style="margin-top:8px">${importable.length} dispositivo(s) selecionado(s). ${
           s.model === 'accumulated'
             ? 'Para digitar na tela, clique em <strong>Avançar</strong>.'
             : 'Já tem a planilha preenchida? Clique em <strong>Avançar</strong>.'
@@ -370,8 +446,10 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
          <div class="tlmi-acc"><table><thead><tr><th>Dispositivo</th><th>Total (${txt.unit})</th></tr></thead><tbody>
            ${importable
              .map(
-               (d, i) => `<tr><td>${esc(d.label)}</td>
-                 <td><input inputmode="decimal" data-total="${i}" aria-label="Total de ${esc(d.label)}" value="${esc(s.formTotals[i] ?? '')}" /></td></tr>`
+               (d) => `<tr><td class="tlmi-dev">${esc(devName(d))}</td>
+                 <td><input inputmode="decimal" data-total="${esc(devKey(d))}" aria-label="Total de ${esc(devName(d))}" value="${esc(
+                   s.formTotals[devKey(d)] ?? ''
+                 )}" /></td></tr>`
              )
              .join('')}
          </tbody></table></div>`;
@@ -493,7 +571,8 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
   function render(): void {
     if (closed) return;
     const step2Body = () => (s.model === 'accumulated' ? step2Accumulated() : step2());
-    const body = s.step === 1 ? step1() : s.step === 2 ? step2Body() : s.step === 3 ? step3() : step4();
+    const body =
+      s.step === 0 ? step0() : s.step === 1 ? step1() : s.step === 2 ? step2Body() : s.step === 3 ? step3() : step4();
     root.innerHTML = stepper() + body;
     syncFooter();
   }
@@ -501,7 +580,9 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
   function syncFooter(): void {
     const v = s.validation;
     const terminal = s.job ? TERMINAL_JOB_STATUSES.includes(s.job.status) : false;
-    modal.setButton('back', { hidden: s.step === 1 || s.step === 4, disabled: s.busy });
+    modal.setButton('back', { hidden: s.step === 0 || s.step === 4, disabled: s.busy });
+    // sem nenhum dispositivo marcado não avança para os valores
+    if (s.step === 0) modal.setButton('next', { label: 'Avançar', disabled: selected.size === 0, hidden: false });
     if (s.step === 1) modal.setButton('next', { label: 'Avançar', disabled: false, hidden: false });
     if (s.step === 2)
       modal.setButton('next', {
@@ -522,7 +603,7 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
 
   /* ------------------------------------------------------------ actions */
   function goBack(): void {
-    if (s.busy || s.step === 1 || s.step === 4) return;
+    if (s.busy || s.step === 0 || s.step === 4) return;
     s.apiError = '';
     if (s.step === 3) s.validation = null;
     s.step = (s.step - 1) as Step;
@@ -531,7 +612,17 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
 
   async function goNext(): Promise<void> {
     if (s.busy) return;
-    if (s.step === 1) {
+    if (s.step === 0) {
+      if (selected.size === 0) return;
+      // mantém a ordem da lista; totais de devices desmarcados são descartados
+      importable = importableAll.filter((d) => selected.has(devKey(d)));
+      for (const k of Object.keys(s.formTotals)) if (!selected.has(k)) delete s.formTotals[k];
+      s.rows = [];
+      s.localErrors = [];
+      s.validation = null;
+      s.step = 1;
+      render();
+    } else if (s.step === 1) {
       if (s.model === 'accumulated') recomputeAccumulated();
       s.step = 2;
       render();
@@ -568,10 +659,10 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     const entries: AccumulatedEntry[] = [];
     const errors: SheetIssue[] = [];
     importable.forEach((d, i) => {
-      const total = parseDecimal(s.formTotals[i] ?? '');
+      const total = parseDecimal(s.formTotals[devKey(d)] ?? '');
       if (total === null) return;
       if (Number.isNaN(total) || total < 0) {
-        errors.push({ line: i + 1, reason: `${d.label}: total deve ser número ≥ 0` });
+        errors.push({ line: i + 1, reason: `${devName(d)}: total deve ser número ≥ 0` });
         return;
       }
       entries.push({
@@ -735,6 +826,14 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-action]');
     if (!el) return;
     if (el.dataset.action === 'template') downloadTemplate();
+    if (el.dataset.action === 'sel-all' || el.dataset.action === 'sel-none') {
+      const on = el.dataset.action === 'sel-all';
+      for (const d of visibleDevices()) {
+        if (on) selected.add(devKey(d));
+        else selected.delete(devKey(d));
+      }
+      refreshSelection();
+    }
     if (el.dataset.action === 'cancel') void cancelJob();
     if (el.dataset.action === 'revert') void revertJob();
     if (el.dataset.action === 'use-form') {
@@ -745,13 +844,26 @@ export function openTelemetryImportModal(params: OpenTelemetryImportModalParams)
   });
   root.addEventListener('input', (e) => {
     const t = e.target as HTMLInputElement;
+    if (t.dataset.field === 'sel-filter') {
+      selFilter = t.value;
+      refreshSelection();
+      return;
+    }
     if (t.dataset.total === undefined) return;
-    s.formTotals[Number(t.dataset.total)] = t.value;
+    s.formTotals[t.dataset.total] = t.value;
     recomputeAccumulated();
     refreshAccSummary();
   });
   root.addEventListener('change', (e) => {
     const t = e.target as HTMLInputElement;
+    if (t.dataset.sel !== undefined) {
+      if (t.checked) selected.add(t.dataset.sel);
+      else selected.delete(t.dataset.sel);
+      const count = root.querySelector<HTMLElement>('[data-role="sel-count"]');
+      if (count) count.textContent = selCountText();
+      syncFooter();
+      return;
+    }
     if (t.dataset.field === 'start') s.period.start = t.value;
     if (t.dataset.field === 'end') s.period.end = t.value;
     if (t.dataset.field === 'file') void loadFile(t.files?.[0]);
