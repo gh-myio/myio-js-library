@@ -44,6 +44,7 @@ import { injectPricingPanelStyles } from './styles';
 import { TariffApiClient } from './tariffApiClient';
 import { TariffApiAdapter } from './tariffApiAdapter';
 import { mountCategoriesTab, type CategoriesTabHandle } from './categoriesTab';
+import { openConfirmDialog } from '../premium-modals/dialog';
 
 const MODAL_ID = 'myio-pricing-panel';
 
@@ -76,6 +77,23 @@ function resolveThemeVars(explicit?: PricingPanelThemeSource): Record<string, st
       ? (theme as { cssVars(): Record<string, string> }).cssVars()
       : (theme as Record<string, string>);
   return vars && typeof vars === 'object' ? vars : null;
+}
+
+// ED-1386 — modo claro/escuro do diálogo de confirmação: mesma fonte da paleta do
+// painel (`mode` do createMyIOTheme), senão o toggle do dashboard, senão claro.
+function resolveDialogTheme(explicit?: PricingPanelThemeSource): 'light' | 'dark' {
+  const utils =
+    typeof window !== 'undefined'
+      ? (window as { MyIOUtils?: { theme?: PricingPanelThemeSource; currentTheme?: string } }).MyIOUtils
+      : undefined;
+  const mode = ((explicit || utils?.theme) as { mode?: unknown } | undefined)?.mode;
+  if (mode === 'dark' || mode === 'light') return mode;
+  return utils?.currentTheme === 'dark' ? 'dark' : 'light';
+}
+
+function isoToBR(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
 }
 
 function isSuperAdmin(): boolean {
@@ -367,6 +385,12 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   requestAnimationFrame(() => modal.classList.add('show'));
   wireClose();
 
+  // Host dos diálogos de confirmação (exclusão de tarifa e de categoria): montado
+  // dentro do painel para abrir POR CIMA dele (o painel tem z-index 999999).
+  const dialogHost = doc.createElement('div');
+  dialogHost.className = 'myio-pricing__dialog-host';
+  modal.appendChild(dialogHost);
+
   // ---- Element refs ----
   const $ = <T extends HTMLElement>(sel: string): T => modal.querySelector(sel) as T;
   const customerSel = $<HTMLSelectElement>('#myio-pricing-customer');
@@ -445,9 +469,6 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   let categoriesTab: CategoriesTabHandle | null = null;
   const categoriesPanel = modal.querySelector<HTMLElement>('[data-panel="categories"]');
   if (client && categoriesPanel) {
-    const dialogHost = doc.createElement('div');
-    dialogHost.className = 'myio-pricing__dialog-host';
-    modal.appendChild(dialogHost);
     categoriesTab = mountCategoriesTab({
       container: categoriesPanel,
       client,
@@ -499,11 +520,11 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   syncPeriodFields();
   syncUnit();
 
-  type PersistChange = { kind: 'upsert' | 'remove'; entry: PricingEntry };
+  type PersistChange = { kind: 'upsert'; entry: PricingEntry };
 
   // Surface an adapter/API failure in the form error box. A version conflict
   // (RFC-0054 409 TARIFF_VERSION_CONFLICT) is shown, never swallowed.
-  function surfaceApiError(err: unknown): void {
+  function surfaceApiError(err: unknown, action: 'save' | 'delete' = 'save'): void {
     const code = (err as { code?: string })?.code;
     if (code === 'TARIFF_VERSION_CONFLICT') {
       const cv = (err as { currentVersion?: number }).currentVersion;
@@ -512,6 +533,10 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
           cv != null ? ` (versão atual ${cv})` : ''
         }. Reabra o painel e tente novamente.`
       );
+      return;
+    }
+    if (action === 'delete') {
+      showError(`Falha ao excluir a tarifa no servidor${code ? ` (${code})` : ''}. A lista foi recarregada.`);
       return;
     }
     showError(`Falha ao salvar a tarifa no servidor${code ? ` (${code})` : ''}.`);
@@ -550,10 +575,9 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   const persist = (changed?: PersistChange): void => {
     if (adapter) {
       // Tariff-API path: write through the adapter; never localStorage.
+      // (Remoção não passa por aqui: confirmAndRemove aguarda o DELETE antes.)
       if (changed?.kind === 'upsert') {
-        adapter.saveEntry(changed.entry.customerId, changed.entry).catch(surfaceApiError);
-      } else if (changed?.kind === 'remove') {
-        adapter.deleteEntry(changed.entry.customerId, changed.entry).catch(surfaceApiError);
+        adapter.saveEntry(changed.entry.customerId, changed.entry).catch((err) => surfaceApiError(err));
       }
       if (typeof params.onSave === 'function') params.onSave(entries.map((e) => ({ ...e })));
       emit('save', entries.map((e) => ({ ...e })));
@@ -564,6 +588,9 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
     if (typeof params.onSave === 'function') params.onSave(entries.map((e) => ({ ...e })));
     emit('save', entries.map((e) => ({ ...e })));
   };
+
+  // ED-1386 — exclusão em andamento (diálogo aberto ou DELETE pendente): ✕ desabilitados.
+  let removing = false;
 
   const pushAudit = (rec?: PricingAuditRecord): void => {
     if (rec) auditLog = [rec, ...auditLog];
@@ -604,31 +631,81 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
     emptyEl.style.display = rows.length ? 'none' : '';
 
     listEl.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach((btn) => {
+      btn.disabled = removing;
       btn.addEventListener('click', () => {
         const [domain, category, boundsKey] = String(btn.getAttribute('data-remove')).split('|');
-        const removedEntry = entries.find((e) => {
+        const target = entries.find((e) => {
           if (e.customerId !== customerId || e.domain !== domain || e.category !== category) return false;
           const b = entryBounds(e);
           return Boolean(b && `${b.start}__${b.end}` === boundsKey);
         });
-        const result = removeEntryByBounds(
-          entries,
-          {
-            customerId,
-            domain: domain as PricingDomain,
-            category: category as PricingCategory,
-            boundsKey,
-          },
-          { by: author }
-        );
-        entries = result.entries;
-        pushAudit(result.audit);
-        persist(removedEntry ? { kind: 'remove', entry: removedEntry } : undefined);
-        renderList();
-        emit('remove', result.audit);
+        if (target) void confirmAndRemove(target, boundsKey);
       });
     });
   };
+
+  // ---- ED-1386: exclusão com confirmação ----
+  function removeConfirmMessage(e: PricingEntry): string {
+    const b = entryBounds(e);
+    const period = b ? `${isoToBR(b.start)} a ${isoToBR(b.end)}` : formatPeriodLabel(e);
+    return [
+      'Tem certeza que deseja excluir esta tarifa? Esta ação não pode ser desfeita.',
+      '',
+      `Domínio: ${DOMAIN_LABEL[e.domain]}`,
+      `Categoria: ${categoryLabel(e.category, categories)}`,
+      `Período: ${period}`,
+      `Preço: ${formatBRL(e.pricePerKwh)} ${unitLabel(e.domain)}`,
+    ].join('\n');
+  }
+
+  // Confirma no diálogo premium (RFC-0205) e só então exclui. Com a API de tarifas,
+  // o DELETE é aguardado: a linha só sai da lista depois do sucesso; em erro a
+  // lista é recarregada do GCDR (pode ter havido exclusão parcial, um DELETE por dia).
+  async function confirmAndRemove(target: PricingEntry, boundsKey: string): Promise<void> {
+    if (removing) return;
+    removing = true;
+    renderList();
+    try {
+      const choice = await openConfirmDialog({
+        title: 'Excluir Tarifa',
+        message: removeConfirmMessage(target),
+        buttons: [
+          { label: 'Cancelar', value: 'cancel', variant: 'secondary' },
+          { label: 'Excluir', value: 'confirm', variant: 'danger', autoFocus: true },
+        ],
+        theme: resolveDialogTheme(params.theme),
+        container: dialogHost,
+      });
+      if (choice !== 'confirm' || closed) return;
+      clearError();
+      if (adapter) {
+        try {
+          await adapter.deleteEntry(target.customerId, target);
+        } catch (err) {
+          await loadFromApi();
+          surfaceApiError(err, 'delete');
+          return;
+        }
+      }
+      const result = removeEntryByBounds(
+        entries,
+        {
+          customerId: target.customerId,
+          domain: target.domain,
+          category: target.category,
+          boundsKey,
+        },
+        { by: author }
+      );
+      entries = result.entries;
+      pushAudit(result.audit);
+      persist();
+      emit('remove', result.audit);
+    } finally {
+      removing = false;
+      if (!closed) renderList();
+    }
+  }
 
   const buildCandidate = (): PricingEntry | { error: string } => {
     const customerId = customerSel.value;

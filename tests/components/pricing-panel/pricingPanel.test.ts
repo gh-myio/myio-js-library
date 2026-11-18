@@ -50,6 +50,15 @@ function getModal(): HTMLElement | null {
 function q<T extends HTMLElement>(sel: string): T {
   return getModal()!.querySelector(sel) as T;
 }
+/** Promise chains settle without timers (this file runs with fake timers). */
+async function flushMicrotasks(): Promise<void> {
+  for (let i = 0; i < 10; i++) await Promise.resolve();
+}
+function clickDialogButton(label: string): void {
+  [...document.querySelectorAll<HTMLButtonElement>('.myio-dialog button')]
+    .find((b) => b.textContent?.trim() === label)!
+    .click();
+}
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -343,7 +352,7 @@ describe('openPricingPanel add flow', () => {
     expect(handle.getEntries()).toHaveLength(2);
   });
 
-  it('records add/edit/delete in the audit log (most recent first)', () => {
+  it('records add/edit/delete in the audit log (most recent first)', async () => {
     const handle = openPricingPanel({ customers: CUSTOMERS, categories: CATS, currentUserEmail: 'op@myio.com.br' });
     selectDomainCategory('energy', 'lojas');
     addMonth('2026-03', '0,75'); // created
@@ -353,8 +362,10 @@ describe('openPricingPanel add flow', () => {
     expect(log[1].action).toBe('created');
     expect(log[0].by).toBe('op@myio.com.br');
 
-    // Delete the row via the list button.
+    // Delete the row via the list button (ED-1386: confirmed in the dialog).
     q<HTMLButtonElement>('[data-testid="pricing-list"] [data-remove]').click();
+    clickDialogButton('Excluir');
+    await flushMicrotasks();
     log = handle.getAuditLog();
     expect(log[0].action).toBe('deleted');
     expect(handle.getEntries()).toHaveLength(0);
@@ -411,5 +422,109 @@ describe('openPricingPanel add flow', () => {
     addMonth('2026-03', '0');
     expect(q('[data-testid="pricing-error"]').classList.contains('show')).toBe(true);
     expect(handle.getEntries()).toHaveLength(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // ED-1386 — confirmação antes de excluir
+  // -------------------------------------------------------------------------
+  describe('ED-1386 remove confirmation', () => {
+    function openWithOneEntry(extra: Record<string, unknown> = {}) {
+      const handle = openPricingPanel({
+        customers: CUSTOMERS,
+        categories: CATS,
+        currentUserEmail: 'op@myio.com.br',
+        ...extra,
+      });
+      selectDomainCategory('water', 'area_comum');
+      addMonth('2026-03', '9,50');
+      expect(handle.getEntries()).toHaveLength(1);
+      return handle;
+    }
+    const removeBtn = () => q<HTMLButtonElement>('[data-testid="pricing-list"] [data-remove]');
+
+    it('✕ opens the premium dialog inside the panel with the tariff data', () => {
+      const handle = openWithOneEntry();
+      removeBtn().click();
+
+      const dialog = getModal()!.querySelector('.myio-pricing__dialog-host .myio-dialog');
+      expect(dialog).not.toBeNull();
+      expect(dialog!.querySelector('.myio-dialog__title')!.textContent).toBe('Excluir Tarifa');
+      const msg = dialog!.querySelector('.myio-dialog__message')!.textContent!;
+      expect(msg).toContain('Domínio: Água');
+      expect(msg).toContain('Categoria: Área Comum');
+      expect(msg).toContain('Período: 01/03/2026 a 31/03/2026');
+      expect(msg).toContain('Preço: R$ 9,50 R$/m³');
+      expect(dialog!.querySelector('.myio-dialog__btn--danger')!.textContent).toBe('Excluir');
+      // Nada excluído enquanto o diálogo está aberto; ✕ desabilitado.
+      expect(handle.getEntries()).toHaveLength(1);
+      expect(removeBtn().disabled).toBe(true);
+    });
+
+    it('Cancelar keeps the list and the audit log unchanged', async () => {
+      const handle = openWithOneEntry();
+      const onRemove = vi.fn();
+      handle.on('remove', onRemove);
+      const auditBefore = handle.getAuditLog().length;
+
+      removeBtn().click();
+      clickDialogButton('Cancelar');
+      await flushMicrotasks();
+
+      expect(document.querySelector('.myio-dialog')).toBeNull();
+      expect(handle.getEntries()).toHaveLength(1);
+      expect(handle.getAuditLog()).toHaveLength(auditBefore);
+      expect(onRemove).not.toHaveBeenCalled();
+      expect(q('[data-testid="pricing-list"]').children).toHaveLength(1);
+      expect(removeBtn().disabled).toBe(false);
+    });
+
+    it('ESC closes only the dialog: panel stays open, nothing removed', async () => {
+      const handle = openWithOneEntry();
+      const onClose = vi.fn();
+      handle.on('close', onClose);
+
+      removeBtn().click();
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await flushMicrotasks();
+
+      expect(document.querySelector('.myio-dialog')).toBeNull();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(getModal()).not.toBeNull();
+      expect(handle.getEntries()).toHaveLength(1);
+    });
+
+    it('Excluir removes the period, logs "deleted" and emits remove/save', async () => {
+      const onSave = vi.fn();
+      const handle = openWithOneEntry({ onSave });
+      const onRemove = vi.fn();
+      handle.on('remove', onRemove);
+      onSave.mockClear();
+
+      removeBtn().click();
+      clickDialogButton('Excluir');
+      await flushMicrotasks();
+
+      expect(handle.getEntries()).toHaveLength(0);
+      expect(handle.getAuditLog()[0].action).toBe('deleted');
+      expect(onRemove).toHaveBeenCalledTimes(1);
+      expect(onSave).toHaveBeenCalledWith([]);
+      expect(q('[data-testid="pricing-list"]').children).toHaveLength(0);
+    });
+
+    it('follows the dashboard theme mode (dark)', () => {
+      (window as { MyIOUtils?: unknown }).MyIOUtils = {
+        theme: { mode: 'dark', cssVars: () => ({ '--myio-card': '#111' }) },
+      };
+      openWithOneEntry();
+      removeBtn().click();
+      expect(document.querySelector('.myio-dialog-overlay')!.classList.contains('myio-dialog-overlay--dark')).toBe(true);
+    });
+
+    it('falls back to MyIOUtils.currentTheme when the palette has no mode', () => {
+      (window as { MyIOUtils?: unknown }).MyIOUtils = { currentTheme: 'dark' };
+      openWithOneEntry();
+      removeBtn().click();
+      expect(document.querySelector('.myio-dialog-overlay')!.classList.contains('myio-dialog-overlay--dark')).toBe(true);
+    });
   });
 });

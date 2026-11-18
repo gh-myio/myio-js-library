@@ -216,3 +216,118 @@ describe('openPricingPanel — tariffApi gate OFF (localStorage prototype unchan
     expect(pricingWrites.length).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// ED-1386 — confirmação antes de excluir + DELETE aguardado
+// ---------------------------------------------------------------------------
+/**
+ * Servidor com UMA tarifa (Energia · Área comum · 10–11/03/2026 a R$ 0,90):
+ * o GET dessa combinação devolve a árvore diária; o DELETE responde `deleteStatus`.
+ * A tarifa só some do "servidor" quando todos os DELETEs dão certo.
+ */
+function makeSeededFetchMock(opts: { deleteStatus?: number } = {}) {
+  const base = makeFetchMock();
+  let seeded = true;
+  return vi.fn(async (url: string, init?: { method?: string }) => {
+    const method = init?.method || 'GET';
+    const u = String(url);
+    if (method === 'GET' && u.includes('/tariffs?') && u.includes('domain=ENERGY') && u.includes('category=COMMON_AREA') && seeded) {
+      return new Response(
+        JSON.stringify({ version: 1, tree: { daily: { '03-10': { price: '0.900000' }, '03-11': { price: '0.900000' } } } }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ETag: '"1"' } }
+      );
+    }
+    if (method === 'DELETE') {
+      const status = opts.deleteStatus ?? 200;
+      if (status !== 200) {
+        return new Response(JSON.stringify({ success: false, error: { code: 'INTERNAL', message: 'boom' } }), {
+          status,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      seeded = false;
+    }
+    return base(url, init);
+  });
+}
+
+async function settle(): Promise<void> {
+  for (let i = 0; i < 8; i++) await flush();
+}
+function clickDialogButton(label: string): void {
+  [...document.querySelectorAll<HTMLButtonElement>('.myio-dialog button')]
+    .find((b) => b.textContent?.trim() === label)!
+    .click();
+}
+
+describe('openPricingPanel — ED-1386 exclusão com confirmação (tariffApi)', () => {
+  async function openSeeded(deleteStatus?: number) {
+    const fetchMock = makeSeededFetchMock({ deleteStatus });
+    const handle = openPricingPanel({
+      customers: CUSTOMERS,
+      currentUserEmail: 'op@myio.com.br',
+      tariffApi: { baseUrl: 'https://gcdr.example', apiKey: 'gcdr_cust_X', year: 2026, fetchImpl: fetchMock as unknown as typeof fetch },
+    });
+    await settle();
+    expect(q('[data-testid="pricing-list"]').children).toHaveLength(1);
+    const onRemove = vi.fn();
+    handle.on('remove', onRemove);
+    return { fetchMock, handle, onRemove };
+  }
+  const deletes = (m: ReturnType<typeof makeSeededFetchMock>) =>
+    m.mock.calls.filter((c) => c[1]?.method === 'DELETE');
+  const tariffGets = (m: ReturnType<typeof makeSeededFetchMock>) =>
+    m.mock.calls.filter((c) => (c[1]?.method || 'GET') === 'GET' && String(c[0]).includes('/tariffs?'));
+
+  it('✕ mostra domínio, categoria, período e preço; Cancelar não chama a API', async () => {
+    const { fetchMock, handle, onRemove } = await openSeeded();
+    q<HTMLButtonElement>('[data-testid="pricing-list"] [data-remove]').click();
+
+    const msg = getModal()!.querySelector('.myio-pricing__dialog-host .myio-dialog__message')!.textContent!;
+    expect(msg).toContain('Domínio: Energia');
+    expect(msg).toContain('Categoria: Área comum');
+    expect(msg).toContain('Período: 10/03/2026 a 11/03/2026');
+    expect(msg).toContain('Preço: R$ 0,90 R$/kWh');
+
+    clickDialogButton('Cancelar');
+    await settle();
+    expect(deletes(fetchMock)).toHaveLength(0);
+    expect(handle.getEntries()).toHaveLength(1);
+    expect(onRemove).not.toHaveBeenCalled();
+  });
+
+  it('Excluir → DELETE /customers/:id/tariffs (um por dia), aguardado, e a linha sai da lista', async () => {
+    const { fetchMock, handle, onRemove } = await openSeeded();
+    q<HTMLButtonElement>('[data-testid="pricing-list"] [data-remove]').click();
+    clickDialogButton('Excluir');
+    await settle();
+
+    const calls = deletes(fetchMock);
+    expect(calls).toHaveLength(2);
+    expect(String(calls[0][0])).toContain('https://gcdr.example/api/v1/customers/gc-1/tariffs?domain=ENERGY&category=COMMON_AREA&year=2026');
+    expect(calls.map((c) => JSON.parse((c[1] as { body: string }).body).bucket.ref)).toEqual(['2026-03-10', '2026-03-11']);
+    expect(handle.getEntries()).toHaveLength(0);
+    expect(q('[data-testid="pricing-list"]').children).toHaveLength(0);
+    expect(onRemove).toHaveBeenCalledTimes(1);
+    expect(q('[data-testid="pricing-error"]').classList.contains('show')).toBe(false);
+  });
+
+  it('erro da API: mensagem no painel, lista recarregada do GCDR e tarifa mantida', async () => {
+    const { fetchMock, handle, onRemove } = await openSeeded(500);
+    const getsBefore = tariffGets(fetchMock).length;
+
+    q<HTMLButtonElement>('[data-testid="pricing-list"] [data-remove]').click();
+    clickDialogButton('Excluir');
+    await settle();
+
+    const err = q('[data-testid="pricing-error"]');
+    expect(err.classList.contains('show')).toBe(true);
+    expect(err.textContent).toContain('Falha ao excluir a tarifa no servidor (INTERNAL)');
+    // recarga: 2 domínios × 4 categorias
+    expect(tariffGets(fetchMock).length - getsBefore).toBe(8);
+    expect(handle.getEntries()).toHaveLength(1);
+    expect(q('[data-testid="pricing-list"]').children).toHaveLength(1);
+    expect(q<HTMLButtonElement>('[data-testid="pricing-list"] [data-remove]').disabled).toBe(false);
+    expect(onRemove).not.toHaveBeenCalled();
+  });
+});
