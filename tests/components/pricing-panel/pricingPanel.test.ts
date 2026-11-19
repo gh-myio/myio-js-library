@@ -455,9 +455,13 @@ describe('openPricingPanel add flow', () => {
       expect(msg).toContain('Período: 01/03/2026 a 31/03/2026');
       expect(msg).toContain('Preço: R$ 9,50 R$/m³');
       expect(dialog!.querySelector('.myio-dialog__btn--danger')!.textContent).toBe('Excluir');
-      // Nada excluído enquanto o diálogo está aberto; ✕ desabilitado.
+      // Foco inicial em Cancelar (Enter por reflexo não exclui).
+      expect((document.activeElement as HTMLElement).textContent).toBe('Cancelar');
+      expect(dialog!.contains(document.activeElement)).toBe(true);
+      // Nada excluído enquanto o diálogo está aberto; ✕ e Add desabilitados.
       expect(handle.getEntries()).toHaveLength(1);
       expect(removeBtn().disabled).toBe(true);
+      expect(q<HTMLButtonElement>('[data-testid="pricing-add"]').disabled).toBe(true);
     });
 
     it('Cancelar keeps the list and the audit log unchanged', async () => {
@@ -476,6 +480,7 @@ describe('openPricingPanel add flow', () => {
       expect(onRemove).not.toHaveBeenCalled();
       expect(q('[data-testid="pricing-list"]').children).toHaveLength(1);
       expect(removeBtn().disabled).toBe(false);
+      expect(q<HTMLButtonElement>('[data-testid="pricing-add"]').disabled).toBe(false);
     });
 
     it('ESC closes only the dialog: panel stays open, nothing removed', async () => {

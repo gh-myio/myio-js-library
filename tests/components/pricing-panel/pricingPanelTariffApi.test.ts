@@ -10,6 +10,13 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openPricingPanel } from '../../../src/components/pricing-panel';
+import { openConfirmDialog } from '../../../src/components/premium-modals/dialog';
+
+// Repassa para o diálogo real; só permite ler o valor com que a promise resolveu.
+vi.mock('../../../src/components/premium-modals/dialog', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../../src/components/premium-modals/dialog')>();
+  return { ...mod, openConfirmDialog: vi.fn(mod.openConfirmDialog) };
+});
 
 const CUSTOMERS = [{ gcdrCustomerId: 'gc-1', tbId: 'tb-1', title: 'Shopping A' }];
 
@@ -225,12 +232,29 @@ describe('openPricingPanel — tariffApi gate OFF (localStorage prototype unchan
  * o GET dessa combinação devolve a árvore diária; o DELETE responde `deleteStatus`.
  * A tarifa só some do "servidor" quando todos os DELETEs dão certo.
  */
-function makeSeededFetchMock(opts: { deleteStatus?: number } = {}) {
+type SeededOpts = {
+  deleteStatus?: number;
+  /** DELETE fica pendente até esta promise resolver. */
+  deleteGate?: Promise<void>;
+  /** Depois de uma tentativa de DELETE, a recarga falha nesta leitura. */
+  reloadFails?: 'categories' | 'tariffs';
+};
+function makeSeededFetchMock(opts: SeededOpts = {}) {
   const base = makeFetchMock();
   let seeded = true;
+  let deleteAttempted = false;
+  const errorResponse = (status: number, code: string) =>
+    new Response(JSON.stringify({ success: false, error: { code, message: 'boom' } }), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
   return vi.fn(async (url: string, init?: { method?: string }) => {
     const method = init?.method || 'GET';
     const u = String(url);
+    if (method === 'GET' && deleteAttempted) {
+      if (opts.reloadFails === 'categories' && u.includes('/tariff-categories')) return errorResponse(403, 'FORBIDDEN');
+      if (opts.reloadFails === 'tariffs' && u.includes('/tariffs?')) return errorResponse(500, 'INTERNAL');
+    }
     if (method === 'GET' && u.includes('/tariffs?') && u.includes('domain=ENERGY') && u.includes('category=COMMON_AREA') && seeded) {
       return new Response(
         JSON.stringify({ version: 1, tree: { daily: { '03-10': { price: '0.900000' }, '03-11': { price: '0.900000' } } } }),
@@ -238,13 +262,10 @@ function makeSeededFetchMock(opts: { deleteStatus?: number } = {}) {
       );
     }
     if (method === 'DELETE') {
+      deleteAttempted = true;
+      if (opts.deleteGate) await opts.deleteGate;
       const status = opts.deleteStatus ?? 200;
-      if (status !== 200) {
-        return new Response(JSON.stringify({ success: false, error: { code: 'INTERNAL', message: 'boom' } }), {
-          status,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
+      if (status !== 200) return errorResponse(status, 'INTERNAL');
       seeded = false;
     }
     return base(url, init);
@@ -259,10 +280,19 @@ function clickDialogButton(label: string): void {
     .find((b) => b.textContent?.trim() === label)!
     .click();
 }
+/**
+ * Enter no elemento com foco. O jsdom não ativa botões por teclado; aqui imitamos o
+ * navegador: sem preventDefault no keydown, Enter num <button> equivale a click().
+ */
+function pressEnterOnFocused(): void {
+  const el = document.activeElement as HTMLElement;
+  const notCancelled = el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  if (notCancelled && el instanceof HTMLButtonElement) el.click();
+}
 
 describe('openPricingPanel — ED-1386 exclusão com confirmação (tariffApi)', () => {
-  async function openSeeded(deleteStatus?: number) {
-    const fetchMock = makeSeededFetchMock({ deleteStatus });
+  async function openSeeded(opts: SeededOpts = {}) {
+    const fetchMock = makeSeededFetchMock(opts);
     const handle = openPricingPanel({
       customers: CUSTOMERS,
       currentUserEmail: 'op@myio.com.br',
@@ -313,7 +343,7 @@ describe('openPricingPanel — ED-1386 exclusão com confirmação (tariffApi)',
   });
 
   it('erro da API: mensagem no painel, lista recarregada do GCDR e tarifa mantida', async () => {
-    const { fetchMock, handle, onRemove } = await openSeeded(500);
+    const { fetchMock, handle, onRemove } = await openSeeded({ deleteStatus: 500 });
     const getsBefore = tariffGets(fetchMock).length;
 
     q<HTMLButtonElement>('[data-testid="pricing-list"] [data-remove]').click();
@@ -323,11 +353,99 @@ describe('openPricingPanel — ED-1386 exclusão com confirmação (tariffApi)',
     const err = q('[data-testid="pricing-error"]');
     expect(err.classList.contains('show')).toBe(true);
     expect(err.textContent).toContain('Falha ao excluir a tarifa no servidor (INTERNAL)');
+    expect(err.textContent).toContain('A lista foi recarregada.');
     // recarga: 2 domínios × 4 categorias
     expect(tariffGets(fetchMock).length - getsBefore).toBe(8);
     expect(handle.getEntries()).toHaveLength(1);
     expect(q('[data-testid="pricing-list"]').children).toHaveLength(1);
     expect(q<HTMLButtonElement>('[data-testid="pricing-list"] [data-remove]').disabled).toBe(false);
     expect(onRemove).not.toHaveBeenCalled();
+  });
+
+  it('Enter logo após abrir o diálogo cancela (foco em Cancelar): resolve "cancel" e não chama DELETE', async () => {
+    const { fetchMock, handle, onRemove } = await openSeeded();
+    const dialogSpy = vi.mocked(openConfirmDialog);
+    dialogSpy.mockClear();
+
+    q<HTMLButtonElement>('[data-testid="pricing-list"] [data-remove]').click();
+    expect((document.activeElement as HTMLElement).textContent).toBe('Cancelar');
+    pressEnterOnFocused();
+
+    await expect(dialogSpy.mock.results[0].value).resolves.toBe('cancel');
+    await settle();
+    expect(document.querySelector('.myio-dialog')).toBeNull();
+    expect(deletes(fetchMock)).toHaveLength(0);
+    expect(handle.getEntries()).toHaveLength(1);
+    expect(onRemove).not.toHaveBeenCalled();
+  });
+
+  it('Add período fica travado enquanto o DELETE está pendente', async () => {
+    let release!: () => void;
+    const deleteGate = new Promise<void>((r) => (release = r));
+    const { fetchMock } = await openSeeded({ deleteGate });
+    const add = q<HTMLButtonElement>('[data-testid="pricing-add"]');
+    const patches = () => fetchMock.mock.calls.filter((c) => c[1]?.method === 'PATCH');
+    expect(add.disabled).toBe(false);
+
+    q<HTMLButtonElement>('[data-testid="pricing-list"] [data-remove]').click();
+    clickDialogButton('Excluir');
+    await settle();
+    expect(deletes(fetchMock)).toHaveLength(1); // primeiro DELETE em andamento
+    expect(add.disabled).toBe(true);
+
+    addMonth('2026-05', '1,00');
+    // segunda proteção: mesmo que o botão fosse reabilitado, o handler ignora o clique
+    add.disabled = false;
+    add.click();
+    await settle();
+    expect(patches()).toHaveLength(0);
+
+    release();
+    await settle();
+    expect(deletes(fetchMock)).toHaveLength(2);
+    expect(add.disabled).toBe(false);
+    expect(q('[data-testid="pricing-list"]').children).toHaveLength(0);
+  });
+
+  it.each(['categories', 'tariffs'] as const)(
+    'DELETE falha e a recarga também falha (%s): a mensagem não diz que a lista foi recarregada',
+    async (reloadFails) => {
+      const { onRemove } = await openSeeded({ deleteStatus: 500, reloadFails });
+
+      q<HTMLButtonElement>('[data-testid="pricing-list"] [data-remove]').click();
+      clickDialogButton('Excluir');
+      await settle();
+
+      const text = q('[data-testid="pricing-error"]').textContent!;
+      expect(text).toContain('Falha ao excluir a tarifa no servidor (INTERNAL)');
+      expect(text).toContain('Não foi possível recarregar a lista; feche e abra o painel.');
+      expect(text).not.toContain('A lista foi recarregada');
+      expect(text).not.toContain('Falha ao salvar');
+      expect(onRemove).not.toHaveBeenCalled();
+      expect(q<HTMLButtonElement>('[data-testid="pricing-add"]').disabled).toBe(reloadFails === 'categories');
+    }
+  );
+});
+
+describe('openPricingPanel — falha ao carregar tarifas', () => {
+  it('mostra "Não foi possível carregar as tarifas" (não "Falha ao salvar")', async () => {
+    const base = makeFetchMock();
+    const fetchMock = vi.fn(async (url: string, init?: { method?: string }) => {
+      if ((init?.method || 'GET') === 'GET' && String(url).includes('/tariffs?')) {
+        return new Response(JSON.stringify({ success: false, error: { code: 'INTERNAL', message: 'x' } }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return base(url, init);
+    });
+    openPricingPanel({
+      customers: CUSTOMERS,
+      currentUserEmail: 'op@myio.com.br',
+      tariffApi: { baseUrl: 'https://gcdr.example', apiKey: 'gcdr_cust_X', year: 2026, fetchImpl: fetchMock as unknown as typeof fetch },
+    });
+    await settle();
+    const text = q('[data-testid="pricing-error"]').textContent!;
+    expect(text).toBe('Não foi possível carregar as tarifas do GCDR (INTERNAL).');
   });
 });

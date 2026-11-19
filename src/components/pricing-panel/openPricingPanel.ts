@@ -276,6 +276,8 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   // Não existe lista embutida: sem fonte → erro e "Add período" bloqueado.
   let categories: TariffCategory[] | null = null; // null = carregando / falhou
   let categoriesError: string | null = null;
+  // ED-1386 — exclusão em andamento (diálogo aberto ou DELETE pendente): ✕ e Add desabilitados.
+  let removing = false;
 
   const customerOptions = customers
     .map((c) => `<option value="${escapeHtml(resolveCustomerId(c))}">${escapeHtml(c.title)}</option>`)
@@ -418,6 +420,10 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
 
   // ---- Categorias (GCDR) ----
   const activeCategories = (): TariffCategory[] => (categories || []).filter((c) => c.isActive !== false);
+  // Regra única do "Add período": sem categoria ativa ou com exclusão em andamento → desabilitado.
+  const syncAddBtn = (): void => {
+    addBtn.disabled = removing || categories === null || activeCategories().length === 0;
+  };
   function renderCategoryOptions(): void {
     const previous = categorySel.value;
     if (categories === null) {
@@ -425,7 +431,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
         categoriesError ? 'Erro ao carregar categorias' : 'Carregando categorias…'
       )}</option>`;
       categorySel.disabled = true;
-      addBtn.disabled = true;
+      syncAddBtn();
       return;
     }
     const active = activeCategories();
@@ -439,7 +445,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
     const wanted = [previous, params.category || ''].find((k) => k && keys.includes(k));
     categorySel.value = wanted || keys[0] || '';
     categorySel.disabled = keys.length === 0;
-    addBtn.disabled = keys.length === 0;
+    syncAddBtn();
     if (keys.length === 0) showError('Nenhuma categoria de tarifa ativa no GCDR para este customer.');
   }
   function setCategories(list: TariffCategory[] | null, error: string | null = null): void {
@@ -524,7 +530,8 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
 
   // Surface an adapter/API failure in the form error box. A version conflict
   // (RFC-0054 409 TARIFF_VERSION_CONFLICT) is shown, never swallowed.
-  function surfaceApiError(err: unknown, action: 'save' | 'delete' = 'save'): void {
+  // `reloaded` (só para 'delete'): se a lista foi recarregada do GCDR após a falha.
+  function surfaceApiError(err: unknown, action: 'save' | 'delete' | 'load' = 'save', reloaded = true): void {
     const code = (err as { code?: string })?.code;
     if (code === 'TARIFF_VERSION_CONFLICT') {
       const cv = (err as { currentVersion?: number }).currentVersion;
@@ -536,17 +543,25 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
       return;
     }
     if (action === 'delete') {
-      showError(`Falha ao excluir a tarifa no servidor${code ? ` (${code})` : ''}. A lista foi recarregada.`);
+      showError(
+        `Falha ao excluir a tarifa no servidor${code ? ` (${code})` : ''}. ` +
+          (reloaded ? 'A lista foi recarregada.' : 'Não foi possível recarregar a lista; feche e abra o painel.')
+      );
+      return;
+    }
+    if (action === 'load') {
+      showError(`Não foi possível carregar as tarifas do GCDR${code ? ` (${code})` : ''}.`);
       return;
     }
     showError(`Falha ao salvar a tarifa no servidor${code ? ` (${code})` : ''}.`);
   }
 
   // Reload the selected customer's categories (GCDR) and tariffs, and merge into state.
-  async function loadFromApi(): Promise<void> {
-    if (!adapter) return;
+  // Resolves true only when both loaded and the list was re-rendered from the server.
+  async function loadFromApi(): Promise<boolean> {
+    if (!adapter) return false;
     const customerId = customerSel.value;
-    if (!customerId) return;
+    if (!customerId) return false;
     setCategories(null);
     try {
       setCategories(await adapter.listCategories(customerId, { includeInactive: true }));
@@ -556,10 +571,10 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
         null,
         `Não foi possível carregar as categorias de tarifa do GCDR${code ? ` (${code})` : ''}.`
       );
-      return;
+      return false;
     }
     clearError();
-    if (!categories || categories.length === 0) return;
+    if (!categories || categories.length === 0) return false;
     try {
       const loaded = await adapter.loadEntriesForCustomer(
         customerId,
@@ -567,8 +582,10 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
       );
       entries = entries.filter((e) => e.customerId !== customerId).concat(loaded);
       renderList();
+      return true;
     } catch (err) {
-      surfaceApiError(err);
+      surfaceApiError(err, 'load');
+      return false;
     }
   }
 
@@ -588,9 +605,6 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
     if (typeof params.onSave === 'function') params.onSave(entries.map((e) => ({ ...e })));
     emit('save', entries.map((e) => ({ ...e })));
   };
-
-  // ED-1386 — exclusão em andamento (diálogo aberto ou DELETE pendente): ✕ desabilitados.
-  let removing = false;
 
   const pushAudit = (rec?: PricingAuditRecord): void => {
     if (rec) auditLog = [rec, ...auditLog];
@@ -664,14 +678,16 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   async function confirmAndRemove(target: PricingEntry, boundsKey: string): Promise<void> {
     if (removing) return;
     removing = true;
+    syncAddBtn();
     renderList();
     try {
       const choice = await openConfirmDialog({
         title: 'Excluir Tarifa',
         message: removeConfirmMessage(target),
         buttons: [
-          { label: 'Cancelar', value: 'cancel', variant: 'secondary' },
-          { label: 'Excluir', value: 'confirm', variant: 'danger', autoFocus: true },
+          // Foco inicial em Cancelar: Enter por reflexo não exclui (ED-1386).
+          { label: 'Cancelar', value: 'cancel', variant: 'secondary', autoFocus: true },
+          { label: 'Excluir', value: 'confirm', variant: 'danger' },
         ],
         theme: resolveDialogTheme(params.theme),
         container: dialogHost,
@@ -682,8 +698,8 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
         try {
           await adapter.deleteEntry(target.customerId, target);
         } catch (err) {
-          await loadFromApi();
-          surfaceApiError(err, 'delete');
+          const reloaded = await loadFromApi();
+          surfaceApiError(err, 'delete', reloaded);
           return;
         }
       }
@@ -703,7 +719,10 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
       emit('remove', result.audit);
     } finally {
       removing = false;
-      if (!closed) renderList();
+      if (!closed) {
+        syncAddBtn();
+        renderList();
+      }
     }
   }
 
@@ -734,6 +753,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   };
 
   addBtn.addEventListener('click', () => {
+    if (removing) return; // ED-1386: não salva com uma exclusão em andamento
     clearError();
     const candidate = buildCandidate();
     if ('error' in candidate) {
