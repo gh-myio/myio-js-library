@@ -410,7 +410,9 @@
         <h2>variant: 'card' — every connectivity state</h2>
         <p class="section-desc">
           Full grid card, used by the cockpit. Covers ONLINE / WARNING / OFFLINE / UNKNOWN (never-probed), monitored
-          and unmonitored (stale), with and without divergência.
+          and unmonitored (stale), with and without divergência. The last five (h1–h5) show the <code>health</code>
+          param (GCDR RFC-0085): <code>● v3 &lt;firmware&gt;</code> badge next to the connectivity badge + "Sistema"
+          row — healthy, degraded, silent (grey dot), firmware ≠ cadastro, and UNSUPPORTED (nothing rendered).
         </p>
         <div class="card-grid" id="cardGrid"></div>
       </section>
@@ -827,6 +829,106 @@
           monitoringEnabled: false,
           entityStatus: 'DELETED',
         },
+        // ── health (GCDR RFC-0085, RFC-0231 amendment) — one card per state ──
+        {
+          id: 'h1',
+          name: 'Central Taboão (health v3 · healthy)',
+          derivedConnectivity: 'ONLINE',
+          monitoringEnabled: true,
+          entityStatus: 'ACTIVE',
+          lastAttemptAt: new Date(now - 15000).toISOString(),
+          lastSuccessAt: new Date(now - 15000).toISOString(),
+          probeVerdict: { label: 'Respondendo', tone: 'ok', latencyMs: 2986 },
+          deviceCounts: { total: 235, online: 230, offline: 2, unknown: 3 },
+          health: {
+            support: 'SUPPORTED',
+            status: 'healthy',
+            firmware: 'rc14.1.24',
+            registryFirmware: 'rc14.1.24',
+            checkedAt: new Date(now - 3 * 60 * 1000).toISOString(),
+            successAt: new Date(now - 3 * 60 * 1000).toISOString(),
+            system: { temperatureC: 63, uptimeSeconds: 15 * 3600 + 48 * 60, load1m: 0.83 },
+          },
+        },
+        {
+          id: 'h2',
+          name: 'Central Goiabeiras (health v3 · degraded)',
+          derivedConnectivity: 'ONLINE',
+          monitoringEnabled: true,
+          entityStatus: 'ACTIVE',
+          lastAttemptAt: new Date(now - 20000).toISOString(),
+          lastSuccessAt: new Date(now - 20000).toISOString(),
+          probeVerdict: { label: 'Respondendo', tone: 'ok', latencyMs: 4100 },
+          deviceCounts: { total: 172, online: 160, offline: 12, unknown: 0 },
+          health: {
+            support: 'SUPPORTED',
+            status: 'degraded',
+            firmware: 'rc14.1.24',
+            registryFirmware: 'rc14.1.24',
+            checkedAt: new Date(now - 2 * 60 * 1000).toISOString(),
+            successAt: new Date(now - 2 * 60 * 1000).toISOString(),
+            system: { temperatureC: 71, uptimeSeconds: 3 * 86400 + 2 * 3600 + 17 * 60, load1m: 2.41 },
+          },
+        },
+        {
+          id: 'h3',
+          name: 'Central Moxuara (health v3 · silenciosa há 2h)',
+          derivedConnectivity: 'WARNING',
+          monitoringEnabled: true,
+          entityStatus: 'ACTIVE',
+          lastAttemptAt: new Date(now - 30000).toISOString(),
+          lastSuccessAt: new Date(now - 2 * 3600 * 1000).toISOString(),
+          probeVerdict: { label: 'Sem resposta', tone: 'warn' },
+          deviceCounts: { total: 340, online: 0, offline: 0, unknown: 340 },
+          health: {
+            support: 'SUPPORTED',
+            status: 'healthy', // stale status — the grey dot wins because checkedAt > successAt
+            firmware: 'rc14.1.24',
+            registryFirmware: 'rc14.1.24',
+            checkedAt: new Date(now - 30000).toISOString(),
+            successAt: new Date(now - 2 * 3600 * 1000).toISOString(),
+            system: { temperatureC: 61, uptimeSeconds: 12 * 60, load1m: 0.4 },
+          },
+        },
+        {
+          id: 'h4',
+          name: 'Central Rio Poty (health v3 · firmware ≠ cadastro)',
+          derivedConnectivity: 'ONLINE',
+          monitoringEnabled: true,
+          entityStatus: 'ACTIVE',
+          lastAttemptAt: new Date(now - 10000).toISOString(),
+          lastSuccessAt: new Date(now - 10000).toISOString(),
+          probeVerdict: { label: 'Respondendo', tone: 'ok', latencyMs: 3300 },
+          deviceCounts: { total: 64, online: 64, offline: 0, unknown: 0 },
+          health: {
+            support: 'SUPPORTED',
+            status: 'unhealthy',
+            firmware: 'rc14.1.25',
+            registryFirmware: 'rc14.1.20',
+            checkedAt: new Date(now - 60 * 1000).toISOString(),
+            successAt: new Date(now - 60 * 1000).toISOString(),
+            system: { temperatureC: 58, uptimeSeconds: 47 * 60, load1m: null }, // load omitted on purpose
+          },
+        },
+        {
+          id: 'h5',
+          name: 'Central Ananindeua (health UNSUPPORTED — sem /v3/health)',
+          derivedConnectivity: 'ONLINE',
+          monitoringEnabled: true,
+          entityStatus: 'ACTIVE',
+          lastAttemptAt: new Date(now - 9000).toISOString(),
+          lastSuccessAt: new Date(now - 9000).toISOString(),
+          probeVerdict: { label: 'Respondendo', tone: 'ok', latencyMs: 180 },
+          deviceCounts: { total: 42, online: 42, offline: 0, unknown: 0 },
+          health: {
+            support: 'UNSUPPORTED', // nothing rendered — absence is the signal
+            firmware: 'rc13.9.2',
+            registryFirmware: 'rc13.9.2',
+            checkedAt: new Date(now - 9000).toISOString(),
+            successAt: null,
+            system: null,
+          },
+        },
       ];
 
       var handles = [];
@@ -881,7 +983,12 @@
         var caption = document.createElement('div');
         caption.className = 'card-caption';
         var connLabel = sample.derivedConnectivity || (sample.connectivityEvidence ? 'via connectivityEvidence' : '?');
-        caption.textContent = connLabel + (sample.derivedStale ? ' (stale)' : '') + ' · ' + sample.entityStatus;
+        caption.textContent =
+          connLabel +
+          (sample.derivedStale ? ' (stale)' : '') +
+          ' · ' +
+          sample.entityStatus +
+          (sample.health ? ' · health ' + sample.health.support + (sample.health.status ? '/' + sample.health.status : '') : '');
         wrap.appendChild(caption);
 
         var compactWrap = document.createElement('div');

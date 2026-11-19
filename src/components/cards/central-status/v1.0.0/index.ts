@@ -27,4 +27,9 @@ export type {
   CentralSelectChangeEvent,
   CentralAnnotationType,
   CentralAnnotationBadgeClickEvent,
+  CentralHealthSupport,
+  CentralHealthStatus,
+  CentralHealthSystem,
+  CentralHealthInfo,
+  CentralStatusCardHealthLabels,
 } from './types';
