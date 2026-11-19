@@ -11,8 +11,10 @@
 import {
   CentralAnnotationType,
   CentralEntityStatus,
+  CentralHealthInfo,
   CentralStatusCardForceSyncEvent,
   CentralStatusCardHandle,
+  CentralStatusCardHealthLabels,
   CentralStatusCardLabels,
   CentralStatusToggleEvent,
   CentralMonitoringToggleEvent,
@@ -96,6 +98,16 @@ const STALE_BADGE_TEXT: Record<'pt' | 'en', string> = {
   en: 'stale',
 };
 
+// Health badge + "Sistema" row (GCDR RFC-0085). Nested under `labels.health`,
+// so it is merged key by key on its own (the flat `{...defaults, ...labels}`
+// spread would otherwise replace the whole object when a host overrides one key).
+const DEFAULT_HEALTH_LABELS: Record<'pt' | 'en', Required<CentralStatusCardHealthLabels>> = {
+  pt: { badge: 'v3', system: 'Sistema', silentSince: 'sem resposta desde {when}' },
+  en: { badge: 'v3', system: 'System', silentSince: 'silent since {when}' },
+};
+
+const HEALTH_REGISTRY_WORD: Record<'pt' | 'en', string> = { pt: 'cadastro', en: 'registry' };
+
 /** Deltas within ±this (ms) render as "flat" (▬) rather than a directional arrow. */
 const LATENCY_TREND_FLAT_THRESHOLD_MS = 100;
 
@@ -178,6 +190,47 @@ function formatDuration(ms: number): string {
   const hours = Math.floor(totalMin / 60);
   const minutes = totalMin % 60;
   return hours > 0 ? `${hours}h${minutes}min` : `${minutes}min`;
+}
+
+/**
+ * Uptime of the "Sistema" row (GCDR RFC-0085 §5.6): three bands —
+ * under 60 min → "12min"; under 24 h → "15h48"; else "3d 02h". Not the same
+ * shape as formatDuration() on purpose: the OFFLINE suffix reads as a
+ * duration ("2h30min"), the uptime reads as a clock-like figure.
+ */
+function formatUptime(seconds: number): string {
+  const totalMin = Math.max(0, Math.floor(seconds / 60));
+  if (totalMin < 60) return `${totalMin}min`;
+  const totalHours = Math.floor(totalMin / 60);
+  if (totalHours < 24) return `${totalHours}h${String(totalMin % 60).padStart(2, '0')}`;
+  const days = Math.floor(totalHours / 24);
+  return `${days}d ${String(totalHours % 24).padStart(2, '0')}h`;
+}
+
+/** Two decimals, decimal separator per language (pt → "0,83", en → "0.83"). */
+function formatLoad(load: number, language: 'pt' | 'en'): string {
+  const fixed = load.toFixed(2);
+  return language === 'pt' ? fixed.replace('.', ',') : fixed;
+}
+
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v);
+}
+
+/**
+ * The last probe failed when `checkedAt` is later than `successAt` (or when
+ * there is a `checkedAt` but no `successAt` at all). Unparseable dates never
+ * count as silent — a stale green is worse than a missing grey only when the
+ * data actually says so.
+ */
+function isHealthSilent(h: CentralHealthInfo): boolean {
+  if (!h.checkedAt) return false;
+  const checked = Date.parse(h.checkedAt);
+  if (Number.isNaN(checked)) return false;
+  if (!h.successAt) return true;
+  const success = Date.parse(h.successAt);
+  if (Number.isNaN(success)) return false;
+  return checked > success;
 }
 
 export class CentralStatusCard implements CentralStatusCardHandle {
@@ -316,6 +369,92 @@ export class CentralStatusCard implements CentralStatusCardHandle {
   private labels(): DefaultLabelSet & CentralStatusCardLabels {
     const defaults = this.language() === 'en' ? DEFAULT_LABELS_EN : DEFAULT_LABELS_PT;
     return { ...defaults, ...(this.params.labels || {}) };
+  }
+
+  private healthLabels(): Required<CentralStatusCardHealthLabels> {
+    return { ...DEFAULT_HEALTH_LABELS[this.language()], ...(this.params.labels?.health || {}) };
+  }
+
+  /**
+   * `● v3 <firmware>` pill (GCDR RFC-0085 §5.5/§5.6) — rendered right after
+   * the connectivity badge, ONLY when `support === 'SUPPORTED'`. The health
+   * status lives in the dot colour (healthy/degraded/unhealthy), grey when
+   * the last probe failed; the text is the firmware an operator scans for
+   * during a rollout. "≠" follows the version when the registry disagrees.
+   * It never touches data-connectivity / data-status, so the frame and the
+   * header wash keep following their own two axes.
+   */
+  private healthBadgeHtml(nowMs: number): string {
+    const h = this.params.health;
+    if (!h || h.support !== 'SUPPORTED') return '';
+    const hl = this.healthLabels();
+    const lang = this.language();
+    const firmware = h.firmware ? String(h.firmware) : '';
+    const silent = isHealthSilent(h);
+    const mismatch = !!(h.registryFirmware && firmware && h.registryFirmware !== firmware);
+    const modifier = silent ? 'silent' : h.status ? h.status : '';
+    const text = firmware ? `${hl.badge} ${firmware}` : hl.badge;
+
+    const titleParts: string[] = [hl.badge];
+    if (!silent && h.status) titleParts.push(h.status);
+    if (firmware) titleParts.push(firmware);
+    if (mismatch) titleParts.push(`≠ ${HEALTH_REGISTRY_WORD[lang]} ${h.registryFirmware}`);
+    if (silent) titleParts.push(hl.silentSince.replace('{when}', formatSince(h.successAt, nowMs, lang)));
+    const title = titleParts.join(' · ');
+
+    return `<span class="myio-cscard__health-badge${modifier ? ` myio-cscard__health-badge--${modifier}` : ''}" data-role="health-badge" data-health-status="${escAttr(
+      silent ? 'silent' : h.status || ''
+    )}" title="${escAttr(title)}" aria-label="${escAttr(title)}">${escAttr(text)}${
+      mismatch ? ` <span class="myio-cscard__health-mismatch" aria-hidden="true">≠</span>` : ''
+    }</span>`;
+  }
+
+  /**
+   * "Sistema" row (GCDR RFC-0085 §5.5 mock-up verdict): the three system
+   * pills got their own row under Status because, on the Status row itself,
+   * they squeezed the switch and the ⓘ. Each pill is omitted when its value
+   * is null; the row is omitted when `system` is null or has nothing to show.
+   */
+  private systemRowHtml(): string {
+    const h = this.params.health;
+    if (!h || h.support !== 'SUPPORTED' || !h.system) return '';
+    const sys = h.system;
+    const lang = this.language();
+    const en = lang === 'en';
+    const pills: string[] = [];
+    if (isFiniteNumber(sys.temperatureC)) {
+      const label = en ? 'temperature' : 'temperatura';
+      pills.push(
+        `<span class="myio-cscard__syspill myio-cscard__syspill--temperature" data-role="system-temperature" title="${escAttr(
+          label
+        )}" aria-label="${escAttr(`${label}: ${Math.round(sys.temperatureC)} °C`)}">🌡 ${Math.round(sys.temperatureC)} °C</span>`
+      );
+    }
+    if (isFiniteNumber(sys.uptimeSeconds)) {
+      const label = 'uptime';
+      const value = formatUptime(sys.uptimeSeconds);
+      pills.push(
+        `<span class="myio-cscard__syspill myio-cscard__syspill--uptime" data-role="system-uptime" title="${escAttr(
+          label
+        )}" aria-label="${escAttr(`${label}: ${value}`)}">⏱ ${escAttr(value)}</span>`
+      );
+    }
+    if (isFiniteNumber(sys.load1m)) {
+      const label = en ? 'load (1 min)' : 'carga (1 min)';
+      const value = formatLoad(sys.load1m, lang);
+      pills.push(
+        `<span class="myio-cscard__syspill myio-cscard__syspill--load" data-role="system-load" title="${escAttr(
+          label
+        )}" aria-label="${escAttr(`${label}: ${value}`)}">⚙ ${escAttr(value)}</span>`
+      );
+    }
+    if (pills.length === 0) return '';
+    const hl = this.healthLabels();
+    return `<div class="myio-cscard__row myio-cscard__system">
+          ${this.iconHtml('system', '🧩')}
+          <span class="myio-cscard__label">${escAttr(hl.system)}</span>
+          <span class="myio-cscard__value">${pills.join('')}</span>
+        </div>`;
   }
 
   /**
@@ -797,6 +936,10 @@ export class CentralStatusCard implements CentralStatusCardHandle {
     const statusChecked = p.entityStatus === 'ACTIVE';
     const statusDisabled = this.statusBusy || !!p.statusReadonly;
 
+    // GCDR RFC-0085 — both empty unless health.support === 'SUPPORTED'.
+    const healthBadgeHtml = this.healthBadgeHtml(nowMs);
+    const systemRowHtml = this.systemRowHtml();
+
     const compactEvidenceLine =
       variant === 'compact'
         ? `<div class="myio-cscard__evidence-line">${
@@ -823,7 +966,7 @@ export class CentralStatusCard implements CentralStatusCardHandle {
           <span class="myio-cscard__label">${escAttr(l.connectivity)}</span>
           <span class="myio-cscard__badge myio-cscard__badge--${connectivity}" role="status">${escAttr(
             connLabel
-          )}</span>${staleBadge}${divergenceFlagHtml}
+          )}</span>${healthBadgeHtml}${staleBadge}${divergenceFlagHtml}
         </div>
 
         <div class="myio-cscard__row myio-cscard__monitoring">
@@ -898,6 +1041,7 @@ export class CentralStatusCard implements CentralStatusCardHandle {
               : `<span class="myio-cscard__err" role="alert" aria-live="assertive" hidden></span>`
           }
         </div>
+        ${systemRowHtml}
       </section>
       </div>
       </div>

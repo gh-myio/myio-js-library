@@ -1177,3 +1177,73 @@ Still open:
   integrations) so every surface agrees on connectivity.
 - Retiring the cockpit's hand-rolled `centralBodyHtml`/`centralCard` fallback
   entirely once the shared card is the single implementation.
+
+## Amendment — Health (RFC-0085 of GCDR)
+
+- Date: 2026-11-19
+- Source: GCDR `docs/rfcs/RFC-0085-Central-Health-Probe.md` §5.5–§5.6 (owner decision
+  2026-11-19, "go"). GCDR polls `/v3/health` of every monitored central; the card gets an
+  optional slot to show, without a click, that a central answers it and how its board is doing.
+
+### Contract (`createCentralStatusCard` params)
+
+```ts
+health?: {
+  support: 'SUPPORTED' | 'UNSUPPORTED' | 'UNREACHABLE' | 'UNKNOWN';
+  status?: 'healthy' | 'degraded' | 'unhealthy' | null;   // dot colour: green / amber / red
+  firmware?: string | null;                                // badge text "v3 rc14.1.24"
+  registryFirmware?: string | null;                        // when set and different → "≠" after the version, both in the title
+  checkedAt?: string | null;                               // ISO, last attempt
+  successAt?: string | null;                               // ISO, last OK; checkedAt > successAt → grey dot + "silent since" title
+  system?: { temperatureC?: number | null; uptimeSeconds?: number | null; load1m?: number | null } | null;
+} | null;
+labels.health?: { badge?: string /* "v3" */; system?: string /* "Sistema" */; silentSince?: string /* "sem resposta desde {when}" */ };
+icons.system?: string | HTMLElement | false;               // glyph of the "Sistema" row (default 🧩)
+```
+
+Exported types: `CentralHealthInfo`, `CentralHealthSupport`, `CentralHealthStatus`,
+`CentralHealthSystem`, `CentralStatusCardHealthLabels`. Defaults: pt `v3` / `Sistema` /
+`sem resposta desde {when}`; en `v3` / `System` / `silent since {when}` (`{when}` is the card's
+own `formatSince` of `successAt`).
+
+### Rendering rules
+
+1. **Nothing is rendered unless `support === 'SUPPORTED'`.** Absence is the signal (§5.5 of
+   RFC-0085): old centrals keep today's look, so a list reads as "the ones with a second badge
+   are on the new build". `UNSUPPORTED`, `UNREACHABLE`, `UNKNOWN`, `null` and omitted all
+   render the same card as before.
+2. **Badge** (`.myio-cscard__health-badge`, `data-role="health-badge"`) in the connectivity row,
+   right after the connectivity badge: `● v3 <firmware>` (`v3` alone when `firmware` is null).
+   The dot is a `::before`, so the pill's text content is the plain `v3 rc14.1.24` an operator
+   scans for during a rollout. Modifiers: `--healthy` / `--degraded` / `--unhealthy` from
+   `status`; `--silent` (grey) when `checkedAt` is later than `successAt` (or `successAt` is
+   missing) — silent wins over the status colour, so a failed probe never shows a stale green.
+   Title: `v3 · healthy · rc14.1.24`; silent: `v3 · rc14.1.24 · sem resposta desde <when>`;
+   mismatch: ` ≠` appended (`.myio-cscard__health-mismatch`) and
+   `≠ cadastro <registryFirmware>` in the title.
+3. **The badge never colours the frame.** `data-status` (border = registry) and
+   `data-connectivity` (header wash + connectivity badge) are untouched; the card keeps its two
+   axes and this is a third, badge-only signal.
+4. **"Sistema" row** (`.myio-cscard__row.myio-cscard__system`) right under the Status row, only
+   when `support === 'SUPPORTED'` and `system` is non-null with at least one value: pills
+   `🌡 63 °C` (`--temperature`, integer), `⏱ 15h48` (`--uptime`), `⚙ 0,83` (`--load`), each
+   omitted when its value is null. Uptime bands: `< 60 min` → `12min`; `< 24 h` → `15h48`; else
+   `3d 02h`. Load keeps two decimals with the decimal separator of `language` (`pt` comma, `en`
+   dot). Thresholds are deliberately absent (RFC-0085 O-10) — tints are fixed per pill.
+5. `update()` picks up `health` like any other param (added, changed, removed).
+6. `variant: 'compact'` keeps the row (denser padding); `scale` applies via the root `zoom`;
+   light/dark use the card's own tokens (`--cscard-health-*`).
+7. Every host string (`firmware`, `registryFirmware`, the three labels) goes through `escAttr`.
+
+### Why a separate row and not the Status row
+
+The 2026-11-19 DOM mock-up on the live Taboão card (RFC-0085 §5.5) put the three pills on the
+Status row: readable, but the switch lost its text and the ⓘ was squeezed. The row under Status
+keeps the Status row as it is (ⓘ + switch) and gives the pills their own line, hidden for every
+non-`SUPPORTED` central so the card height is unchanged for the old fleet.
+
+### Consumers
+
+`gcdr-frontend` renders its own `v3` pill through `icons.status` until it consumes the library
+version that ships this param; it then drops that pill (the marker is never shown twice) and
+passes `health` from the list row's `health_support` / `health_snapshot`.

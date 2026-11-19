@@ -36,6 +36,15 @@ const CSS = `
   --cscard-switch-on:#2563eb;
   --cscard-danger:#dc2626;
   --cscard-select-ring:#7c3aed;
+  /* health axis (GCDR RFC-0085) — ONLY the dot of the v3 badge and the
+     "Sistema" pills. Deliberately never the border or the header wash:
+     those two already belong to entityStatus and connectivity. */
+  --cscard-health-ok:#22c55e;
+  --cscard-health-warn:#f59e0b;
+  --cscard-health-bad:#ef4444;
+  --cscard-health-silent:#94a3b8;
+  --cscard-health-pill-bg:#f1f5f9;
+  --cscard-health-pill-fg:#334155;
   box-sizing:border-box;
   position:relative;
   display:flex;flex-direction:row;
@@ -74,6 +83,8 @@ const CSS = `
   --cscard-border-active-glow:rgba(34,197,94,.4);
   --cscard-border-inactive:#475569;
   --cscard-switch-off:#475569;
+  --cscard-health-pill-bg:#1e2d45;
+  --cscard-health-pill-fg:#cbd5e1;
 }
 
 /* ── registry axis: card border follows entityStatus, not connectivity ── */
@@ -153,6 +164,44 @@ const CSS = `
   font:700 9px 'Nunito', system-ui, sans-serif;background:var(--cscard-unknown-bg);
   color:var(--cscard-muted);margin-left:4px;
 }
+
+/* ── health badge (GCDR RFC-0085): "● v3 rc14.1.24" right after the
+   connectivity badge. The dot is the ::before so the pill's text stays the
+   plain "v3 <firmware>" an operator scans for during a rollout; the health
+   status lives in the dot colour only (healthy/degraded/unhealthy/silent). */
+.myio-cscard__health-badge{
+  display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;
+  font:800 10px 'Nunito', system-ui, sans-serif;background:var(--cscard-health-pill-bg);
+  color:var(--cscard-health-pill-fg);margin-left:4px;white-space:nowrap;cursor:default;
+}
+.myio-cscard__health-badge::before{
+  content:'';width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0;
+  background:var(--cscard-health-silent);
+}
+.myio-cscard__health-badge--healthy::before{background:var(--cscard-health-ok);}
+.myio-cscard__health-badge--degraded::before{background:var(--cscard-health-warn);}
+.myio-cscard__health-badge--unhealthy::before{background:var(--cscard-health-bad);}
+.myio-cscard__health-badge--silent::before{background:var(--cscard-health-silent);}
+.myio-cscard__health-badge--silent{color:var(--cscard-muted);}
+.myio-cscard__health-mismatch{font-weight:800;margin-left:1px;}
+
+/* ── "Sistema" row (GCDR RFC-0085): three pills under Status — temperature
+   (amber tint), uptime (blue tint), load (grey). Informational only (O-10:
+   no thresholds yet), so the tints are fixed per pill, not per value. */
+.myio-cscard__system .myio-cscard__value{display:inline-flex;align-items:center;gap:4px;}
+.myio-cscard__syspill{
+  display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:999px;
+  font:700 10px 'Nunito', system-ui, sans-serif;background:var(--cscard-health-pill-bg);
+  color:var(--cscard-health-pill-fg);white-space:nowrap;cursor:default;
+}
+.myio-cscard__syspill--temperature{background:var(--cscard-warning-bg);color:var(--cscard-warning);}
+.myio-cscard__syspill--uptime{background:var(--cscard-online-bg);color:var(--cscard-online);}
+.myio-cscard__syspill--load{background:var(--cscard-unknown-bg);color:var(--cscard-unknown);}
+.myio-cscard[data-theme="dark"] .myio-cscard__syspill--temperature{color:#fbbf24;}
+.myio-cscard[data-theme="dark"] .myio-cscard__syspill--uptime{color:#93c5fd;}
+.myio-cscard[data-theme="dark"] .myio-cscard__syspill--load{color:var(--cscard-muted);}
+.myio-cscard--compact .myio-cscard__system{min-height:18px;padding:1px 0;}
+.myio-cscard--compact .myio-cscard__syspill{padding:0 6px;font-size:9.5px;}
 .myio-cscard__divergence-flag{
   display:inline-flex;align-items:center;justify-content:center;margin-left:4px;cursor:pointer;
   font-size:11px;line-height:1;border-radius:6px;padding:1px 3px;

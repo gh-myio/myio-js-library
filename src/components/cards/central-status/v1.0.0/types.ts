@@ -54,6 +54,51 @@ export interface CentralDivergence {
   proposed: string;
 }
 
+/** `health_support` of GCDR RFC-0085 — whether the central answers `/v3/health`. */
+export type CentralHealthSupport = 'SUPPORTED' | 'UNSUPPORTED' | 'UNREACHABLE' | 'UNKNOWN';
+/** `status` of the `/v3/health` body — drives the dot colour of the v3 badge. */
+export type CentralHealthStatus = 'healthy' | 'degraded' | 'unhealthy';
+
+/** `system.*` of the last health snapshot — the three "Sistema" pills. */
+export interface CentralHealthSystem {
+  /** SoC temperature in °C — rendered as an integer, e.g. "63 °C". */
+  temperatureC?: number | null;
+  /** Seconds since boot — rendered as "12min" / "15h48" / "3d 02h". */
+  uptimeSeconds?: number | null;
+  /** 1-minute load average — two decimals in the card's locale ("0,83" pt / "0.83" en). */
+  load1m?: number | null;
+}
+
+/**
+ * Health probe of GCDR RFC-0085 (amendment to RFC-0231). Nothing is rendered
+ * unless `support === 'SUPPORTED'` — absence IS the signal: on a list of
+ * cards, "the ones with a second badge are on the new build". The badge
+ * never colours the card frame or the header (those are the two existing
+ * axes: border = entityStatus, header wash + badge = connectivity).
+ */
+export interface CentralHealthInfo {
+  support: CentralHealthSupport;
+  /** Dot colour: green `healthy`, amber `degraded`, red `unhealthy`. */
+  status?: CentralHealthStatus | null;
+  /** Firmware reported by the central — badge text "v3 rc14.1.24" (just "v3" when null). */
+  firmware?: string | null;
+  /** Firmware of the registry — when set and different from `firmware`, a "≠" follows the version and both go in the title. */
+  registryFirmware?: string | null;
+  /** ISO — last probe attempt. */
+  checkedAt?: string | null;
+  /** ISO — last OK probe. `checkedAt` later than `successAt` = last probe failed → grey dot + "silent since" title. */
+  successAt?: string | null;
+  /** "Sistema" row under Status; hidden when null. */
+  system?: CentralHealthSystem | null;
+}
+
+/** i18n of the health badge + "Sistema" row. `{when}` is interpolated in `silentSince`. */
+export interface CentralStatusCardHealthLabels {
+  badge?: string; // "v3"
+  system?: string; // "Sistema" / "System"
+  silentSince?: string; // "sem resposta desde {when}" / "silent since {when}"
+}
+
 /**
  * Worker/history vocabulary (`orchestrator_devices_status_history`) —
  * DELIBERATELY NOT the same union as `CentralConnectivity` (ONLINE/OFFLINE/
@@ -173,6 +218,9 @@ export interface CentralStatusCardLabels {
   reportButton?: string; // "Ver relatório"
   settingsButton?: string; // "Configurações"
   selectCheckbox?: string; // "Selecionar {name}" — {name} interpolated
+
+  // ── health badge + "Sistema" row (§ CentralHealthInfo, GCDR RFC-0085) ───
+  health?: CentralStatusCardHealthLabels;
 }
 
 /**
@@ -290,6 +338,13 @@ export interface CreateCentralStatusCardParams {
   /** Show the 🔄 force-sync button (default: false; cockpit passes true). */
   showForceSync?: boolean;
   /**
+   * Health probe of GCDR RFC-0085: `● v3 <firmware>` badge next to the
+   * connectivity badge + a "Sistema" row (🌡 temp · ⏱ uptime · ⚙ load) right
+   * under Status. Rendered ONLY when `support === 'SUPPORTED'`; omit (or pass
+   * any other `support`) to keep today's look. Never colours the frame.
+   */
+  health?: CentralHealthInfo | null;
+  /**
    * Wires the 📈 timeline button next to Monitoramento — opens a modal with a
    * period selector (24h/7d/30d/90d), a stacked connectivity bar, and the raw
    * transitions list, sourced from `orchestrator_devices_status_history` via
@@ -348,7 +403,8 @@ export interface CreateCentralStatusCardParams {
       | 'timeline'
       | 'dashboard'
       | 'report'
-      | 'settings',
+      | 'settings'
+      | 'system',
       string | HTMLElement | false
     >
   >;

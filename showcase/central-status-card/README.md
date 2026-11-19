@@ -731,3 +731,55 @@ traduzido de sempre (`ATIVO`/`INATIVO`/`ACTIVE`/`INACTIVE`) — só que agora **
 (`.myio-cscard__status .myio-cscard__switch-text` vira um clip de 1×1px, padrão "sr-only").
 Leitor de tela continua anunciando o estado; olho humano só vê o slider. O texto ON/OFF da linha
 Monitoramento não foi tocado — continua visível normalmente.
+
+## 14. Health (GCDR RFC-0085) — badge `● v3 <firmware>` + linha "Sistema"
+
+Amendment da RFC-0231 (ver `docs/rfcs/RFC-0231-Central-Status-Card.md`, seção
+"Amendment — Health (RFC-0085 of GCDR)"). O GCDR passa a sondar `/v3/health` das centrais
+(RFC-0085) e o card ganha um slot opcional `health` para mostrar, **sem clique**, que a central
+está no firmware novo e como está o sistema.
+
+### Regras de render
+
+- **Nada é renderizado** a menos que `health.support === 'SUPPORTED'` — a ausência É o sinal:
+  numa lista de 60+ cards, "as que têm um segundo badge estão no build novo".
+- **Badge** na linha de conectividade, logo depois do badge de conectividade: `● v3 rc14.1.24`
+  (`v3` sozinho quando `firmware` é null). A cor do **ponto** é o status (`healthy` verde,
+  `degraded` âmbar, `unhealthy` vermelho); quando `checkedAt > successAt` (última sondagem
+  falhou) o ponto fica **cinza** e o `title` diz `sem resposta desde <successAt>`. Quando
+  `registryFirmware` existe e difere de `firmware`, aparece ` ≠` e os dois valores vão para o
+  `title`. O badge **nunca** muda a borda, o header nem o badge de conectividade (os dois eixos
+  existentes continuam intocados).
+- **Linha "Sistema"** logo abaixo de Status, só com `support === 'SUPPORTED'` e `system` não
+  nulo: `🌡 63 °C · ⏱ 15h48 · ⚙ 0,83` (cada pílula some quando o valor é null). Uptime em três
+  faixas: `< 60 min` → `12min`; `< 24 h` → `15h48`; senão `3d 02h`. Carga com duas casas e
+  separador decimal do `language` (`pt` vírgula, `en` ponto). Temperatura inteira + ` °C`.
+
+### Como conectar
+
+```js
+MyIOLibrary.createCentralStatusCard({
+  // ...params de sempre
+  health: {
+    support: 'SUPPORTED',            // 'SUPPORTED' | 'UNSUPPORTED' | 'UNREACHABLE' | 'UNKNOWN'
+    status: 'healthy',               // 'healthy' | 'degraded' | 'unhealthy' | null → cor do ponto
+    firmware: 'rc14.1.24',           // texto do badge
+    registryFirmware: 'rc14.1.24',   // ≠ quando difere
+    checkedAt: '2026-11-19T13:44:00Z',
+    successAt: '2026-11-19T13:24:00Z', // checkedAt > successAt → ponto cinza + "sem resposta desde"
+    system: { temperatureC: 63, uptimeSeconds: 56880, load1m: 0.83 }, // null → sem linha Sistema
+  },
+  labels: { health: { badge: 'v3', system: 'Sistema', silentSince: 'sem resposta desde {when}' } },
+  icons: { system: '🧩' },
+});
+```
+
+### Na showcase
+
+- **h1** Taboão: SUPPORTED + healthy (ponto verde, três pílulas).
+- **h2** Goiabeiras: SUPPORTED + degraded (ponto âmbar, uptime em dias `3d 02h`).
+- **h3** Moxuara: SUPPORTED mas `checkedAt > successAt` → ponto cinza, title "sem resposta desde…",
+  uptime `12min`.
+- **h4** Rio Poty: `firmware` ≠ `registryFirmware` → ` ≠` no badge, ponto vermelho (unhealthy),
+  pílula de carga omitida (`load1m: null`).
+- **h5** Ananindeua: `UNSUPPORTED` → card igual ao de sempre, nada novo renderizado.
