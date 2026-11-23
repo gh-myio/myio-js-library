@@ -11,35 +11,35 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-11-19",
+    "generatedAt": "2026-11-23",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 39,
+    "sprintOpen": 40,
     "backlogOpen": 582,
-    "total": 621
+    "total": 622
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
         "PENDENTE": 9,
         "EM REVISÃO": 4,
-        "Itens Novos": 20,
+        "Itens Novos": 21,
         "Em Andamento": 6
       },
       "byType": {
         "Bug": 9,
-        "Tarefa": 30
+        "Tarefa": 31
       },
       "byPriority": {
-        "Medium": 20,
+        "Medium": 21,
         "Highest": 9,
         "Low": 1,
         "High": 9
       },
       "byAssignee": {
-        "Rodrigo Lago": 25,
+        "Rodrigo Lago": 26,
         "Letícia Camargo": 7,
         "Victor Hugo da Silva": 4,
         "Luiz Guilherme Martinho Sampaio Ito": 2,
@@ -49,7 +49,7 @@
         "Outros": 1,
         "GCDR / Plataforma": 12,
         "Relatórios / Dashboard": 10,
-        "Souza Aguiar": 1,
+        "Souza Aguiar": 2,
         "Shopping da Ilha / SDI": 2,
         "Campinas": 2,
         "Central / Firmware / HW": 4,
@@ -616,6 +616,19 @@
       "updated": "2026-11-19",
       "group": "Relatórios / Dashboard",
       "kind": "theme"
+    },
+    {
+      "key": "ED-1387",
+      "summary": "[Smart Hospital] Ajuste do tempo de partida do gerador QTA 4 no painel (Gerador Souza Aguiar)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-23",
+      "group": "Souza Aguiar",
+      "kind": "unit"
     }
   ],
   "backlog": [

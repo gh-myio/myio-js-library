@@ -1,12 +1,12 @@
 # Cockpit Jira — ED (Sprint 20 + Backlog)
 
-Dashboards estáticos gerados a partir do Jira Cloud (`myio.atlassian.net`, projeto **ED / Engineer Dashboard**, board **166**), via MCP Atlassian. **Snapshot: 19/11/2026** (incremental completa, corte `>= 2026-11-17` — ver notas abaixo).
+Dashboards estáticos gerados a partir do Jira Cloud (`myio.atlassian.net`, projeto **ED / Engineer Dashboard**, board **166**), via MCP Atlassian. **Snapshot: 23/11/2026** (incremental completa, corte `>= 2026-11-19` — ver notas abaixo).
 
 ## Arquivos
 
 | Arquivo | Descrição |
 |---|---|
-| `index.html` | **Cockpit do backlog** — KPIs, charts, cartão de WIP e grid filtrável (582 backlog + 39 da Sprint 20). Escopo: Tarefa + Subtarefa + Bug (sem Épico, sem História/Story). |
+| `index.html` | **Cockpit do backlog** — KPIs, charts, cartão de WIP e grid filtrável (582 backlog + 40 da Sprint 20). Escopo: Tarefa + Subtarefa + Bug (sem Épico, sem História/Story). |
 | `performance.html` | **Performance & Burndown** — burndown por sprint, conclusões/dia, heatmap e ranking de aderência, seletor de período, export PDF. |
 | `processo.html` | **Modelo de Trabalho** — acordos de processo + fluxo de revisão (DEV→QA, PR) + nomenclatura de branches. |
 | `data.json` | Dados estruturados do cockpit (sprint + backlog + agregados). Consumido por `index.html`. |
@@ -231,16 +231,24 @@ start-server.bat        # abre http://localhost:3340/docs/jira/
   6. **Sprint 20 burndown:** novo ponto de **19/11** com `remaining: 39`, `ideal: 0`; `done` inalterado em **36**, `scope` 72→**75** (39 abertos + 36 concluídos). Sprint segue **future**, com a janela nominal (14→21/09) vencida há dois meses. `metrics.json.meta.today` → `2026-11-19`.
   7. **Correção de drift:** o `updated` de **ED-1149** (RFC-0229, Victor, `EM REVISÃO`, backlog) estava gravado como 21/09 em `data.json` e `wip.json`; o Jira mostra **30/09**. Corrigido nos dois arquivos. Não houve mudança de status, responsável ou bucket.
   8. ⚠️ **Possível duplicata segue aberta:** **ED-1356** (Ilha Plaza AL2 — restore de central, Sprint 20, High) continua em `Itens Novos` com Rodrigo Lago (`updated` 22/10), enquanto o ED-1357, de mesmo tema, já foi concluído em 16/11. A nota de 17/11 continua valendo.
+- **23/11/2026 (incremental completa — corte `>= 2026-11-19`, a partir do snapshot de 19/11):** totais sobem de 621 para **622** (582 backlog inalterado / **39→40** Sprint 20), **+1** líquido — 1 ticket novo, nenhum concluído:
+  1. **0 concluídos:** a query `resolved >= "2026-11-19"` voltou vazia. `completions[]` segue com **371**.
+  2. **1 ticket novo**, criado em 23/11 e direto na **Sprint 20**: **ED-1387** ([Smart Hospital] ajuste do tempo de partida do gerador QTA 4 no painel — Gerador Souza Aguiar, Rodrigo Lago, Tarefa, Medium, `Itens Novos` → "Souza Aguiar").
+  3. **0 alterações in-place:** a query de abertos alterados (`updated >= "2026-11-19"`) devolveu só o ED-1387 e o **ED-1386** (`updated` 19/11 11h58, já refletido no snapshot de 19/11, segue `Em Andamento` com Victor Hugo da Silva — o PR #168 ainda não levou o ticket para `EM REVISÃO`).
+  4. **0 movimentações sprint↔backlog:** a composição live (`sprint in (openSprints(), futureSprints())`, sem Histórias) devolveu **40** = os 39 anteriores + ED-1387. Sprint 20 (id 629) segue **future** e única aberta/futura do board.
+  5. **WIP inalterado em 21** (`peopleOver` **3**): Letícia Camargo 9, Ito 6, Victor Hugo da Silva 4, Rodrigo Lago 1, Leandro Gadioli Rodrigues 1 — mesmas chaves de 19/11.
+  6. **Sprint 20 burndown:** novo ponto de **23/11** com `remaining: 40`, `ideal: 0`; `done` inalterado em **36**, `scope` 75→**76**. `metrics.json.meta.today` → `2026-11-23`.
+  7. ⚠️ **ED-1356** (Ilha Plaza AL2, possível duplicata do ED-1357 concluído) segue aberto em `Itens Novos` na Sprint 20.
 - **Backlog (cockpit):** `project = ED`, fora da sprint corrente (Sprint 20), `statusCategory != Done`, tipos acima.
 - **Sprint 20:** `sprint = 629` (**future** no Jira em 14/09/2026 — criada e populada, mas o board ainda não foi formalmente "iniciado"; tratada aqui como a sprint corrente porque é a intenção clara do time). Janela: 14/09 → 21/09/2026. Sprint 19 (`sprint = 596`) fechou em 14/09/2026 com escopo 99/done 26 — ver delta acima. Sprints 15–19 fechadas; ao fechar, itens incompletos migram pra próxima sprint (ou backlog), então o escopo visível de sprint fechada ≈ o que foi concluído.
 - **Subtarefas:** herdam o `group`/tema do ticket pai quando o conteúdo da subtarefa não indica algo mais específico (ex.: subtarefa citando um shopping/cliente pelo nome vai para o grupo daquele cliente, mesmo que o pai seja um container genérico).
 
 ## Regenerar
 
-Os JSONs foram gerados a partir de consultas JQL via MCP Atlassian (paginadas em `searchJiraIssuesUsingJql`). Para atualizar, refaça as consultas e reprocesse — os scripts de geração ficaram no scratchpad da sessão. Snapshot atual: **19/11/2026** (incremental completa, corte `>= 2026-11-17`; full pull mais antigo: 15/09/2026 — o de 17/09 foi um upsert manual pontual de 3 tickets, ver deltas acima).
+Os JSONs foram gerados a partir de consultas JQL via MCP Atlassian (paginadas em `searchJiraIssuesUsingJql`). Para atualizar, refaça as consultas e reprocesse — os scripts de geração ficaram no scratchpad da sessão. Snapshot atual: **23/11/2026** (incremental completa, corte `>= 2026-11-19`; full pull mais antigo: 15/09/2026 — o de 17/09 foi um upsert manual pontual de 3 tickets, ver deltas acima).
 
 > ⚠️ **Armadilha de JQL (aprendida em 01/09):** `issuetype in (Tarefa, Subtarefa, Bug)` NÃO retorna issues criadas via API com o nome de tipo em inglês ("Task"), mesmo que o Jira as exiba como "Tarefa" (mesmo id 10267). Para não perder tickets, filtre por **id**: `issuetype in (10267, 10271, 10268)` (Tarefa, Subtarefa, Bug).
 
 > ⚠️ **Armadilha adicional (aprendida em 22/09):** a query "abertos alterados" (`statusCategory != Done AND updated >= <data>`) NÃO captura todo ticket que mudou de sprint — algumas mudanças em lote (provavelmente via automação/script) limpam o campo Sprint sem tocar o `updated` do issue. Para pegar a lista real e atual da sprint corrente, sempre rode também `sprint = <id> AND statusCategory != Done` (sem filtro de `updated`) e trate como fonte da verdade para quem está dentro/fora da sprint; qualquer membro antigo que sumiu dessa lista (e não apareceu como resolvido) migrou para o backlog silenciosamente, mesmo sem aparecer na query de "alterados".
 
-**Atualização incremental** (mais barata que o full pull): 1 query de resolvidos (`resolved >= <última data>`), 1 de abertos alterados (`statusCategory != Done AND updated >= <última data>`), 1 query da sprint corrente por id (`sprint = <id> AND statusCategory != Done`, ver armadilha acima), 1 de WIP (`status in ("Em Andamento", "EM REVISÃO")` — regra desde 09/11/2026); remover resolvidos das listas, fazer upsert dos alterados (sprint se membro da sprint ativa segundo a query por id, senão backlog), recomputar agregados/summary e estender o burndown da sprint ativa. Última **incremental completa**: **19/11/2026** (corte `>= 2026-11-17` — 0 concluídos, 3 novos na Sprint 20, 1 in-place, ver delta acima). Full pull mais antigo: 15/09/2026; o de 17/09 foi só um upsert manual pontual de 3 tickets. Snapshot mais recente do arquivo: **19/11/2026**.
+**Atualização incremental** (mais barata que o full pull): 1 query de resolvidos (`resolved >= <última data>`), 1 de abertos alterados (`statusCategory != Done AND updated >= <última data>`), 1 query da sprint corrente por id (`sprint = <id> AND statusCategory != Done`, ver armadilha acima), 1 de WIP (`status in ("Em Andamento", "EM REVISÃO")` — regra desde 09/11/2026); remover resolvidos das listas, fazer upsert dos alterados (sprint se membro da sprint ativa segundo a query por id, senão backlog), recomputar agregados/summary e estender o burndown da sprint ativa. Última **incremental completa**: **23/11/2026** (corte `>= 2026-11-19` — 0 concluídos, 1 novo na Sprint 20, 0 in-place, ver delta acima). Full pull mais antigo: 15/09/2026; o de 17/09 foi só um upsert manual pontual de 3 tickets. Snapshot mais recente do arquivo: **23/11/2026**.
