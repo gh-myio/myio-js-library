@@ -137,7 +137,7 @@ export function renderCardComponentV5({
     dataLoading = false,
     // ED-1354: indicadores B1/B2/S (bombas MOTOR + solenoide) no card do poço
     equipmentIndicators,
-    // RFC-0241 Part B: 'money' → "Custo estimado" em R$ quando money.state === 'complete'
+    // RFC-0241 Part B: 'money' → R$ quando money.state === 'complete'; senão "-" + chip (ED-1389)
     displayMode,
     money,
   } = entityObject;
@@ -481,20 +481,23 @@ export function renderCardComponentV5({
   };
 
   // RFC-0241 Part B — modo R$: só energia/água (nunca tanque/temperatura). `null` = caminho
-  // padrão inalterado (byte-idêntico). Completo → "Custo estimado" em R$ (kWh/m³ no title);
-  // incompleto → valor físico + chip ("Sem tarifa" / "Tarifa parcial" / "Sem categoria").
+  // padrão inalterado (byte-idêntico). Completo → R$ (kWh/m³ só no title, sem label — ED-1389);
+  // sem tarifa / parcial / sem categoria → "-" + chip (kWh/m³ no title). Sem `money` (Entrada,
+  // valoração ainda calculando) → valor físico, sem chip.
   const moneyValueHTML = (() => {
     if (displayMode !== 'money' || dataLoading || isTankDevice) return null;
     if (!isEnergyDevice(deviceType) && !isWaterDeviceType(deviceType)) return null;
     const physical = formatCardValue(cardEntity.lastValue, deviceType);
     const brl = formatItemMoney(money);
     if (brl) {
-      return (
-        `<span class="consumption-value" data-money="complete" title="Custo estimado — ${physical}">${brl}</span>` +
-        `<span class="myio-money-label" style="margin-left:4px;font:600 9px Nunito,sans-serif;opacity:.7;white-space:nowrap;">Custo estimado</span>`
-      );
+      return `<span class="consumption-value" data-money="complete" title="Custo estimado — ${physical}">${brl}</span>`;
     }
-    return `<span class="consumption-value">${physical}</span>${buildMoneyChipHTML(money)}`;
+    if (!money) return `<span class="consumption-value">${physical}</span>`;
+    const state = String(money.state || 'missing').replace(/[^a-z-]/gi, '');
+    return (
+      `<span class="consumption-value" data-money="${state}" title="${physical}">-</span>` +
+      buildMoneyChipHTML(money)
+    );
   })();
 
   // Register entity with SelectionStore if selection is enabled

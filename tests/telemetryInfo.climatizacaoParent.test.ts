@@ -17,6 +17,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { extractTelemetryInfoMoneyBlock } from './thingsboard/helpers/extractControllerFunction';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONTROLLER = resolve(
@@ -50,6 +51,11 @@ function makeBuilder(
 ): () => string {
   const src = readFileSync(CONTROLLER, 'utf8');
   const body =
+    extractFn(src, 'getWidgetDomain') +
+    '\n' +
+    // ED-1389: helpers de apresentação (modo físico ⇒ formatEnergy de sempre)
+    extractTelemetryInfoMoneyBlock(src) +
+    '\n' +
     extractFn(src, 'formatEnergy') +
     '\n' +
     extractFn(src, 'buildDeviceExpandList') +
@@ -65,13 +71,15 @@ function makeBuilder(
         `${Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })} MWh`,
     },
   };
+  const self = { ctx: { settings: { DOMAIN: 'energy' } } };
   // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-  const factory = new Function('STATE', 'window', 'console', body) as (
+  const factory = new Function('STATE', 'window', 'console', 'self', body) as (
     s: unknown,
     w: unknown,
     c: unknown,
+    f: unknown,
   ) => () => string;
-  return factory(state, win, consoleObj);
+  return factory(state, win, consoleObj, self);
 }
 
 /** Extrai os percentuais renderizados (spans `myio-info-tooltip__pct`) como números. */

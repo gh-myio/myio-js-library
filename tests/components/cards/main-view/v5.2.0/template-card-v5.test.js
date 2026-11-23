@@ -328,7 +328,7 @@ describe('renderCardComponentV5 — RFC-0241 money mode', () => {
     }
   });
 
-  it('money + complete → "Custo estimado" in R$ (rounded once), physical value in the title', () => {
+  it('money + complete → R$ (rounded once), physical value only in the title, no "Custo estimado" label (ED-1389)', () => {
     const $c = renderCardComponentV5({
       entityObject: { entityId: 'dev-1', labelOrName: 'Loja', deviceProfile: '3F_MEDIDOR', val: 1500, displayMode: 'money', money: COMPLETE },
       enableSelection: false,
@@ -337,7 +337,9 @@ describe('renderCardComponentV5 — RFC-0241 money mode', () => {
     const v = $c.querySelector('.consumption-value');
     expect(v.textContent.trim()).toBe('R$ 1.234,57');
     expect(v.getAttribute('title')).toBe(`Custo estimado — ${formatEnergy(1500)}`);
-    expect($c.querySelector('.myio-money-label').textContent).toBe('Custo estimado');
+    expect($c.querySelector('.myio-money-label')).toBeNull();
+    expect($c.textContent).not.toContain('Custo estimado');
+    expect($c.textContent).not.toContain(formatEnergy(1500));
     expect($c.textContent).not.toMatch(/Fatura|Faturamento|Conta de luz/);
   });
 
@@ -345,14 +347,18 @@ describe('renderCardComponentV5 — RFC-0241 money mode', () => {
     [{ state: 'partial', currency: 'BRL', coverage: 0.4, reason: 'no-tariff' }, 'Tarifa parcial'],
     [{ state: 'missing', currency: 'BRL', coverage: 0, reason: 'no-tariff' }, 'Sem tarifa'],
     [{ state: 'uncategorized', currency: 'BRL', coverage: 0 }, 'Sem categoria'],
-  ])('AC-14: money + %o → physical value + chip "%s", never R$ 0', (money, chip) => {
+  ])('AC-14 / ED-1389: money + %o → "-" + chip "%s" (physical only in the title), never R$ 0', (money, chip) => {
     const $c = renderCardComponentV5({
       entityObject: { entityId: 'd', labelOrName: 'Loja', deviceProfile: 'HIDROMETRO', val: 12.5, displayMode: 'money', money },
       enableSelection: false,
       enableDragDrop: false,
     })[0];
-    expect($c.querySelector('.consumption-value').textContent.trim()).toBe('12,50 m³');
+    const v = $c.querySelector('.consumption-value');
+    expect(v.textContent.trim()).toBe('-');
+    expect(v.getAttribute('title')).toBe('12,50 m³');
+    expect(v.getAttribute('data-money')).toBe(money.state);
     expect($c.querySelector('.myio-money-chip').textContent).toBe(chip);
+    expect($c.textContent).not.toContain('m³');
     expect($c.textContent).not.toContain('R$');
     expect($c.textContent).not.toContain('NaN');
   });

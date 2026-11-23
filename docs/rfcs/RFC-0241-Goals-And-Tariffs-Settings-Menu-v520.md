@@ -5,8 +5,10 @@
 - **Status:** **rev. 2 (2026-11-03)** — Phases 1–4 merged in `desenv` (PR #161); Phase 0 findings recorded below;
   Phase 5 (Part B, v-5.2.0) implemented, uncommitted, pending review. Owner said "go fase b", accepting the proposals
   listed in [Phase 0 findings](#phase-0-findings-rev-2).
+- **Revision 3 (2026-11-23, ED-1389):** money mode in TELEMETRY_INFO is now complete and the device card loses the
+  "Custo estimado" label — see [§5.6.1](#561-rev-3-ed-1389--telemetry_info-100-in-r-and-the-dash-rule).
 - **Branch:** `feat/rfc-0241-goals-tariffs-v520` (Phases 1–4, merged); Phase 5 in a worktree on top of `desenv` `e4e99ac7`
-- **Jira:** none yet
+- **Jira:** ED-1389 (rev. 3)
 - **Related RFCs:** RFC-0222 (Pricing Panel), RFC-0228 (Financial Goals gap & rollout index, Track A), RFC-0225 / RFC-0227
   (Metas period KPI, compare modal, onboarding guide), RFC-0217 (CustomerGoalsCard), RFC-0215 (Settings hub in the
   library), RFC-0108 (measurement display settings + `myio:measurement-settings-updated`), RFC-0233 (`restrict_view`),
@@ -449,14 +451,40 @@ Never displayed: `R$ 0` for missing data, `NaN`, or a partial sum without the "C
 restricted to "Custo estimado", "Estimado R$", "Cobertura incompleta"; forbidden "Fatura", "Faturamento",
 "Valor final", "Total a pagar" (RFC-0228 rule, e.g. `financial-goals/reportMoneyColumn.ts:38-40`).
 
+#### 5.6.1 Rev. 3 (ED-1389) — TELEMETRY_INFO 100% in R$, and the dash rule
+
+Rev. 2 converted only part of TELEMETRY_INFO, and the R$ came with the physical value on a second line. Root cause of
+the partial conversion: MAIN's summary (`buildSummary` / `buildSummaryWater` → `details.devices[]`) carried no
+`ingestionId`, the key `MyIOUtils.getItemMoney` looks up, so most totals silently fell back to physical. Owner decisions
+(ED-1389), which **supersede the rows above for TELEMETRY_INFO and the device card**:
+
+| Situation (money mode) | Shown |
+|---|---|
+| Group / device with complete `item.money` | `R$ x` — no physical line; kWh/m³ only in the `title` |
+| Partial coverage, no tariff, uncategorized, empty group | `-` (+ chip "Cobertura incompleta (n de m)" on totals; state chip on devices). Never kWh, never `R$ 0`, never a partial sum |
+| Entrada (card, tooltip rows, summary "Consumo Total") | always `-` (Q8 unchanged: never valued) |
+| Residuals: Área Comum (energy), Pontos Não Mapeados (water), Climatização parent balance | always `-` |
+| Totals that include a residual > 0 (Total Consumidores; water total) | `-` + "Cobertura incompleta" |
+| Percentages and pie slice sizes | stay physical-share based (always add to 100%); only the **values** become R$/`-` |
+| Device card (TELEMETRY widget) | complete → R$ without the "Custo estimado" label; not complete → `-` + state chip; no `money` yet (Entrada, still valuing) → physical, as before |
+
+Implementation: MAIN stamps `ingestionId` (and `excludedFromTotal` when `exclude_groups_totals` zeroes the device in that
+group — the R$ sum follows the kWh rule) on every summary device, on Climatização `parents[]` (with a parent, the card's
+R$ is the parent's) and on `excludedFromCAG/Entrada`. TELEMETRY_INFO routes every displayed value (KPI cards incl. group
+filter totals, main/modal/water pie tooltips and legends, every InfoTooltip, the ℹ️ summary) through one presentation
+layer (`_displayGroup` / `_displayDevices` / `_displayConsumersTotal` / `_sliceDisplay`); physical mode output is
+byte-identical. `Energy/WaterSummaryTooltip` gained optional `displayValue` / `totalDisplayValue` / `valueLabel` /
+`totalLabel` (absent → byte-identical). Tests: `tests/telemetryInfo.moneyMode.test.ts`,
+`tests/thingsboard/v520SummaryMoneyKeys.test.ts`, `tests/utils/tooltips/summaryTooltipDisplayValue.test.ts`.
+
 #### 5.7 Per-widget reaction (v-5.2.0)
 
 | Widget | Change |
 |---|---|
 | **MAIN_VIEW** | State, persistence, valuation, events (above). New `MyIOUtils.formatItemValue(item, domain)` and `MyIOUtils.formatMoneyTotal(items)`; existing `formatEnergyWithSettings/formatWaterWithSettings` stay scalar and physical (`:571-615`). |
 | **TELEMETRY** | Card: pass `displayMode` and `item.money` in `entityObject` to `renderCardComponentV5` (`:3170`); group total `renderHeader` (`:3000-3014`) uses `formatMoneyTotal` in money mode; checklist `_fmtDeviceValue` (`:4685`) idem. Listen to `myio:value-display-mode-updated` and `myio:money-valuation-ready` → `reflowFromState()` (same as `:6821-6835`). |
-| **Card template (lib)** | `template-card-v5.js:398-430`: when `entityObject.displayMode === 'money'` and `entityObject.money.state === 'complete'`, render `formatMoneyBRL(amount)`; else render the physical value plus the chip. Default path byte-identical. |
-| **TELEMETRY_INFO** | Totals, pie legends, tooltips (`:885-967`, `:1108`, `:1178`, `:2687-3060`) go through a local `fmt(domainValueOrMoney)` that reads the per-group money sums MAIN publishes in `moneyState`; listener next to `:5239`. Pie chart proportions stay physical in v1 (label says so). |
+| **Card template (lib)** | `template-card-v5.js:398-430`: when `entityObject.displayMode === 'money'` and `entityObject.money.state === 'complete'`, render `formatMoneyBRL(amount)`; else render the physical value plus the chip. Default path byte-identical. **Rev. 3 (ED-1389):** no "Custo estimado" label under the R$; a non-complete `money` renders `-` + chip (physical in the `title`). |
+| **TELEMETRY_INFO** | Totals, pie legends, tooltips (`:885-967`, `:1108`, `:1178`, `:2687-3060`) go through a local `fmt(domainValueOrMoney)` that reads the per-group money sums MAIN publishes in `moneyState`; listener next to `:5239`. Pie chart proportions stay physical in v1 (label says so). **Rev. 3 (ED-1389):** every value in R$ or `-` — see §5.6.1. |
 | **FOOTER** | Selection dock (`:1082-1086`): total of selected items in R$ only when all selected are `complete`; listener next to `:1364`. Comparison charts opened from the dock stay physical. |
 | **HEADER** | Hosts the "kWh/m³ \| R$" segmented control (proposal — Unresolved Q5); hidden when the user is not eligible or `moneyDisplayAvailable` is false; disabled on temperature/alarm tabs; calls `MyIOUtils.setValueDisplayMode`. |
 | **MENU** | Only the hub item (Part A). No value rendering. |

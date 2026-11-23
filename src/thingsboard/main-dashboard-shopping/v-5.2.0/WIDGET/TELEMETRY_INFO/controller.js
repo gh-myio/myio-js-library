@@ -983,11 +983,16 @@ function formatEnergy(value) {
   return fallbackZero;
 }
 
-// ===================== RFC-0241 Part B: modo "R$ em vez de kWh/m³" =====================
-// Estado e valoração na MAIN (MyIOUtils.getItemMoney / formatMoneyTotal = fonte única,
-// a mesma dos cards e do FOOTER). Aqui só a apresentação: R$ em destaque + valor físico
-// em linha secundária; grupo com membro incompleto fica físico + "Cobertura incompleta".
-// Entrada e residuais (Área Comum de energia, Pontos Não Mapeados) seguem físicos em v1.
+// ===================== RFC-0241 Part B + ED-1389: modo "R$ em vez de kWh/m³" =====================
+// Estado e valoração na MAIN (MyIOUtils.getItemMoney / formatMoneyTotal = fonte única, a mesma
+// dos cards e do FOOTER). Aqui só a apresentação. ED-1389: em modo R$ NENHUM valor físico fica
+// visível no widget (o kWh/m³ vai só para o title):
+//   - grupo/device com custo estimado completo → R$;
+//   - cobertura parcial / sem tarifa / sem categoria / sem devices → "-" (+ chip de cobertura);
+//   - Entrada e residuais calculados (Área Comum de energia, Pontos Não Mapeados de água,
+//     saldo do pai da Climatização) → sempre "-" (RFC-0241 Q8: não valorados);
+//   - percentuais e fatias da pizza continuam pela participação física (fecham 100%).
+// Modo físico: os formatadores de sempre, sem nenhuma diferença.
 
 function _moneyMode(domain = getWidgetDomain()) {
   return (
@@ -997,68 +1002,281 @@ function _moneyMode(domain = getWidgetDomain()) {
   );
 }
 
-const _moneySubStyle = 'display:block;font-size:0.7em;font-weight:500;opacity:0.7;';
+const MONEY_DASH = '-';
+const MONEY_TITLE_ENTRADA = 'Entrada não é valorada em R$';
+const MONEY_TITLE_RESIDUAL = 'Valor calculado (residual): não é valorado em R$';
+const MONEY_TITLE_UNAVAILABLE = 'Custo estimado indisponível (sem tarifa ou sem categoria tarifária)';
+const MONEY_TITLE_INCOMPLETE = 'Cobertura incompleta: nem todos os dispositivos têm custo estimado completo';
+const MONEY_TITLE_NO_DEVICES = 'Sem dispositivos para valorar';
+const _moneyChipStyle =
+  'display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;font:600 10px Nunito,sans-serif;' +
+  'background:#fef3c7;color:#92400e;white-space:nowrap;';
 
-/** Total de um grupo: { html, title } em modo R$, ou null (mantém o físico). */
-function _moneyGroupHTML(devices, physicalText, domain = getWidgetDomain()) {
-  if (!_moneyMode(domain)) return null;
-  const t = window.MyIOUtils.formatMoneyTotal(devices || [], domain);
-  if (!t) return null;
-  if (t.complete) {
-    return {
-      html: `${t.text}<span class="ti-money-physical" style="${_moneySubStyle}">${physicalText}</span>`,
-      title: `Custo estimado — ${physicalText}`,
-    };
+function _moneyEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function _physicalText(value, domain = getWidgetDomain()) {
+  return domain === 'water' ? formatValue(value, 'water') : formatEnergy(value);
+}
+
+/**
+ * Valor exibido: `html` (com chip), `compact` (sem chip — legendas), `text` (texto puro —
+ * tooltip do Chart.js), `title` (motivo + físico; vazio no modo físico).
+ */
+function _physicalDisplay(value, domain = getWidgetDomain()) {
+  const t = _physicalText(value, domain);
+  return { html: t, compact: t, text: t, title: '' };
+}
+
+/** "-" com o motivo (e o físico) no title; `chip` opcional ao lado. */
+function _moneyDash(reason, physicalText, chip) {
+  const title = physicalText ? `${reason} — ${physicalText}` : reason;
+  const dash = `<span class="ti-money-dash" title="${_moneyEsc(title)}">${MONEY_DASH}</span>`;
+  return { html: dash + (chip || ''), compact: dash, text: MONEY_DASH, title };
+}
+
+function _moneyAmount(text, physicalText) {
+  return { html: text, compact: text, text, title: `Custo estimado — ${physicalText}` };
+}
+
+/** Chip "Cobertura incompleta (n de m)"; sem contagem quando não se aplica (residual). */
+function _moneyIncompleteChip(covered, total, title) {
+  const count = total ? ` (${covered} de ${total})` : '';
+  return (
+    `<span class="myio-money-coverage" data-money-coverage="incomplete" ` +
+    `title="${_moneyEsc(title || MONEY_TITLE_INCOMPLETE)}" style="${_moneyChipStyle}">Cobertura incompleta${count}</span>`
+  );
+}
+
+/**
+ * Total em R$ de um conjunto de devices (só modo R$). Devices `excludedFromTotal` (somam 0 no
+ * kWh — exclude_groups_totals) ficam fora, como no físico. R$ só com TODOS completos.
+ */
+function _moneyGroup(devices, physicalText, domain = getWidgetDomain()) {
+  const members = (devices || []).filter((d) => d && !d.excludedFromTotal);
+  if (!members.length) return _moneyDash(MONEY_TITLE_NO_DEVICES, physicalText);
+  const t = window.MyIOUtils.formatMoneyTotal(members, domain);
+  if (t && t.complete && t.text) return _moneyAmount(t.text, physicalText);
+  if (t && t.total) return _moneyDash(MONEY_TITLE_INCOMPLETE, physicalText, _moneyIncompleteChip(t.covered, t.total));
+  return _moneyDash(MONEY_TITLE_UNAVAILABLE, physicalText);
+}
+
+/** Valor de UM device (só modo R$): R$ quando completo; senão "-" + chip do estado. */
+function _moneyDevice(device, physicalText, domain = getWidgetDomain()) {
+  const U = window.MyIOUtils;
+  const money = U.getItemMoney?.(device, domain) || null;
+  const brl = U.formatItemMoney?.(money);
+  if (brl) return _moneyAmount(brl, physicalText);
+  if (!money) return _moneyDash(MONEY_TITLE_UNAVAILABLE, physicalText);
+  return _moneyDash(U.moneyCoverageTitle?.(money) || MONEY_TITLE_UNAVAILABLE, physicalText, U.buildMoneyChipHTML?.(money) || '');
+}
+
+/** Valor de um conjunto qualquer de devices (subcategorias, listas): físico ou R$/"-". */
+function _displayDevices(devices, physicalValue, domain = getWidgetDomain()) {
+  if (!_moneyMode(domain)) return _physicalDisplay(physicalValue, domain);
+  return _moneyGroup(devices, _physicalText(physicalValue, domain), domain);
+}
+
+/** Valor de UM device: físico ou R$/"-". */
+function _displayDevice(device, physicalValue, domain = getWidgetDomain()) {
+  if (!_moneyMode(domain)) return _physicalDisplay(physicalValue, domain);
+  return _moneyDevice(device, _physicalText(physicalValue, domain), domain);
+}
+
+/** Valor que nunca é valorado (Entrada, residuais, saldo do pai): físico ou "-". */
+function _displayNotValued(physicalValue, reason, domain = getWidgetDomain()) {
+  if (!_moneyMode(domain)) return _physicalDisplay(physicalValue, domain);
+  return _moneyDash(reason, _physicalText(physicalValue, domain));
+}
+
+/**
+ * Devices que compõem o valor de um grupo do widget. `null` = grupo nunca valorado
+ * (Entrada, residuais, transformadores) → "-".
+ */
+function _moneyMembersOf(key, domain = getWidgetDomain()) {
+  if (domain === 'water') {
+    const ac = STATE_WATER.areaComum?.devices || [];
+    const ba = STATE_WATER.banheiros?.devices || [];
+    switch (key) {
+      case 'lojas':
+        return STATE_WATER.lojas?.devices || [];
+      case 'banheiros':
+        return ba;
+      case 'areaComum': // card "Área Comum" = _waterAreaComumDisplay()
+        return STATE_WATER.includeBathrooms ? ac : [...ac, ...ba];
+      case 'areaComumGroup': // grupo inteiro (área comum + banheiros)
+        return [...ac, ...ba];
+      case 'areaComumOnly': // só a parte sem banheiros
+        return ac;
+      default:
+        return null; // entrada, pontosNaoMapeados
+    }
   }
-  return { html: `${physicalText}${t.markerHTML}`, title: 'Cobertura incompleta — total em unidade física' };
+  const c = STATE.consumidores || {};
+  switch (key) {
+    case 'climatizacao': {
+      // RFC-0207 "parent": com pai declarado o total do card é o valor dele (contém os filhos)
+      const parents = c.climatizacao?.parents || [];
+      return parents.length ? parents : c.climatizacao?.devices || [];
+    }
+    case 'lojas':
+    case 'elevadores':
+    case 'escadasRolantes':
+    case 'outros':
+      return c[key]?.devices || [];
+    default:
+      return null; // entrada, areaComum (residual), transformadores
+  }
 }
 
-/** Valor de um device em listas/tooltips: R$ (físico na linha de baixo) ou o físico de sempre. */
-function _moneyDeviceHTML(device, physicalText, domain = getWidgetDomain()) {
-  if (!_moneyMode(domain)) return physicalText;
-  const brl = window.MyIOUtils.formatItemMoney?.(window.MyIOUtils.getItemMoney(device, domain));
-  return brl ? `${brl}<span style="${_moneySubStyle}">${physicalText}</span>` : physicalText;
+/** Valor exibido de um grupo do widget (cards, legendas, pizza, tooltips). */
+function _displayGroup(key, physicalValue, domain = getWidgetDomain()) {
+  if (!_moneyMode(domain)) return _physicalDisplay(physicalValue, domain);
+  const physicalText = _physicalText(physicalValue, domain);
+  const members = _moneyMembersOf(key, domain);
+  if (members === null) return _moneyDash(key === 'entrada' ? MONEY_TITLE_ENTRADA : MONEY_TITLE_RESIDUAL, physicalText);
+  return _moneyGroup(members, physicalText, domain);
 }
 
-/** Aplica o modo R$ nos cards de KPI já renderizados (chamado no fim de renderStats/renderWaterStats). */
+/**
+ * Total Consumidores (energia) / Total (água). Com `useFilter`, mesma composição de
+ * _applyGroupFilterEnergy/_applyGroupFilterWater: o residual só entra com todos os grupos
+ * ativos — e, sendo > 0, o total vira "-" (residual não é valorado).
+ */
+function _displayConsumersTotal(physicalValue, domain = getWidgetDomain(), useFilter = true) {
+  if (!_moneyMode(domain)) return _physicalDisplay(physicalValue, domain);
+  const physicalText = _physicalText(physicalValue, domain);
+  const filter = (useFilter && GROUP_FILTER[domain]) || {};
+  const on = (k) => !useFilter || !!filter[k];
+  const allActive = !useFilter || Object.values(filter).every(Boolean);
+  let keys;
+  let residual;
+  let residualLabel;
+  if (domain === 'water') {
+    keys = ['lojas', ...(STATE_WATER.includeBathrooms ? ['banheiros'] : []), 'areaComum'].filter(on);
+    residual = allActive ? STATE_WATER.pontosNaoMapeados?.total || 0 : 0;
+    residualLabel = 'Pontos Não Mapeados';
+  } else {
+    keys = ['lojas', 'climatizacao', 'elevadores', 'escadasRolantes', 'outros'].filter(on);
+    residual = allActive ? STATE.consumidores?.areaComum?.total || 0 : 0;
+    residualLabel = 'Área Comum';
+  }
+  if (residual > 0) {
+    const why = `Inclui ${residualLabel} (residual calculado), que não é valorado em R$`;
+    return _moneyDash(why, physicalText, _moneyIncompleteChip(0, 0, why));
+  }
+  return _moneyGroup(
+    keys.flatMap((k) => _moneyMembersOf(k, domain) || []),
+    physicalText,
+    domain
+  );
+}
+
+/**
+ * Valor de uma fatia/linha de legenda da pizza. Modo físico: o formatador de sempre (o mesmo
+ * que cada pizza já usava). Modo R$: R$/"-" do grupo — o tamanho da fatia e o % seguem físicos.
+ */
+function _sliceDisplay(key, value, physicalFormat) {
+  if (!_moneyMode()) {
+    const t = physicalFormat(value);
+    return { html: t, compact: t, text: t, title: '' };
+  }
+  return _displayGroup(key, value);
+}
+
+/** Total físico de consumidores ativos — gravado pelo filtro de grupo (title do total em R$). */
+const _activeConsumersTotal = { energy: 0, water: 0 };
+
+/** Aplica o modo R$ nos cards de KPI já renderizados (fim de renderStats/renderWaterStats e do filtro). */
+const _MONEY_STAT_IDS =
+  '#entradaTotal, #lojasTotal, #climatizacaoTotal, #elevadoresTotal, #escadasRolantesTotal, #outrosTotal, ' +
+  '#banheirosTotal, #areaComumTotal, #consumidoresTotal, #waterTotalConsumidores';
 let _moneyStatsTouched = false; // títulos postos pelo modo R$ → limpar ao voltar ao físico
 function _applyMoneyToStats(domain) {
   if (_moneyStatsTouched) {
-    $$('#lojasTotal, #climatizacaoTotal, #elevadoresTotal, #escadasRolantesTotal, #outrosTotal, #banheirosTotal, #areaComumTotal').removeAttr('title');
+    $$(_MONEY_STAT_IDS).removeAttr('title');
     _moneyStatsTouched = false;
   }
   if (!_moneyMode(domain)) return;
   _moneyStatsTouched = true;
-  const fmt = (v) => (domain === 'water' ? formatValue(v, 'water') : formatEnergy(v));
-  const groups =
-    domain === 'water'
-      ? [
-          ['#lojasTotal', STATE_WATER.lojas],
-          ['#banheirosTotal', STATE_WATER.banheiros],
-        ]
-      : [
-          ['#lojasTotal', STATE.consumidores.lojas],
-          ['#climatizacaoTotal', STATE.consumidores.climatizacao],
-          ['#elevadoresTotal', STATE.consumidores.elevadores],
-          ['#escadasRolantesTotal', STATE.consumidores.escadasRolantes],
-          ['#outrosTotal', STATE.consumidores.outros],
-        ];
-  groups.forEach(([sel, g]) => {
-    if (!g || !(g.devices || []).length) return;
-    const out = _moneyGroupHTML(g.devices, fmt(g.total || 0), domain);
-    if (out) $$(sel).html(out.html).attr('title', out.title);
-  });
-  // Água: o card "Área Comum" soma banheiros quando não há card próprio
+  const put = (sel, out) => $$(sel).html(out.html).attr('title', out.title);
   if (domain === 'water') {
-    const acDevices = [
-      ...(STATE_WATER.areaComum?.devices || []),
-      ...(STATE_WATER.includeBathrooms ? [] : STATE_WATER.banheiros?.devices || []),
-    ];
-    if (acDevices.length) {
-      const out = _moneyGroupHTML(acDevices, fmt(_waterAreaComumDisplay()), domain);
-      if (out) $$('#areaComumTotal').html(out.html).attr('title', out.title);
+    put('#entradaTotal', _displayGroup('entrada', STATE_WATER.entrada?.total || 0, domain));
+    put('#lojasTotal', _displayGroup('lojas', STATE_WATER.lojas?.total || 0, domain));
+    if (STATE_WATER.includeBathrooms) {
+      put('#banheirosTotal', _displayGroup('banheiros', STATE_WATER.banheiros?.total || 0, domain));
+    }
+    put('#areaComumTotal', _displayGroup('areaComum', _waterAreaComumDisplay(), domain));
+    // .total-card é reaproveitado como "Pontos Não Mapeados" no domínio água
+    put('#consumidoresTotal', _displayGroup('pontosNaoMapeados', STATE_WATER.pontosNaoMapeados?.total || 0, domain));
+    put('#waterTotalConsumidores', _displayConsumersTotal(_activeConsumersTotal.water, domain));
+    return;
+  }
+  const c = STATE.consumidores || {};
+  put('#entradaTotal', _displayGroup('entrada', STATE.entrada?.total || 0, domain));
+  [
+    ['#lojasTotal', 'lojas'],
+    ['#climatizacaoTotal', 'climatizacao'],
+    ['#elevadoresTotal', 'elevadores'],
+    ['#escadasRolantesTotal', 'escadasRolantes'],
+    ['#outrosTotal', 'outros'],
+  ].forEach(([sel, key]) => put(sel, _displayGroup(key, c[key]?.total || 0, domain)));
+  put('#areaComumTotal', _displayGroup('areaComum', c.areaComum?.total || 0, domain));
+  put('#consumidoresTotal', _displayConsumersTotal(_activeConsumersTotal.energy, domain));
+}
+
+/**
+ * Devices de uma linha do tooltip de resumo (ℹ️ do header). `null` = nunca valorado → "-".
+ * Energia: "Área Comum" do resumo é o GRUPO inteiro (com climatização etc.), não o residual
+ * do card — vale a lista de devices do grupo.
+ */
+function _summaryMoneyDevices(id, domain) {
+  if (domain === 'water') {
+    if (id === 'lojas' || id === 'banheiros') return _moneyMembersOf(id, 'water');
+    if (id === 'areaComum') return _moneyMembersOf('areaComumOnly', 'water'); // = state.areaComum
+    return null; // entrada, pontosNaoMapeados
+  }
+  const bc = STATE.tooltipData?.byCategory || {};
+  switch (id) {
+    case 'entrada':
+    case 'transformadores':
+      return null;
+    case 'lojas':
+    case 'climatizacao':
+    case 'elevadores':
+    case 'escadasRolantes':
+    case 'outros':
+      return _moneyMembersOf(id, 'energy');
+    case 'areaComum':
+      return bc.areaComum?.details?.devices || [];
+    default: {
+      // subcategorias (chillers, fancoils, …, iluminacao, geradores, …)
+      const sub = bc.climatizacao?.subcategories?.[id] || bc.outros?.subcategories?.[id];
+      return sub?.details?.devices || [];
     }
   }
+}
+
+/** ED-1389: resumo do ℹ️ em R$ — cada linha R$/"-"; o "Consumo Total" (= Entrada) vira "-". */
+function _applyMoneyToSummary(summary, domain) {
+  if (!summary || !_moneyMode(domain)) return summary;
+  const walk = (cats) =>
+    (cats || []).forEach((cat) => {
+      if (!cat) return;
+      const devices = _summaryMoneyDevices(cat.id, domain);
+      cat.displayValue = devices === null ? MONEY_DASH : _moneyGroup(devices, '', domain).text;
+      walk(cat.children);
+    });
+  walk(summary.byCategory);
+  summary.totalDisplayValue = MONEY_DASH; // total do resumo = Entrada (não valorada)
+  summary.valueLabel = 'Custo estimado';
+  summary.totalLabel = 'Custo estimado total';
+  return summary;
 }
 
 /**
@@ -1243,7 +1461,8 @@ function renderPieChart() {
               const value = context.parsed || 0;
               const total = context.dataset.data.reduce((a, b) => a + b, 0);
               const perc = total > 0 ? ((value / total) * 100).toFixed(2).replace('.', ',') : 0;
-              return `${label}: ${formatEnergy(value)} (${perc}%)`;
+              // ED-1389: modo R$ → R$/"-" (o % segue a participação física)
+              return `${label}: ${_sliceDisplay(slices[context.dataIndex]?.key, value, formatEnergy).text} (${perc}%)`;
             },
           },
         },
@@ -1279,7 +1498,7 @@ function renderChartLegend() {
       <div class="legend-item">
         <div class="legend-color" style="background: ${item.color};"></div>
         <span class="legend-label">${item.label}:</span>
-        <span class="legend-value">${formatEnergy(item.value)} (${item.perc.toFixed(2).replace('.', ',')}%)</span>
+        <span class="legend-value">${_sliceDisplay(item.key, item.value, formatEnergy).compact} (${item.perc.toFixed(2).replace('.', ',')}%)</span>
       </div>
     `;
     $legend.append(html);
@@ -1473,7 +1692,8 @@ function renderModalChart() {
               const value = context.parsed || 0;
               const total = context.dataset.data.reduce((a, b) => a + b, 0);
               const perc = total > 0 ? ((value / total) * 100).toFixed(2).replace('.', ',') : 0;
-              return `${label}: ${formatEnergy(value)} (${perc}%)`;
+              // ED-1389: modo R$ → R$/"-" (o % segue a participação física)
+              return `${label}: ${_sliceDisplay(slices[context.dataIndex]?.key, value, formatEnergy).text} (${perc}%)`;
             },
           },
         },
@@ -1507,9 +1727,9 @@ function renderModalChartLegend() {
   items.forEach((item) => {
     const html = `<div class="legend-item"><div class="legend-color" style="background: ${
       item.color
-    }"></div><span class="legend-label">${item.label}:</span><span class="legend-value">${formatEnergy(
-      item.value
-    )}</span></div>`;
+    }"></div><span class="legend-label">${item.label}:</span><span class="legend-value">${
+      _sliceDisplay(item.key, item.value, formatEnergy).compact
+    }</span></div>`;
     $legend.append(html);
   });
 
@@ -2481,13 +2701,15 @@ function renderWaterPieChart() {
   };
 
   // Build chart data based on includeBathrooms setting
+  // `key` = grupo para o valor em R$ (ED-1389); fora do modo R$ não é usado
   const chartData = [
-    { label: 'Lojas', color: colors.lojas, value: STATE_WATER.lojas.total, perc: STATE_WATER.lojas.perc },
+    { key: 'lojas', label: 'Lojas', color: colors.lojas, value: STATE_WATER.lojas.total, perc: STATE_WATER.lojas.perc },
   ];
 
   // Add banheiros if enabled
   if (STATE_WATER.includeBathrooms) {
     chartData.push({
+      key: 'banheiros',
       label: 'Banheiros',
       color: colors.banheiros,
       value: STATE_WATER.banheiros.total,
@@ -2498,12 +2720,14 @@ function renderWaterPieChart() {
   // Add remaining contexts
   chartData.push(
     {
+      key: 'areaComum',
       label: 'Área Comum',
       color: colors.areaComum,
       value: _waterAreaComumDisplay(),
       perc: STATE_WATER.areaComum.perc,
     },
     {
+      key: 'pontosNaoMapeados',
       label: 'Pontos Não Mapeados',
       color: colors.pontosNaoMapeados,
       value: STATE_WATER.pontosNaoMapeados.total,
@@ -2558,7 +2782,10 @@ function renderWaterPieChart() {
             callbacks: {
               label: function (context) {
                 const label = context.label || '';
-                const value = formatValue(context.parsed, 'water');
+                // ED-1389: modo R$ → R$/"-" (o % segue a participação física)
+                const value = _sliceDisplay(validData[context.dataIndex].key, context.parsed, (v) =>
+                  formatValue(v, 'water')
+                ).text;
                 const perc = validData[context.dataIndex].perc.toFixed(2).replace('.', ',');
                 return `${label}: ${value} (${perc}%)`;
               },
@@ -2578,7 +2805,9 @@ function renderWaterPieChart() {
         <div class="legend-item">
           <span class="legend-color" style="background-color: ${item.color};"></span>
           <span class="legend-label">${item.label}</span>
-          <span class="legend-value">${formatValue(item.value, 'water')} (${item.perc.toFixed(2).replace('.', ',')}%)</span>
+          <span class="legend-value">${
+            _sliceDisplay(item.key, item.value, (v) => formatValue(v, 'water')).compact
+          } (${item.perc.toFixed(2).replace('.', ',')}%)</span>
         </div>
       `);
     });
@@ -2717,7 +2946,7 @@ function buildAreaComumContentEnergy() {
       ? `
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">➖ ${label}:</span>
-        <span class="myio-info-tooltip__value">${formatEnergy(value)}</span>
+        <span class="myio-info-tooltip__value">${_displayGroup(key, value, 'energy').html}</span>
       </div>`
       : '';
   const _formulaTerms = ['Lojas', ..._visibleMainCategoryLabels(), 'Outros'].join(' + ');
@@ -2729,11 +2958,11 @@ function buildAreaComumContentEnergy() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">📥 Entrada (Total):</span>
-        <span class="myio-info-tooltip__value">${formatEnergy(entrada)}</span>
+        <span class="myio-info-tooltip__value">${_displayGroup('entrada', entrada, 'energy').html}</span>
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">➖ Lojas:</span>
-        <span class="myio-info-tooltip__value">${formatEnergy(lojas)}</span>
+        <span class="myio-info-tooltip__value">${_displayGroup('lojas', lojas, 'energy').html}</span>
       </div>${_row('climatizacao', 'Climatização', climatizacao)}${_row(
         'elevadores',
         'Elevadores',
@@ -2741,13 +2970,13 @@ function buildAreaComumContentEnergy() {
       )}${_row('escadasRolantes', 'Esc. Rolantes', escadasRolantes)}
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">➖ Outros:</span>
-        <span class="myio-info-tooltip__value">${formatEnergy(outros)}</span>
+        <span class="myio-info-tooltip__value">${_displayGroup('outros', outros, 'energy').html}</span>
       </div>
       <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
         <span class="myio-info-tooltip__label"><strong>= Área Comum:</strong></span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(
-          areaComum
-        )}</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${
+          _displayGroup('areaComum', areaComum, 'energy').html
+        }</span>
       </div>
     </div>
 
@@ -2781,7 +3010,7 @@ function buildAreaComumContentWater() {
   let rows = `
     <div class="myio-info-tooltip__row">
       <span class="myio-info-tooltip__label">📥 Grupo Área Comum:</span>
-      <span class="myio-info-tooltip__value">${formatValue(grupoAreaComum, 'water')}</span>
+      <span class="myio-info-tooltip__value">${_displayGroup('areaComumGroup', grupoAreaComum, 'water').html}</span>
     </div>
   `;
 
@@ -2789,7 +3018,7 @@ function buildAreaComumContentWater() {
     rows += `
     <div class="myio-info-tooltip__row">
       <span class="myio-info-tooltip__label">➖ Banheiros:</span>
-      <span class="myio-info-tooltip__value">${formatValue(banheiros, 'water')}</span>
+      <span class="myio-info-tooltip__value">${_displayGroup('banheiros', banheiros, 'water').html}</span>
     </div>
     `;
   }
@@ -2797,7 +3026,7 @@ function buildAreaComumContentWater() {
   rows += `
     <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
       <span class="myio-info-tooltip__label"><strong>= Área Comum:</strong></span>
-      <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(areaComumCard, 'water')}</span>
+      <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${_displayGroup('areaComum', areaComumCard, 'water').html}</span>
     </div>
   `;
 
@@ -2918,10 +3147,9 @@ function buildClimatizacaoContent() {
               <div class="myio-info-tooltip__category-name">${label} ${expandHtml}</div>
               <div class="myio-info-tooltip__category-desc">${count} equipamento(s)</div>
             </div>
-            <span class="myio-info-tooltip__category-value">${formatEnergy(total)}${_pctSpan(
-              total,
-              _pctBase
-            )}</span>
+            <span class="myio-info-tooltip__category-value">${
+              _displayDevices(data?.details?.devices || [], total, 'energy').html
+            }${_pctSpan(total, _pctBase)}</span>
           </div>
         `;
       }
@@ -2963,7 +3191,7 @@ function buildClimatizacaoContent() {
               <div class="myio-info-tooltip__category-name">Grupo ${_escClim(p.label)}</div>
               <div class="myio-info-tooltip__category-desc">Valor master — composição abaixo</div>
             </div>
-            <span class="myio-info-tooltip__category-value">${formatEnergy(p.total || 0)}</span>
+            <span class="myio-info-tooltip__category-value">${_displayDevice(p, p.total || 0, 'energy').html}</span>
           </div>
         `
       )
@@ -2984,10 +3212,9 @@ function buildClimatizacaoContent() {
               <div class="myio-info-tooltip__category-name">Pontos não mapeados</div>
               <div class="myio-info-tooltip__category-desc">Consumo do medidor pai não itemizado por submedidores</div>
             </div>
-            <span class="myio-info-tooltip__category-value">${formatEnergy(_saldo)}${_pctSpan(
-              _saldo,
-              _parentTotalSum
-            )}</span>
+            <span class="myio-info-tooltip__category-value">${
+              _displayNotValued(_saldo, MONEY_TITLE_RESIDUAL, 'energy').html
+            }${_pctSpan(_saldo, _parentTotalSum)}</span>
           </div>
         `;
     } else if (_saldo < -_saldoTol) {
@@ -3024,9 +3251,9 @@ function buildClimatizacaoContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Climatização:</span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(
-          climatizacao
-        )}</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${
+          _displayGroup('climatizacao', climatizacao, 'energy').html
+        }</span>
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Equipamentos:</span>
@@ -3075,7 +3302,7 @@ function buildExcludedFromCAGNotice() {
       (device) => `
       <div class="myio-info-tooltip__row" style="padding: 4px 0; border-bottom: 1px dashed rgba(146, 64, 14, 0.2);">
         <span class="myio-info-tooltip__label" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${device.label}">${device.label}</span>
-        <span class="myio-info-tooltip__value">${formatEnergy(device.value)}</span>
+        <span class="myio-info-tooltip__value">${_displayDevice(device, device.value, 'energy').html}</span>
       </div>
     `
     )
@@ -3094,7 +3321,7 @@ function buildExcludedFromCAGNotice() {
           ${deviceListHtml}
           <div class="myio-info-tooltip__row" style="padding-top: 6px; margin-top: 4px; border-top: 1px solid rgba(146, 64, 14, 0.3); font-weight: 600;">
             <span class="myio-info-tooltip__label">Total excluído:</span>
-            <span class="myio-info-tooltip__value">${formatEnergy(totalExcluded)}</span>
+            <span class="myio-info-tooltip__value">${_displayDevices(excludedDevices, totalExcluded, 'energy').html}</span>
           </div>
         </div>
       </div>
@@ -3123,7 +3350,7 @@ function buildTransformadoresInfoSection() {
       (device) => `
       <div class="myio-info-tooltip__row" style="padding: 4px 0; border-bottom: 1px dashed rgba(100, 116, 139, 0.2);">
         <span class="myio-info-tooltip__label" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${device.label}">${device.label}</span>
-        <span class="myio-info-tooltip__value">${formatEnergy(device.value)}</span>
+        <span class="myio-info-tooltip__value">${_displayDevice(device, device.value, 'energy').html}</span>
       </div>
     `
     )
@@ -3138,7 +3365,7 @@ function buildTransformadoresInfoSection() {
         ${deviceListHtml}
         <div class="myio-info-tooltip__row" style="padding-top: 6px; margin-top: 4px; border-top: 1px solid rgba(100, 116, 139, 0.25); font-weight: 600;">
           <span class="myio-info-tooltip__label">Total:</span>
-          <span class="myio-info-tooltip__value">${formatEnergy(total)}</span>
+          <span class="myio-info-tooltip__value">${_displayDevices(devices, total, 'energy').html}</span>
         </div>
       </div>
     </div>
@@ -3171,7 +3398,7 @@ function buildExcludedFromEntradaNotice() {
       (device) => `
       <div class="myio-info-tooltip__row" style="padding: 4px 0; border-bottom: 1px dashed rgba(146, 64, 14, 0.2);">
         <span class="myio-info-tooltip__label" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${device.label}">${device.label}</span>
-        <span class="myio-info-tooltip__value">${formatEnergy(device.value)}</span>
+        <span class="myio-info-tooltip__value">${_displayDevice(device, device.value, 'energy').html}</span>
       </div>
     `
     )
@@ -3190,7 +3417,7 @@ function buildExcludedFromEntradaNotice() {
           ${deviceListHtml}
           <div class="myio-info-tooltip__row" style="padding-top: 6px; margin-top: 4px; border-top: 1px solid rgba(146, 64, 14, 0.3); font-weight: 600;">
             <span class="myio-info-tooltip__label">Total excluído:</span>
-            <span class="myio-info-tooltip__value">${formatEnergy(totalExcluded)}</span>
+            <span class="myio-info-tooltip__value">${_displayDevices(excludedDevices, totalExcluded, 'energy').html}</span>
           </div>
         </div>
       </div>
@@ -3251,7 +3478,9 @@ function buildOutrosContent() {
               <div class="myio-info-tooltip__category-name">${label} ${expandHtml}</div>
               <div class="myio-info-tooltip__category-desc">${count} equipamento(s)</div>
             </div>
-            <span class="myio-info-tooltip__category-value">${formatEnergy(total)}</span>
+            <span class="myio-info-tooltip__category-value">${
+              _displayDevices(data?.details?.devices || [], total, 'energy').html
+            }</span>
           </div>
         `;
       }
@@ -3277,9 +3506,9 @@ function buildOutrosContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Outros:</span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatEnergy(
-          outros
-        )}</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${
+          _displayGroup('outros', outros, 'energy').html
+        }</span>
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Equipamentos:</span>
@@ -3332,7 +3561,7 @@ function buildBanheirosContent() {
           <div class="myio-info-tooltip__category-info">
             <div class="myio-info-tooltip__category-name">${label}</div>
           </div>
-          <span class="myio-info-tooltip__category-value">${formatValue(value, 'water')}</span>
+          <span class="myio-info-tooltip__category-value">${_displayDevice(device, value, 'water').html}</span>
         </div>
       `;
     });
@@ -3367,7 +3596,7 @@ function buildBanheirosContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Total:</span>
-        <span class="myio-info-tooltip__value">${formatValue(banheiros, 'water')}</span>
+        <span class="myio-info-tooltip__value">${_displayGroup('banheiros', banheiros, 'water').html}</span>
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Percentual:</span>
@@ -3429,29 +3658,29 @@ function buildPontosNaoMapeadosContent() {
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">📥 Entrada (Total):</span>
-        <span class="myio-info-tooltip__value">${formatValue(entrada, 'water')}</span>
+        <span class="myio-info-tooltip__value">${_displayGroup('entrada', entrada, 'water').html}</span>
       </div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">➖ Lojas:</span>
-        <span class="myio-info-tooltip__value">${formatValue(lojas, 'water')}</span>
+        <span class="myio-info-tooltip__value">${_displayGroup('lojas', lojas, 'water').html}</span>
       </div>
       ${
         STATE_WATER.includeBathrooms
           ? `
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">➖ Banheiros:</span>
-        <span class="myio-info-tooltip__value">${formatValue(banheiros, 'water')}</span>
+        <span class="myio-info-tooltip__value">${_displayGroup('banheiros', banheiros, 'water').html}</span>
       </div>
       `
           : ''
       }
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">➖ Área Comum:</span>
-        <span class="myio-info-tooltip__value">${formatValue(areaComum, 'water')}</span>
+        <span class="myio-info-tooltip__value">${_displayGroup('areaComumOnly', areaComum, 'water').html}</span>
       </div>
       <div class="myio-info-tooltip__row" style="border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
         <span class="myio-info-tooltip__label"><strong>= Não Mapeados:</strong></span>
-        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${formatValue(pontosNaoMapeados, 'water')} (${pontosNaoMapeadosPerc.toFixed(2).replace('.', ',')}%)</span>
+        <span class="myio-info-tooltip__value myio-info-tooltip__value--highlight">${_displayGroup('pontosNaoMapeados', pontosNaoMapeados, 'water').html} (${pontosNaoMapeadosPerc.toFixed(2).replace('.', ',')}%)</span>
       </div>
     </div>
 
@@ -3760,17 +3989,9 @@ function _buildSimpleGroupContent(opts) {
         <span class="myio-info-tooltip__value">${Number(perc).toFixed(2).replace('.', ',')}%</span>
       </div>`;
   const expandHtml = devices && devices.length ? buildDeviceExpandList(id, devices, formatFn) : '';
-  // RFC-0241 Part B: total do tooltip em R$ (+ físico) só com todos os devices completos.
-  // Total que inclui residual (Área Comum calculada) nunca vira R$ em v1.
-  let moneyTotal = devices && devices.length ? _moneyGroupHTML(devices, formatFn(total)) : null;
-  if (moneyTotal && opts.moneyHasResidual) {
-    moneyTotal = {
-      html:
-        `${formatFn(total)}<span class="myio-money-coverage" title="Área Comum residual não é valorada" ` +
-        `style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;font:600 10px Nunito,sans-serif;` +
-        `background:#fef3c7;color:#92400e;">Cobertura incompleta</span>`,
-    };
-  }
+  // RFC-0241 Part B / ED-1389: modo R$ → total em R$ ou "-" (+ chip), via `moneyDisplay`
+  // (Entrada e totais com residual são sempre "-"). Modo físico: formatFn de sempre.
+  const totalHtml = _moneyMode() && typeof opts.moneyDisplay === 'function' ? opts.moneyDisplay().html : formatFn(total);
   const devicesSection = expandHtml ? `
     <div class="myio-info-tooltip__section">
       <div class="myio-info-tooltip__section-title">
@@ -3783,7 +4004,7 @@ function _buildSimpleGroupContent(opts) {
       <div class="myio-info-tooltip__section-title"><span>📊</span> Resumo</div>
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">Total:</span>
-        <span class="myio-info-tooltip__value">${moneyTotal ? moneyTotal.html : formatFn(total)}</span>
+        <span class="myio-info-tooltip__value">${totalHtml}</span>
       </div>
       ${percRow}
       <div class="myio-info-tooltip__row">
@@ -3813,6 +4034,7 @@ function buildEntradaContent() {
       devices,
       formatFn: formatEnergy,
       footerHtml: buildExportFooter('energy', 'entrada'),
+      moneyDisplay: () => _displayGroup('entrada', STATE?.entrada?.total || 0),
       noticeText: 'Soma de todos os medidores de <strong>Entrada</strong> do shopping (transformadores e relógios principais).',
     }) + buildTransformadoresInfoSection() + buildExcludedFromEntradaNotice()
   ); // RFC-0234
@@ -3829,6 +4051,7 @@ function buildLojasContent() {
     devices,
     formatFn: formatEnergy,
     footerHtml: buildExportFooter('energy', 'lojas'),
+    moneyDisplay: () => _displayGroup('lojas', STATE?.consumidores?.lojas?.total || 0),
     noticeText: 'Consumo agregado das lojas medidas individualmente.',
   });
 }
@@ -3844,6 +4067,7 @@ function buildElevadoresContent() {
     devices,
     formatFn: formatEnergy,
     footerHtml: buildExportFooter('energy', 'elevadores'),
+    moneyDisplay: () => _displayGroup('elevadores', STATE?.consumidores?.elevadores?.total || 0),
     noticeText: 'Consumo dos elevadores do shopping.',
   });
 }
@@ -3859,6 +4083,7 @@ function buildEscadasRolantesContent() {
     devices,
     formatFn: formatEnergy,
     footerHtml: buildExportFooter('energy', 'escadasRolantes'),
+    moneyDisplay: () => _displayGroup('escadasRolantes', STATE?.consumidores?.escadasRolantes?.total || 0),
     noticeText: 'Consumo das escadas rolantes do shopping.',
   });
 }
@@ -3879,7 +4104,8 @@ function buildTotalConsumidoresContent() {
     footerHtml: buildExportFooter('energy', 'totalConsumidores'),
     // ED-1388: só as categorias que existem na taxonomia do customer
     noticeText: `Soma de todos os consumidores: ${['Lojas', ..._visibleMainCategoryLabels(), 'Outros', 'Área Comum'].join(' + ')}.`,
-    moneyHasResidual: (c.areaComum?.total || 0) > 0, // RFC-0241 Part B
+    // RFC-0241 Part B / ED-1389: todos os grupos (sem filtro); residual > 0 ⇒ "-"
+    moneyDisplay: () => _displayConsumersTotal(total, getWidgetDomain(), false),
   });
 }
 
@@ -3931,8 +4157,9 @@ function buildDeviceExpandList(id, devices, formatFn) {
     .map((d) => {
       const full = cleanLabel(d.label || d.identifier || d.name || '—');
       const display = truncate(full);
-      // RFC-0241 Part B: R$ (físico embaixo) quando o device tem custo estimado completo
-      const val = typeof d.value === 'number' ? _moneyDeviceHTML(d, formatFn(d.value)) : '—';
+      // RFC-0241 Part B / ED-1389: modo R$ → R$ do device ou "-" + chip (físico só no title)
+      const val =
+        typeof d.value === 'number' ? (_moneyMode() ? _moneyDevice(d, formatFn(d.value)).html : formatFn(d.value)) : '—';
       return `<div class="rfc196-device-item">
       <span class="rfc196-device-item__name" title="${escAttr(full)}">${escAttr(display)}</span>
       <span class="rfc196-device-item__value">${val}</span>
@@ -4158,6 +4385,9 @@ function _applyGroupFilterEnergy(filter, $container) {
   // Update Total Consumidores
   $$('#consumidoresTotal').text(formatEnergy(activeTotal));
   $$('#consumidoresPerc').text(activeTotal > 0 ? '(100%)' : '');
+  // ED-1389: modo R$ — o total (e os demais cards) em R$/"-" com a mesma composição
+  _activeConsumersTotal.energy = activeTotal;
+  _applyMoneyToStats('energy');
 }
 
 function _applyGroupFilterWater(filter, $container) {
@@ -4185,6 +4415,9 @@ function _applyGroupFilterWater(filter, $container) {
   // Update water Total Consumidores card
   $$('#waterTotalConsumidores').text(formatValue(activeTotal, 'water'));
   $$('#waterTotalConsumidoresPerc').text(activeTotal > 0 ? '(100%)' : '');
+  // ED-1389: modo R$ — o total (e os demais cards) em R$/"-" com a mesma composição
+  _activeConsumersTotal.water = activeTotal;
+  _applyMoneyToStats('water');
 }
 
 /**
@@ -4483,7 +4716,7 @@ function setupSummaryTooltip() {
 
   // Build summary data function based on domain
   // RFC-0106: Use pre-computed tooltip data from MAIN_VIEW when available
-  const getSummaryData = () => {
+  const buildSummaryData = () => {
     if (isWater) {
       // Water still uses the old method
       const deviceStatusData = aggregateDeviceStatusFromOrchestrator(domain);
@@ -4679,6 +4912,9 @@ function setupSummaryTooltip() {
       'energy'
     );
   };
+
+  // ED-1389: modo R$ → valores do resumo em R$/"-" (lido a cada abertura do tooltip)
+  const getSummaryData = () => _applyMoneyToSummary(buildSummaryData(), domain);
 
   // Attach tooltip
   summaryTooltipCleanup = SummaryTooltip.attach($trigger[0], getSummaryData);
@@ -5297,11 +5533,14 @@ self.onInit = async function () {
   window.addEventListener('myio:measurement-settings-updated', measurementSettingsHandler);
 
   // RFC-0241 Part B: kWh/m³ ↔ R$ e valoração pronta → mesmo re-render do RFC-0108
-  // (gráfico de pizza continua em proporções físicas).
+  // (fatias da pizza continuam em proporções físicas; valores em R$/"-" — ED-1389).
   const moneyDisplayHandler = (ev) => {
     const d = ev?.detail?.domain;
     if (d && d !== getWidgetDomain()) return;
     measurementSettingsHandler(ev);
+    // ED-1389: modal expandido aberto → legenda/tooltip da pizza acompanham sem reabrir
+    const $modal = $J('#modalExpanded');
+    if ($modal.length && $modal.css('display') !== 'none') renderModalChart();
   };
   window.addEventListener('myio:value-display-mode-updated', moneyDisplayHandler);
   window.addEventListener('myio:money-valuation-ready', moneyDisplayHandler);
