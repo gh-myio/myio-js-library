@@ -694,8 +694,8 @@
       "end": "2026-09-21",
       "complete": "",
       "state": "future",
-      "scope": 76,
-      "done": 36,
+      "scope": 80,
+      "done": 37,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -784,7 +784,7 @@
         },
         {
           "date": "2026-11-23",
-          "remaining": 40,
+          "remaining": 43,
           "ideal": 0
         }
       ],
@@ -3767,6 +3767,14 @@
       "type": "Tarefa",
       "priority": "Medium",
       "date": "2026-11-16"
+    },
+    {
+      "key": "ED-1385",
+      "summary": "Add, Replace de produtos",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "type": "Bug",
+      "priority": "Highest",
+      "date": "2026-11-23"
     }
   ]
 }
