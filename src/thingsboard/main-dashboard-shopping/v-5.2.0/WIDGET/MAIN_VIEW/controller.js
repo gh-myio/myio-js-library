@@ -4356,14 +4356,53 @@ Object.assign(window.MyIOUtils, {
 
             LogHelper.log('[MAIN_VIEW] 📦 Received attrs:', attrs);
 
-            CLIENT_ID = attrs?.client_id || '';
-            CLIENT_SECRET = attrs?.client_secret || '';
-            CUSTOMER_ING_ID = attrs?.ingestionId || '';
+            // Fonte oficial das credenciais = integration_setup (JSON gravado pelo modal
+            // Configurações → Setup de Integração, MENU). Atributos soltos do SERVER_SCOPE
+            // (client_id/client_secret/ingestionId/gcdr*) são só FALLBACK legado — quando
+            // usados, emite warning: o customer precisa de revisão no Setup das Integrações.
+            let _intSetup = {};
+            try {
+              const _rawIntSetup = attrs?.integration_setup;
+              _intSetup =
+                (typeof _rawIntSetup === 'string' ? JSON.parse(_rawIntSetup) : _rawIntSetup) || {};
+            } catch (e) {
+              console.warn('[MAIN_VIEW] integration_setup inválido (JSON quebrado):', e?.message);
+              _intSetup = {};
+            }
+            const _ing = _intSetup.ingestion || {};
+            const _gcdr = _intSetup.gcdr || {};
+            const _legacyFallbacks = [];
+            const _pickCred = (jsonVal, attrKey) => {
+              if (jsonVal) return jsonVal;
+              if (attrs?.[attrKey]) {
+                _legacyFallbacks.push(attrKey);
+                return attrs[attrKey];
+              }
+              return '';
+            };
 
-            // RFC-0180: GCDR IDs and API keys from SERVER_SCOPE attrs (single source of truth)
-            gcdrCustomerId = attrs?.gcdrCustomerId || '';
-            gcdrTenantId = attrs?.gcdrTenantId || '';
-            gcdrApiKey = attrs?.gcdrApiKey || '';
+            // client_id + client_secret: par coerente — os dois do JSON, ou os dois do legado.
+            if (_ing.client_id && _ing.client_secret) {
+              CLIENT_ID = _ing.client_id;
+              CLIENT_SECRET = _ing.client_secret;
+            } else {
+              CLIENT_ID = _pickCred('', 'client_id');
+              CLIENT_SECRET = _pickCred('', 'client_secret');
+            }
+            CUSTOMER_ING_ID = _pickCred(_ing.ingestionId, 'ingestionId');
+
+            // RFC-0180: GCDR IDs and API keys (integration_setup.gcdr → fallback attrs soltos)
+            gcdrCustomerId = _pickCred(_gcdr.gcdrCustomerId, 'gcdrCustomerId');
+            gcdrTenantId = _pickCred(_gcdr.gcdrTenantId, 'gcdrTenantId');
+            gcdrApiKey = _pickCred(_gcdr.gcdrApiKey, 'gcdrApiKey');
+
+            if (_legacyFallbacks.length) {
+              console.warn(
+                `[MAIN_VIEW] ⚠️ Customer ${customerTB_ID} usando credenciais LEGADAS do SERVER_SCOPE ` +
+                  `(${_legacyFallbacks.join(', ')}) — integration_setup incompleto. ` +
+                  'O customer precisa de revisão em Configurações → Setup de Integração.'
+              );
+            }
             // RFC-0193: read alarm notifications toggle from SERVER_SCOPE (undefined → enabled)
             alarmNotificationsEnabled = attrs?.alarmNotificationsEnabled !== false;
             // RFC-0194: customer default dashboard config (full object stored for management UI)
