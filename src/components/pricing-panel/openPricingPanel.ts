@@ -44,6 +44,7 @@ import { injectPricingPanelStyles } from './styles';
 import { TariffApiClient } from './tariffApiClient';
 import { TariffApiAdapter } from './tariffApiAdapter';
 import { mountCategoriesTab, type CategoriesTabHandle } from './categoriesTab';
+import { openConfirmDialog } from '../premium-modals/dialog';
 
 const MODAL_ID = 'myio-pricing-panel';
 
@@ -76,6 +77,23 @@ function resolveThemeVars(explicit?: PricingPanelThemeSource): Record<string, st
       ? (theme as { cssVars(): Record<string, string> }).cssVars()
       : (theme as Record<string, string>);
   return vars && typeof vars === 'object' ? vars : null;
+}
+
+// ED-1386 — modo claro/escuro do diálogo de confirmação: mesma fonte da paleta do
+// painel (`mode` do createMyIOTheme), senão o toggle do dashboard, senão claro.
+function resolveDialogTheme(explicit?: PricingPanelThemeSource): 'light' | 'dark' {
+  const utils =
+    typeof window !== 'undefined'
+      ? (window as { MyIOUtils?: { theme?: PricingPanelThemeSource; currentTheme?: string } }).MyIOUtils
+      : undefined;
+  const mode = ((explicit || utils?.theme) as { mode?: unknown } | undefined)?.mode;
+  if (mode === 'dark' || mode === 'light') return mode;
+  return utils?.currentTheme === 'dark' ? 'dark' : 'light';
+}
+
+function isoToBR(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
 }
 
 function isSuperAdmin(): boolean {
@@ -258,6 +276,8 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   // Não existe lista embutida: sem fonte → erro e "Add período" bloqueado.
   let categories: TariffCategory[] | null = null; // null = carregando / falhou
   let categoriesError: string | null = null;
+  // ED-1386 — exclusão em andamento (diálogo aberto ou DELETE pendente): ✕ e Add desabilitados.
+  let removing = false;
 
   const customerOptions = customers
     .map((c) => `<option value="${escapeHtml(resolveCustomerId(c))}">${escapeHtml(c.title)}</option>`)
@@ -367,6 +387,12 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   requestAnimationFrame(() => modal.classList.add('show'));
   wireClose();
 
+  // Host dos diálogos de confirmação (exclusão de tarifa e de categoria): montado
+  // dentro do painel para abrir POR CIMA dele (o painel tem z-index 999999).
+  const dialogHost = doc.createElement('div');
+  dialogHost.className = 'myio-pricing__dialog-host';
+  modal.appendChild(dialogHost);
+
   // ---- Element refs ----
   const $ = <T extends HTMLElement>(sel: string): T => modal.querySelector(sel) as T;
   const customerSel = $<HTMLSelectElement>('#myio-pricing-customer');
@@ -394,6 +420,10 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
 
   // ---- Categorias (GCDR) ----
   const activeCategories = (): TariffCategory[] => (categories || []).filter((c) => c.isActive !== false);
+  // Regra única do "Add período": sem categoria ativa ou com exclusão em andamento → desabilitado.
+  const syncAddBtn = (): void => {
+    addBtn.disabled = removing || categories === null || activeCategories().length === 0;
+  };
   function renderCategoryOptions(): void {
     const previous = categorySel.value;
     if (categories === null) {
@@ -401,7 +431,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
         categoriesError ? 'Erro ao carregar categorias' : 'Carregando categorias…'
       )}</option>`;
       categorySel.disabled = true;
-      addBtn.disabled = true;
+      syncAddBtn();
       return;
     }
     const active = activeCategories();
@@ -415,7 +445,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
     const wanted = [previous, params.category || ''].find((k) => k && keys.includes(k));
     categorySel.value = wanted || keys[0] || '';
     categorySel.disabled = keys.length === 0;
-    addBtn.disabled = keys.length === 0;
+    syncAddBtn();
     if (keys.length === 0) showError('Nenhuma categoria de tarifa ativa no GCDR para este customer.');
   }
   function setCategories(list: TariffCategory[] | null, error: string | null = null): void {
@@ -445,9 +475,6 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   let categoriesTab: CategoriesTabHandle | null = null;
   const categoriesPanel = modal.querySelector<HTMLElement>('[data-panel="categories"]');
   if (client && categoriesPanel) {
-    const dialogHost = doc.createElement('div');
-    dialogHost.className = 'myio-pricing__dialog-host';
-    modal.appendChild(dialogHost);
     categoriesTab = mountCategoriesTab({
       container: categoriesPanel,
       client,
@@ -499,11 +526,12 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   syncPeriodFields();
   syncUnit();
 
-  type PersistChange = { kind: 'upsert' | 'remove'; entry: PricingEntry };
+  type PersistChange = { kind: 'upsert'; entry: PricingEntry };
 
   // Surface an adapter/API failure in the form error box. A version conflict
   // (RFC-0054 409 TARIFF_VERSION_CONFLICT) is shown, never swallowed.
-  function surfaceApiError(err: unknown): void {
+  // `reloaded` (só para 'delete'): se a lista foi recarregada do GCDR após a falha.
+  function surfaceApiError(err: unknown, action: 'save' | 'delete' | 'load' = 'save', reloaded = true): void {
     const code = (err as { code?: string })?.code;
     if (code === 'TARIFF_VERSION_CONFLICT') {
       const cv = (err as { currentVersion?: number }).currentVersion;
@@ -514,14 +542,26 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
       );
       return;
     }
+    if (action === 'delete') {
+      showError(
+        `Falha ao excluir a tarifa no servidor${code ? ` (${code})` : ''}. ` +
+          (reloaded ? 'A lista foi recarregada.' : 'Não foi possível recarregar a lista; feche e abra o painel.')
+      );
+      return;
+    }
+    if (action === 'load') {
+      showError(`Não foi possível carregar as tarifas do GCDR${code ? ` (${code})` : ''}.`);
+      return;
+    }
     showError(`Falha ao salvar a tarifa no servidor${code ? ` (${code})` : ''}.`);
   }
 
   // Reload the selected customer's categories (GCDR) and tariffs, and merge into state.
-  async function loadFromApi(): Promise<void> {
-    if (!adapter) return;
+  // Resolves true only when both loaded and the list was re-rendered from the server.
+  async function loadFromApi(): Promise<boolean> {
+    if (!adapter) return false;
     const customerId = customerSel.value;
-    if (!customerId) return;
+    if (!customerId) return false;
     setCategories(null);
     try {
       setCategories(await adapter.listCategories(customerId, { includeInactive: true }));
@@ -531,10 +571,10 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
         null,
         `Não foi possível carregar as categorias de tarifa do GCDR${code ? ` (${code})` : ''}.`
       );
-      return;
+      return false;
     }
     clearError();
-    if (!categories || categories.length === 0) return;
+    if (!categories || categories.length === 0) return false;
     try {
       const loaded = await adapter.loadEntriesForCustomer(
         customerId,
@@ -542,18 +582,19 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
       );
       entries = entries.filter((e) => e.customerId !== customerId).concat(loaded);
       renderList();
+      return true;
     } catch (err) {
-      surfaceApiError(err);
+      surfaceApiError(err, 'load');
+      return false;
     }
   }
 
   const persist = (changed?: PersistChange): void => {
     if (adapter) {
       // Tariff-API path: write through the adapter; never localStorage.
+      // (Remoção não passa por aqui: confirmAndRemove aguarda o DELETE antes.)
       if (changed?.kind === 'upsert') {
-        adapter.saveEntry(changed.entry.customerId, changed.entry).catch(surfaceApiError);
-      } else if (changed?.kind === 'remove') {
-        adapter.deleteEntry(changed.entry.customerId, changed.entry).catch(surfaceApiError);
+        adapter.saveEntry(changed.entry.customerId, changed.entry).catch((err) => surfaceApiError(err));
       }
       if (typeof params.onSave === 'function') params.onSave(entries.map((e) => ({ ...e })));
       emit('save', entries.map((e) => ({ ...e })));
@@ -604,31 +645,86 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
     emptyEl.style.display = rows.length ? 'none' : '';
 
     listEl.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach((btn) => {
+      btn.disabled = removing;
       btn.addEventListener('click', () => {
         const [domain, category, boundsKey] = String(btn.getAttribute('data-remove')).split('|');
-        const removedEntry = entries.find((e) => {
+        const target = entries.find((e) => {
           if (e.customerId !== customerId || e.domain !== domain || e.category !== category) return false;
           const b = entryBounds(e);
           return Boolean(b && `${b.start}__${b.end}` === boundsKey);
         });
-        const result = removeEntryByBounds(
-          entries,
-          {
-            customerId,
-            domain: domain as PricingDomain,
-            category: category as PricingCategory,
-            boundsKey,
-          },
-          { by: author }
-        );
-        entries = result.entries;
-        pushAudit(result.audit);
-        persist(removedEntry ? { kind: 'remove', entry: removedEntry } : undefined);
-        renderList();
-        emit('remove', result.audit);
+        if (target) void confirmAndRemove(target, boundsKey);
       });
     });
   };
+
+  // ---- ED-1386: exclusão com confirmação ----
+  function removeConfirmMessage(e: PricingEntry): string {
+    const b = entryBounds(e);
+    const period = b ? `${isoToBR(b.start)} a ${isoToBR(b.end)}` : formatPeriodLabel(e);
+    return [
+      'Tem certeza que deseja excluir esta tarifa? Esta ação não pode ser desfeita.',
+      '',
+      `Domínio: ${DOMAIN_LABEL[e.domain]}`,
+      `Categoria: ${categoryLabel(e.category, categories)}`,
+      `Período: ${period}`,
+      `Preço: ${formatBRL(e.pricePerKwh)} ${unitLabel(e.domain)}`,
+    ].join('\n');
+  }
+
+  // Confirma no diálogo premium (RFC-0205) e só então exclui. Com a API de tarifas,
+  // o DELETE é aguardado: a linha só sai da lista depois do sucesso; em erro a
+  // lista é recarregada do GCDR (pode ter havido exclusão parcial, um DELETE por dia).
+  async function confirmAndRemove(target: PricingEntry, boundsKey: string): Promise<void> {
+    if (removing) return;
+    removing = true;
+    syncAddBtn();
+    renderList();
+    try {
+      const choice = await openConfirmDialog({
+        title: 'Excluir Tarifa',
+        message: removeConfirmMessage(target),
+        buttons: [
+          // Foco inicial em Cancelar: Enter por reflexo não exclui (ED-1386).
+          { label: 'Cancelar', value: 'cancel', variant: 'secondary', autoFocus: true },
+          { label: 'Excluir', value: 'confirm', variant: 'danger' },
+        ],
+        theme: resolveDialogTheme(params.theme),
+        container: dialogHost,
+      });
+      if (choice !== 'confirm' || closed) return;
+      clearError();
+      if (adapter) {
+        try {
+          await adapter.deleteEntry(target.customerId, target);
+        } catch (err) {
+          const reloaded = await loadFromApi();
+          surfaceApiError(err, 'delete', reloaded);
+          return;
+        }
+      }
+      const result = removeEntryByBounds(
+        entries,
+        {
+          customerId: target.customerId,
+          domain: target.domain,
+          category: target.category,
+          boundsKey,
+        },
+        { by: author }
+      );
+      entries = result.entries;
+      pushAudit(result.audit);
+      persist();
+      emit('remove', result.audit);
+    } finally {
+      removing = false;
+      if (!closed) {
+        syncAddBtn();
+        renderList();
+      }
+    }
+  }
 
   const buildCandidate = (): PricingEntry | { error: string } => {
     const customerId = customerSel.value;
@@ -657,6 +753,7 @@ export function openPricingPanel(params: OpenPricingPanelParams): PricingPanelHa
   };
 
   addBtn.addEventListener('click', () => {
+    if (removing) return; // ED-1386: não salva com uma exclusão em andamento
     clearError();
     const candidate = buildCandidate();
     if ('error' in candidate) {
