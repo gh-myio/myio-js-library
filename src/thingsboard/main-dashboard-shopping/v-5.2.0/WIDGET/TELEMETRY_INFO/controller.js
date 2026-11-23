@@ -268,11 +268,15 @@ let CHART_COLORS = {
 /**
  * ED-1388 — nomes das categorias de energia que existem na taxonomia ATIVA do
  * customer (aplicada pelo MAIN_VIEW em `MyIOUtils.deviceClassificationProfile`,
- * RFC-0234 v2). `null` = mostrar tudo, como antes: sem perfil aplicado, perfil
- * sem `categories`, ou taxonomia degradada (piso baked, que tem todas).
+ * RFC-0234 v2). `null` = mostrar tudo, como antes: widget que não é de energia,
+ * sem perfil aplicado, perfil sem `categories`, ou taxonomia degradada (piso
+ * baked, que tem todas).
  * @returns {Set<string>|null}
  */
 function getEnergyTaxonomyCategories() {
+  // A taxonomia é de ENERGIA: no widget de água (ex.: modal da pizza, que roda em
+  // qualquer domínio) nada é filtrado — comportamento de antes do ED-1388.
+  if (getWidgetDomain() !== 'energy') return null;
   const u = window.MyIOUtils || {};
   if (u.deviceClassificationProfileSource?.degraded) return null;
   const profile = u.deviceClassificationProfile || u.deviceClassificationProfileRaw;

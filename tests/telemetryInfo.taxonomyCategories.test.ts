@@ -119,10 +119,11 @@ function consumidores(overrides: Record<string, number> = {}) {
   };
 }
 
-function makeApi(myioUtils: Record<string, unknown>, cons = consumidores()): Api {
+function makeApi(myioUtils: Record<string, unknown>, cons = consumidores(), domain = 'energy'): Api {
   const src = readFileSync(CONTROLLER, 'utf8');
   const body =
     [
+      'getWidgetDomain',
       'formatEnergy',
       'getEnergyTaxonomyCategories',
       'isEnergyCategoryVisible',
@@ -135,14 +136,88 @@ function makeApi(myioUtils: Record<string, unknown>, cons = consumidores()): Api
     '\nreturn { isEnergyCategoryVisible, _energyChartSlices, buildAreaComumContentEnergy };';
   const win = { MyIOUtils: { formatEnergy: (v: number) => `${v} kWh`, ...myioUtils } };
   const state = { entrada: { total: 100 }, consumidores: cons };
+  const self = { ctx: { settings: { DOMAIN: domain } } };
   // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-  const factory = new Function('STATE', 'window', 'CHART_COLORS', 'console', body) as (
+  const factory = new Function('STATE', 'window', 'CHART_COLORS', 'console', 'self', body) as (
     s: unknown,
     w: unknown,
     c: unknown,
     k: unknown,
+    f: unknown,
   ) => Api;
-  return factory(state, win, CHART_COLORS, console);
+  return factory(state, win, CHART_COLORS, console, self);
+}
+
+/**
+ * Executa as 4 funções REAIS de pizza/legenda (renderPieChart, renderChartLegend,
+ * renderModalChart, renderModalChartLegend) com Chart.js e jQuery simulados, e
+ * devolve o que cada uma desenhou.
+ */
+function renderAll(opts: { domain: string; myioUtils: Record<string, unknown>; includeBathrooms?: boolean }) {
+  const src = readFileSync(CONTROLLER, 'utf8');
+  const body =
+    'let pieChartInstance = null;\nlet modalPieChartInstance = null;\n' +
+    [
+      'getWidgetDomain',
+      'formatEnergy',
+      'getEnergyTaxonomyCategories',
+      'isEnergyCategoryVisible',
+      '_energyChartSlices',
+      'renderPieChart',
+      'renderChartLegend',
+      'renderModalChart',
+      'renderModalChartLegend',
+    ]
+      .map((n) => extractFn(src, n))
+      .join('\n') +
+    '\nrenderPieChart();\nrenderModalChart();';
+
+  const charts: Record<string, { labels: string[]; data: number[]; colors: string[] }> = {};
+  const legendHtml: Record<string, string[]> = {};
+  const jq = (sel: string) => {
+    const o = {
+      empty: () => ((legendHtml[sel] = []), o),
+      append: (html: string) => (legendHtml[sel].push(html), o),
+    };
+    return o;
+  };
+  const doc = { getElementById: (id: string) => ({ id, getContext: () => ({ canvasId: id }) }) };
+  function Chart(this: unknown, target: { id?: string; canvasId?: string }, config: any) {
+    const ds = config.data.datasets[0];
+    charts[target.canvasId || target.id || '?'] = {
+      labels: config.data.labels,
+      data: ds.data,
+      colors: ds.backgroundColor,
+    };
+    return { destroy() {} };
+  }
+  const silent = { log() {}, warn() {}, error() {} };
+  const win = { MyIOUtils: { formatEnergy: (v: number) => `${v} kWh`, ...opts.myioUtils } };
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+  new Function(
+    'STATE', 'STATE_WATER', 'window', 'self', 'document', 'Chart', 'CHART_COLORS', '$J', '$$', 'LogHelper', 'console',
+    body,
+  )(
+    { entrada: { total: 100 }, consumidores: consumidores() },
+    { includeBathrooms: Boolean(opts.includeBathrooms) },
+    win,
+    { ctx: { settings: { DOMAIN: opts.domain } } },
+    doc,
+    Chart,
+    CHART_COLORS,
+    jq,
+    jq,
+    silent,
+    silent,
+  );
+  const labelsOf = (sel: string) =>
+    (legendHtml[sel] || []).map((h) => /legend-label">([^<]+):</.exec(h)?.[1] ?? '?');
+  return {
+    pie: charts.consumptionPieChart,
+    modalPie: charts.modalConsumptionPieChart,
+    legend: labelsOf('#chartLegend'),
+    modalLegend: labelsOf('#modalChartLegend'),
+  };
 }
 
 const customerSource = { source: 'customer', version: 'v_test', degraded: false, reason: null };
@@ -240,5 +315,63 @@ describe('ED-1388 — TELEMETRY_INFO segue a taxonomia GCDR do customer', () => 
     );
     expect(api.isEnergyCategoryVisible('escadasRolantes')).toBe(true);
     expect(keys(api._energyChartSlices())).toContain('escadasRolantes');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Revisão do PR #170 — a taxonomia é de ENERGIA; no domínio água nada muda.
+// As expectativas abaixo são as saídas de antes do ED-1388 (arrays fixos).
+// ---------------------------------------------------------------------------
+const ALL_LABELS = ['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros', 'Área Comum'];
+const ALL_DATA = [40, 10, 0, 30, 5, 15]; // consumidores() — escadas = 0
+const ALL_COLORS = [
+  CHART_COLORS.climatizacao,
+  CHART_COLORS.elevadores,
+  CHART_COLORS.escadasRolantes,
+  CHART_COLORS.lojas,
+  CHART_COLORS.outros,
+  CHART_COLORS.areaComum,
+];
+const taboao = () => ({
+  deviceClassificationProfile: appliedProfile(false),
+  deviceClassificationProfileSource: customerSource,
+});
+
+describe('ED-1388 — domínio água ignora a taxonomia de energia (pizza e legendas como antes)', () => {
+  it('água + taxonomia sem escada rolante: pizza, legenda, modal e legenda do modal iguais a antes do PR', () => {
+    const out = renderAll({ domain: 'water', myioUtils: taboao() });
+
+    expect(out.pie).toEqual({ labels: ALL_LABELS, data: ALL_DATA, colors: ALL_COLORS });
+    expect(out.modalPie).toEqual({ labels: ALL_LABELS, data: ALL_DATA, colors: ALL_COLORS });
+    // legenda principal: sem "Outros" (como sempre foi)
+    expect(out.legend).toEqual(['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Área Comum']);
+    expect(out.modalLegend).toEqual(ALL_LABELS);
+  });
+
+  it('água + banheiros (hideAreaComum) + taxonomia sem escada rolante: igual a antes do PR', () => {
+    const out = renderAll({ domain: 'water', myioUtils: taboao(), includeBathrooms: true });
+    const five = ALL_LABELS.slice(0, 5);
+
+    expect(out.pie).toEqual({ labels: five, data: ALL_DATA.slice(0, 5), colors: ALL_COLORS.slice(0, 5) });
+    expect(out.modalPie).toEqual({ labels: five, data: ALL_DATA.slice(0, 5), colors: ALL_COLORS.slice(0, 5) });
+    expect(out.legend).toEqual(['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas']);
+    expect(out.modalLegend).toEqual(five);
+  });
+
+  it('água: a regra de visibilidade nunca esconde categoria (Área Comum/tooltips também ficam como antes)', () => {
+    const api = makeApi(taboao(), consumidores(), 'water');
+    expect(api.isEnergyCategoryVisible('escadasRolantes')).toBe(true);
+    expect(keys(api._energyChartSlices())).toHaveLength(6);
+  });
+
+  it('energia (Taboão), mesmas funções de render: sem Esc. Rolantes em nenhuma pizza/legenda', () => {
+    const out = renderAll({ domain: 'energy', myioUtils: taboao() });
+    const expected = ['Climatização', 'Elevadores', 'Lojas', 'Outros', 'Área Comum'];
+
+    expect(out.pie.labels).toEqual(expected);
+    expect(out.pie.data).toEqual([40, 10, 30, 5, 15]);
+    expect(out.modalPie.labels).toEqual(expected);
+    expect(out.legend).toEqual(['Climatização', 'Elevadores', 'Lojas', 'Área Comum']);
+    expect(out.modalLegend).toEqual(expected);
   });
 });
