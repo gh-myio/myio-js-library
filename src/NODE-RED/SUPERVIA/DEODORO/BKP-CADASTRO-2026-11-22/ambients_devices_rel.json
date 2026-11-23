@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Central Deodoro - 2026-10-22 (Supervia) — backup pré-realocação p/ Mogi Shopping",
+    "table": "ambients_rfir_devices_rel",
+    "rowCount": 0,
+    "capturedAt": "2026-11-23 00:17 UTC",
+    "source": "dump-cadastro.py → ssh root@201:92b:2197:6dcc:9167:4be7:b2aa:896f · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

@@ -110,12 +110,14 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Central                                                                         | IPv6                                        | Gateway ID                                 | Central ID      | Frequência |
 | ------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------ | --------------- | ---------- |
 | ~~Deodoro~~ ⚠️ **CONDENADA 2026-10-22** — substituída pela central abaixo       | ~~`200:1e6a:69a5:73f1:b18a:e6e:aa68:9229`~~ | ~~`adb43bf6-6107-44fa-b786-6e88c150d779`~~ | —               | —          |
-| Central Deodoro - 2026-10-22                                                    | `201:92b:2197:6dcc:9167:4be7:b2aa:896f`     | `da4f38b5-06e6-4f86-8705-c1e23f2639f9`     | `18.196.25.155` | `20`       |
+| ~~Central Deodoro - 2026-10-22~~ ➡️ **REALOCADA 2026-11-22 p/ Mogi Shopping** (ver seção Mogi) | ~~`201:92b:2197:6dcc:9167:4be7:b2aa:896f`~~ | ~~`da4f38b5-06e6-4f86-8705-c1e23f2639f9`~~ | ~~`18.196.25.155`~~ | ~~`20`~~ |
 | ~~Supervia CCO~~ ⚠️ **QUEIMOU — substituída em 2026-10-05** pela central abaixo | ~~`206:e178:b5ba:16:f028:c0bc:d616:2c5b`~~  | ~~`af8a4c31-aa30-4417-9421-457496bcfe01`~~ | —               | —          |
 | Central Supervia CCO 2026-10-05                                                 | `201:4536:897d:52fc:3bd0:c93f:df9f:51e4`    | `fb924430-a756-4a45-842a-e55b6cb091dc`     | `242.37.202.62` | `45`       |
 | Supervia CTO                                                                    | `202:1c94:dab9:af71:f553:616:615:adbc`      | `6dd63004-1009-4585-bd9f-556d4385e292`     | —               | —          |
 
 > **Central Deodoro - 2026-10-22** — a central reserva **"Central Backup Vitória 2"** (nome original; IPv6 `201:92b:2197:6dcc:9167:4be7:b2aa:896f`, `central_uuid` = `da4f38b5-06e6-4f86-8705-c1e23f2639f9`) foi batizada de **Central Deodoro - 2026-10-22** e **substitui a Deodoro** (`200:1e6a:69a5:73f1:b18a:e6e:aa68:9229`, gateway `adb43bf6-6107-44fa-b786-6e88c150d779`), que foi **condenada**. Central id `[18,196,25,155]` (`18.196.25.155`), frequência `20`.
+>
+> ⚠️ **2026-11-22** — essa mesma central (`da4f38b5-…`) foi **realocada para o Mogi Shopping** (ver *Cliente: MOGI SHOPPING*). Deodoro fica **sem central ativa** até nova substituição.
 
 #### Holding: DIMENSION
 
@@ -163,6 +165,14 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Central Shopping Taboão - 2026-10-19 | `200:223e:1e9f:71b9:f655:ed55:a5e8:295c` | `8324c829-1bc9-4ab8-9bcb-2793ee0f436a` | `207.160.244.105` | `102`      |
 
 > **Central Shopping Taboão** (adicionada 2026-10-19) — `central_uuid` = `8324c829-1bc9-4ab8-9bcb-2793ee0f436a`; central id `[207,160,244,105]` (`207.160.244.105`), frequência `102`. Holding ainda não informada.
+
+#### Cliente: MOGI SHOPPING
+
+| Central                           | IPv6                                    | Gateway ID                             | Central ID      | Frequência |
+| --------------------------------- | --------------------------------------- | -------------------------------------- | --------------- | ---------- |
+| Central Mogi Shopping - 2026-11-22 | `201:92b:2197:6dcc:9167:4be7:b2aa:896f` | `da4f38b5-06e6-4f86-8705-c1e23f2639f9` | `141.5.106.155` | `99`       |
+
+> **Central Mogi Shopping** (2026-11-22) — é a ex-**Central Deodoro - 2026-10-22** (Supervia), ex-"Central Backup Vitória 2", realocada. `central_uuid` = `da4f38b5-06e6-4f86-8705-c1e23f2639f9`. Central id `[141,5,106,155]` (`141.5.106.155`), frequência `99` (na Deodoro eram `18.196.25.155` / `20`). Holding ainda não informada. Scripts MQTT Sync em `src/NODE-RED/MOGI_SHOPPING/CENTRAL-MOGI/mqtt-sync/` **2026-11-22:** cadastro da Deodoro salvo em `src/NODE-RED/SUPERVIA/DEODORO/BKP-CADASTRO-2026-11-22/` + dump completo `/tmp/bkp-deodoro-full-2026-11-22.sql.gz` na central; banco limpo com `clear_all_data_central()` e MQTT Sync recriado (slave #1, addr 200/249). `provision_central` v5.7 instalado e `environment` gravado (`CENTRAL_ID` = `141.5.106.155`, `FREQUENCY` = `99`). Pendente: provisionar os devices do Mogi (`01`).
 
 #### MYIO — PRÉ-SETUP (bancada / referência)
 
@@ -303,8 +313,7 @@ ssh -i id_rsa root@200:658:d18d:2fc2:26ce:e013:29ac:5831
 # Deodoro (Supervia Estações) — ⚠️ CONDENADA 2026-10-22 (substituída pela central abaixo)
 # ssh -i id_rsa root@200:1e6a:69a5:73f1:b18a:e6e:aa68:9229
 
-# Central Deodoro - 2026-10-22 (Supervia Estações) — ex-"Central Backup Vitória 2"
-ssh -i id_rsa root@201:92b:2197:6dcc:9167:4be7:b2aa:896f
+# Central Deodoro - 2026-10-22 (Supervia Estações) — ➡️ REALOCADA 2026-11-22 p/ Mogi Shopping (ver abaixo)
 
 # Supervia CCO (Supervia Estações) — ⚠️ QUEIMOU, SUBSTITUÍDA 2026-10-05
 # ssh -i id_rsa root@206:e178:b5ba:16:f028:c0bc:d616:2c5b
@@ -353,6 +362,9 @@ ssh -i id_rsa root@200:c301:a4e7:529a:780c:9230:2142:9dba
 
 # Central Shopping Taboão - 2026-10-19 (Shopping Taboão SP)
 ssh -i id_rsa root@200:223e:1e9f:71b9:f655:ed55:a5e8:295c
+
+# Central Mogi Shopping - 2026-11-22 (Mogi Shopping) — ex-"Central Deodoro - 2026-10-22"
+ssh -i id_rsa root@201:92b:2197:6dcc:9167:4be7:b2aa:896f
 
 # Central Pre-Setup (bancada / referência)
 ssh -i id_rsa root@204:12fb:5518:d04:d9e1:360d:4ab0:125b

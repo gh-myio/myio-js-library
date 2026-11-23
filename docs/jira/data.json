@@ -11,50 +11,52 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-11-17",
+    "generatedAt": "2026-11-19",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 36,
+    "sprintOpen": 39,
     "backlogOpen": 582,
-    "total": 618
+    "total": 621
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
         "PENDENTE": 9,
         "EM REVISÃO": 4,
-        "Itens Novos": 19,
-        "Em Andamento": 4
+        "Itens Novos": 20,
+        "Em Andamento": 6
       },
       "byType": {
-        "Bug": 8,
-        "Tarefa": 28
+        "Bug": 9,
+        "Tarefa": 30
       },
       "byPriority": {
-        "Medium": 18,
-        "Highest": 8,
+        "Medium": 20,
+        "Highest": 9,
         "Low": 1,
         "High": 9
       },
       "byAssignee": {
         "Rodrigo Lago": 25,
         "Letícia Camargo": 7,
-        "Victor Hugo da Silva": 3,
-        "Luiz Guilherme Martinho Sampaio Ito": 1
+        "Victor Hugo da Silva": 4,
+        "Luiz Guilherme Martinho Sampaio Ito": 2,
+        "Leandro Gadioli Rodrigues": 1
       },
       "byGroup": {
         "Outros": 1,
         "GCDR / Plataforma": 12,
-        "Relatórios / Dashboard": 9,
+        "Relatórios / Dashboard": 10,
         "Souza Aguiar": 1,
         "Shopping da Ilha / SDI": 2,
         "Campinas": 2,
-        "Central / Firmware / HW": 3,
+        "Central / Firmware / HW": 4,
         "Taboão": 4,
         "Ilha Plaza": 1,
-        "Moxuara": 1
+        "Moxuara": 1,
+        "Melicidade": 1
       }
     },
     "backlog": {
@@ -571,10 +573,49 @@
       "status": "Em Andamento",
       "cat": "indeterminate",
       "priority": "Highest",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-11-16",
+      "assignee": "Leandro Gadioli Rodrigues",
+      "updated": "2026-11-18",
       "group": "Moxuara",
       "kind": "unit"
+    },
+    {
+      "key": "ED-1384",
+      "summary": "[Melicidade] Dados de água e energia pararam de ser exibidos no painel desde 07/11",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-18",
+      "group": "Melicidade",
+      "kind": "unit"
+    },
+    {
+      "key": "ED-1385",
+      "summary": "Add, Replace de produtos",
+      "type": "Bug",
+      "sub": false,
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "Highest",
+      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
+      "updated": "2026-11-18",
+      "group": "Central / Firmware / HW",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1386",
+      "summary": "Dashboard - Modal de confirmação de exclusão de tarifa",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-11-19",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
     }
   ],
   "backlog": [
@@ -6723,7 +6764,7 @@
       "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-21",
+      "updated": "2026-09-30",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },

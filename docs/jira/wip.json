@@ -2,7 +2,7 @@
   "meta": {
     "project": "ED",
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-11-17",
+    "generatedAt": "2026-11-19",
     "status": [
       "Em Andamento",
       "EM REVISÃO"
@@ -10,8 +10,8 @@
     "wipLimit": 1,
     "note": "WIP = tickets com status \"Em Andamento\" ou \"EM REVISÃO\". Acordo: 1 por pessoa (inclui \"Aguardando Demanda\" quando ocioso)."
   },
-  "total": 19,
-  "peopleOver": 4,
+  "total": 21,
+  "peopleOver": 3,
   "people": [
     {
       "name": "Letícia Camargo",
@@ -89,10 +89,10 @@
     },
     {
       "name": "Luiz Guilherme Martinho Sampaio Ito",
-      "count": 5,
+      "count": 6,
       "over": true,
       "byStatus": {
-        "Em Andamento": 2,
+        "Em Andamento": 3,
         "EM REVISÃO": 3
       },
       "tickets": [
@@ -109,6 +109,13 @@
           "status": "Em Andamento",
           "summary": "[CENTRAL] Detecção preditiva de falha do medidor 3F (anomalia antes da parada total)",
           "updated": "2026-10-29"
+        },
+        {
+          "key": "ED-1385",
+          "type": "Bug",
+          "status": "Em Andamento",
+          "summary": "Add, Replace de produtos",
+          "updated": "2026-11-18"
         },
         {
           "key": "ED-1200",
@@ -135,10 +142,10 @@
     },
     {
       "name": "Victor Hugo da Silva",
-      "count": 3,
+      "count": 4,
       "over": true,
       "byStatus": {
-        "Em Andamento": 2,
+        "Em Andamento": 3,
         "EM REVISÃO": 1
       },
       "tickets": [
@@ -157,21 +164,44 @@
           "updated": "2026-10-09"
         },
         {
+          "key": "ED-1386",
+          "type": "Tarefa",
+          "status": "Em Andamento",
+          "summary": "Dashboard - Modal de confirmação de exclusão de tarifa",
+          "updated": "2026-11-19"
+        },
+        {
           "key": "ED-1149",
           "type": "Tarefa",
           "status": "EM REVISÃO",
           "summary": "RFC-0229: Migrar Customer Server Scope (TB) → GCDR customer-config, atributo por atributo + settings do widget MAIN_VIEW",
-          "updated": "2026-09-21"
+          "updated": "2026-09-30"
         }
       ]
     },
     {
       "name": "Rodrigo Lago",
-      "count": 2,
-      "over": true,
+      "count": 1,
+      "over": false,
       "byStatus": {
-        "Em Andamento": 1,
         "EM REVISÃO": 1
+      },
+      "tickets": [
+        {
+          "key": "ED-1220",
+          "type": "Tarefa",
+          "status": "EM REVISÃO",
+          "summary": "[API] Public GET /v3/health — structured services (audit/sync/version), items, environment presence, backup",
+          "updated": "2026-09-29"
+        }
+      ]
+    },
+    {
+      "name": "Leandro Gadioli Rodrigues",
+      "count": 1,
+      "over": false,
+      "byStatus": {
+        "Em Andamento": 1
       },
       "tickets": [
         {
@@ -179,14 +209,7 @@
           "type": "Tarefa",
           "status": "Em Andamento",
           "summary": "Moxuara - Ressincronização e redistribuição do consumo",
-          "updated": "2026-11-16"
-        },
-        {
-          "key": "ED-1220",
-          "type": "Tarefa",
-          "status": "EM REVISÃO",
-          "summary": "[API] Public GET /v3/health — structured services (audit/sync/version), items, environment presence, backup",
-          "updated": "2026-09-29"
+          "updated": "2026-11-18"
         }
       ]
     }

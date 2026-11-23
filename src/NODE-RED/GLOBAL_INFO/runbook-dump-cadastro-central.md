@@ -164,5 +164,6 @@ python -I -c "import json,collections;p=r'src\NODE-RED\RAIZ-EDUCACAO\\';L=lambda
 | 2026-11-16 | Campinas Shopping — G1 G2 Hidrômetros | `src/NODE-RED/CAMPINAS/campinas_shopping_hidrometros_g1_g2/` | 20 slaves · 44 channels · 25 ambients · 42 rel · 0 devices_rel · rfir 0/0/0/0 |
 | 2026-11-16 | Campinas Shopping — Subestação Principal | `src/NODE-RED/CAMPINAS/campinas_shopping_subestac_ao_principal/` | 9 slaves · 4 channels · 9 ambients · 25 rel · 0 devices_rel · rfir 0/0/0/0 |
 | 2026-11-16 | Central Shopping Taboão - 2026-10-19 | `src/NODE-RED/SHOPPING-TABOAO/CENTRAL-TABOAO/` | 324 slaves · 211 channels · 202 ambients · 324 rel · 0 devices_rel · rfir 0/0/0/0 |
+| 2026-11-22 | Central Deodoro - 2026-10-22 (backup antes da realocação p/ Mogi Shopping) | `src/NODE-RED/SUPERVIA/DEODORO/BKP-CADASTRO-2026-11-22/` | 56 slaves · 0 channels · 13 ambients · 53 rel · 0 devices_rel · rfir 7/7/40/34 |
 
 > rfir = rfir_devices/remotes/commands/buttons.
