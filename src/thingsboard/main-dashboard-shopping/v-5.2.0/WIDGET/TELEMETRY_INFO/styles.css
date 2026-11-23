@@ -834,6 +834,13 @@ body.modal-open-telemetry-info {
   grid-column: 1 / -1 !important;
 }
 
+/* ED-1388: com um número ímpar de cards de categoria (taxonomia do customer sem
+ * alguma delas), "Outros" ocupa a linha inteira — sem buraco no grid de 2 colunas.
+ * Especificidade maior que `.info-grid .info-card { grid-column: auto !important }`. */
+.info-grid .info-card.info-card--span {
+  grid-column: 1 / -1 !important;
+}
+
 /* RFC-0105: Compact 2-line card layout overrides */
 /* Card structure - ONLY 2 lines: [icon+name...info] and [value...%] */
 /* Note: domain-specific cards excluded - controlled via JS for domain switching */

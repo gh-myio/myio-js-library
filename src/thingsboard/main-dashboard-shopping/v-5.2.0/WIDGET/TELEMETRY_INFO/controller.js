@@ -263,6 +263,80 @@ let CHART_COLORS = {
   areaComum: '#4CAF50', // Green (residual)
 };
 
+// ===================== ED-1388: TAXONOMIA GCDR DO CUSTOMER =====================
+
+/**
+ * ED-1388 — nomes das categorias de energia que existem na taxonomia ATIVA do
+ * customer (aplicada pelo MAIN_VIEW em `MyIOUtils.deviceClassificationProfile`,
+ * RFC-0234 v2). `null` = mostrar tudo, como antes: widget que não é de energia,
+ * sem perfil aplicado, perfil sem `categories`, ou taxonomia degradada (piso
+ * baked, que tem todas).
+ * @returns {Set<string>|null}
+ */
+function getEnergyTaxonomyCategories() {
+  // A taxonomia é de ENERGIA: no widget de água (ex.: modal da pizza, que roda em
+  // qualquer domínio) nada é filtrado — comportamento de antes do ED-1388.
+  if (getWidgetDomain() !== 'energy') return null;
+  const u = window.MyIOUtils || {};
+  if (u.deviceClassificationProfileSource?.degraded) return null;
+  const profile = u.deviceClassificationProfile || u.deviceClassificationProfileRaw;
+  const cats = profile?.domains?.energy?.categories;
+  if (!cats || !Array.isArray(cats.rules)) return null;
+  const names = new Set(cats.rules.map((r) => String(r?.name || '')));
+  if (cats.fallback?.name) names.add(cats.fallback.name);
+  return names;
+}
+
+/**
+ * ED-1388 — o card/fatia/legenda de uma categoria de consumidores aparece?
+ * Só Climatização, Elevadores e Esc. Rolantes dependem da taxonomia; Entrada,
+ * Lojas, Outros (fallback) e Área Comum (residual) aparecem sempre.
+ * @param {string} key - chave de STATE.consumidores
+ * @returns {boolean}
+ */
+function isEnergyCategoryVisible(key) {
+  const TAXONOMY = { climatizacao: 'climatizacao', elevadores: 'elevadores', escadasRolantes: 'escadas_rolantes' };
+  if (!TAXONOMY[key]) return true;
+  const names = getEnergyTaxonomyCategories();
+  if (!names || names.has(TAXONOMY[key])) return true;
+  // Nunca esconder consumo real (ex.: caminho legado processOrchestratorData, que classifica por nome).
+  return (STATE.consumidores?.[key]?.total || 0) > 0;
+}
+
+/**
+ * ED-1388 — fatias de consumidores para a pizza e as legendas, já filtradas pela
+ * taxonomia (ordem e cores de sempre).
+ * @param {{includeOutros?: boolean, includeAreaComum?: boolean}} [opts]
+ * @returns {Array<{key:string,label:string,color:string,value:number,perc:number}>}
+ */
+function _energyChartSlices(opts) {
+  const { includeOutros = true, includeAreaComum = true } = opts || {};
+  const c = STATE.consumidores;
+  const slice = (key, label) => ({
+    key,
+    label,
+    color: CHART_COLORS[key],
+    value: c[key] ? c[key].total || 0 : 0,
+    perc: c[key] ? c[key].perc || 0 : 0,
+  });
+  return [
+    slice('climatizacao', 'Climatização'),
+    slice('elevadores', 'Elevadores'),
+    slice('escadasRolantes', 'Esc. Rolantes'),
+    slice('lojas', 'Lojas'),
+    includeOutros && slice('outros', 'Outros'),
+    includeAreaComum && slice('areaComum', 'Área Comum'),
+  ].filter((s) => s && isEnergyCategoryVisible(s.key));
+}
+
+/** ED-1388 — rótulos das categorias principais visíveis (para textos/fórmulas). */
+function _visibleMainCategoryLabels(labels) {
+  const L = labels || { climatizacao: 'Climatização', elevadores: 'Elevadores', escadasRolantes: 'Esc. Rolantes' };
+  return Object.keys(L)
+    .filter((k) => isEnergyCategoryVisible(k))
+    .map((k) => L[k]);
+}
+
 // RFC-0002: Domain labels for multi-domain support (energy, water, gas)
 const DOMAIN_LABELS = {
   energy: {
@@ -1029,6 +1103,21 @@ function renderStats() {
     $$('#outrosPerc').text('(0%)');
   }
 
+  // ED-1388: Climatização / Elevadores / Esc. Rolantes só aparecem se existirem na
+  // taxonomia GCDR do customer. Com um número ímpar de cards nessa faixa, "Outros"
+  // ocupa a linha inteira (o grid tem 2 colunas — evita um buraco ao lado dele).
+  let _visibleSubCards = 1; // Outros (fallback) sempre aparece
+  [
+    ['climatizacao', '.climatizacao-card'],
+    ['elevadores', '.elevadores-card'],
+    ['escadasRolantes', '.escadas-card'],
+  ].forEach(([key, sel]) => {
+    const visible = isEnergyCategoryVisible(key);
+    $$(sel).toggle(visible);
+    if (visible) _visibleSubCards++;
+  });
+  $$('.outros-card').toggleClass('info-card--span', _visibleSubCards % 2 === 1);
+
   // Ãrea Comum (residual)
   $$('#areaComumTotal').text(formatEnergy(STATE.consumidores.areaComum.total));
   $$('#areaComumPerc').text(`(${STATE.consumidores.areaComum.perc.toFixed(2).replace('.', ',')}%)`);
@@ -1112,46 +1201,15 @@ function renderPieChart() {
   // RFC-0056: Hide Área Comum when water domain has bathrooms enabled
   const hideAreaComum = getWidgetDomain() === 'water' && STATE_WATER.includeBathrooms;
 
-  const labels = hideAreaComum
-    ? ['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros']
-    : ['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros', 'Área Comum'];
+  // ED-1388: fatias filtradas pela taxonomia do customer (categoria ausente ⇒ sem fatia)
+  const slices = _energyChartSlices({ includeOutros: true, includeAreaComum: !hideAreaComum });
 
   const data = {
-    labels: labels,
+    labels: slices.map((s) => s.label),
     datasets: [
       {
-        data: hideAreaComum
-          ? [
-              STATE.consumidores.climatizacao.total,
-              STATE.consumidores.elevadores.total,
-              STATE.consumidores.escadasRolantes.total,
-              STATE.consumidores.lojas.total,
-              STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
-            ]
-          : [
-              STATE.consumidores.climatizacao.total,
-              STATE.consumidores.elevadores.total,
-              STATE.consumidores.escadasRolantes.total,
-              STATE.consumidores.lojas.total,
-              STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
-              STATE.consumidores.areaComum.total,
-            ],
-        backgroundColor: hideAreaComum
-          ? [
-              CHART_COLORS.climatizacao, // #00C896 (Teal)
-              CHART_COLORS.elevadores, // #5B2EBC (Purple)
-              CHART_COLORS.escadasRolantes, // #FF6B6B (Red)
-              CHART_COLORS.lojas, // #FFC107 (Yellow)
-              CHART_COLORS.outros, // #9C27B0 (Deep Purple)
-            ]
-          : [
-              CHART_COLORS.climatizacao, // #00C896 (Teal)
-              CHART_COLORS.elevadores, // #5B2EBC (Purple)
-              CHART_COLORS.escadasRolantes, // #FF6B6B (Red)
-              CHART_COLORS.lojas, // #FFC107 (Yellow)
-              CHART_COLORS.outros, // #9C27B0 (Deep Purple)
-              CHART_COLORS.areaComum, // #4CAF50 (Green)
-            ],
+        data: slices.map((s) => s.value),
+        backgroundColor: slices.map((s) => s.color),
         borderColor: '#FFFFFF', // â† Light border
         borderWidth: 2,
         hoverBorderWidth: 3,
@@ -1213,42 +1271,8 @@ function renderChartLegend() {
 
   const hideAreaComum = getWidgetDomain() === 'water' && STATE_WATER.includeBathrooms;
 
-  const items = [
-    {
-      label: 'Climatização',
-      color: CHART_COLORS.climatizacao,
-      value: STATE.consumidores.climatizacao.total,
-      perc: STATE.consumidores.climatizacao.perc,
-    },
-    {
-      label: 'Elevadores',
-      color: CHART_COLORS.elevadores,
-      value: STATE.consumidores.elevadores.total,
-      perc: STATE.consumidores.elevadores.perc,
-    },
-    {
-      label: 'Esc. Rolantes',
-      color: CHART_COLORS.escadasRolantes,
-      value: STATE.consumidores.escadasRolantes.total,
-      perc: STATE.consumidores.escadasRolantes.perc,
-    },
-    {
-      label: 'Lojas',
-      color: CHART_COLORS.lojas,
-      value: STATE.consumidores.lojas.total,
-      perc: STATE.consumidores.lojas.perc,
-    },
-  ];
-
-  // Only add Área Comum if not hidden
-  if (!hideAreaComum) {
-    items.push({
-      label: 'Área Comum',
-      color: CHART_COLORS.areaComum,
-      value: STATE.consumidores.areaComum.total,
-      perc: STATE.consumidores.areaComum.perc,
-    });
-  }
+  // ED-1388: itens filtrados pela taxonomia. Esta legenda não mostra "Outros" (como antes).
+  const items = _energyChartSlices({ includeOutros: false, includeAreaComum: !hideAreaComum });
 
   items.forEach((item) => {
     const html = `
@@ -1405,43 +1429,11 @@ function renderModalChart() {
   // RFC-0056: 5 or 6 categories for pie chart (hide Área Comum when water + bathrooms)
   const hideAreaComum = getWidgetDomain() === 'water' && STATE_WATER.includeBathrooms;
 
-  const data = hideAreaComum
-    ? [
-        STATE.consumidores.climatizacao.total,
-        STATE.consumidores.elevadores.total,
-        STATE.consumidores.escadasRolantes.total,
-        STATE.consumidores.lojas.total,
-        STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
-      ]
-    : [
-        STATE.consumidores.climatizacao.total,
-        STATE.consumidores.elevadores.total,
-        STATE.consumidores.escadasRolantes.total,
-        STATE.consumidores.lojas.total,
-        STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
-        STATE.consumidores.areaComum.total,
-      ];
-
-  const colors = hideAreaComum
-    ? [
-        CHART_COLORS.climatizacao,
-        CHART_COLORS.elevadores,
-        CHART_COLORS.escadasRolantes,
-        CHART_COLORS.lojas,
-        CHART_COLORS.outros,
-      ]
-    : [
-        CHART_COLORS.climatizacao,
-        CHART_COLORS.elevadores,
-        CHART_COLORS.escadasRolantes,
-        CHART_COLORS.lojas,
-        CHART_COLORS.outros,
-        CHART_COLORS.areaComum,
-      ];
-
-  const labels = hideAreaComum
-    ? ['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros']
-    : ['Climatização', 'Elevadores', 'Esc. Rolantes', 'Lojas', 'Outros', 'Área Comum'];
+  // ED-1388: fatias filtradas pela taxonomia do customer
+  const slices = _energyChartSlices({ includeOutros: true, includeAreaComum: !hideAreaComum });
+  const data = slices.map((s) => s.value);
+  const colors = slices.map((s) => s.color);
+  const labels = slices.map((s) => s.label);
 
   modalPieChartInstance = new Chart(ctx, {
     type: 'pie',
@@ -1509,48 +1501,8 @@ function renderModalChartLegend() {
 
   const hideAreaComum = getWidgetDomain() === 'water' && STATE_WATER.includeBathrooms;
 
-  const items = [
-    {
-      label: 'Climatização',
-      color: CHART_COLORS.climatizacao,
-      value: STATE.consumidores.climatizacao.total,
-      perc: STATE.consumidores.climatizacao.perc,
-    },
-    {
-      label: 'Elevadores',
-      color: CHART_COLORS.elevadores,
-      value: STATE.consumidores.elevadores.total,
-      perc: STATE.consumidores.elevadores.perc,
-    },
-    {
-      label: 'Esc. Rolantes',
-      color: CHART_COLORS.escadasRolantes,
-      value: STATE.consumidores.escadasRolantes.total,
-      perc: STATE.consumidores.escadasRolantes.perc,
-    },
-    {
-      label: 'Lojas',
-      color: CHART_COLORS.lojas,
-      value: STATE.consumidores.lojas.total,
-      perc: STATE.consumidores.lojas.perc,
-    },
-    {
-      label: 'Outros',
-      color: CHART_COLORS.outros,
-      value: STATE.consumidores.outros ? STATE.consumidores.outros.total : 0,
-      perc: STATE.consumidores.outros ? STATE.consumidores.outros.perc : 0,
-    },
-  ];
-
-  // Only add Área Comum if not hidden
-  if (!hideAreaComum) {
-    items.push({
-      label: 'Área Comum',
-      color: CHART_COLORS.areaComum,
-      value: STATE.consumidores.areaComum.total,
-      perc: STATE.consumidores.areaComum.perc,
-    });
-  }
+  // ED-1388: itens filtrados pela taxonomia do customer
+  const items = _energyChartSlices({ includeOutros: true, includeAreaComum: !hideAreaComum });
 
   items.forEach((item) => {
     const html = `<div class="legend-item"><div class="legend-color" style="background: ${
@@ -2759,6 +2711,17 @@ function buildAreaComumContentEnergy() {
   const outros = STATE.consumidores.outros?.total || 0;
   const areaComum = STATE.consumidores.areaComum?.total || 0;
 
+  // ED-1388: só as categorias que existem na taxonomia do customer entram na subtração.
+  const _row = (key, label, value) =>
+    isEnergyCategoryVisible(key)
+      ? `
+      <div class="myio-info-tooltip__row">
+        <span class="myio-info-tooltip__label">➖ ${label}:</span>
+        <span class="myio-info-tooltip__value">${formatEnergy(value)}</span>
+      </div>`
+      : '';
+  const _formulaTerms = ['Lojas', ..._visibleMainCategoryLabels(), 'Outros'].join(' + ');
+
   return `
     <div class="myio-info-tooltip__section">
       <div class="myio-info-tooltip__section-title">
@@ -2771,19 +2734,11 @@ function buildAreaComumContentEnergy() {
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">➖ Lojas:</span>
         <span class="myio-info-tooltip__value">${formatEnergy(lojas)}</span>
-      </div>
-      <div class="myio-info-tooltip__row">
-        <span class="myio-info-tooltip__label">➖ Climatização:</span>
-        <span class="myio-info-tooltip__value">${formatEnergy(climatizacao)}</span>
-      </div>
-      <div class="myio-info-tooltip__row">
-        <span class="myio-info-tooltip__label">➖ Elevadores:</span>
-        <span class="myio-info-tooltip__value">${formatEnergy(elevadores)}</span>
-      </div>
-      <div class="myio-info-tooltip__row">
-        <span class="myio-info-tooltip__label">➖ Esc. Rolantes:</span>
-        <span class="myio-info-tooltip__value">${formatEnergy(escadasRolantes)}</span>
-      </div>
+      </div>${_row('climatizacao', 'Climatização', climatizacao)}${_row(
+        'elevadores',
+        'Elevadores',
+        elevadores
+      )}${_row('escadasRolantes', 'Esc. Rolantes', escadasRolantes)}
       <div class="myio-info-tooltip__row">
         <span class="myio-info-tooltip__label">➖ Outros:</span>
         <span class="myio-info-tooltip__value">${formatEnergy(outros)}</span>
@@ -2799,7 +2754,7 @@ function buildAreaComumContentEnergy() {
     <div class="myio-info-tooltip__section">
       <div class="myio-info-tooltip__section-title">📐 Fórmula</div>
       <div style="font-size: 11px; color: #475569; line-height: 1.5;">
-        Área Comum = Entrada − (Lojas + Climatização + Elevadores + Esc. Rolantes + Outros)
+        Área Comum = Entrada − (${_formulaTerms})
       </div>
     </div>
 
@@ -3255,6 +3210,12 @@ function buildOutrosContent() {
   const outrosCount = STATE.consumidores.outros?.devices?.length || 0;
   // RFC-0106: Get subcategories from STATE.consumidores (pre-computed in MAIN_VIEW)
   const subcategoriesData = STATE.consumidores.outros?.subcategories || null;
+  // ED-1388: categorias principais que existem na taxonomia do customer (para o aviso)
+  const _outrosMainCats = _visibleMainCategoryLabels({
+    climatizacao: 'Climatização',
+    elevadores: 'Elevadores',
+    escadasRolantes: 'Escadas Rolantes',
+  });
 
   // Subcategory icons
   const subcatIcons = {
@@ -3340,7 +3301,7 @@ function buildOutrosContent() {
     <div class="myio-info-tooltip__notice">
       <span class="myio-info-tooltip__notice-icon">💡</span>
       <div class="myio-info-tooltip__notice-text">
-        O valor de <strong>Outros Equipamentos</strong> inclui todos os dispositivos que não se enquadram nas categorias principais (Climatização, Elevadores, Escadas Rolantes).
+        O valor de <strong>Outros Equipamentos</strong> inclui todos os dispositivos que não se enquadram nas categorias principais${_outrosMainCats.length ? ` (${_outrosMainCats.join(', ')})` : ''}.
       </div>
     </div>
   `;
@@ -3916,7 +3877,8 @@ function buildTotalConsumidoresContent() {
     devices: allDevices,
     formatFn: formatEnergy,
     footerHtml: buildExportFooter('energy', 'totalConsumidores'),
-    noticeText: 'Soma de todos os consumidores: Lojas + Climatização + Elevadores + Esc. Rolantes + Outros + Área Comum.',
+    // ED-1388: só as categorias que existem na taxonomia do customer
+    noticeText: `Soma de todos os consumidores: ${['Lojas', ..._visibleMainCategoryLabels(), 'Outros', 'Área Comum'].join(' + ')}.`,
     moneyHasResidual: (c.areaComum?.total || 0) > 0, // RFC-0241 Part B
   });
 }
@@ -4698,7 +4660,8 @@ function setupSummaryTooltip() {
                     ].filter((c) => c.deviceCount > 0)
                   : undefined,
               },
-            ],
+              // ED-1388: categoria ausente na taxonomia do customer não aparece no resumo
+            ].filter((c) => isEnergyCategoryVisible(c.id)),
           },
         ],
         byStatus: tooltipData.deviceStatusAggregation,
