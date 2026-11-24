@@ -24,12 +24,6 @@ import {
 import type { Granularity, GranularitySelectorInstance } from '../../granularity-selector';
 import { createModalFooter } from '../footer-modal';
 import type { ModalFooterInstance } from '../footer-modal';
-// RFC-0228 A6 — R$ money column (additive + gated). `createReportMoneyColumn(undefined)`
-// yields a disabled column whose HTML methods all return '' → byte-identical when off.
-import {
-  createReportMoneyColumn,
-  type ReportMoneyColumn,
-} from '../../financial-goals/reportMoneyColumn';
 // RFC-0228 A7 — per-consumer realized-vs-goal R$ variance chip (additive + gated).
 // `createMoneyVarianceColumn(undefined)` (or a config without `perDeviceGoal`) yields
 // a disabled column whose HTML methods all return '' → byte-identical when off.
@@ -37,11 +31,29 @@ import {
   createMoneyVarianceColumn,
   type MoneyVarianceColumn,
 } from '../../financial-goals/moneyVariance';
-import { injectCoverageStyles } from '../../financial-goals/coverageStyles';
-// RFC-0241 Part B (rev. 2) — R$ nos exports e nas linhas Diário/Horário (valuateBucket).
-import { formatBRL as formatMoneyBRL } from '../../financial-goals/moneyFormat';
-import { roundMoney2, sumItemMoney } from '../../financial-goals/tariffValuation';
+// RFC-0241 Part B (rev. 2) — R$ nas linhas Diário/Horário (valuateBucket).
+import { sumItemMoney } from '../../financial-goals/tariffValuation';
+import { MONEY_INCOMPLETE_LABEL } from '../../financial-goals/moneyDisplay';
 import type { AllReportMoneyConfig } from '../types';
+// ED-1391 — modo R$ substitutivo: o relatório todo em reais (camada pura).
+import {
+  MONEY_NO_VALUE,
+  MONEY_NOT_VALUED_LABEL,
+  MONEY_NOT_VALUED_TEXT,
+  MONEY_PERC_HEADER,
+  MONEY_VALUE_HEADER,
+  moneyCellText,
+  moneyCsvText,
+  moneyGroupSummary,
+  moneyKpis,
+  moneyNumber,
+  moneyText,
+  moneyTotalNotes,
+  moneyTotalView,
+  rowMoneyCellHTML,
+  rowMoneyView,
+  type RowMoneyView,
+} from './allReportMoneyView';
 import { DEFAULT_CLAMP_RANGE } from '../../temperature/utils';
 import { renderTemperatureBarsPng } from '../internal/temperatureBarsPng';
 
@@ -122,7 +134,8 @@ export class AllReportModal {
   private dateRangePicker: DateRangeControl | null = null;
   private currentPage = 1;
   private itemsPerPage = 10;
-  private sortField: keyof StoreReading = 'consumption';
+  // 'money' = custo estimado (ED-1391, modo R$) — chave virtual, não é campo de StoreReading
+  private sortField: keyof StoreReading | 'money' = 'consumption';
   private sortDirection: 'asc' | 'desc' = 'desc';
   private searchFilter = '';
 
@@ -174,13 +187,12 @@ export class AllReportModal {
   // Os botões de export vivem AQUI (removidos da toolbar).
   private modalFooter: ModalFooterInstance | null = null;
 
-  // RFC-0228 A6 — R$ money column. Disabled (all fragments '') when params.money is
-  // absent, so the table/summary stay byte-identical to the pre-A6 report.
-  private moneyColumn: ReportMoneyColumn;
-
   // RFC-0228 A7 — per-consumer realized-vs-goal R$ variance column. Disabled (all
   // fragments '') when params.money.perDeviceGoal is absent → byte-identical.
   private varianceColumn: MoneyVarianceColumn;
+
+  // ED-1391 — modo do filtro criado (o modal de filtro é recriado quando R$ ⇄ físico)
+  private filterModalMoneyMode: boolean | null = null;
 
   constructor(private params: OpenAllReportParams) {
     this.authClient = new AuthClient({
@@ -197,15 +209,11 @@ export class AllReportModal {
     // climatizável) > 1d nos demais domínios.
     this.granularity = params.granularity ?? (domain === 'temperature' ? '1h' : '1d');
 
+    // ED-1391: modo R$ ordena pelo custo (devices sem R$ por último)
+    if (params.money && domain !== 'temperature') this.sortField = 'money';
+
     // Set debug flag from params (1 = enabled, 0 = disabled)
     this.debugEnabled = params.debug === 1;
-
-    // RFC-0228 A6 — gate: no `money` config → disabled column (all HTML '' → byte-identical).
-    this.moneyColumn = createReportMoneyColumn(this.activeMoney());
-    if (this.moneyColumn.enabled && typeof document !== 'undefined') {
-      // A4 coverage indicator (incomplete/unavailable total) needs its stylesheet.
-      injectCoverageStyles(document);
-    }
 
     // RFC-0228 A7 — gate: no `money.perDeviceGoal` → disabled column (all HTML '').
     // Realized R$ reuses A6's per-device map; the goal comes from perDeviceGoal.
@@ -262,58 +270,73 @@ export class AllReportModal {
     };
   }
 
-  /** RFC-0241 rev. 2 — R$ of one series bucket (Diário/Horário), or null when money is off. */
+  /**
+   * ED-1391 — modo R$ **substitutivo**: com `money` (energia/água) no período em que o R$
+   * foi calculado, o relatório é todo em reais (grid, KPIs, grupos, série, filtro,
+   * exports). Outro período (PERIOD_MISMATCH) → relatório físico + aviso. Sem `money` →
+   * caminho físico de sempre (byte-idêntico).
+   */
+  private get moneyMode(): boolean {
+    if (!this.params.money || this.isTemperature) return false;
+    return this.activeMoney()?.overlay?.state !== 'unavailable';
+  }
+
+  /**
+   * RFC-0241 rev. 2 — R$ of one series bucket (Diário/Horário). `null` when money is off
+   * or the device is outside the valuation (Entrada / Transformadores → "não valorado").
+   */
   private bucketMoney(id: string, ts: number, gran: '1h' | '1d', qty: number): { state: string; amount?: string } | null {
-    const vb = this.moneyColumn.enabled ? this.activeMoney()?.valuateBucket : undefined;
-    if (!vb || this.isTemperature) return null;
+    const vb = this.moneyMode ? this.activeMoney()?.valuateBucket : undefined;
+    if (!vb) return null;
     const span = gran === '1h' ? 3600 * 1000 : 24 * 3600 * 1000;
-    return vb(id, ts, ts + span, qty) || { state: 'uncategorized' };
+    return vb(id, ts, ts + span, qty) || null;
   }
 
-  /** Money cell for CSV (comma decimal, 2dp) — '' when not complete (never 0). */
-  private csvMoney(amount: string | null | undefined): string {
-    const r = roundMoney2(amount ?? null);
-    return r ? r.replace('.', ',') : '';
+  /** ED-1391 — visão R$ de um device (valor 2dp, `-` + chip, ou "não valorado"). */
+  private moneyViewOf(row: StoreReading): RowMoneyView {
+    return rowMoneyView(this.activeMoney(), row.id);
   }
 
-  /** Header of the R$ column (A6 default for RFC-0228 callers; Part B passes "Custo estimado (R$)"). */
-  private moneyHeaderLabel(): string {
-    return this.params.money?.headerLabel || 'Custo projetado (R$)';
-  }
-
-  /**
-   * CSV footer for the R$ column: the total (BigInt cents, DEC-8 row sum) only when every
-   * row has an amount; otherwise "Cobertura incompleta (n de m)" — never a partial sum.
-   */
-  private moneyTotalCsvRow(rows: StoreReading[]): string[] {
-    const label = `${this.moneyHeaderLabel()} — total`;
-    const amount = this.moneyTotalAmount(rows);
-    if (amount) return [label, '', this.csvMoney(amount)];
-    const covered = rows.filter((r) => this.rowMoney(r.id)).length;
-    return [label, '', `Cobertura incompleta (${covered} de ${rows.length})`];
+  /** Valor físico com unidade — vai no `title` das células em R$. */
+  private physicalText(value: number): string {
+    return `${fmtPt(value)} ${this.domainConfig.unit}`;
   }
 
   /**
-   * Honest R$ total of `rows`: `totalFor(ids)` (round Σ raw of exactly these rows, RFC-0241)
-   * when provided, else the A6 resolution (backend total / 2dp row sum). null = incomplete.
+   * ED-1391 — em modo R$ o seletor abre no período em que o R$ foi calculado (período do
+   * dashboard), em datas de America/Sao_Paulo. Fim exclusivo (00:00 do dia seguinte) e
+   * "até agora" caem no mesmo dia (−1 ms).
    */
-  private moneyTotalAmount(rows: StoreReading[]): string | null {
-    const m = this.activeMoney();
-    if (!m || !this.moneyColumn.enabled) return null;
-    if (typeof m.totalFor === 'function') {
-      if (m.overlay?.state !== 'available') return null;
-      const ids = rows.map((r) => r.id).filter((id): id is string => !!id);
-      return ids.length === rows.length ? m.totalFor(ids) : null;
+  private moneyPresetDates(): { start: string; end: string } | null {
+    const p = this.params.money?.period;
+    if (!this.params.money || this.isTemperature || !p?.startISO || !p?.endISO) return null;
+    const s = Date.parse(p.startISO);
+    const e = Date.parse(p.endISO);
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return null;
+    const spDate = (ts: number) => new Date(ts - SP_OFFSET_MS).toISOString().slice(0, 10);
+    return { start: spDate(s), end: spDate(e - 1) };
+  }
+
+  /** ED-1391 — aviso quando há `money` mas não para o período carregado (relatório físico). */
+  private moneyNoticeText(): string | null {
+    if (!this.params.money || this.isTemperature || this.moneyMode) return null;
+    const unit = this.domainConfig.unit;
+    const reason = (this.activeMoney()?.overlay as { reason?: string } | undefined)?.reason;
+    const p = this.params.money.period;
+    if (reason === 'PERIOD_MISMATCH' && p?.startISO && p?.endISO) {
+      const d = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      const endTs = Date.parse(p.endISO) - 1;
+      return `Valores em R$ disponíveis só para o período do dashboard (${d(p.startISO)}–${d(new Date(endTs).toISOString())}). Exibindo ${unit}.`;
     }
-    const total = this.moneyColumn.resolveTotal(rows.map((r) => this.rowMoney(r.id)));
-    return total && total.kind === 'amount' ? total.amount : null;
+    return `Custo estimado indisponível para este período. Exibindo ${unit}.`;
   }
 
-  /** Per-device period R$ (2dp string) of the loaded period, or null. */
-  private rowMoney(id: string | null | undefined): string | null {
-    if (!id) return null;
-    const v = this.activeMoney()?.perDevice?.[id];
-    return typeof v === 'string' && v.trim() ? v : null;
+  private renderMoneyNotice(): void {
+    const el = typeof document !== 'undefined' ? document.getElementById('money-notice') : null;
+    if (!el) return;
+    const text = this.moneyNoticeText();
+    el.textContent = text || '';
+    el.style.display = text ? 'block' : 'none';
   }
 
   // Debug logging helper
@@ -556,7 +579,15 @@ export class AllReportModal {
 
         <div id="error-container" style="display: none; background: #ffebee; color: #c62828; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
         </div>
-
+${
+  // ED-1391: aviso "R$ só no período do dashboard" — só existe quando há money (físico idêntico)
+  this.params.money && !this.isTemperature
+    ? `
+        <div id="money-notice" role="status" style="display: none; background: #fffbeb; color: #92400e; border: 1px solid #fde68a; padding: 10px 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px;">
+        </div>
+`
+    : ''
+}
         <style>
           /* Split layout: table (left ~70%) + participation chart (right ~30%).
              Below 1100px the chart stacks under the table at full width. */
@@ -749,9 +780,11 @@ export class AllReportModal {
 
     // Initialize DateRangePicker with default current month range
     try {
+      // ED-1391: modo R$ abre no período do dashboard (onde o R$ foi calculado)
+      const moneyPreset = this.moneyPresetDates();
       this.dateRangePicker = await attachDateRangePicker(dateRangeInput, {
-        presetStart: this.getDefaultStartDate(),
-        presetEnd: this.getDefaultEndDate(),
+        presetStart: moneyPreset?.start ?? this.getDefaultStartDate(),
+        presetEnd: moneyPreset?.end ?? this.getDefaultEndDate(),
         // Ciclo de rateio (dia D → dia D do mês seguinte) tem até 32 dias corridos (ex.: 15/08→15/09)
         maxRangeDays: 32,
         parentEl: this.modal.element,
@@ -796,8 +829,15 @@ export class AllReportModal {
       const { startISO, endISO } = this.dateRangePicker.getDates();
       this.debugLog('📅 Date range selected', { startISO, endISO });
       this.exportPeriod = { startISO, endISO };
-      // RFC-0241 rev. 2: R$ só para o período em que foram calculados
-      if (this.params.money) this.moneyColumn = createReportMoneyColumn(this.activeMoney());
+      // RFC-0241 rev. 2 / ED-1391: R$ só para o período em que foram calculados — outro
+      // período carrega físico + aviso; o filtro é recriado quando o modo muda.
+      if (this.params.money) {
+        this.renderMoneyNotice();
+        if (this.filterModal && this.filterModalMoneyMode !== this.moneyMode) {
+          this.filterModal.destroy();
+          this.filterModal = null;
+        }
+      }
       this.hourlySeriesCache = null;
       this.deviceSeriesCache.clear();
       this.temperatureStats.clear();
@@ -884,11 +924,15 @@ export class AllReportModal {
       });
     }
 
+    // ED-1391: ordenação por custo (modo R$) — devices sem R$ ("-") sempre por último
+    const field = this.effectiveSortField();
+    if (field === 'money') return this.sortByMoney(filtered);
+
     return filtered.sort((a, b) => {
       // Sensor sem leitura vai sempre para o fim (não é 0 °C)
       if (!!a.noData !== !!b.noData) return a.noData ? 1 : -1;
-      const aVal = a[this.sortField];
-      const bVal = b[this.sortField];
+      const aVal = a[field];
+      const bVal = b[field];
 
       if (typeof aVal === 'string' && typeof bVal === 'string') {
         return this.sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
@@ -897,6 +941,28 @@ export class AllReportModal {
           ? (aVal as number) - (bVal as number)
           : (bVal as number) - (aVal as number);
       }
+    });
+  }
+
+  /**
+   * ED-1391: a coluna de valor é "custo" em modo R$ e "consumo" no físico — a ordenação
+   * pelo valor acompanha o modo vigente (ex.: período ≠ dashboard volta para consumo).
+   */
+  private effectiveSortField(): keyof StoreReading | 'money' {
+    if (this.sortField === 'money' && !this.moneyMode) return 'consumption';
+    if (this.sortField === 'consumption' && this.moneyMode) return 'money';
+    return this.sortField;
+  }
+
+  // ED-1391: custo desc/asc; sem R$ por último (entre eles, maior consumo primeiro)
+  private sortByMoney(rows: StoreReading[], direction: 'asc' | 'desc' = this.sortDirection): StoreReading[] {
+    const value = new Map(rows.map((r) => [r, moneyNumber(this.moneyViewOf(r).amount)]));
+    return [...rows].sort((a, b) => {
+      const av = value.get(a) ?? null;
+      const bv = value.get(b) ?? null;
+      if ((av === null) !== (bv === null)) return av === null ? 1 : -1;
+      if (av === null || bv === null) return b.consumption - a.consumption;
+      return direction === 'asc' ? av - bv : bv - av;
     });
   }
 
@@ -930,6 +996,8 @@ export class AllReportModal {
   // "Sem Consumo" oculto para temperature (média °C não tem semântica de zero).
   private computeKpis(): Array<{ value: string; label: string; sub?: string }> {
     if (this.isTemperature) return this.computeTemperatureKpis();
+    // ED-1391: modo R$ — total/média/máx/mín em reais; "-" + cobertura quando incompleto
+    if (this.moneyMode) return moneyKpis(this.activeMoney(), this.data);
     const totalConsumption = this.calculateTotalConsumption();
     const storeCount = Math.max(1, this.data.length);
     const maxRow = this.data.reduce(
@@ -961,11 +1029,6 @@ export class AllReportModal {
       },
     ];
     if (!isTemperature) kpis.push({ value: String(zeroCount), label: 'Sem Consumo' });
-
-    // RFC-0228 A6 — additive R$ KPI (only when the money gate is on). Honest total
-    // when coverage is complete, else a coverage label — never R$ 0 / NaN.
-    const moneyKpi = this.computeMoneyKpi();
-    if (moneyKpi) kpis.push(moneyKpi);
 
     return kpis;
   }
@@ -1017,32 +1080,6 @@ export class AllReportModal {
       });
     }
     return kpis;
-  }
-
-  // RFC-0228 A6 — the "Custo projetado (R$)" summary KPI, or null when money is off.
-  // Reuses the A6 column's honest-coverage resolution: a formatted R$ total only when
-  // the overlay is confidently priced (DEC-8), otherwise a coverage state label.
-  private computeMoneyKpi(): { value: string; label: string; sub?: string } | null {
-    if (!this.moneyColumn.enabled) return null;
-    // RFC-0241 rev. 2: round(Σ raw) das linhas exibidas (totalFor) quando o caller o oferece
-    const money = this.activeMoney();
-    if (money && typeof money.totalFor === 'function') {
-      const label = money.headerLabel || 'Custo projetado (R$)';
-      if (money.overlay?.state !== 'available') return { value: 'Indisponível', label };
-      const amount = this.moneyTotalAmount(this.data);
-      return { value: amount ? formatMoneyBRL(amount) : 'Cobertura incompleta', label };
-    }
-    const rowValues = this.data.map((r) => (r.id ? this.activeMoney()?.perDevice?.[r.id] : null));
-    const total = this.moneyColumn.resolveTotal(rowValues);
-    if (!total) return null;
-    const label = this.activeMoney()?.headerLabel || 'Custo projetado (R$)';
-    if (total.kind === 'amount') {
-      return { value: total.formatted, label };
-    }
-    // Coverage state — honest label, never a number (§8-allowed wording).
-    const value =
-      total.overlay.state === 'unavailable' ? 'Indisponível' : 'Cobertura incompleta';
-    return { value, label };
   }
 
   private renderTable(): void {
@@ -1138,7 +1175,7 @@ export class AllReportModal {
     this.updateParticipationChart();
   }
 
-  private sortableTh(field: keyof StoreReading, label: string, style: string): string {
+  private sortableTh(field: keyof StoreReading | 'money', label: string, style: string): string {
     return `<th style="cursor: pointer; ${style}" data-sort="${field}">
                 ${label}
                 <span style="margin-left: 4px; opacity: ${this.getSortOpacity(field)};">${this.getSortIcon(field)}</span>
@@ -1158,18 +1195,24 @@ export class AllReportModal {
         this.sortableTh('max', 'Máx (°C)', 'text-align: right; width: 14%;')
       );
     }
+    // ED-1391: modo R$ — a coluna de valor É o custo (sem coluna extra); % segue físico
+    const money = this.moneyMode;
     return (
       idTh +
       this.sortableTh('name', 'Nome', `width: ${showId ? 40 : 62}%;`) +
-      this.sortableTh('consumption', this.domainConfig.label, 'text-align: right; width: 24%;') +
-      `${this.moneyColumn.headerCellHTML()}${this.varianceColumn.headerCellHTML()}<th style="text-align: right; width: 14%;">%</th>`
+      (money
+        ? this.sortableTh('money', MONEY_VALUE_HEADER, 'text-align: right; width: 24%;')
+        : this.sortableTh('consumption', this.domainConfig.label, 'text-align: right; width: 24%;')) +
+      `${money ? this.varianceColumn.headerCellHTML() : ''}<th style="text-align: right; width: 14%;"${
+        money ? ' title="Participação no consumo físico do período"' : ''
+      }>${money ? MONEY_PERC_HEADER : '%'}</th>`
     );
   }
 
   private columnCount(showId: boolean): number {
     const base = (showId ? 1 : 0) + 1;
     if (this.isTemperature) return base + 3;
-    return base + 2 + (this.moneyColumn.enabled ? 1 : 0) + (this.varianceColumn.enabled ? 1 : 0);
+    return base + 2 + (this.moneyMode && this.varianceColumn.enabled ? 1 : 0);
   }
 
   private renderRowHTML(row: StoreReading, grandTotal: number, showId: boolean): string {
@@ -1206,12 +1249,21 @@ export class AllReportModal {
         avgTd +
         this.minMaxCellHTML(row, 'min') +
         this.minMaxCellHTML(row, 'max');
+    } else if (this.moneyMode) {
+      // ED-1391: célula em R$ (kWh/m³ no title); sem tarifa/não valorado → "-" + chip
+      const pct = grandTotal > 0 ? `${fmtPt((row.consumption / grandTotal) * 100)}%` : MONEY_NO_VALUE;
+      valueTds =
+        `<td data-label="${MONEY_VALUE_HEADER}" style="text-align: right; font-weight: bold;">${rowMoneyCellHTML(
+          this.moneyViewOf(row),
+          this.physicalText(row.consumption)
+        )}</td>` +
+        // RFC-0228 A7 — variance fragment: '' when perDeviceGoal is absent
+        this.varianceColumn.bodyCellHTML(row.id) +
+        `<td data-label="${MONEY_PERC_HEADER}" style="text-align: right; color: var(--myio-text-muted);">${pct}</td>`;
     } else {
       const pct = grandTotal > 0 ? `${fmtPt((row.consumption / grandTotal) * 100)}%` : '—';
       valueTds =
         `<td data-label="${this.domainConfig.label}" style="text-align: right; font-weight: bold;">${fmtPt(row.consumption)}</td>` +
-        // RFC-0228 A6/A7 — money fragments: '' when the gate is off (byte-identical)
-        `${this.moneyColumn.bodyCellHTML(row.id)}${this.varianceColumn.bodyCellHTML(row.id)}` +
         `<td data-label="%" style="text-align: right; color: var(--myio-text-muted);">${pct}</td>`;
     }
 
@@ -1321,28 +1373,35 @@ export class AllReportModal {
       const valueLabel = this.isTemperature
         ? intraday ? 'Temperatura (°C)' : 'Média do dia (°C)'
         : this.domainConfig.label;
-      // RFC-0241 rev. 2: modo R$ — cada linha valorada pelo preço do seu horário/dia
-      // (faixa horária exata em Horário); subtotal só com todas as linhas completas.
-      // (R$ só existe em energia/água, onde a granularidade é 1h|1d)
-      const moneyGran: '1h' | '1d' = intraday ? '1h' : '1d';
-      if (this.bucketMoney(id, points[0].timestamp, moneyGran, points[0].value)) {
-        const money = points.map((p) => this.bucketMoney(id, p.timestamp, moneyGran, p.value));
-        const cell = (m: { state: string; amount?: string } | null) =>
-          m && m.state === 'complete' && m.amount
-            ? formatMoneyBRL(m.amount)
-            : `<span class="rp-muted" title="Sem custo estimado para este intervalo">—</span>`;
-        const sub = sumItemMoney(money as Array<{ state?: string; amount?: string }>);
+      // RFC-0241 rev. 2 / ED-1391: modo R$ — a série é em reais (kWh/m³ no title); cada
+      // linha valorada pelo preço do seu horário/dia (faixa horária exata em Horário);
+      // bucket sem R$ completo → "-"; subtotal só com todas as linhas completas.
+      if (this.moneyMode) {
+        const view = rowMoneyView(this.activeMoney(), id);
+        if (view.scope === 'out') {
+          box.innerHTML = `<span class="rp-muted" data-money-state="not-valued">${MONEY_NOT_VALUED_LABEL} — ${MONEY_NOT_VALUED_TEXT}</span>`;
+          return;
+        }
+        const moneyGran: '1h' | '1d' = intraday ? '1h' : '1d';
+        const money = points.map(
+          (p) => this.bucketMoney(id, p.timestamp, moneyGran, p.value) || { state: 'uncategorized' }
+        );
+        const cell = (m: { state: string; amount?: string }, p: SeriesPoint) =>
+          m.state === 'complete' && m.amount
+            ? `<span title="${this.physicalText(p.value)}">${moneyCellText(m.amount)}</span>`
+            : `<span class="rp-muted" title="Sem custo estimado para este intervalo — ${this.physicalText(p.value)}">${MONEY_NO_VALUE}</span>`;
+        const sub = sumItemMoney(money);
         const subCell =
           sub.state === 'complete' && sub.amount
-            ? formatMoneyBRL(sub.amount)
-            : `<span class="rp-muted">Cobertura incompleta (${sub.covered} de ${sub.total})</span>`;
+            ? moneyCellText(sub.amount)
+            : `${MONEY_NO_VALUE} <span class="rp-muted">${MONEY_INCOMPLETE_LABEL} (${sub.covered} de ${sub.total})</span>`;
         box.innerHTML = `
         <table>
-          <thead><tr><th>${intraday ? 'Data/Hora' : 'Dia'}</th><th class="num">${valueLabel}</th><th class="num">${this.moneyHeaderLabel()}</th></tr></thead>
+          <thead><tr><th>${intraday ? 'Data/Hora' : 'Dia'}</th><th class="num">${MONEY_VALUE_HEADER}</th></tr></thead>
           <tbody>${points
-            .map((p, i) => `<tr><td>${fmtTs(p.timestamp)}</td><td class="num">${fmtPt(p.value)}</td><td class="num" data-money-cell="1">${cell(money[i])}</td></tr>`)
+            .map((p, i) => `<tr><td>${fmtTs(p.timestamp)}</td><td class="num" data-money-cell="1">${cell(money[i], p)}</td></tr>`)
             .join('')}</tbody>
-          <tfoot><tr><td><strong>Subtotal</strong></td><td class="num"><strong>${fmtPt(points.reduce((s, p) => s + p.value, 0))}</strong></td><td class="num" data-money-subtotal="1"><strong>${subCell}</strong></td></tr></tfoot>
+          <tfoot><tr><td><strong>Subtotal</strong></td><td class="num" data-money-subtotal="1"><strong>${subCell}</strong></td></tr></tfoot>
         </table>`;
         return;
       }
@@ -1466,10 +1525,14 @@ export class AllReportModal {
       return;
     }
 
+    // ED-1391: modo R$ — fatias continuam pela participação física (sempre somam 100%);
+    // o valor exibido (tooltip/legenda/barras) é o custo do device ou "-".
+    const money = this.moneyMode;
     const items = this.getFilteredData().map((row) => ({
       id: row.id || this.generateStoreId(row.identifier),
       label: row.name,
       value: row.consumption,
+      ...(money ? { displayValue: moneyText(this.moneyViewOf(row).amount) } : {}),
     }));
 
     if (!this.participationChart) {
@@ -1571,8 +1634,8 @@ export class AllReportModal {
           const avg = withData.length ? withData.reduce((s, r) => s + r.consumption, 0) / withData.length : null;
           summary = `${items.length} sensores · média ${this.fmtTemp(avg)} °C`;
         } else {
-          const groupTotal = items.reduce((s, r) => s + r.consumption, 0);
-          summary = `${items.length} dispositivos · ${fmtPt(groupTotal)} ${this.domainConfig.unit}`;
+          // ED-1391: em modo R$, total do grupo em reais (ou "-" + cobertura / não valorado)
+          summary = this.groupSummaryText(items);
         }
 
         const header = `
@@ -1588,20 +1651,20 @@ export class AllReportModal {
       .join('');
   }
 
-  private getSortIcon(field: keyof StoreReading): string {
-    if (this.sortField !== field) return '↕';
+  private getSortIcon(field: keyof StoreReading | 'money'): string {
+    if (this.effectiveSortField() !== field) return '↕';
     return this.sortDirection === 'asc' ? '↑' : '↓';
   }
 
-  private getSortOpacity(field: keyof StoreReading): string {
-    return this.sortField === field ? '1' : '0.5';
+  private getSortOpacity(field: keyof StoreReading | 'money'): string {
+    return this.effectiveSortField() === field ? '1' : '0.5';
   }
 
   private setupTableSorting(): void {
     const headers = document.querySelectorAll('[data-sort]');
     headers.forEach((header) => {
       header.addEventListener('click', () => {
-        const sortKey = header.getAttribute('data-sort') as keyof StoreReading;
+        const sortKey = header.getAttribute('data-sort') as keyof StoreReading | 'money';
 
         if (this.sortField === sortKey) {
           this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
@@ -1627,11 +1690,29 @@ export class AllReportModal {
 
   private openFilterModal(): void {
     if (!this.filterModal) {
+      // ED-1391: modo R$ — o filtro ordena/filtra/exibe pelo custo ("-" = sem R$)
+      const money = this.moneyMode;
+      this.filterModalMoneyMode = money;
       // Initialize filter modal with current data
       this.filterModal = attachFilterOrderingModal({
         title: 'Filtros & Ordenação - Dispositivos',
         items: this.convertToStoreItems(),
-        unit: this.domainConfig.unit,
+        unit: money ? '' : this.domainConfig.unit,
+        ...(money
+          ? {
+              formatValue: (v: number) => moneyText(v.toFixed(2)),
+              emptyValueText: MONEY_NO_VALUE,
+              hideShare: true,
+              i18n: {
+                consumptionDesc: 'Custo ↓ (padrão)',
+                consumptionAsc: 'Custo ↑',
+                tieNote: 'Caso o custo seja o mesmo é considerada a ordem alfabética.',
+                filterTitle: 'Custo estimado',
+                filterWith: 'Apenas Com Custo',
+                filterWithout: 'Apenas Sem Custo (inclui sem tarifa)',
+              },
+            }
+          : {}),
         initialSelected: Array.from(this.selectedStoreIds),
         initialSort: this.currentSortMode,
         onApply: ({ selected, sort }) => {
@@ -1669,7 +1750,8 @@ export class AllReportModal {
         id: this.generateStoreId(store.identifier), // Use identifier for unique ID
         identifier: store.identifier,
         label: label,
-        consumption: store.consumption,
+        // ED-1391: modo R$ — custo do device (null = sem R$ → "-", fim da ordenação)
+        consumption: this.moneyMode ? moneyNumber(this.moneyViewOf(store).amount) : store.consumption,
       };
     });
   }
@@ -1734,8 +1816,16 @@ export class AllReportModal {
       return;
     }
 
+    // ED-1391: modo R$ — mesmo conjunto, ordenado pelo custo (sem R$ por último)
+    const rows = this.moneyMode ? this.sortByMoney(this.data, 'desc') : sortedData;
+
     if (this.granularity === '1h') {
-      await this.exportHourlyCSV(sortedData);
+      await this.exportHourlyCSV(rows);
+      return;
+    }
+
+    if (this.moneyMode) {
+      this.downloadCSV(toCsv(this.moneyDailyCsv(rows)), `relatorio-geral-lojas-${new Date().toISOString().split('T')[0]}.csv`);
       return;
     }
 
@@ -1746,16 +1836,29 @@ export class AllReportModal {
       ...sortedData.map((row) => [row.identifier, row.name, row.consumption.toFixed(2).replace('.', ',')]),
     ];
 
-    // RFC-0241 rev. 2: modo R$ — coluna "Custo estimado (R$)" depois do físico (que segue
-    // primário); célula vazia quando incompleta; total só com todas as linhas completas.
-    if (this.moneyColumn.enabled) {
-      csvData[0].push(this.moneyHeaderLabel());
-      sortedData.forEach((row, i) => csvData[i + 1].push(this.csvMoney(this.rowMoney(row.id))));
-      csvData.push([], this.moneyTotalCsvRow(sortedData));
-    }
-
     const csvContent = toCsv(csvData);
     this.downloadCSV(csvContent, `relatorio-geral-lojas-${new Date().toISOString().split('T')[0]}.csv`);
+  }
+
+  /**
+   * ED-1391 — CSV consolidado em R$: `Identificador;Nome;Custo estimado (R$)`, `-` para quem
+   * não tem R$ (sem tarifa / não valorado) + coluna de observação; linha de total honesta
+   * (round Σ raw dos valoráveis) ou `-` + "Cobertura incompleta (n de m)".
+   */
+  private moneyDailyCsv(rows: StoreReading[]): string[][] {
+    const views = rows.map((r) => this.moneyViewOf(r));
+    const withNotes = views.some((v) => !v.amount);
+    const head = ['Identificador', 'Nome', MONEY_VALUE_HEADER, ...(withNotes ? ['Observação'] : [])];
+    const body = rows.map((r, i) => [
+      r.identifier,
+      r.name,
+      moneyCsvText(views[i].amount),
+      ...(withNotes ? [views[i].amount ? '' : views[i].chip] : []),
+    ]);
+    const total = moneyTotalView(this.activeMoney(), rows);
+    const notes = moneyTotalNotes(total);
+    const totalRow = ['Custo estimado total', '', moneyCsvText(total.amount), ...(notes ? [notes] : [])];
+    return [head, ...body, [], totalRow];
   }
 
   // Temperatura: valores já com offset e sem leituras inválidas (mesma base da tabela).
@@ -1850,27 +1953,26 @@ export class AllReportModal {
         );
       };
 
+      // ED-1391: modo R$ — cada hora valorada pelo preço daquela hora (faixas horárias
+      // exatas aqui, sem fetch extra) e SÓ em R$; "-" quando não completa / não valorado.
+      const money = this.moneyMode;
       const csvData: string[][] = [
-        ['Identificador', 'Nome', 'Data/Hora', `Consumo (${this.domainConfig.unit})`],
+        ['Identificador', 'Nome', 'Data/Hora', money ? MONEY_VALUE_HEADER : `Consumo (${this.domainConfig.unit})`],
       ];
-      // RFC-0241 rev. 2: modo R$ — cada hora valorada pelo preço daquela hora (faixas
-      // horárias exatas aqui, sem fetch extra); célula vazia quando não completa.
-      const withMoney = this.moneyColumn.enabled && !!this.activeMoney()?.valuateBucket;
-      if (withMoney) csvData[0].push(this.moneyHeaderLabel());
-      let moneyRows = 0;
-      let moneyComplete = 0;
+      const scopeBuckets: Array<{ state: string; amount?: string }> = [];
+      let outBuckets = 0;
       for (const row of sortedData) {
         const points = (row.id && series.get(row.id)) || [];
+        const inScope = money && this.moneyViewOf(row).scope === 'in';
         for (const p of points) {
-          const line = [row.identifier, row.name, fmtTs(p.timestamp), p.value.toFixed(2).replace('.', ',')];
-          if (withMoney) {
-            const m = this.bucketMoney(row.id!, p.timestamp, '1h', p.value);
-            const ok = m?.state === 'complete' ? this.csvMoney(m.amount) : '';
-            moneyRows += 1;
-            if (ok) moneyComplete += 1;
-            line.push(ok);
+          if (!money) {
+            csvData.push([row.identifier, row.name, fmtTs(p.timestamp), p.value.toFixed(2).replace('.', ',')]);
+            continue;
           }
-          csvData.push(line);
+          const m = inScope ? this.bucketMoney(row.id!, p.timestamp, '1h', p.value) || { state: 'uncategorized' } : null;
+          if (m) scopeBuckets.push(m);
+          else outBuckets += 1;
+          csvData.push([row.identifier, row.name, fmtTs(p.timestamp), moneyCsvText(m?.state === 'complete' ? m.amount : null)]);
         }
       }
 
@@ -1878,8 +1980,26 @@ export class AllReportModal {
         this.showError('Nenhum dado horário disponível para o período selecionado.');
         return;
       }
-      if (withMoney && moneyComplete < moneyRows) {
-        csvData.push([], [`${this.moneyHeaderLabel()}`, '', '', '', `Cobertura incompleta (${moneyComplete} de ${moneyRows})`]);
+      if (money) {
+        // Total = Σ das horas valoráveis do arquivo (DEC-8: round no fim); fora do total
+        // as horas de devices não valorados; incompleto → "-" + cobertura (nunca soma parcial)
+        const sum = sumItemMoney(scopeBuckets);
+        const notes = [
+          scopeBuckets.length && sum.state !== 'complete'
+            ? `${MONEY_INCOMPLETE_LABEL} (${sum.covered} de ${sum.total})`
+            : '',
+          outBuckets ? `${outBuckets} hora(s) de devices não valorados fora do total` : '',
+        ].filter(Boolean);
+        csvData.push(
+          [],
+          [
+            'Custo estimado total',
+            '',
+            '',
+            moneyCsvText(sum.state === 'complete' ? sum.amount : null),
+            ...(notes.length ? [notes.join(' · ')] : []),
+          ]
+        );
       }
 
       const csvContent = toCsv(csvData);
@@ -1963,6 +2083,7 @@ export class AllReportModal {
     const rows = this.getFilteredData();
     const grandTotal = this.calculateTotalConsumption();
 
+    const money = this.moneyMode;
     const toDevice = (r: StoreReading) => {
       const base = {
         labelOrName: r.name,
@@ -1972,10 +2093,15 @@ export class AllReportModal {
         perc: this.isTemperature ? undefined : grandTotal > 0 ? (r.consumption / grandTotal) * 100 : 0,
       };
       if (!this.isTemperature) {
-        // RFC-0241 rev. 2: coluna R$ (vazia quando incompleta — nunca R$ 0)
-        if (!this.moneyColumn.enabled) return base;
-        const v = this.rowMoney(r.id);
-        return { ...base, extraCells: [v ? formatMoneyBRL(v) : ''] };
+        if (!money) return base;
+        // ED-1391: valor = custo 2dp (null → "-" via emptyValueText); motivo ao lado do nome;
+        // % segue a participação física.
+        const view = this.moneyViewOf(r);
+        return {
+          ...base,
+          val: moneyNumber(view.amount),
+          ...(view.amount ? {} : { nameNote: view.chip }),
+        };
       }
       const off = r.id && !r.noData ? this.temperatureOffsetFor(r.id) : 0;
       return {
@@ -2015,6 +2141,7 @@ export class AllReportModal {
       const avg = withData.length ? withData.reduce((s, r) => s + r.consumption, 0) / withData.length : null;
       return `${items.length} sensores · média ${this.fmtTemp(avg)} °C`;
     }
+    if (this.moneyMode) return moneyGroupSummary(this.activeMoney(), items);
     const total = items.reduce((s, r) => s + r.consumption, 0);
     return `${items.length} dispositivos · ${fmtPt(total)} ${this.domainConfig.unit}`;
   }
@@ -2022,9 +2149,9 @@ export class AllReportModal {
   // Colunas do PDF/XLS = colunas da tela. Temperatura: Sensor | Média | Mín | Máx (sem %).
   private exportColumns() {
     if (!this.isTemperature) {
-      // RFC-0241 rev. 2: modo R$ — físico continua primário; R$ como coluna extra
-      return this.moneyColumn.enabled
-        ? { extraColumns: [{ label: this.moneyHeaderLabel(), pdfW: 40 }] }
+      // ED-1391: modo R$ — a coluna de valor É o custo (2 casas, "-" sem R$); % físico
+      return this.moneyMode
+        ? { valueLabel: MONEY_VALUE_HEADER, valueDecimals: 2, emptyValueText: MONEY_NO_VALUE, percLabel: MONEY_PERC_HEADER }
         : null;
     }
     return {
@@ -2040,6 +2167,11 @@ export class AllReportModal {
       countLabel: 'sensor(es)',
       valueDecimals: 2, // "30,00" como na tela (não "30")
     };
+  }
+
+  // Unidade do cabeçalho do PDF/XLS ("Unidade: R$" em modo R$ — ED-1391)
+  private exportUnit(): string {
+    return this.moneyMode ? 'R$' : this.domainConfig.unit;
   }
 
   // Accent hex da paleta do dashboard (tema efetivo) para o PDF/XLS — cai no
@@ -2082,7 +2214,7 @@ export class AllReportModal {
     exportGridPdf(
       this.buildExportDevices(),
       this.resolveTitle(),
-      this.domainConfig.unit,
+      this.exportUnit(),
       this.exportPeriod,
       this.params.customerName || null,
       {
@@ -2100,7 +2232,7 @@ export class AllReportModal {
     exportGridXls(
       this.buildExportDevices(),
       this.resolveTitle(),
-      this.domainConfig.unit,
+      this.exportUnit(),
       this.exportPeriod,
       this.params.customerName || null,
       { accentColor: this.resolveAccentHex(), columns: this.exportColumns(), kpis: this.computeKpis() },

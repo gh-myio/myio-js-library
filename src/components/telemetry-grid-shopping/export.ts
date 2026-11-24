@@ -57,6 +57,8 @@ export interface GridColumnsOptions {
   countLabel?: string;
   /** Casas decimais FIXAS do valor (ex.: 2 → "30,00" como na tela). Default: até 3, sem mínimo. */
   valueDecimals?: number;
+  /** Rótulo da coluna % (default '%'; ex.: '% consumo' no modo R$ do All Report — ED-1391). */
+  percLabel?: string;
 }
 
 function makeCols(unit: string, colOpts?: GridColumnsOptions | null): Col[] {
@@ -66,7 +68,7 @@ function makeCols(unit: string, colOpts?: GridColumnsOptions | null): Col[] {
     { key: 'identificador',label: 'Identificador',                        pdfW: 60  },
     { key: 'consumo',      label: colOpts?.valueLabel || (unit ? `Consumo (${unit})` : 'Consumo'), pdfW: 50  },
     ...(colOpts?.extraColumns || []).map((c, i) => ({ key: `x${i}`, label: c.label, pdfW: c.pdfW ?? 40 })),
-    { key: 'perc',         label: '%',                                    pdfW: 20  },
+    { key: 'perc',         label: colOpts?.percLabel || '%',              pdfW: 20  },
   ];
   return cols.filter(
     (c) =>

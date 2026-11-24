@@ -18,6 +18,11 @@ export interface ParticipationChartItem {
   label: string;
   /** Absolute value (consumption etc.) — participation percent is derived */
   value: number;
+  /**
+   * ED-1391 — text shown instead of `formatValue(value) + unit` in the tooltip / bar label
+   * (e.g. the device's R$ or "-" while the slices stay physical). Absent → unchanged.
+   */
+  displayValue?: string;
 }
 
 export interface ParticipationChartThemeColors {
