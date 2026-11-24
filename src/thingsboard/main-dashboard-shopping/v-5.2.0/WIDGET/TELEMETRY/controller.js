@@ -3914,6 +3914,10 @@ function renderList(visible) {
 
           if (!ingestionToken) throw new Error('No ingestion token');
 
+          // ED-1390 (RFC-0241 Part B): modo R$ → relatório todo em reais. Lido no clique;
+          // null fora do modo R$ ou enquanto a MAIN valora (aí o relatório abre físico).
+          const reportMoney = window.MyIOUtils?.getReportMoney?.(WIDGET_DOMAIN) || null;
+
           await MyIO.openDashboardPopupReport({
             ingestionId: it.ingestionId, // sempre ingestionId
             identifier: it.identifier,
@@ -3930,6 +3934,7 @@ function renderList(visible) {
               clientSecret: CLIENT_SECRET,
               ingestionToken,
             },
+            ...(reportMoney ? { money: reportMoney } : {}),
           });
         } catch (err) {
           LogHelper.warn('[DeviceCards] Report open blocked:', err?.message || err);

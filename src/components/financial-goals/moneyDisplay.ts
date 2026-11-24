@@ -341,6 +341,9 @@ export function buildReportMoneyConfig(
     // ED-1391: null = fora da valoração (Entrada/Transformadores, Q8) — "não valorado",
     // fora do total em R$; senão o item.money (estado + motivo para chip/title).
     itemMoney: (deviceKey: string) => (keySet.has(deviceKey) ? result.byKey.get(deviceKey) ?? null : null),
+    // ED-1390: anos cujas árvores de tarifa foram carregadas (os do período do dashboard) —
+    // o Report Device valora os próprios buckets em qualquer período dentro deles.
+    tariffYears: yearsSpanned(result.startTs, result.endTs, TARIFF_DEFAULT_TIMEZONE),
   };
 }
 

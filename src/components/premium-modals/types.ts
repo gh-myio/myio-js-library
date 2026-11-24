@@ -63,6 +63,12 @@ export interface AllReportMoneyConfig {
    * coverage). Absent → the report treats `id in perDevice` as in scope.
    */
   itemMoney?: (deviceId: string) => { state: string; amount?: string; reason?: string } | null;
+  /**
+   * ED-1390 — years whose tariff trees were loaded for the valuation (the years spanned by
+   * the dashboard period). A report that prices its own buckets (Report Device) stays in R$
+   * for any period inside these years; outside them there is no tariff to price with.
+   */
+  tariffYears?: number[];
 }
 
 export interface DateRange { 
@@ -117,6 +123,13 @@ export interface OpenDeviceReportParams {
   ui?: BaseUiCfg;
   api: BaseApiCfg;
   fetcher?: EnergyFetcher; // Optional dependency injection for testing
+  /**
+   * ED-1390 (RFC-0241 Part B) — R$ mode. Present (energy/water) → the whole report is in R$:
+   * each hour is priced with `valuateBucket` (exact under hourly bands), days are the sum of
+   * their hours. `itemMoney(ingestionId) === null` (Entrada/Transformadores) or a period
+   * outside `tariffYears` → physical report + notice. Absent → physical (unchanged).
+   */
+  money?: AllReportMoneyConfig;
 }
 
 // Customer Totals fetcher type for dependency injection

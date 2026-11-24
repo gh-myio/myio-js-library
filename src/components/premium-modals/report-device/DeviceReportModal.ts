@@ -19,6 +19,34 @@ import type { Granularity, GranularitySelectorInstance } from '../../granularity
 import { createModalFooter } from '../footer-modal';
 import { renderTemperatureBarsPng } from '../internal/temperatureBarsPng';
 import type { ModalFooterInstance } from '../footer-modal';
+import type { AllReportMoneyConfig } from '../types';
+// ED-1390 — modo R$: relatório todo em reais (camada pura + helpers do All Report)
+import {
+  MONEY_NO_VALUE,
+  MONEY_NOT_VALUED_TEXT,
+  MONEY_VALUE_HEADER,
+  moneyCsvText,
+  moneyNumber,
+  moneyText,
+  rowMoneyCellHTML,
+} from '../report-all/allReportMoneyView';
+import {
+  combineBucketMoney,
+  deviceMoneyChartItems,
+  deviceMoneyKpis,
+  deviceMoneyTotal,
+  deviceRowMoneyView,
+  spDayKey,
+  type RowMoney,
+} from './deviceReportMoneyView';
+
+const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+/** ED-1390: a série horária é pedida em blocos (pageSize=1000; a API pode devolver 15 min). */
+const MONEY_FETCH_CHUNK_DAYS = 10;
+/** Instante → ISO com offset de São Paulo (`YYYY-MM-DDTHH:mm:ss-03:00`), formato do picker. */
+const toSpISO = (ts: number): string => `${new Date(ts - SP_OFFSET_MS).toISOString().slice(0, 19)}-03:00`;
 
 // Domain configuration
 type Domain = 'energy' | 'water' | 'temperature' | 'water_level';
@@ -86,6 +114,8 @@ interface DailyReading {
   consumption: number;
   // Temperatura: dia sem leitura → "—" na tabela e fora das médias (0 °C não é leitura)
   noData?: boolean;
+  // ED-1390 (modo R$): money da linha (hora valorada / soma das horas do dia); null = sem leituras
+  money?: RowMoney | null;
 }
 
 /**
@@ -110,10 +140,11 @@ export type DeviceReportModalParams = OpenDeviceReportParams & {
 // Default energy fetcher implementation
 // getGranularity is a callback so the fetcher always reads the live value at call time
 const createDefaultEnergyFetcher = (params: OpenDeviceReportParams, getGranularity: () => string): EnergyFetcher => {
-  return async ({ baseUrl, ingestionId, startISO, endISO }) => {
+  return async ({ baseUrl, ingestionId, startISO, endISO, granularity }) => {
     const domain = params.domain || 'energy';
     const endpoint = DOMAIN_CONFIG[domain].endpoint;
-    const url = `${baseUrl}/telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=${getGranularity()}&page=1&pageSize=1000&deep=0`;
+    // ED-1390: o modo R$ pede 1h explicitamente (soma das horas por dia); sem o arg, a granularidade viva
+    const url = `${baseUrl}/telemetry/devices/${ingestionId}/${endpoint}?startTime=${encodeURIComponent(startISO)}&endTime=${encodeURIComponent(endISO)}&granularity=${granularity || getGranularity()}&page=1&pageSize=1000&deep=0`;
 
     // Use ingestionToken for Data API endpoints (data.apps.myio-bas.com)
     // This token provides access to telemetry data from the ingestion system
@@ -161,6 +192,11 @@ export class DeviceReportModal {
   private participationChart: ParticipationChartInstance | null = null;
   // Período do último load — alimenta os headers dos exports PDF/XLS.
   private exportPeriod: { startISO?: string | null; endISO?: string | null } | null = null;
+  // ED-1390 — modo R$ decidido a cada load (money presente, device valorável, período nos
+  // anos com tarifa); aviso quando há money mas o relatório sai físico; modo do gráfico criado.
+  private moneyActive = false;
+  private moneyNotice: string | null = null;
+  private chartMoneyMode: boolean | null = null;
 
   constructor(private params: DeviceReportModalParams) {
     this.authClient = new AuthClient({
@@ -202,6 +238,154 @@ export class DeviceReportModal {
 
   private get isTemperatureDomain(): boolean {
     return (this.params.domain || 'energy') === 'temperature';
+  }
+
+  // ── ED-1390: modo R$ ──────────────────────────────────────────────────────────
+
+  /** Config de money válida para este relatório: só energia/água (consumo). */
+  private get moneyConfig(): AllReportMoneyConfig | null {
+    const d = this.params.domain || 'energy';
+    return this.params.money && (d === 'energy' || d === 'water') ? this.params.money : null;
+  }
+
+  /**
+   * Decide o modo R$ do período carregado. Fora dele o relatório é físico (de sempre) e,
+   * havendo money, um aviso diz por quê:
+   *  - device fora da valoração (Entrada/Transformadores — `itemMoney` null);
+   *  - período fora dos anos com tarifa carregada (`tariffYears`; sem ele, a regra do
+   *    All Report: período do dashboard ±24 h).
+   */
+  private resolveMoneyMode(startISO: string, endISO: string): { active: boolean; notice: string | null } {
+    const m = this.moneyConfig;
+    if (!m) return { active: false, notice: null };
+    const unit = this.domainConfig.unit;
+    const id = this.params.ingestionId;
+    const inScope =
+      typeof m.itemMoney === 'function'
+        ? m.itemMoney(id) !== null
+        : Object.prototype.hasOwnProperty.call(m.perDevice || {}, id);
+    if (!inScope) return { active: false, notice: `${MONEY_NOT_VALUED_TEXT} Exibindo ${unit}.` };
+    if (typeof m.valuateBucket !== 'function') {
+      return { active: false, notice: `Custo estimado indisponível. Exibindo ${unit}.` };
+    }
+    const s = Date.parse(startISO);
+    const e = Date.parse(endISO);
+    const yearOf = (ts: number) => new Date(ts - SP_OFFSET_MS).getUTCFullYear();
+    if (m.tariffYears && m.tariffYears.length) {
+      if (m.tariffYears.includes(yearOf(s)) && m.tariffYears.includes(yearOf(e))) return { active: true, notice: null };
+      const years = [...m.tariffYears].sort().join(', ');
+      return { active: false, notice: `Valores em R$ disponíveis só para períodos em ${years}. Exibindo ${unit}.` };
+    }
+    const p = m.period;
+    if (p?.startISO && p?.endISO) {
+      const near = (a: string, b: number) => Math.abs(Date.parse(a) - b) <= DAY_MS;
+      if (!(near(p.startISO, s) && near(p.endISO, e))) {
+        return { active: false, notice: `Valores em R$ disponíveis só para o período do dashboard. Exibindo ${unit}.` };
+      }
+    }
+    return { active: true, notice: null };
+  }
+
+  /** Em modo R$ o seletor abre no período do dashboard (`money.period`, datas SP; fim −1 ms). */
+  private moneyPresetDates(): { start: string; end: string } | null {
+    const p = this.moneyConfig?.period;
+    if (!p?.startISO || !p?.endISO) return null;
+    const s = Date.parse(p.startISO);
+    const e = Date.parse(p.endISO);
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return null;
+    return { start: spDayKey(s), end: spDayKey(e - 1) };
+  }
+
+  private renderMoneyNotice(): void {
+    const el = typeof document !== 'undefined' ? document.getElementById('money-notice') : null;
+    if (!el) return;
+    el.textContent = this.moneyNotice || '';
+    el.style.display = this.moneyNotice ? 'block' : 'none';
+  }
+
+  /**
+   * Série horária do período para o modo R$ — pedida em blocos de até 10 dias com
+   * `granularity: '1h'` (pageSize=1000 e a API pode devolver blocos de 15 min).
+   */
+  private async fetchMoneyPoints(startISO: string, endISO: string): Promise<Array<{ timestamp: unknown; value: unknown }>> {
+    const s = Date.parse(startISO);
+    const e = Date.parse(endISO);
+    const chunks: Array<{ startISO: string; endISO: string }> = [];
+    for (let a = s; a <= e; a += MONEY_FETCH_CHUNK_DAYS * DAY_MS) {
+      const b = Math.min(e, a + MONEY_FETCH_CHUNK_DAYS * DAY_MS - 1000);
+      chunks.push({ startISO: a === s ? startISO : toSpISO(a), endISO: b === e ? endISO : toSpISO(b) });
+    }
+    const responses = await Promise.all(
+      chunks.map((c) =>
+        this.energyFetcher({
+          baseUrl: this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com',
+          ingestionId: this.params.ingestionId,
+          startISO: c.startISO,
+          endISO: c.endISO,
+          granularity: '1h',
+        })
+      )
+    );
+    return responses.flatMap((res) => {
+      const arr = Array.isArray(res) ? res : res?.data || [];
+      return (Array.isArray(arr) && arr[0]?.consumption) || [];
+    });
+  }
+
+  /**
+   * Linhas em modo R$: pontos → hora fechada (soma) → cada hora valorada pelo preço daquela
+   * hora (`valuateBucket`, exato com faixa horária). 1h = uma linha por hora; 1d = horas
+   * somadas por dia SP (zero-fill do período; dia sem nenhuma leitura → `money: null`).
+   */
+  private buildMoneyRows(points: Array<{ timestamp: unknown; value: unknown }>, dateRange: string[]): DailyReading[] {
+    const vb = this.moneyConfig?.valuateBucket;
+    const id = this.params.ingestionId;
+    const byHour = new Map<number, number>();
+    for (const p of points) {
+      if (p?.timestamp == null || p?.value == null) continue;
+      const ts = new Date(p.timestamp as string | number).getTime();
+      const v = Number(p.value);
+      if (!Number.isFinite(ts) || !Number.isFinite(v)) continue;
+      const h = Math.floor(ts / HOUR_MS) * HOUR_MS;
+      byHour.set(h, (byHour.get(h) || 0) + v);
+    }
+    const hours = [...byHour.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([h, qty]) => ({ h, qty, money: vb ? vb(id, h, h + HOUR_MS, qty) : null }));
+
+    if (this.isIntraday) {
+      return hours.map(({ h, qty, money }) => ({
+        date: new Date(h).toISOString(),
+        consumption: qty,
+        money: combineBucketMoney([money]),
+      }));
+    }
+    const byDay = new Map<string, typeof hours>();
+    for (const x of hours) {
+      const day = spDayKey(x.h);
+      const list = byDay.get(day) || [];
+      list.push(x);
+      byDay.set(day, list);
+    }
+    return dateRange.map((date) => {
+      const list = byDay.get(date);
+      if (!list || !list.length) return { date, consumption: 0, money: null };
+      return {
+        date,
+        consumption: list.reduce((s, x) => s + x.qty, 0),
+        money: combineBucketMoney(list.map((x) => x.money)),
+      };
+    });
+  }
+
+  /** Valor físico com unidade — vai no `title` das células em R$. */
+  private physicalText(value: number): string {
+    return `${this.domainConfig.formatter(value)} ${this.domainConfig.unit}`;
+  }
+
+  /** Unidade do cabeçalho do PDF/XLS ("Unidade: R$" em modo R$). */
+  private exportUnit(): string {
+    return this.moneyActive ? 'R$' : this.domainConfig.unit;
   }
 
   // Header: "Relatório - <identifier> - <label>" + nome do device (sutil, com copiar).
@@ -333,7 +517,15 @@ export class DeviceReportModal {
 
         <div id="error-container" style="display: none; background: #ffebee; color: #c62828; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
         </div>
-
+${
+  // ED-1390: aviso "relatório em kWh" quando há money mas não dá para valorar — só existe com money
+  this.moneyConfig
+    ? `
+        <div id="money-notice" role="status" style="display: none; background: #fffbeb; color: #92400e; border: 1px solid #fde68a; padding: 10px 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px;">
+        </div>
+`
+    : ''
+}
         <style>
           /* Split layout: tabela (esquerda ~65%) + gráfico Participação por Dia
              (direita ~35%). Abaixo de 1100px o gráfico empilha em largura total. */
@@ -550,8 +742,10 @@ export class DeviceReportModal {
       this.dateRangePicker = null;
     }
 
-    if (!startYmd) startYmd = toYmd(this.getDefaultStartDate());
-    if (!endYmd) endYmd = toYmd(this.getDefaultEndDate());
+    // ED-1390: em modo R$ o 1º build abre no período do dashboard (onde está a tarifa)
+    const moneyPreset = this.moneyPresetDates();
+    if (!startYmd) startYmd = moneyPreset?.start ?? toYmd(this.getDefaultStartDate());
+    if (!endYmd) endYmd = moneyPreset?.end ?? toYmd(this.getDefaultEndDate());
 
     const presetStart = startYmd ? `${startYmd}T00:00:00-03:00` : undefined;
     const presetEnd = endYmd ? `${endYmd}T23:59:59-03:00` : undefined;
@@ -632,18 +826,29 @@ export class DeviceReportModal {
       // Generate complete date range for zero-filling
       const dateRange = rangeDaysInclusive(startDate, endDate);
 
-      // Use injected fetcher (real API or mock for testing)
-      const apiResponse = await this.energyFetcher({
-        baseUrl: this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com',
-        ingestionId: this.params.ingestionId,
-        startISO,
-        endISO,
-        // API só conhece 1h|1d — 15/30 min vêm do 1h e são agregados em processApiResponse
-        granularity: this.apiGranularity,
-      });
+      // ED-1390: modo R$ decidido por load (device valorável + período nos anos com tarifa)
+      const money = this.resolveMoneyMode(startISO, endISO);
+      this.moneyActive = money.active;
+      this.moneyNotice = money.notice;
+      this.renderMoneyNotice();
 
-      // Process API response
-      this.data = this.processApiResponse(apiResponse, dateRange);
+      if (this.moneyActive) {
+        // Série horária (em blocos) → cada hora valorada; dia = soma das horas
+        this.data = this.buildMoneyRows(await this.fetchMoneyPoints(startISO, endISO), dateRange);
+      } else {
+        // Use injected fetcher (real API or mock for testing)
+        const apiResponse = await this.energyFetcher({
+          baseUrl: this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com',
+          ingestionId: this.params.ingestionId,
+          startISO,
+          endISO,
+          // API só conhece 1h|1d — 15/30 min vêm do 1h e são agregados em processApiResponse
+          granularity: this.apiGranularity,
+        });
+
+        // Process API response
+        this.data = this.processApiResponse(apiResponse, dateRange);
+      }
       this.renderSummary();
       this.renderTable();
       this.updateDayChart();
@@ -783,6 +988,14 @@ export class DeviceReportModal {
   // KPIs do summary — compartilhados entre a UI (renderSummary) e o PDF export
   // (mesmo padrão do AllReportModal.computeKpis). Variam com a granularidade.
   private computeKpis(): Array<{ value: string; label: string; sub?: string }> {
+    // ED-1390: modo R$ — total/médias/maior/menor em reais; "-" + cobertura quando incompleto
+    if (this.moneyActive) {
+      return deviceMoneyKpis(this.data, {
+        rowLabel: this.isIntraday ? this.intradayLabel : 'Dia',
+        intraday: this.isIntraday,
+        formatDate: (d) => this.formatDate(d),
+      });
+    }
     const fmt = this.domainConfig.formatter;
     const unit = this.domainConfig.unit;
     const isHourly = this.isIntraday;
@@ -951,6 +1164,42 @@ export class DeviceReportModal {
       return;
     }
 
+    // ED-1390: o gráfico é recriado quando o modo (R$ ⇄ físico) muda entre loads
+    if (this.participationChart && this.chartMoneyMode !== null && this.chartMoneyMode !== this.moneyActive) {
+      this.participationChart.destroy();
+      this.participationChart = null;
+    }
+
+    if (this.moneyActive) {
+      // Barras e % pelo CUSTO do dia; dias sem R$ completo ficam fora (nota no subtítulo)
+      const chart = deviceMoneyChartItems(this.data);
+      if (!this.participationChart) {
+        if (!chart.items.length && !chart.excluded) return; // keep the placeholder
+        document.getElementById('participation-chart-placeholder')?.remove();
+        this.participationChart = createParticipationChart(container, {
+          items: chart.items,
+          unit: '',
+          formatValue: (v: number) => moneyText(v.toFixed(2)),
+          title: 'Custo por Dia',
+          subtitle: chart.note,
+          chartType: 'bars',
+          showTypeSelector: true,
+          legend: { visible: true, position: 'bottom', selectable: true },
+          tooltip: true,
+          expandable: true,
+          exportButtons: { visible: true, png: true, pdf: true },
+          palette: this.resolveChartPalette(chart.items.length),
+          themeMode: this.params.ui?.theme === 'dark' ? 'dark' : 'light',
+        });
+        this.chartMoneyMode = true;
+        return;
+      }
+      const palette = this.resolveChartPalette(chart.items.length);
+      this.participationChart.updateSettings({ subtitle: chart.note, ...(palette ? { palette } : {}) });
+      this.participationChart.updateData(chart.items);
+      return;
+    }
+
     // Aggregate rows by day (identity in 1d; sum of hours in 1h)
     const byDay = new Map<string, number>();
     for (const row of this.data) {
@@ -981,6 +1230,7 @@ export class DeviceReportModal {
         palette: this.resolveChartPalette(items.length),
         themeMode: this.params.ui?.theme === 'dark' ? 'dark' : 'light',
       });
+      if (this.moneyConfig) this.chartMoneyMode = false;
       return;
     }
 
@@ -1011,7 +1261,7 @@ export class DeviceReportModal {
                 <span style="margin-left: 4px; opacity: ${this.sortState.key === 'date' ? '1' : '0.5'};">${getSortIndicator('date')}</span>
               </th>
               <th style="cursor: pointer; text-align: right;" data-sort="consumption">
-                ${this.domainConfig.label}
+                ${this.moneyActive ? MONEY_VALUE_HEADER : this.domainConfig.label}
                 <span style="margin-left: 4px; opacity: ${this.sortState.key === 'consumption' ? '1' : '0.5'};">${getSortIndicator('consumption')}</span>
               </th>
             </tr>
@@ -1020,7 +1270,12 @@ export class DeviceReportModal {
             ${this.data.map(row => `
               <tr>
                 <td>${this.formatDate(row.date)}</td>
-                <td style="text-align: right;${row.noData ? ' color: var(--myio-text-muted);' : ''}">${row.noData ? 'Sem leitura' : this.domainConfig.formatter(row.consumption)}</td>
+                ${
+                  this.moneyActive
+                    ? // ED-1390: R$ (kWh/m³ no title); sem tarifa / sem dados → "-" + chip
+                      `<td style="text-align: right; font-weight: bold;">${rowMoneyCellHTML(deviceRowMoneyView(row), this.physicalText(row.consumption))}</td>`
+                    : `<td style="text-align: right;${row.noData ? ' color: var(--myio-text-muted);' : ''}">${row.noData ? 'Sem leitura' : this.domainConfig.formatter(row.consumption)}</td>`
+                }
               </tr>
             `).join('')}
           </tbody>
@@ -1059,6 +1314,12 @@ export class DeviceReportModal {
 
       if (key === 'date') {
         comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+      } else if (this.moneyActive) {
+        // ED-1390: coluna de valor = custo; linhas sem R$ ("-") sempre no fim
+        const av = moneyNumber(deviceRowMoneyView(a).amount);
+        const bv = moneyNumber(deviceRowMoneyView(b).amount);
+        if ((av === null) !== (bv === null)) return av === null ? 1 : -1;
+        comparison = (av ?? 0) - (bv ?? 0);
       } else {
         // Sem leitura sempre no fim, independente da direção
         if (!!a.noData !== !!b.noData) return a.noData ? 1 : -1;
@@ -1095,6 +1356,10 @@ export class DeviceReportModal {
   }
 
   private exportCSV(): void {
+    if (this.moneyActive) {
+      this.exportMoneyCSV();
+      return;
+    }
     const total = this.calculateTotal();
     const valid = this.validRows.length;
     const summaryValue = this.domainConfig.summaryType === 'average'
@@ -1126,6 +1391,36 @@ export class DeviceReportModal {
     const csvContent = toCsv(csvData);
     const granSuffix = this.isIntraday ? `-${this.granularity}` : '';
     this.downloadCSV(csvContent, `relatorio-${this.params.identifier || 'dispositivo'}${granSuffix}-${new Date().toISOString().split('T')[0]}.csv`);
+  }
+
+  /**
+   * ED-1390 — CSV em R$: mesmo cabeçalho do relatório + KPIs em R$; tabela
+   * `Data | Custo estimado (R$) | Observação` (`1234,56` ou `-` + motivo — nunca 0 nem kWh).
+   */
+  private exportMoneyCSV(): void {
+    const now = new Date();
+    const timestamp = now.toLocaleDateString('pt-BR') + ' - ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const p = this.exportPeriod;
+    const fmtD = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '');
+    const views = this.data.map((row) => deviceRowMoneyView(row));
+    const csvData = [
+      ['Dispositivo/Loja', this.params.identifier || 'N/A', this.params.label || ''],
+      ...(this.params.deviceName ? [['Dispositivo (TB)', this.params.deviceName, '']] : []),
+      ...(this.resolveCustomerName() ? [['Cliente', this.resolveCustomerName(), '']] : []),
+      ...(p?.startISO ? [['Período', `${fmtD(p.startISO)} — ${fmtD(p.endISO)}`, '']] : []),
+      ['Granularidade', this.granularityText, ''],
+      ['DATA EMISSÃO', timestamp, ''],
+      [],
+      ...this.computeKpis().map((k) => [k.label, k.value, k.sub || '']),
+      [],
+      [this.isIntraday ? 'Data/Hora' : 'Data', MONEY_VALUE_HEADER, 'Observação'],
+      ...this.data.map((row, i) => [this.formatDate(row.date), moneyCsvText(views[i].amount), views[i].amount ? '' : views[i].chip]),
+    ];
+    const granSuffix = this.isIntraday ? `-${this.granularity}` : '';
+    this.downloadCSV(
+      toCsv(csvData),
+      `relatorio-${this.params.identifier || 'dispositivo'}${granSuffix}-${new Date().toISOString().split('T')[0]}.csv`
+    );
   }
 
   // Accent hex da paleta do dashboard (params.theme) para os exports — cai no
@@ -1163,6 +1458,22 @@ export class DeviceReportModal {
   // perc = participação % sobre o total do período (omitido para temperatura —
   // "% de uma média °C" não tem semântica; buildRow imprime '—').
   private buildExportDevices(): TelemetryDevice[] {
+    if (this.moneyActive) {
+      // ED-1390: valor = custo 2dp (null → "-"), motivo ao lado da data; % do custo só com
+      // cobertura completa (sem base parcial)
+      const total = moneyNumber(deviceMoneyTotal(this.data).amount);
+      return this.data.map((row) => {
+        const view = deviceRowMoneyView(row);
+        const val = moneyNumber(view.amount);
+        return {
+          labelOrName: this.formatDate(row.date),
+          name: this.formatDate(row.date),
+          val,
+          ...(view.amount ? {} : { nameNote: view.chip }),
+          ...(total && total > 0 && val !== null ? { perc: (val / total) * 100 } : {}),
+        };
+      }) as unknown as TelemetryDevice[];
+    }
     const isTemperature = this.domainConfig.summaryType === 'average';
     const total = this.calculateTotal();
     return this.data.map((row) => ({
@@ -1177,6 +1488,19 @@ export class DeviceReportModal {
   // (Identificador redundante — o device já está no título/filename).
   private exportColumnOptions() {
     const isTemp = this.domainConfig.summaryType === 'average';
+    if (this.moneyActive) {
+      // ED-1390: coluna de valor = custo; "% do custo" só com cobertura completa
+      const complete = !!deviceMoneyTotal(this.data).amount;
+      return {
+        nameLabel: this.isIntraday ? 'Data/Hora' : 'Data',
+        hideIdentifier: true,
+        valueLabel: MONEY_VALUE_HEADER,
+        countLabel: this.isIntraday ? 'hora(s)' : 'dia(s)',
+        valueDecimals: 2,
+        emptyValueText: MONEY_NO_VALUE,
+        ...(complete ? { percLabel: '% do custo' } : { hidePerc: true }),
+      };
+    }
     return {
       nameLabel: this.isIntraday ? 'Data/Hora' : 'Data',
       hideIdentifier: true,
@@ -1209,7 +1533,8 @@ export class DeviceReportModal {
       return png ? { ...png, title } : null;
     }
     const chartPng = await this.participationChart?.toPngDataUrl?.().catch(() => null);
-    return chartPng ? { ...chartPng, title: 'Participação por Dia' } : null;
+    // ED-1390: em modo R$ o gráfico é "Custo por Dia"
+    return chartPng ? { ...chartPng, title: this.moneyActive ? 'Custo por Dia' : 'Participação por Dia' } : null;
   }
 
   // PDF export — layout premium do grid + paleta do dashboard + faixa de KPIs +
@@ -1220,7 +1545,7 @@ export class DeviceReportModal {
     exportGridPdf(
       this.buildExportDevices(),
       this.resolveExportTitle(),
-      this.domainConfig.unit,
+      this.exportUnit(),
       this.exportPeriod,
       this.resolveCustomerName() || null,
       {
@@ -1238,7 +1563,7 @@ export class DeviceReportModal {
     exportGridXls(
       this.buildExportDevices(),
       this.resolveExportTitle(),
-      this.domainConfig.unit,
+      this.exportUnit(),
       this.exportPeriod,
       this.resolveCustomerName() || null,
       {

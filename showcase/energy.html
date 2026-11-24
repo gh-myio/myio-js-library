@@ -43,6 +43,13 @@
             📊 Device Report Modal (DateRangePicker)
         </button>
 
+        <button class="demo-button" onclick="openMoneyReportDemo(false)" style="background: #b45309;" title="ED-1390: modo R$ (stub da MAIN) — loja com ponta 18h–20h">
+            💰 Device Report — Modo R$
+        </button>
+        <button class="demo-button" onclick="openMoneyReportDemo(true)" style="background: #78716c;" title="ED-1390: device fora da valoração → kWh + aviso">
+            💰 Device Report — Modo R$ (trafo)
+        </button>
+
         <button class="demo-button" onclick="openAllReportDemo()" style="background: #28a745;">
             📋 All Report Modal (NEW!)
         </button>
@@ -1456,6 +1463,67 @@
             });
         }
         
+        // ED-1390 — Report Device em modo R$. Mesmo pipeline da MAIN (valuateDomainMoney →
+        // buildReportMoneyConfig): lojas 0,85 R$/kWh com ponta 1,60 R$/kWh das 18h às 20h em
+        // todos os dias do mês; transformador fora da valoração. Fetcher mock horário (15 min).
+        async function openMoneyReportDemo(trafo) {
+            if (typeof MyIOLibrary === 'undefined') {
+                alert('Library not loaded. Build the project first.');
+                return;
+            }
+            const L = MyIOLibrary;
+            const now = new Date();
+            const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const period = {
+                startISO: `${ym}-01T00:00:00-03:00`,
+                endISO: `${now.toISOString().slice(0, 10)}T23:59:59-03:00`,
+            };
+            const daily = {};
+            for (let d = 1; d <= 31; d++) {
+                daily[`${ym.slice(5)}-${String(d).padStart(2, '0')}`] = {
+                    hourly: { '18': { price: '1.6' }, '19': { price: '1.6' }, '20': { price: '1.6' } },
+                };
+            }
+            const result = await L.valuateDomainMoney({
+                domain: 'energy',
+                startTs: Date.parse(period.startISO),
+                endTs: Date.parse(period.endISO),
+                devices: [
+                    { key: 'demo-loja', group: 'lojas' },
+                    { key: 'demo-trafo', group: 'transformadores' },
+                ],
+                rule: L.parseMoneyCategoryRule({ SPECIFIC: ['lojas'] }),
+                loadTree: async ({ category, year }) => ({
+                    customerId: 'g', domain: 'ENERGY', category, year, version: 1,
+                    tree: { annual: { price: '0.85' }, daily },
+                }),
+                periodTotals: { 'demo-loja': 1000, 'demo-trafo': 5000 },
+            });
+            const money = L.buildReportMoneyConfig(result, { period });
+
+            const hourlyFetcher = async ({ ingestionId, startISO, endISO, granularity }) => {
+                console.log('[DEMO R$] fetcher', { startISO, endISO, granularity });
+                const consumption = [];
+                const step = granularity === '1h' ? 15 * 60000 : 24 * 3600000;
+                for (let t = Date.parse(startISO); t <= Date.parse(endISO); t += step) {
+                    const hour = new Date(t - 3 * 3600000).getUTCHours();
+                    const base = hour >= 8 && hour <= 22 ? 3 : 0.8; // kWh/h
+                    consumption.push({ timestamp: new Date(t).toISOString(), value: granularity === '1h' ? base / 4 : base * 24 });
+                }
+                return { data: [{ id: ingestionId, consumption }] };
+            };
+
+            L.openDashboardPopupReport({
+                ingestionId: trafo ? 'demo-trafo' : 'demo-loja',
+                identifier: trafo ? 'TRAFO-01' : 'LOJA-101',
+                label: trafo ? 'Transformador 1' : 'Loja Demo',
+                domain: 'energy',
+                api: { clientId: 'demo', clientSecret: 'demo', dataApiBaseUrl: 'https://api.example.com', ingestionToken: 'demo' },
+                fetcher: hourlyFetcher,
+                money,
+            });
+        }
+
         function openAllReportDemo() {
             if (typeof MyIOLibrary === 'undefined') {
                 alert('Library not loaded. Build the project first.');
