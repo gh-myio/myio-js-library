@@ -994,16 +994,22 @@ function formatEnergy(value) {
 //   - percentuais e fatias da pizza continuam pela participação física (fecham 100%).
 // Modo físico: os formatadores de sempre, sem nenhuma diferença.
 
+// ED-1389 (revisão): enquanto a valoração do período atual não está pronta (troca de
+// período, revalorando tarifas) o widget fica no FÍSICO — como o card v5 sem `money` —
+// em vez de "-" com motivo "sem tarifa" falso. `myio:money-valuation-ready` re-renderiza.
 function _moneyMode(domain = getWidgetDomain()) {
+  const U = window.MyIOUtils;
   return (
     (domain === 'energy' || domain === 'water') &&
-    window.MyIOUtils?.getValueDisplayMode?.() === 'money' &&
-    typeof window.MyIOUtils?.formatMoneyTotal === 'function'
+    U?.getValueDisplayMode?.() === 'money' &&
+    typeof U?.formatMoneyTotal === 'function' &&
+    (typeof U.isMoneyReady !== 'function' || U.isMoneyReady(domain) === true)
   );
 }
 
 const MONEY_DASH = '-';
 const MONEY_TITLE_ENTRADA = 'Entrada não é valorada em R$';
+const MONEY_TITLE_TRANSFORMADORES = 'Transformadores não são valorados em R$';
 const MONEY_TITLE_RESIDUAL = 'Valor calculado (residual): não é valorado em R$';
 const MONEY_TITLE_UNAVAILABLE = 'Custo estimado indisponível (sem tarifa ou sem categoria tarifária)';
 const MONEY_TITLE_INCOMPLETE = 'Cobertura incompleta: nem todos os dispositivos têm custo estimado completo';
@@ -1363,11 +1369,10 @@ function renderStats() {
   }
 
   // RFC-0196: Restore group filter visual state after data refresh
+  // (RFC-0241 Part B / ED-1389: o modo R$ dos cards roda no fim do applyGroupFilter)
   applyGroupFilter('energy');
   // RFC-0196: Check for calculation errors (negative residuals / Entrada < Total)
   checkCalculationErrors();
-  // RFC-0241 Part B: totais em R$ (modo físico: no-op)
-  _applyMoneyToStats('energy');
 
   LogHelper.log('RFC-0056: Stats rendered successfully');
 }
@@ -2677,11 +2682,10 @@ function renderWaterStats() {
   $$('#waterTotalConsumidoresPerc').text('(100%)');
 
   // RFC-0196: Restore group filter visual state after data refresh
+  // (RFC-0241 Part B / ED-1389: o modo R$ dos cards roda no fim do applyGroupFilter)
   applyGroupFilter('water');
   // RFC-0196: Check for calculation errors (negative residuals / Entrada < Total)
   checkCalculationErrors();
-  // RFC-0241 Part B: totais em R$ (modo físico: no-op)
-  _applyMoneyToStats('water');
 
   LogHelper.log('[RFC-0002 Water] Stats rendered');
 }
@@ -3350,7 +3354,7 @@ function buildTransformadoresInfoSection() {
       (device) => `
       <div class="myio-info-tooltip__row" style="padding: 4px 0; border-bottom: 1px dashed rgba(100, 116, 139, 0.2);">
         <span class="myio-info-tooltip__label" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${device.label}">${device.label}</span>
-        <span class="myio-info-tooltip__value">${_displayDevice(device, device.value, 'energy').html}</span>
+        <span class="myio-info-tooltip__value">${_displayNotValued(device.value, MONEY_TITLE_TRANSFORMADORES, 'energy').html}</span>
       </div>
     `
     )
@@ -3365,7 +3369,7 @@ function buildTransformadoresInfoSection() {
         ${deviceListHtml}
         <div class="myio-info-tooltip__row" style="padding-top: 6px; margin-top: 4px; border-top: 1px solid rgba(100, 116, 139, 0.25); font-weight: 600;">
           <span class="myio-info-tooltip__label">Total:</span>
-          <span class="myio-info-tooltip__value">${_displayDevices(devices, total, 'energy').html}</span>
+          <span class="myio-info-tooltip__value">${_displayNotValued(total, MONEY_TITLE_TRANSFORMADORES, 'energy').html}</span>
         </div>
       </div>
     </div>
@@ -3398,7 +3402,7 @@ function buildExcludedFromEntradaNotice() {
       (device) => `
       <div class="myio-info-tooltip__row" style="padding: 4px 0; border-bottom: 1px dashed rgba(146, 64, 14, 0.2);">
         <span class="myio-info-tooltip__label" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${device.label}">${device.label}</span>
-        <span class="myio-info-tooltip__value">${_displayDevice(device, device.value, 'energy').html}</span>
+        <span class="myio-info-tooltip__value">${_displayNotValued(device.value, MONEY_TITLE_ENTRADA, 'energy').html}</span>
       </div>
     `
     )
@@ -3417,7 +3421,7 @@ function buildExcludedFromEntradaNotice() {
           ${deviceListHtml}
           <div class="myio-info-tooltip__row" style="padding-top: 6px; margin-top: 4px; border-top: 1px solid rgba(146, 64, 14, 0.3); font-weight: 600;">
             <span class="myio-info-tooltip__label">Total excluído:</span>
-            <span class="myio-info-tooltip__value">${_displayDevices(excludedDevices, totalExcluded, 'energy').html}</span>
+            <span class="myio-info-tooltip__value">${_displayNotValued(totalExcluded, MONEY_TITLE_ENTRADA, 'energy').html}</span>
           </div>
         </div>
       </div>
@@ -4157,9 +4161,14 @@ function buildDeviceExpandList(id, devices, formatFn) {
     .map((d) => {
       const full = cleanLabel(d.label || d.identifier || d.name || '—');
       const display = truncate(full);
-      // RFC-0241 Part B / ED-1389: modo R$ → R$ do device ou "-" + chip (físico só no title)
-      const val =
-        typeof d.value === 'number' ? (_moneyMode() ? _moneyDevice(d, formatFn(d.value)).html : formatFn(d.value)) : '—';
+      // RFC-0241 Part B / ED-1389: modo R$ → R$ do device ou "-" + chip (físico só no title).
+      // Devices da Entrada nunca são valorados → "-" com o motivo certo (não "sem tarifa").
+      let val = '—';
+      if (typeof d.value === 'number') {
+        if (!_moneyMode()) val = formatFn(d.value);
+        else if (id === 'entrada') val = _moneyDash(MONEY_TITLE_ENTRADA, formatFn(d.value)).html;
+        else val = _moneyDevice(d, formatFn(d.value)).html;
+      }
       return `<div class="rfc196-device-item">
       <span class="rfc196-device-item__name" title="${escAttr(full)}">${escAttr(display)}</span>
       <span class="rfc196-device-item__value">${val}</span>

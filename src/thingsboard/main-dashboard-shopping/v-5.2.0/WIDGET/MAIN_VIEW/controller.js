@@ -1777,6 +1777,15 @@ window.MyIOUtils.setValueDisplayMode = async function setValueDisplayMode(mode, 
 
 window.MyIOUtils.getValueDisplayMode = () => _moneyState.mode;
 
+/**
+ * ED-1389: modo R$ ativo E valoração do período atual pronta para o domínio. Enquanto
+ * revalora (troca de período, tarifas salvas) é false → os filhos mostram o físico (sem
+ * "-"/"sem tarifa" falso) até o `myio:money-valuation-ready`.
+ */
+window.MyIOUtils.isMoneyReady = function isMoneyReady(domain) {
+  return _moneyState.mode === 'money' && MONEY_DOMAINS.includes(domain) && !!_moneyCurrentResult(domain);
+};
+
 /** item.money do device (null = mostrar físico sem marcador: modo físico, temperatura, Entrada, ainda calculando). */
 window.MyIOUtils.getItemMoney = function getItemMoney(itemOrKey, domain) {
   if (_moneyState.mode !== 'money' || !MONEY_DOMAINS.includes(domain)) return null;

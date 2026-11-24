@@ -93,6 +93,8 @@ const EXPORTS = [
   'buildOutrosContent',
   'buildBanheirosContent',
   'buildPontosNaoMapeadosContent',
+  'buildTransformadoresInfoSection',
+  'buildExcludedFromEntradaNotice',
 ];
 
 // ---------------------------------------------------------------------------
@@ -188,6 +190,8 @@ function makeSandbox(opts: {
   state?: unknown;
   stateWater?: unknown;
   groupFilter?: Record<string, Record<string, boolean>>;
+  /** MyIOUtils.isMoneyReady: true (default) | false (valoração recalculando) | 'absent' (MAIN antiga) */
+  ready?: boolean | 'absent';
 }) {
   const src = readFileSync(CONTROLLER, 'utf8');
   const body =
@@ -226,6 +230,10 @@ function makeSandbox(opts: {
     buildMoneyChipHTML,
     moneyCoverageTitle,
   };
+  if (opts.ready !== 'absent') {
+    // Mesma regra de MyIOUtils.isMoneyReady (MAIN_VIEW): modo R$ + resultado do período pronto
+    U.isMoneyReady = () => opts.mode === 'money' && opts.ready !== false;
+  }
 
   const nodes: Record<string, Node> = {};
   const node = (sel: string) => (nodes[sel] ||= { appended: [], title: null });
@@ -575,5 +583,74 @@ describe('ED-1389 — resumo ℹ️ do header', () => {
   it('modo físico: resumo intocado', () => {
     const { api } = makeSandbox({ domain: 'energy', mode: 'physical' });
     expect(api._applyMoneyToSummary(summary(), 'energy')).toEqual(summary());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Revisão do PR #171
+// ---------------------------------------------------------------------------
+describe('ED-1389 (revisão) — valoração ainda não pronta', () => {
+  it('isMoneyReady=false → widget inteiro no físico (sem "-" nem "sem tarifa" falso)', () => {
+    const { api, nodes } = makeSandbox({ domain: 'energy', mode: 'money', ready: false });
+    expect(api._displayGroup('lojas', 300)).toEqual({ html: '300 kWh', compact: '300 kWh', text: '300 kWh', title: '' });
+    expect(api._displayGroup('entrada', 1000).text).toBe('1000 kWh');
+    expect(api._displayConsumersTotal(1000).text).toBe('1000 kWh');
+    api._applyMoneyToStats('energy');
+    expect(nodes['#lojasTotal']?.html).toBeUndefined(); // cards não reescritos
+    const lojas = api.buildLojasContent();
+    expect(lojas).not.toContain('R$');
+    expect(lojas).not.toContain('ti-money-dash');
+    expect(lojas).not.toContain('indisponível');
+  });
+
+  it('MAIN antiga sem isMoneyReady → comportamento R$ de antes (compatível)', () => {
+    const { api } = makeSandbox({ domain: 'energy', mode: 'money', ready: 'absent' });
+    expect(api._displayGroup('lojas', 300).text).toBe('R$ 150,50');
+  });
+
+  it('água: isMoneyReady=false → m³ de sempre', () => {
+    const { api } = makeSandbox({ domain: 'water', mode: 'money', ready: false });
+    expect(api._displayGroup('lojas', 200).text).toBe('200 m³');
+  });
+});
+
+describe('ED-1389 (revisão) — Entrada e Transformadores com o motivo certo', () => {
+  const withEntradaExtras = () => {
+    const s: any = energyState();
+    s.tooltipData.byCategory.transformadores = {
+      summary: { total: 300 },
+      details: { devices: [dev('T1', 300)] },
+    };
+    s.tooltipData.excludedFromEntrada = [dev('X1', 50)];
+    return s;
+  };
+
+  it('lista de devices do tooltip de Entrada: "-" com "Entrada não é valorada" (não "sem tarifa")', () => {
+    const { api } = makeSandbox({ domain: 'energy', mode: 'money', state: withEntradaExtras() });
+    const html = api.buildEntradaContent();
+    expect(visible(html)).not.toContain('kWh');
+    expect(html).toContain('Entrada não é valorada em R$');
+    expect(html).not.toContain('sem tarifa ou sem categoria');
+  });
+
+  it('Transformadores: devices e total "-" com "Transformadores não são valorados"', () => {
+    const { api } = makeSandbox({ domain: 'energy', mode: 'money', state: withEntradaExtras() });
+    const html = api.buildTransformadoresInfoSection();
+    expect(visible(html)).not.toContain('kWh');
+    expect((html.match(/Transformadores não são valorados em R\$/g) || []).length).toBe(2);
+    expect(html).not.toContain('sem tarifa ou sem categoria');
+  });
+
+  it('excluídos da Entrada: devices e total "-" com "Entrada não é valorada"', () => {
+    const { api } = makeSandbox({ domain: 'energy', mode: 'money', state: withEntradaExtras() });
+    const html = api.buildExcludedFromEntradaNotice();
+    expect(visible(html)).not.toContain('kWh');
+    expect((html.match(/Entrada não é valorada em R\$/g) || []).length).toBe(2);
+  });
+
+  it('modo físico: Transformadores e excluídos da Entrada em kWh de sempre', () => {
+    const { api } = makeSandbox({ domain: 'energy', mode: 'physical', state: withEntradaExtras() });
+    expect(api.buildTransformadoresInfoSection()).toContain('300 kWh');
+    expect(api.buildExcludedFromEntradaNotice()).toContain('50 kWh');
   });
 });
