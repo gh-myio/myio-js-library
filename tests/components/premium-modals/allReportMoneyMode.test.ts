@@ -121,8 +121,8 @@ describe('allReportMoneyView (pure)', () => {
     expect(moneyGroupSummary(money, ROWS.filter((r) => r.groupLabel === 'Lojas'))).toBe(
       '2 dispositivos · - · Cobertura incompleta (1 de 2)'
     );
-    expect(moneyGroupSummary(money, ROWS.filter((r) => r.groupLabel === 'Área Comum'))).toBe('1 dispositivos · R$ 50,00');
-    expect(moneyGroupSummary(money, ROWS.filter((r) => r.groupLabel === 'Entrada'))).toBe('1 dispositivos · - · não valorado');
+    expect(moneyGroupSummary(money, ROWS.filter((r) => r.groupLabel === 'Área Comum'))).toBe('1 dispositivo · R$ 50,00');
+    expect(moneyGroupSummary(money, ROWS.filter((r) => r.groupLabel === 'Entrada'))).toBe('1 dispositivo · - · não valorado');
   });
 
   it('divideMoney: cents, half up', () => {
@@ -176,7 +176,7 @@ describe('AllReportModal — money mode with mixed devices ("todos")', () => {
     expect(m.getFilteredData().map((r: any) => r.id).slice(-3)).toEqual(['t1', 'e1', 'b']);
   });
 
-  it('KPIs: total "-" with coverage + out-of-total note, max/min in R$, "Sem tarifa" count', async () => {
+  it('KPIs: total "-" with coverage + out-of-total note, max/min in R$, "Sem custo" count (sub per state)', async () => {
     const { m } = modal({ money: await mixedMoney() });
     expect(m.computeKpis()).toEqual([
       { value: '5', label: 'Dispositivos' },
@@ -189,7 +189,7 @@ describe('AllReportModal — money mode with mixed devices ("todos")', () => {
       { value: 'R$ 50,00', label: 'Máximo', sub: 'Loja A' },
       { value: 'R$ 50,00', label: 'Mínimo', sub: 'Loja A' },
       { value: '0', label: 'Sem Consumo' },
-      { value: '1', label: 'Sem tarifa', sub: '1 Sem tarifa' },
+      { value: '1', label: 'Sem custo', sub: '1 Sem tarifa' },
     ]);
   });
 
@@ -199,7 +199,7 @@ describe('AllReportModal — money mode with mixed devices ("todos")', () => {
     expect(kpis[1]).toEqual({ value: 'R$ 120,00', label: 'Custo estimado total', sub: '2 não valorados fora do total' });
     expect(kpis[2]).toEqual({ value: 'R$ 40,00', label: 'Média por Dispositivo' }); // 120 / 3
     expect(kpis[4]).toEqual({ value: 'R$ 20,00', label: 'Mínimo', sub: 'Loja B' });
-    expect(kpis.find((k: any) => k.label === 'Sem tarifa')).toBeUndefined();
+    expect(kpis.find((k: any) => k.label === 'Sem custo')).toBeUndefined();
   });
 
   it('daily CSV: R$ only, "-" + reason, honest total with both notes', async () => {
@@ -247,9 +247,9 @@ describe('AllReportModal — money mode with mixed devices ("todos")', () => {
     const out = m.buildExportDevices();
     expect(out.filter((d: any) => d.groupHeader).map((d: any) => d.groupHeader)).toEqual([
       'LOJAS  ·  2 dispositivos · - · Cobertura incompleta (1 de 2)',
-      'ÁREA COMUM  ·  1 dispositivos · R$ 50,00',
-      'TRANSFORMADORES  ·  1 dispositivos · - · não valorado',
-      'ENTRADA  ·  1 dispositivos · - · não valorado',
+      'ÁREA COMUM  ·  1 dispositivo · R$ 50,00',
+      'TRANSFORMADORES  ·  1 dispositivo · - · não valorado',
+      'ENTRADA  ·  1 dispositivo · - · não valorado',
     ]);
     const devs = out.filter((d: any) => !d.groupHeader);
     expect(devs.map((d: any) => [d.deviceIdentifier, d.val, d.nameNote ?? null])).toEqual([
@@ -338,5 +338,99 @@ describe('AllReportModal.show() — money notice slot', () => {
     expect(notice!.style.display).toBe('none');
     h2.close();
     document.body.innerHTML = '';
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Revisão do PR #172 (pontos 1–4)
+// ---------------------------------------------------------------------------
+describe('ED-1391 (revisão) — KPI "Sem custo", outro período, ordenação e concordância', () => {
+  const OTHER_PERIOD = { startISO: '2026-02-01T00:00:00-03:00', endISO: '2026-02-28T23:59:59-03:00' };
+
+  it('1) KPI conta todos os estados sem R$ sob "Sem custo", com o detalhe por estado no sub', async () => {
+    const money = await mixedMoney();
+    const { m } = modal({ money });
+    // força "b" parcial e "c" sem categoria — o KPI conta os dois, cada estado no sub
+    const orig = money.itemMoney!;
+    money.itemMoney = (id: string) =>
+      id === 'b' ? { state: 'partial', reason: 'no-tariff' } : id === 'c' ? { state: 'uncategorized' } : orig(id);
+    const kpi = m.computeKpis().find((k: any) => k.label === 'Sem custo');
+    expect(kpi.value).toBe('2');
+    expect(kpi.sub).toContain('1 Tarifa parcial');
+    expect(kpi.sub).toContain('1 Sem categoria');
+    expect(m.computeKpis().find((k: any) => k.label === 'Sem tarifa')).toBeUndefined();
+  });
+
+  it('2) período diferente do dashboard: nenhum acesso a R$ sobra (itemMoney também desligado)', async () => {
+    const { m } = modal({ money: await mixedMoney() });
+    m.exportPeriod = { ...OTHER_PERIOD };
+    const active = m.activeMoney();
+    expect(active.overlay).toEqual({ state: 'unavailable', reason: 'PERIOD_MISMATCH' });
+    expect(active.itemMoney).toBeUndefined();
+    expect(active.totalFor).toBeUndefined();
+    expect(active.valuateBucket).toBeUndefined();
+    expect(active.perDevice).toEqual({});
+    expect(m.moneyMode).toBe(false);
+    // relatório físico: KPIs sem R$
+    expect(m.computeKpis().map((k: any) => k.label)).not.toContain('Custo estimado total');
+    // mesmo período continua com R$
+    m.exportPeriod = { ...PERIOD };
+    expect(typeof m.activeMoney().itemMoney).toBe('function');
+    expect(m.moneyMode).toBe(true);
+  });
+
+  function sortableHeaders() {
+    document.body.innerHTML = '<table><tr><th data-sort="name"></th><th data-sort="money"></th><th data-sort="consumption"></th></tr></table>';
+    const th = (k: string) => document.querySelector(`[data-sort="${k}"]`) as HTMLElement;
+    return th;
+  }
+
+  it('3) modo R$: clicar na coluna de custo (ordenação padrão) inverte a direção já no 1º clique', async () => {
+    const { m } = modal({ money: await mixedMoney() });
+    m.renderTable = vi.fn();
+    const th = sortableHeaders();
+    m.setupTableSorting();
+    expect(m.effectiveSortField()).toBe('money');
+    expect(m.sortDirection).toBe('desc');
+    th('money').click();
+    expect(m.sortDirection).toBe('asc');
+    th('money').click();
+    expect(m.sortDirection).toBe('desc');
+    document.body.innerHTML = '';
+  });
+
+  it('3) outro período (físico) com sortField "money": 1º clique em Consumo inverte a direção (antes só trocava o campo)', async () => {
+    const { m } = modal({ money: await mixedMoney() });
+    m.renderTable = vi.fn();
+    m.exportPeriod = { ...OTHER_PERIOD };
+    const th = sortableHeaders();
+    m.setupTableSorting();
+    expect(m.sortField).toBe('money');
+    expect(m.effectiveSortField()).toBe('consumption');
+    expect(m.sortDirection).toBe('desc');
+    th('consumption').click();
+    expect(m.sortField).toBe('consumption');
+    expect(m.sortDirection).toBe('asc');
+    // outra coluna continua começando na direção padrão dela
+    th('name').click();
+    expect(m.sortField).toBe('name');
+    expect(m.sortDirection).toBe('asc');
+    document.body.innerHTML = '';
+  });
+
+  it('4) concordância: "1 dispositivo" / "2 dispositivos" (R$ e físico) e "1 sensor"', async () => {
+    const money = await mixedMoney();
+    expect(moneyGroupSummary(money, ROWS.filter((r) => r.groupLabel === 'Lojas'))).toMatch(/^2 dispositivos · /);
+    expect(moneyGroupSummary(money, ROWS.filter((r) => r.groupLabel === 'Área Comum'))).toMatch(/^1 dispositivo · /);
+
+    const { m: physical } = modal();
+    expect(physical.groupSummaryText([ROWS[2]])).toMatch(/^1 dispositivo · .* kWh$/);
+    expect(physical.groupSummaryText([ROWS[2], ROWS[3]])).toMatch(/^2 dispositivos · .* kWh$/);
+
+    const temp = new AllReportModal({ customerId: 'c', api, domain: 'temperature' } as any) as any;
+    expect(temp.groupSummaryText([{ id: 's1', name: 'S1', consumption: 25 }])).toMatch(/^1 sensor · média /);
+    expect(temp.groupSummaryText([{ id: 's1', name: 'S1', consumption: 25 }, { id: 's2', name: 'S2', consumption: 27 }])).toMatch(
+      /^2 sensores · média /
+    );
   });
 });
