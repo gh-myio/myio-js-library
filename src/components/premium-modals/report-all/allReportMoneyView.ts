@@ -248,7 +248,9 @@ export function moneyKpis(money: AllReportMoneyConfig | null | undefined, rows: 
     { value: String(zeroCount), label: 'Sem Consumo' },
   ];
 
-  // Devices valoráveis sem R$ completo, por estado ("2 Sem tarifa · 1 Tarifa parcial")
+  // Devices valoráveis sem R$ completo, por estado ("2 Sem tarifa · 1 Tarifa parcial").
+  // O KPI conta TODOS os estados sem R$ (sem tarifa, tarifa parcial, sem categoria) — por isso
+  // o rótulo é "Sem custo"; o detalhe por estado vai no `sub`.
   const missing = rows.map((r) => rowMoneyView(money, r.id)).filter((v) => v.scope === 'in' && !v.amount);
   if (missing.length) {
     const byChip = new Map<string, number>();
@@ -256,18 +258,26 @@ export function moneyKpis(money: AllReportMoneyConfig | null | undefined, rows: 
     const sub = Array.from(byChip.entries())
       .map(([chip, n]) => `${n} ${chip}`)
       .join(' · ');
-    kpis.push({ value: String(missing.length), label: 'Sem tarifa', sub });
+    kpis.push({ value: String(missing.length), label: MONEY_NO_COST_KPI_LABEL, sub });
   }
   return kpis;
 }
 
+/** Rótulo do KPI de devices valoráveis sem R$ completo (qualquer estado). */
+export const MONEY_NO_COST_KPI_LABEL = 'Sem custo';
+
+/** `1 dispositivo` / `2 dispositivos` (também `sensor`/`sensores`) — concordância do resumo de grupo. */
+export function countLabel(n: number, singular: string, plural: string): string {
+  return `${n} ${n === 1 ? singular : plural}`;
+}
+
 /**
  * Resumo do cabeçalho de grupo (tela e exports): `"3 dispositivos · R$ 1.234,56"`,
- * `"2 dispositivos · - · Cobertura incompleta (1 de 2)"` ou `"1 dispositivos · - · não valorado"`.
+ * `"2 dispositivos · - · Cobertura incompleta (1 de 2)"` ou `"1 dispositivo · - · não valorado"`.
  */
 export function moneyGroupSummary(money: AllReportMoneyConfig | null | undefined, rows: MoneyRowLike[]): string {
   const total = moneyTotalView(money, rows);
-  const head = `${rows.length} dispositivos · ${total.text}`;
+  const head = `${countLabel(rows.length, 'dispositivo', 'dispositivos')} · ${total.text}`;
   if (total.scopeCount === 0) return `${head} · ${total.outCount === 1 ? 'não valorado' : 'não valorados'}`;
   const notes = moneyTotalNotes(total);
   return notes ? `${head} · ${notes}` : head;

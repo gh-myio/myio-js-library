@@ -50,6 +50,7 @@ import {
   moneyText,
   moneyTotalNotes,
   moneyTotalView,
+  countLabel,
   rowMoneyCellHTML,
   rowMoneyView,
   type RowMoneyView,
@@ -260,6 +261,8 @@ export class AllReportModal {
     if (near(m.period.startISO, this.exportPeriod.startISO) && near(m.period.endISO, this.exportPeriod.endISO)) {
       return m;
     }
+    // Outro período: o R$ calculado não vale aqui — TODOS os acessos a valor ficam desligados
+    // (inclusive itemMoney, ED-1391), para nenhum caminho reaproveitar R$ de outro período.
     return {
       ...m,
       overlay: { state: 'unavailable', reason: 'PERIOD_MISMATCH' },
@@ -267,6 +270,7 @@ export class AllReportModal {
       total: null,
       totalFor: undefined,
       valuateBucket: undefined,
+      itemMoney: undefined,
     };
   }
 
@@ -1632,7 +1636,7 @@ ${
         if (this.isTemperature) {
           const withData = items.filter((r) => !r.noData);
           const avg = withData.length ? withData.reduce((s, r) => s + r.consumption, 0) / withData.length : null;
-          summary = `${items.length} sensores · média ${this.fmtTemp(avg)} °C`;
+          summary = `${countLabel(items.length, 'sensor', 'sensores')} · média ${this.fmtTemp(avg)} °C`;
         } else {
           // ED-1391: em modo R$, total do grupo em reais (ou "-" + cobertura / não valorado)
           summary = this.groupSummaryText(items);
@@ -1666,7 +1670,11 @@ ${
       header.addEventListener('click', () => {
         const sortKey = header.getAttribute('data-sort') as keyof StoreReading | 'money';
 
-        if (this.sortField === sortKey) {
+        // ED-1391: compara com o campo EFETIVO — 'money' e 'consumption' se mapeiam um no
+        // outro quando o modo R$ ⇄ físico muda (outro período); sem isso o 1º clique na coluna
+        // de valor só trocava o campo e não invertia a direção.
+        if (this.effectiveSortField() === sortKey) {
+          this.sortField = sortKey;
           this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
           this.sortField = sortKey;
@@ -2139,11 +2147,11 @@ ${
     if (this.isTemperature) {
       const withData = items.filter((r) => !r.noData);
       const avg = withData.length ? withData.reduce((s, r) => s + r.consumption, 0) / withData.length : null;
-      return `${items.length} sensores · média ${this.fmtTemp(avg)} °C`;
+      return `${countLabel(items.length, 'sensor', 'sensores')} · média ${this.fmtTemp(avg)} °C`;
     }
     if (this.moneyMode) return moneyGroupSummary(this.activeMoney(), items);
     const total = items.reduce((s, r) => s + r.consumption, 0);
-    return `${items.length} dispositivos · ${fmtPt(total)} ${this.domainConfig.unit}`;
+    return `${countLabel(items.length, 'dispositivo', 'dispositivos')} · ${fmtPt(total)} ${this.domainConfig.unit}`;
   }
 
   // Colunas do PDF/XLS = colunas da tela. Temperatura: Sensor | Média | Mín | Máx (sem %).

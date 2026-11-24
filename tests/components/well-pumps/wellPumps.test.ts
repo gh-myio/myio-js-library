@@ -15,6 +15,7 @@ import {
   valveHistoryFromTelemetry,
   latestPowerKw,
   PUMP_POWER_KEY,
+  PUMP_ON_MIN_THRESHOLD_W,
   VALVE_STATE_KEYS,
   DAY_MS,
   HOUR_MS,
@@ -87,17 +88,29 @@ describe('equipmentState', () => {
       { ts: 300, value: '3' }, // ruído
       { ts: 400, value: '5500' },
     ];
+    // default: piso de 150 W — o ruído de 3 W NÃO liga a bomba
     expect(pumpHistoryFromConsumption(pts)).toEqual([
       [100, 200],
-      [300, null],
-    ]);
-    expect(pumpHistoryFromConsumption(pts, 10)).toEqual([
-      [100, 200],
       [400, null],
+    ]);
+    // limiar explícito menor continua respeitado pela função pura (a MAIN aplica o piso)
+    expect(pumpHistoryFromConsumption(pts, 0)).toEqual([
+      [100, 200],
+      [300, null],
     ]);
     expect(latestPowerKw(pts)).toBe(5.5);
     expect(latestPowerKw([])).toBeNull();
     expect(PUMP_POWER_KEY).toBe('consumption');
+  });
+
+  it('piso de 150 W: 0,0 kW / ≤ 150 W = DESLIGADA; > 150 W = LIGADA', () => {
+    expect(PUMP_ON_MIN_THRESHOLD_W).toBe(150);
+    // ligada e depois cai para 0,0 kW → desligada
+    expect(isActive(pumpHistoryFromConsumption([{ ts: 1, value: 11400 }, { ts: 2, value: 0 }]))).toBe(false);
+    // só leituras de standby (≤ 150 W) → nunca ligada
+    expect(pumpHistoryFromConsumption([{ ts: 1, value: 40 }, { ts: 2, value: 150 }])).toEqual([]);
+    // 151 W → ligada
+    expect(isActive(pumpHistoryFromConsumption([{ ts: 1, value: 0 }, { ts: 2, value: 151 }]))).toBe(true);
   });
 
   it('distingue ausência de amostras de uma leitura válida inativa', () => {
@@ -284,7 +297,7 @@ describe('modal Automação dos Poços', () => {
     const div = document.createElement('div');
     div.innerHTML = html;
     expect(div.querySelector('.myio-wp-kpi b')!.textContent).toBe('1 de 2');
-    expect(div.textContent).toContain('7,4 kW');
+    expect(div.textContent).toContain('7,400 kW');
     expect(div.querySelectorAll('.myio-wp-card')).toHaveLength(3);
     expect(div.querySelector('.myio-wp-card.focus')!.getAttribute('data-code')).toBe('B2');
     expect(div.querySelector('[data-code="B1"] .myio-wp-state')!.textContent).toContain('LIGADA');
@@ -312,7 +325,7 @@ describe('modal Automação dos Poços', () => {
     const kpis = [...div.querySelectorAll('.myio-wp-kpi')].map((k) => k.textContent!.replace(/\s+/g, ' ').trim());
     expect(kpis[0]).toContain('1 de 3');
     expect(kpis[0]).toContain('1 sem leitura');
-    expect(kpis[1]).toContain('7,4 kW parcial');
+    expect(kpis[1]).toContain('7,400 kW parcial');
     expect(kpis[1]).toContain('1 sem leitura');
     expect(kpis[2]).toContain('1 de 3');
     expect(kpis[2]).toContain('1 sem leitura');
@@ -387,5 +400,32 @@ describe('modal Automação dos Poços', () => {
     h.close();
     await vi.advanceTimersByTimeAsync(20_000);
     expect(loader).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('modal do motor — potência com 3 casas decimais', () => {
+  it('ligada: 11,400 kW; desligada com standby: leitura real (0,040 kW); total 0,000 kW sem bomba ligada', () => {
+    const div = document.createElement('div');
+    div.innerHTML = renderWellPumpsBodyHTML(
+      {
+        pumps: [
+          { code: 'B3', label: 'Bomba 3', powerKw: 11.4, history: [[NOW - HOUR_MS, null]] },
+          { code: 'B4', label: 'Bomba 4', powerKw: 0.04, history: [[NOW - 5 * HOUR_MS, NOW - 2 * HOUR_MS]] },
+        ],
+        valves: [],
+      } as any,
+      { now: NOW }
+    );
+    expect(div.querySelector('[data-code="B3"]')!.textContent).toContain('11,400 kW');
+    expect(div.querySelector('[data-code="B4"]')!.textContent).toContain('0,040 kW');
+    expect(div.querySelector('[data-code="B4"] .myio-wp-state')!.textContent).toContain('DESLIGADA');
+    expect(div.textContent).not.toMatch(/\d,\d kW/); // nada com 1 casa
+
+    const off = document.createElement('div');
+    off.innerHTML = renderWellPumpsBodyHTML(
+      { pumps: [{ code: 'B1', label: 'Bomba 1', powerKw: null, history: [[NOW - 5 * HOUR_MS, NOW - 2 * HOUR_MS]] }], valves: [] } as any,
+      { now: NOW }
+    );
+    expect(off.textContent).toContain('0,000 kW');
   });
 });

@@ -72,8 +72,9 @@ export class WaterTankModal {
    * Build context object for callbacks
    */
   private buildContext(options: OpenDashboardPopupWaterTankOptions): WaterTankModalContext {
-    // RFC-0107: Use clamped level for visual display (0-100)
-    const displayLevel = options.currentLevelClamped ?? options.currentLevel ?? 0;
+    // ED-1375: "Nível Atual" shows the REAL level (can exceed 100%, same as the card).
+    // The view clamps only the tank image/status; currentLevelClamped is a fallback.
+    const displayLevel = options.currentLevel ?? options.currentLevelClamped ?? 0;
 
     return {
       device: {
@@ -238,8 +239,8 @@ export class WaterTankModal {
    * RFC-0107: Use clamped level for display
    */
   private calculateSummary(telemetry: WaterTankDataPoint[]) {
-    // RFC-0107: Use clamped level for visual display
-    const displayLevel = this.options.currentLevelClamped ?? this.options.currentLevel ?? 0;
+    // ED-1375: real (unclamped) level, same as the card
+    const displayLevel = this.options.currentLevel ?? this.options.currentLevelClamped ?? 0;
 
     if (telemetry.length === 0) {
       return {

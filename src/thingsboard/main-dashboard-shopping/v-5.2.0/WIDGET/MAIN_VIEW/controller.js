@@ -2129,6 +2129,17 @@ function _getWellEquipment(tbId, pumpBindings) {
   };
 }
 
+/**
+ * Limiar (W) de "bomba ligada": potência instantânea precisa ser > 150 W. Abaixo disso é
+ * ruído/standby do medidor → DESLIGADA (antes o default era 0 W e 0,0 kW aparecia como
+ * LIGADA). `thresholdW` configurado só vale se for MAIOR que o piso.
+ */
+const PUMP_ON_MIN_THRESHOLD_W = 150;
+function _pumpOnThresholdW(configured) {
+  const n = configured === null || configured === undefined || configured === '' ? NaN : Number(configured);
+  return Number.isFinite(n) ? Math.max(n, PUMP_ON_MIN_THRESHOLD_W) : PUMP_ON_MIN_THRESHOLD_W;
+}
+
 async function _refreshWellEquipment() {
   const lib = window.MyIOLibrary;
   if (!_wellEquipment.wells.length) return;
@@ -2169,7 +2180,8 @@ async function _refreshWellEquipment() {
         id: p.tbId,
         deviceProfile: 'BOMBA_POCO',
         wellLabel,
-        history: s ? lib.pumpHistoryFromConsumption(s.consumption, Number(p.thresholdW) || 0) : null,
+        // Bomba só conta como LIGADA com potência > 150 W (piso); thresholdW configurado maior vale.
+        history: s ? lib.pumpHistoryFromConsumption(s.consumption, _pumpOnThresholdW(p.thresholdW)) : null,
         powerKw: s ? lib.latestPowerKw(s.consumption) : null,
         wellLevelMca: well.waterLevel != null ? Number(well.waterLevel) : null,
         wellPercentage: well.waterPercentage != null ? Number(well.waterPercentage) : null,

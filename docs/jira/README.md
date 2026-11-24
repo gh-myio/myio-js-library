@@ -1,12 +1,12 @@
 # Cockpit Jira — ED (Sprint 20 + Backlog)
 
-Dashboards estáticos gerados a partir do Jira Cloud (`myio.atlassian.net`, projeto **ED / Engineer Dashboard**, board **166**), via MCP Atlassian. **Snapshot: 23/11/2026, 2ª atualização** (incremental completa, corte `>= 2026-11-23` — ver notas abaixo).
+Dashboards estáticos gerados a partir do Jira Cloud (`myio.atlassian.net`, projeto **ED / Engineer Dashboard**, board **166**), via MCP Atlassian. **Snapshot: 24/11/2026** (incremental completa, corte `>= 2026-11-23` — ver notas abaixo).
 
 ## Arquivos
 
 | Arquivo | Descrição |
 |---|---|
-| `index.html` | **Cockpit do backlog** — KPIs, charts, cartão de WIP e grid filtrável (582 backlog + 43 da Sprint 20). Escopo: Tarefa + Subtarefa + Bug (sem Épico, sem História/Story). |
+| `index.html` | **Cockpit do backlog** — KPIs, charts, cartão de WIP e grid filtrável (567 backlog + 40 da Sprint 20). Escopo: Tarefa + Subtarefa + Bug (sem Épico, sem História/Story). |
 | `performance.html` | **Performance & Burndown** — burndown por sprint, conclusões/dia, heatmap e ranking de aderência, seletor de período, export PDF. |
 | `processo.html` | **Modelo de Trabalho** — acordos de processo + fluxo de revisão (DEV→QA, PR) + nomenclatura de branches. |
 | `data.json` | Dados estruturados do cockpit (sprint + backlog + agregados). Consumido por `index.html`. |
@@ -246,16 +246,28 @@ start-server.bat        # abre http://localhost:3340/docs/jira/
   4. **Sprint 20 live = 43** (`sprint = 629 AND statusCategory != Done`) = 40 − ED-1385 + 4 novos, conferido chave a chave.
   5. **WIP segue 21** (`peopleOver` **3**): Letícia Camargo 9, Ito **6→5** (saiu ED-1385), Victor Hugo da Silva **4→5** (entrou ED-1388), Rodrigo Lago 1, Leandro Gadioli Rodrigues 1.
   6. **Sprint 20 burndown:** ponto de **23/11** substituído por `remaining: 43`; `done` 36→**37**, `scope` 76→**80**.
+- **24/11/2026 (incremental completa — corte `>= 2026-11-23`):** totais caem de 625 para **607** (**582→567** backlog / **43→40** Sprint 20), **−18** líquido: 22 concluídos menos 4 novos.
+  1. **22 concluídos** (`resolved >= "2026-11-23"`, menos o ED-1385 já contado), anexados a `completions[]` (372→**394**):
+     - **3 da Sprint 20:** **ED-983** (Perfil de Dispositivos sem refresh), **ED-1342** (aba Temperatura com Carregar/Limpar desabilitados) e **ED-1388** (TELEMETRY_INFO segue a taxonomia GCDR — Victor, PR #170).
+     - **19 do backlog**, quase todos do Rodrigo em 24/11: Pré-Setup ED-943 (Victor), ED-956, ED-958, ED-959, ED-963; GCDR ED-972, ED-976, ED-977, ED-978, ED-1002, ED-1045, ED-1046; ThingsBoard ED-1056, ED-1099, ED-1100, ED-1116, ED-1373; Ingestion Staging ED-1312, ED-1313.
+  2. **4 tickets novos no backlog** (Rodrigo, 24/11): **ED-1394** (GCDR: desativar central responde 200 mas segue ativa — Bug High), **ED-1395** (recarregar a tela ao salvar Perfil de Dispositivos), **ED-1396** (linha do tempo da OS grupo ao excluir OS filha) e **ED-1397** (aba Temperatura: só o botão atualizar).
+  3. **22 alterações in-place:**
+     - **Repriorização em lote em 24/11** (20 tickets). Subiram para Highest: ED-1343, ED-1344, ED-1375. Subiram para High: ED-919, ED-971, ED-973, ED-1238. Desceram para Low/Lowest: ED-880, 881, 883, 884, 922, 936, 941, 946, 980, 1003, 1063.
+     - **Tipo:** ED-1049 Bug→Tarefa; ED-1296 Subtarefa→Tarefa.
+     - **Status:** ED-1379 Em Andamento→EM REVISÃO (Leandro); ED-1389 Itens Novos→Em Andamento (Victor, PR #171 mergeado em 24/11).
+  4. **Sprint 20 live = 40** (`sprint = 629 AND statusCategory != Done`) = 43 − 3 concluídos, conferido chave a chave; 0 movimentações silenciosas.
+  5. **WIP segue 21** (`peopleOver` **3**): Letícia Camargo 9, Ito 5, Victor 5 (saiu ED-1388, entrou ED-1389), Rodrigo Lago 1, Leandro Gadioli Rodrigues 1.
+  6. **Sprint 20 burndown:** novo ponto **24/11** com `remaining: 40`; `done` 37→**40**, `scope` **80** (inalterado).
 - **Backlog (cockpit):** `project = ED`, fora da sprint corrente (Sprint 20), `statusCategory != Done`, tipos acima.
 - **Sprint 20:** `sprint = 629` (**future** no Jira em 14/09/2026 — criada e populada, mas o board ainda não foi formalmente "iniciado"; tratada aqui como a sprint corrente porque é a intenção clara do time). Janela: 14/09 → 21/09/2026. Sprint 19 (`sprint = 596`) fechou em 14/09/2026 com escopo 99/done 26 — ver delta acima. Sprints 15–19 fechadas; ao fechar, itens incompletos migram pra próxima sprint (ou backlog), então o escopo visível de sprint fechada ≈ o que foi concluído.
 - **Subtarefas:** herdam o `group`/tema do ticket pai quando o conteúdo da subtarefa não indica algo mais específico (ex.: subtarefa citando um shopping/cliente pelo nome vai para o grupo daquele cliente, mesmo que o pai seja um container genérico).
 
 ## Regenerar
 
-Os JSONs foram gerados a partir de consultas JQL via MCP Atlassian (paginadas em `searchJiraIssuesUsingJql`). Para atualizar, refaça as consultas e reprocesse — os scripts de geração ficaram no scratchpad da sessão. Snapshot atual: **23/11/2026, 2ª atualização** (incremental completa, corte `>= 2026-11-23`; full pull mais antigo: 15/09/2026 — o de 17/09 foi um upsert manual pontual de 3 tickets, ver deltas acima).
+Os JSONs foram gerados a partir de consultas JQL via MCP Atlassian (paginadas em `searchJiraIssuesUsingJql`). Para atualizar, refaça as consultas e reprocesse — os scripts de geração ficaram no scratchpad da sessão. Snapshot atual: **24/11/2026** (incremental completa, corte `>= 2026-11-23`; full pull mais antigo: 15/09/2026 — o de 17/09 foi um upsert manual pontual de 3 tickets, ver deltas acima).
 
 > ⚠️ **Armadilha de JQL (aprendida em 01/09):** `issuetype in (Tarefa, Subtarefa, Bug)` NÃO retorna issues criadas via API com o nome de tipo em inglês ("Task"), mesmo que o Jira as exiba como "Tarefa" (mesmo id 10267). Para não perder tickets, filtre por **id**: `issuetype in (10267, 10271, 10268)` (Tarefa, Subtarefa, Bug).
 
 > ⚠️ **Armadilha adicional (aprendida em 22/09):** a query "abertos alterados" (`statusCategory != Done AND updated >= <data>`) NÃO captura todo ticket que mudou de sprint — algumas mudanças em lote (provavelmente via automação/script) limpam o campo Sprint sem tocar o `updated` do issue. Para pegar a lista real e atual da sprint corrente, sempre rode também `sprint = <id> AND statusCategory != Done` (sem filtro de `updated`) e trate como fonte da verdade para quem está dentro/fora da sprint; qualquer membro antigo que sumiu dessa lista (e não apareceu como resolvido) migrou para o backlog silenciosamente, mesmo sem aparecer na query de "alterados".
 
-**Atualização incremental** (mais barata que o full pull): 1 query de resolvidos (`resolved >= <última data>`), 1 de abertos alterados (`statusCategory != Done AND updated >= <última data>`), 1 query da sprint corrente por id (`sprint = <id> AND statusCategory != Done`, ver armadilha acima), 1 de WIP (`status in ("Em Andamento", "EM REVISÃO")` — regra desde 09/11/2026); remover resolvidos das listas, fazer upsert dos alterados (sprint se membro da sprint ativa segundo a query por id, senão backlog), recomputar agregados/summary e estender o burndown da sprint ativa. Última **incremental completa**: **23/11/2026, 2ª atualização** (corte `>= 2026-11-23` — 1 concluído, 4 novos na Sprint 20, 0 in-place, ver delta acima). Full pull mais antigo: 15/09/2026; o de 17/09 foi só um upsert manual pontual de 3 tickets. Snapshot mais recente do arquivo: **23/11/2026**.
+**Atualização incremental** (mais barata que o full pull): 1 query de resolvidos (`resolved >= <última data>`), 1 de abertos alterados (`statusCategory != Done AND updated >= <última data>`), 1 query da sprint corrente por id (`sprint = <id> AND statusCategory != Done`, ver armadilha acima), 1 de WIP (`status in ("Em Andamento", "EM REVISÃO")` — regra desde 09/11/2026); remover resolvidos das listas, fazer upsert dos alterados (sprint se membro da sprint ativa segundo a query por id, senão backlog), recomputar agregados/summary e estender o burndown da sprint ativa. Última **incremental completa**: **24/11/2026** (corte `>= 2026-11-23` — 22 concluídos, 4 novos no backlog, 22 in-place, ver delta acima). Full pull mais antigo: 15/09/2026; o de 17/09 foi só um upsert manual pontual de 3 tickets. Snapshot mais recente do arquivo: **24/11/2026**.
