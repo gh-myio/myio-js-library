@@ -7,8 +7,23 @@ import { resolve } from 'node:path';
 
 const WIDGET_DIR = resolve(process.cwd(), 'src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET');
 
-export function readControllerSource(widget: 'MAIN_VIEW' | 'HEADER'): string {
+export function readControllerSource(widget: 'MAIN_VIEW' | 'HEADER' | 'TELEMETRY_INFO'): string {
   return readFileSync(resolve(WIDGET_DIR, `${widget}/controller.js`), 'utf8');
+}
+
+/**
+ * ED-1389 — bloco de apresentação do modo R$ do TELEMETRY_INFO (constantes + helpers
+ * `_moneyMode`, `_displayGroup`, `_sliceDisplay`, `_applyMoneyToStats`, …). As funções de
+ * render/tooltip chamam esses helpers, então todo sandbox que as extrai precisa do bloco.
+ * Dependências resolvidas na chamada: `getWidgetDomain` (+ `self`), `formatEnergy`,
+ * `formatValue`, `STATE`, `STATE_WATER`, `GROUP_FILTER`, `window.MyIOUtils`.
+ */
+export function extractTelemetryInfoMoneyBlock(source: string): string {
+  source = source.replace(/\r\n/g, '\n'); // checkout com core.autocrlf (Windows) → CRLF
+  const begin = source.indexOf('// ===================== RFC-0241 Part B + ED-1389');
+  const end = source.indexOf('/**\n * RFC-0056: Render statistics for 6 categories');
+  if (begin < 0 || end < 0 || end < begin) throw new Error('bloco do modo R$ do TELEMETRY_INFO não encontrado');
+  return source.slice(begin, end);
 }
 
 /** Extrai `function name(...) { ... }` do fonte (chaves balanceadas). */

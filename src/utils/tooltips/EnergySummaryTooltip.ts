@@ -55,6 +55,11 @@ export interface CategorySummary {
   children?: CategorySummary[];
   /** Breakdown by shopping (optional - for expand/collapse feature) */
   byShoppingBreakdown?: ShoppingBreakdown[];
+  /**
+   * ED-1389 — ready-to-show value (plain text, e.g. "R$ 1.234,56" or "-") that replaces the
+   * formatted consumption in this row (dashboard v-5.2.0 "R$" mode). Absent → unchanged.
+   */
+  displayValue?: string;
 }
 
 export interface DeviceInfo {
@@ -119,6 +124,14 @@ export interface DashboardEnergySummary {
    * else A4's honest coverage state — never R$ 0 / NaN.
    */
   money?: EnergySummaryMoney;
+  /**
+   * ED-1389 — dashboard v-5.2.0 "R$" mode (all optional; absent → byte-identical render):
+   * `totalDisplayValue` replaces the formatted "Consumo Total" (plain text), `valueLabel`
+   * replaces the "Consumo" column header and `totalLabel` the "Consumo Total" label.
+   */
+  totalDisplayValue?: string;
+  valueLabel?: string;
+  totalLabel?: string;
 }
 
 /** RFC-0228 A6 — money overlay carried by {@link DashboardEnergySummary}. */
@@ -922,6 +935,15 @@ const CATEGORY_ICONS: Record<string, string> = {
 /**
  * Format consumption value with appropriate unit
  */
+/** ED-1389 — escape for the optional plain-text display overrides. */
+function escDisplay(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function formatConsumption(value: number, unit: string = 'kWh'): string {
   if (value == null || isNaN(value)) return '0,00 ' + unit;
 
@@ -1025,7 +1047,9 @@ export const EnergySummaryTooltip = {
             <span>${cat.name}</span>
           </span>
           <span class="energy-summary-tooltip__category-count">${cat.deviceCount}</span>
-          <span class="energy-summary-tooltip__category-consumption">${formatConsumption(cat.consumption, unit)}</span>
+          <span class="energy-summary-tooltip__category-consumption">${
+            cat.displayValue != null ? escDisplay(cat.displayValue) : formatConsumption(cat.consumption, unit)
+          }</span>
         </div>
       `;
 
@@ -1062,7 +1086,9 @@ export const EnergySummaryTooltip = {
                   <span>${child.name}</span>
                 </span>
                 <span class="energy-summary-tooltip__category-count">${child.deviceCount}</span>
-                <span class="energy-summary-tooltip__category-consumption">${formatConsumption(child.consumption, unit)}</span>
+                <span class="energy-summary-tooltip__category-consumption">${
+                  child.displayValue != null ? escDisplay(child.displayValue) : formatConsumption(child.consumption, unit)
+                }</span>
               </div>
             `;
 
@@ -1206,6 +1232,7 @@ export const EnergySummaryTooltip = {
    * Shows "3,973 MWh" when not filtered
    */
   formatTotalWithFilter(summary: DashboardEnergySummary): string {
+    if (summary.totalDisplayValue != null) return escDisplay(summary.totalDisplayValue); // ED-1389
     const filtered = summary.filteredTotal ?? summary.totalConsumption ?? 0;
     const unfiltered = summary.unfilteredTotal ?? summary.totalConsumption ?? 0;
     const unit = summary.unit || 'kWh';
@@ -1397,7 +1424,7 @@ export const EnergySummaryTooltip = {
               <div class="energy-summary-tooltip__category-header">
                 <span>Categoria</span>
                 <span>Qtd</span>
-                <span>Consumo</span>
+                <span>${escDisplay(summary.valueLabel || 'Consumo')}</span>
               </div>
               ${categoryRows}
             </div>
@@ -1426,7 +1453,7 @@ export const EnergySummaryTooltip = {
           ${excludedNotice}
         </div>
         <div class="energy-summary-tooltip__total">
-          <span class="energy-summary-tooltip__total-label">Consumo Total</span>
+          <span class="energy-summary-tooltip__total-label">${escDisplay(summary.totalLabel || 'Consumo Total')}</span>
           <span class="energy-summary-tooltip__total-value">${this.formatTotalWithFilter(summary)}</span>
         </div>${this.formatMoneyTotal(summary)}
       </div>

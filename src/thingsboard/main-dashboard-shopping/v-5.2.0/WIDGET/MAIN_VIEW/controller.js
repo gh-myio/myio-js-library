@@ -1777,6 +1777,15 @@ window.MyIOUtils.setValueDisplayMode = async function setValueDisplayMode(mode, 
 
 window.MyIOUtils.getValueDisplayMode = () => _moneyState.mode;
 
+/**
+ * ED-1389: modo R$ ativo E valoração do período atual pronta para o domínio. Enquanto
+ * revalora (troca de período, tarifas salvas) é false → os filhos mostram o físico (sem
+ * "-"/"sem tarifa" falso) até o `myio:money-valuation-ready`.
+ */
+window.MyIOUtils.isMoneyReady = function isMoneyReady(domain) {
+  return _moneyState.mode === 'money' && MONEY_DOMAINS.includes(domain) && !!_moneyCurrentResult(domain);
+};
+
 /** item.money do device (null = mostrar físico sem marcador: modo físico, temperatura, Entrada, ainda calculando). */
 window.MyIOUtils.getItemMoney = function getItemMoney(itemOrKey, domain) {
   if (_moneyState.mode !== 'money' || !MONEY_DOMAINS.includes(domain)) return null;
@@ -6588,6 +6597,7 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
     .filter((item) => isExcludedFromGroup(item, 'entrada'))
     .map((item) => ({
       id: item.id,
+      ingestionId: item.ingestionId || null,
       label: item.label || item.name || item.deviceIdentifier || item.id,
       value: Number(item.value) || 0,
     }));
@@ -6898,7 +6908,10 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
   const statusAggregation = aggregateDeviceStatus(allItems);
 
   // ============ BUILD TOOLTIP-READY STRUCTURE ============
-  const buildCategorySummary = (items, total, name) => ({
+  // ED-1389: `groupKey` = o mesmo nome de grupo que o total usa em getValorEfetivo.
+  // Com ele, cada device leva `excludedFromTotal` (soma 0 no kWh → fora da soma em R$).
+  // `ingestionId` é a chave de MyIOUtils.getItemMoney (modo R$ do TELEMETRY_INFO).
+  const buildCategorySummary = (items, total, name, groupKey) => ({
     summary: {
       total: total,
       count: items.length,
@@ -6912,12 +6925,15 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
         const identifier = i.identifier || '';
         const displayLabel =
           identifier && identifier !== baseLabel ? `${baseLabel} (${identifier})` : baseLabel;
-        return {
+        const dev = {
           id: i.id,
+          ingestionId: i.ingestionId || null,
           label: displayLabel,
           value: i.value, // Mantém o valor original para exibição no card
           deviceStatus: i.deviceStatus,
         };
+        if (groupKey && isExcludedFromGroup(i, groupKey)) dev.excludedFromTotal = true;
+        return dev;
       }),
       name: name,
     },
@@ -6948,36 +6964,43 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
       }),
       total: grandTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     },
-    entrada: buildCategorySummary(entrada, entradaTotal, 'Entrada'),
-    lojas: buildCategorySummary(lojas, lojasTotal, 'Lojas'),
+    entrada: buildCategorySummary(entrada, entradaTotal, 'Entrada', 'entrada'),
+    lojas: buildCategorySummary(lojas, lojasTotal, 'Lojas', 'lojas'),
     // RFC-0234: top-level group, excluded from grandTotal — consumed by
     // TELEMETRY_INFO to render the "Transformadores" widget/tooltip child.
     transformadores: buildCategorySummary(transformadores, transformadoresTotal, 'Transformadores'),
     climatizacao: {
-      ...buildCategorySummary(climatizacaoItems, climatizacaoTotal, 'Climatização'),
+      ...buildCategorySummary(climatizacaoItems, climatizacaoTotal, 'Climatização', 'climatizacao'),
       // RFC-0207 "parent": devices que HEADAM a composição (o total do card é o
       // valor deles; a composição abaixo é o breakdown aninhado). Vazio quando não
       // há pai — nesse caso o TELEMETRY_INFO renderiza a composição plana, como antes.
       parents: climatizacaoParentItems.map((i) => ({
         id: i.id,
+        ingestionId: i.ingestionId || null, // ED-1389: R$ do card vem do pai
         label: i.label || i.name || i.identifier || i.id,
         total: getValorEfetivo(i, 'climatizacao'),
+        ...(isExcludedFromGroup(i, 'climatizacao') ? { excludedFromTotal: true } : {}),
       })),
       subcategories: {
-        chillers: buildCategorySummary(chillerItems, chillerTotal, 'Chillers'),
-        fancoils: buildCategorySummary(fancoilItems, fancoilTotal, 'Fancoils'),
+        chillers: buildCategorySummary(chillerItems, chillerTotal, 'Chillers', 'climatizacao'),
+        fancoils: buildCategorySummary(fancoilItems, fancoilTotal, 'Fancoils', 'climatizacao'),
         // Rótulo genérico "Bombas": após o fix da classificação (bomba hidráulica de
         // recalque saiu de climatização → 'outros'), este balde só recebe bombas de
         // climatização de fato (BOMBA_CAG/secundária/primária, que casam por 'BOMBA'
         // no texto e ficam em climatização via identifier CAG). Chamar de "Bombas
         // Hidráulicas" ficou enganoso — são bombas do sistema de água gelada.
-        bombasClimatizacao: buildCategorySummary(bombaHidraulicaItems, bombaHidraulicaTotal, 'Bombas'),
-        cag: buildCategorySummary(cagItemsFiltered, cagTotal, 'CAG'),
-        hvacOutros: buildCategorySummary(hvacOutrosItems, hvacOutrosTotal, 'Outros HVAC'),
+        bombasClimatizacao: buildCategorySummary(bombaHidraulicaItems, bombaHidraulicaTotal, 'Bombas', 'climatizacao'),
+        cag: buildCategorySummary(cagItemsFiltered, cagTotal, 'CAG', 'climatizacao'),
+        hvacOutros: buildCategorySummary(hvacOutrosItems, hvacOutrosTotal, 'Outros HVAC', 'climatizacao'),
       },
     },
-    elevadores: buildCategorySummary(elevadoresItems, elevadoresTotal, 'Elevadores'),
-    escadasRolantes: buildCategorySummary(escadasRolantesItems, escadasRolantesTotal, 'Escadas Rolantes'),
+    elevadores: buildCategorySummary(elevadoresItems, elevadoresTotal, 'Elevadores', 'elevadores'),
+    escadasRolantes: buildCategorySummary(
+      escadasRolantesItems,
+      escadasRolantesTotal,
+      'Escadas Rolantes',
+      'escadas_rolantes'
+    ),
     outros: {
       // Filter out devices explicitly excluded from 'outros' (excludeGroupsTotals) so they
       // don't appear in the device list in TELEMETRY_INFO even though their value is already 0.
@@ -6988,7 +7011,8 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
           return getValorEfetivo(i, 'outros') > 0;
         }),
         outrosTotal,
-        'Outros'
+        'Outros',
+        'outros'
       ),
       subcategories: {
         iluminacao: buildCategorySummary(
@@ -6998,7 +7022,8 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
             return getValorEfetivo(i, 'outros') > 0;
           }),
           iluminacaoTotal,
-          'Iluminação'
+          'Iluminação',
+          'outros'
         ),
         bombasIncendio: buildCategorySummary(
           bombaIncendioItems.filter((i) => {
@@ -7007,7 +7032,8 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
             return getValorEfetivo(i, 'outros') > 0;
           }),
           bombaIncendioTotal,
-          'Bombas de Incêndio'
+          'Bombas de Incêndio',
+          'outros'
         ),
         geradores: buildCategorySummary(
           geradorItems.filter((i) => {
@@ -7016,7 +7042,8 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
             return getValorEfetivo(i, 'outros') > 0;
           }),
           geradorTotal,
-          'Geradores/Nobreaks'
+          'Geradores/Nobreaks',
+          'outros'
         ),
         geral: buildCategorySummary(
           outrosGeralItems.filter((i) => {
@@ -7025,11 +7052,12 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
             return getValorEfetivo(i, 'outros') > 0;
           }),
           outrosGeralTotal,
-          'Outros Equipamentos'
+          'Outros Equipamentos',
+          'outros'
         ),
       },
     },
-    areaComum: buildCategorySummary(areacomum, areacomumTotal, 'Área Comum'),
+    areaComum: buildCategorySummary(areacomum, areacomumTotal, 'Área Comum', 'area_comum'),
     resumo: {
       summary: {
         total: grandTotal,
@@ -7053,6 +7081,7 @@ function buildSummary(lojas, entrada, transformadores, areacomum, periodKey) {
     deviceStatusAggregation: statusAggregation,
     excludedFromCAG: excludedFromCAG.map((item) => ({
       id: item.id,
+      ingestionId: item.ingestionId || null,
       label: item.label || item.name || item.deviceIdentifier || item.id,
       value: item.value || 0,
     })),
@@ -7215,6 +7244,7 @@ function buildSummaryWater(entrada, lojas, banheiros, areacomum, periodKey) {
     details: {
       devices: items.map((i) => ({
         id: i.id,
+        ingestionId: i.ingestionId || null, // ED-1389: chave de MyIOUtils.getItemMoney (modo R$)
         label: i.label || i.name,
         value: i.value,
         deviceStatus: i.deviceStatus,
