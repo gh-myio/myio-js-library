@@ -22,6 +22,7 @@ import {
   deviceMoneyChartItems,
   deviceMoneyTotal,
   deviceRowMoneyView,
+  isHourlySeries,
 } from '../../../src/components/premium-modals/report-device/deviceReportMoneyView';
 
 const HOUR = 3600 * 1000;
@@ -75,10 +76,34 @@ function hourlyFetcher(skipDays: string[] = []) {
   return { fetcher, calls };
 }
 
-async function loaded(opts: { id?: string; gran?: '1d' | '1h'; start: string; end: string; skipDays?: string[]; money?: any }) {
+/** Fetcher mock que IGNORA `granularity`: 1 ponto por dia SP (24 kWh às 00:00). */
+function dailyFetcher() {
+  const calls: any[] = [];
+  const fetcher = vi.fn(async (args: any) => {
+    calls.push(args);
+    const s = Date.parse(args.startISO);
+    const e = Date.parse(args.endISO);
+    const consumption: Array<{ timestamp: string; value: number }> = [];
+    for (let t = Math.ceil((s - 21 * HOUR) / (24 * HOUR)) * 24 * HOUR + 3 * HOUR; t <= e; t += 24 * HOUR) {
+      consumption.push({ timestamp: new Date(t).toISOString(), value: 24 });
+    }
+    return { data: [{ id: args.ingestionId, consumption }] };
+  });
+  return { fetcher, calls };
+}
+
+async function loaded(opts: {
+  id?: string;
+  gran?: '1d' | '1h';
+  start: string;
+  end: string;
+  skipDays?: string[];
+  money?: any;
+  mock?: { fetcher: any; calls: any[] };
+}) {
   document.body.innerHTML =
     '<button id="load-btn"></button><span id="load-spinner"></span><div id="money-notice"></div><div id="table-container"></div>';
-  const { fetcher, calls } = hourlyFetcher(opts.skipDays);
+  const { fetcher, calls } = opts.mock || hourlyFetcher(opts.skipDays);
   const money = opts.money === undefined ? await moneyConfig() : opts.money;
   const m = new DeviceReportModal({
     ingestionId: opts.id || 'loja',
@@ -237,7 +262,8 @@ describe('Report Device em R$ — sem tarifa', () => {
     expect(deviceRowMoneyView(m.data[0]).chip).toBe('Sem tarifa');
     const kpis = m.computeKpis();
     expect(kpis[0]).toEqual({ value: '-', label: 'Custo estimado total', sub: 'Cobertura incompleta (0 de 3)' });
-    expect(kpis.find((k: any) => k.label === 'Dias sem tarifa')).toEqual({ value: '3', label: 'Dias sem tarifa', sub: '3 Sem tarifa' });
+    expect(kpis.find((k: any) => k.label === 'Dias sem custo')).toEqual({ value: '3', label: 'Dias sem custo', sub: '3 Sem tarifa' });
+    expect(kpis.some((k: any) => /sem tarifa/.test(k.label))).toBe(false);
     expect(m.exportColumnOptions()).toMatchObject({ hidePerc: true, emptyValueText: '-' });
     expect(m.buildExportDevices().map((d: any) => [d.val, d.nameNote, d.perc])).toEqual([
       [null, 'Sem tarifa', undefined],
@@ -253,7 +279,7 @@ describe('Report Device em R$ — quando fica físico (+ aviso)', () => {
     expect(m.moneyActive).toBe(false);
     expect(calls[0].granularity).toBe('1d');
     expect(document.getElementById('money-notice')!.textContent).toBe(
-      'Entrada e transformadores não são valorados em R$. Exibindo kWh.'
+      'Dispositivo não valorado em R$ (ex.: Entrada/Transformadores). Exibindo kWh.'
     );
     expect(m.computeKpis()[0].label).toBe('Total (kWh)');
     expect(m.exportUnit()).toBe('kWh');
@@ -272,6 +298,32 @@ describe('Report Device em R$ — quando fica físico (+ aviso)', () => {
     expect(m.moneyActive).toBe(true);
     expect(deviceRowMoneyView(m.data[0]).text).toBe('12,00');
     expect(document.getElementById('money-notice')!.style.display).toBe('none');
+  });
+
+  it('custom fetcher that ignores 1h (daily points) → physical + notice, never a "complete" R$', async () => {
+    const mock = dailyFetcher();
+    const { m, calls } = await loaded({ mock, start: '2026-01-09T00:00:00-03:00', end: '2026-01-11T23:59:59-03:00' });
+    expect(calls[0].granularity).toBe('1h'); // tentou a série horária…
+    expect(m.moneyActive).toBe(false); // …não veio horária → físico
+    expect(calls[calls.length - 1].granularity).toBe('1d'); // recarregou na granularidade física
+    expect(document.getElementById('money-notice')!.textContent).toBe(
+      'Série horária indisponível para o cálculo em R$. Exibindo kWh.'
+    );
+    expect(document.getElementById('money-notice')!.style.display).toBe('block');
+    expect(m.data.every((r: any) => r.money === undefined)).toBe(true);
+    expect(m.computeKpis()[0].label).toBe('Total (kWh)');
+    expect(m.exportUnit()).toBe('kWh');
+  });
+
+  it('custom fetcher that honors 1h (hourly points, with a day missing) → R$ normally', async () => {
+    const { m } = await loaded({
+      start: '2026-01-09T00:00:00-03:00',
+      end: '2026-01-11T23:59:59-03:00',
+      skipDays: ['2026-01-10'], // buraco de 24 h é falta de leitura, não série diária
+    });
+    expect(m.moneyActive).toBe(true);
+    expect(m.moneyNotice).toBeNull();
+    expect(m.data.map((r: any) => deviceRowMoneyView(r).text)).toEqual(['12,00', '-', '12,00']);
   });
 
   it('no money param → physical, no notice', async () => {
@@ -293,6 +345,39 @@ describe('Report Device em R$ — busca e período', () => {
     ]);
   });
 
+  it('start off the full hour (14:30) + 12 days: inner chunk boundary on the full hour, boundary hour summed once', async () => {
+    const calls: any[] = [];
+    // A API arredonda para a hora cheia: cada bloco devolve TODAS as horas que toca —
+    // a hora da fronteira (11/01 14:00) viria nos dois blocos com fronteiras desalinhadas
+    const fetcher = vi.fn(async (args: any) => {
+      calls.push(args);
+      const s = Math.floor(Date.parse(args.startISO) / HOUR) * HOUR;
+      const e = Date.parse(args.endISO);
+      const consumption: Array<{ timestamp: string; value: number }> = [];
+      for (let t = s; t <= e; t += HOUR) consumption.push({ timestamp: new Date(t).toISOString(), value: 1 });
+      const boundary = sp('2026-01-11', 14);
+      if (!consumption.some((p) => Date.parse(p.timestamp) === boundary)) {
+        consumption.push({ timestamp: new Date(boundary).toISOString(), value: 1 }); // repetida
+      }
+      return { data: [{ id: args.ingestionId, consumption }] };
+    });
+    const { m } = await loaded({
+      gran: '1h',
+      mock: { fetcher, calls },
+      start: '2026-01-01T14:30:00-03:00',
+      end: '2026-01-13T14:29:59-03:00',
+    });
+    expect(calls.map((c) => [c.startISO, c.endISO])).toEqual([
+      ['2026-01-01T14:30:00-03:00', '2026-01-11T13:59:59-03:00'],
+      ['2026-01-11T14:00:00-03:00', '2026-01-13T14:29:59-03:00'],
+    ]);
+    expect(calls).toHaveLength(2);
+    expect(m.moneyActive).toBe(true);
+    const boundaryRow = m.data.find((r: any) => Date.parse(r.date) === sp('2026-01-11', 14));
+    expect(boundaryRow.consumption).toBe(1); // uma vez, não 2
+    expect(m.data.every((r: any) => r.consumption === 1)).toBe(true);
+  });
+
   it('picker preset = dashboard period (São Paulo dates)', async () => {
     const m = new DeviceReportModal({ ingestionId: 'loja', domain: 'energy', api, money: await moneyConfig() } as any) as any;
     expect(m.moneyPresetDates()).toEqual({ start: '2026-01-01', end: '2026-01-31' });
@@ -300,6 +385,22 @@ describe('Report Device em R$ — busca e período', () => {
     expect(physical.moneyPresetDates()).toBeNull();
     const temp = new DeviceReportModal({ ingestionId: 'loja', domain: 'temperature', api, money: await moneyConfig() } as any) as any;
     expect(temp.moneyPresetDates()).toBeNull();
+  });
+});
+
+describe('isHourlySeries', () => {
+  const s = sp('2026-01-09');
+  const e = sp('2026-01-11', 23, 59);
+  const at = (...ts: number[]) => ts.map((t) => ({ timestamp: new Date(t).toISOString() }));
+  it('min gap ≤ 1 h → hourly (gaps larger than that are missing readings)', () => {
+    expect(isHourlySeries(at(s, s + HOUR / 4, s + 30 * HOUR), s, e)).toBe(true);
+    expect(isHourlySeries(at(s, s + HOUR), s, e)).toBe(true);
+  });
+  it('daily points / single point over a multi-hour period → not hourly; no points → ok', () => {
+    expect(isHourlySeries(at(s, s + 24 * HOUR, s + 48 * HOUR), s, e)).toBe(false);
+    expect(isHourlySeries(at(s), s, e)).toBe(false);
+    expect(isHourlySeries(at(s), s, s + HOUR - 1000)).toBe(true);
+    expect(isHourlySeries([], s, e)).toBe(true);
   });
 });
 

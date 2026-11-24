@@ -34,6 +34,35 @@ const SP_OFFSET_MS = 3 * 60 * 60 * 1000;
 /** Dia civil (America/Sao_Paulo, UTC-3 fixo) de um instante: `YYYY-MM-DD`. */
 export const spDayKey = (ts: number): string => new Date(ts - SP_OFFSET_MS).toISOString().slice(0, 10);
 
+const HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * A série devolvida pelo fetcher é horária (ou mais fina) o bastante para valorar hora a hora?
+ * O modo R$ precifica cada hora pelo preço daquela hora; um fetcher customizado que ignora
+ * `granularity: '1h'` (ex.: devolve um ponto por dia) faria cada dia virar "1 hora" — R$
+ * errado marcado como completo. Critério: o MENOR intervalo entre timestamps distintos
+ * consecutivos é ≤ 1 h (buracos maiores são dias/horas sem leitura, legítimos). Sem pontos
+ * → nada a valorar (ok). Um único ponto só é verificável se o período cabe em 1 h.
+ */
+export function isHourlySeries(
+  points: Array<{ timestamp: unknown }>,
+  startTs: number,
+  endTs: number
+): boolean {
+  const ts = Array.from(
+    new Set(
+      points
+        .map((p) => (p?.timestamp == null ? NaN : new Date(p.timestamp as string | number).getTime()))
+        .filter((t) => Number.isFinite(t))
+    )
+  ).sort((a, b) => a - b);
+  if (ts.length === 0) return true;
+  if (ts.length === 1) return endTs - startTs <= HOUR_MS;
+  let minGap = Infinity;
+  for (let i = 1; i < ts.length; i++) minGap = Math.min(minGap, ts[i] - ts[i - 1]);
+  return minGap <= HOUR_MS;
+}
+
 /** Money de uma linha: estado do pior bucket + soma crua (DEC-8: round só na exibição). */
 export interface RowMoney {
   state: string;
@@ -163,9 +192,11 @@ export function deviceMoneyKpis(rows: MoneyReportRow[], opts: DeviceMoneyKpiOpti
   if (missing.length) {
     const byChip = new Map<string, number>();
     missing.forEach((x) => byChip.set(x.view.chip, (byChip.get(x.view.chip) || 0) + 1));
+    // "sem custo" (alinhado ao KPI "Sem custo" do All Report): conta sem tarifa, tarifa
+    // parcial e sem categoria — o detalhe por estado vai no `sub`
     kpis.push({
       value: String(missing.length),
-      label: opts.intraday ? 'Horas sem tarifa' : 'Dias sem tarifa',
+      label: opts.intraday ? 'Horas sem custo' : 'Dias sem custo',
       sub: Array.from(byChip.entries())
         .map(([chip, n]) => `${n} ${chip}`)
         .join(' · '),

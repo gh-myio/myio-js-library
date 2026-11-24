@@ -23,7 +23,6 @@ import type { AllReportMoneyConfig } from '../types';
 // ED-1390 — modo R$: relatório todo em reais (camada pura + helpers do All Report)
 import {
   MONEY_NO_VALUE,
-  MONEY_NOT_VALUED_TEXT,
   MONEY_VALUE_HEADER,
   moneyCsvText,
   moneyNumber,
@@ -36,6 +35,7 @@ import {
   deviceMoneyKpis,
   deviceMoneyTotal,
   deviceRowMoneyView,
+  isHourlySeries,
   spDayKey,
   type RowMoney,
 } from './deviceReportMoneyView';
@@ -45,6 +45,10 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 /** ED-1390: a série horária é pedida em blocos (pageSize=1000; a API pode devolver 15 min). */
 const MONEY_FETCH_CHUNK_DAYS = 10;
+/** ED-1390: device fora da valoração (`itemMoney` null / fora de `perDevice`). */
+const DEVICE_NOT_VALUED_TEXT = 'Dispositivo não valorado em R$ (ex.: Entrada/Transformadores).';
+/** ED-1390: o fetcher não devolveu série horária — sem ela não há como precificar hora a hora. */
+const MONEY_NO_HOURLY_TEXT = 'Série horária indisponível para o cálculo em R$.';
 /** Instante → ISO com offset de São Paulo (`YYYY-MM-DDTHH:mm:ss-03:00`), formato do picker. */
 const toSpISO = (ts: number): string => `${new Date(ts - SP_OFFSET_MS).toISOString().slice(0, 19)}-03:00`;
 
@@ -264,7 +268,7 @@ export class DeviceReportModal {
       typeof m.itemMoney === 'function'
         ? m.itemMoney(id) !== null
         : Object.prototype.hasOwnProperty.call(m.perDevice || {}, id);
-    if (!inScope) return { active: false, notice: `${MONEY_NOT_VALUED_TEXT} Exibindo ${unit}.` };
+    if (!inScope) return { active: false, notice: `${DEVICE_NOT_VALUED_TEXT} Exibindo ${unit}.` };
     if (typeof m.valuateBucket !== 'function') {
       return { active: false, notice: `Custo estimado indisponível. Exibindo ${unit}.` };
     }
@@ -306,14 +310,22 @@ export class DeviceReportModal {
   /**
    * Série horária do período para o modo R$ — pedida em blocos de até 10 dias com
    * `granularity: '1h'` (pageSize=1000 e a API pode devolver blocos de 15 min).
+   *
+   * As fronteiras internas entre blocos caem na hora cheia (`floor(a / 1h)`): com início
+   * fora da hora cheia (ex.: 14:30) a hora da fronteira não é pedida por dois blocos. Por
+   * garantia, pontos com o mesmo timestamp vindos de blocos diferentes contam uma vez só.
    */
   private async fetchMoneyPoints(startISO: string, endISO: string): Promise<Array<{ timestamp: unknown; value: unknown }>> {
     const s = Date.parse(startISO);
     const e = Date.parse(endISO);
+    const step = MONEY_FETCH_CHUNK_DAYS * DAY_MS;
     const chunks: Array<{ startISO: string; endISO: string }> = [];
-    for (let a = s; a <= e; a += MONEY_FETCH_CHUNK_DAYS * DAY_MS) {
-      const b = Math.min(e, a + MONEY_FETCH_CHUNK_DAYS * DAY_MS - 1000);
+    for (let a = s; a <= e; ) {
+      let next = Math.floor((a + step) / HOUR_MS) * HOUR_MS;
+      if (next <= a) next = a + step;
+      const b = Math.min(e, next - 1000);
       chunks.push({ startISO: a === s ? startISO : toSpISO(a), endISO: b === e ? endISO : toSpISO(b) });
+      a = next;
     }
     const responses = await Promise.all(
       chunks.map((c) =>
@@ -326,10 +338,22 @@ export class DeviceReportModal {
         })
       )
     );
-    return responses.flatMap((res) => {
+    const seen = new Set<number>();
+    const points: Array<{ timestamp: unknown; value: unknown }> = [];
+    responses.forEach((res) => {
       const arr = Array.isArray(res) ? res : res?.data || [];
-      return (Array.isArray(arr) && arr[0]?.consumption) || [];
+      const list: Array<{ timestamp: unknown; value: unknown }> = (Array.isArray(arr) && arr[0]?.consumption) || [];
+      const mine = new Set<number>();
+      for (const p of list) {
+        const ts = p?.timestamp == null ? NaN : new Date(p.timestamp as string | number).getTime();
+        // Dedupe só ENTRE blocos (o mesmo instante repetido por outro bloco); dentro do bloco, como veio
+        if (Number.isFinite(ts) && seen.has(ts) && !mine.has(ts)) continue;
+        if (Number.isFinite(ts)) mine.add(ts);
+        points.push(p);
+      }
+      mine.forEach((ts) => seen.add(ts));
     });
+    return points;
   }
 
   /**
@@ -834,8 +858,18 @@ ${
 
       if (this.moneyActive) {
         // Série horária (em blocos) → cada hora valorada; dia = soma das horas
-        this.data = this.buildMoneyRows(await this.fetchMoneyPoints(startISO, endISO), dateRange);
-      } else {
+        const points = await this.fetchMoneyPoints(startISO, endISO);
+        if (isHourlySeries(points, Date.parse(startISO), Date.parse(endISO))) {
+          this.data = this.buildMoneyRows(points, dateRange);
+        } else {
+          // Fetcher sem série horária (ex.: 1 ponto/dia): valorar daria R$ errado como
+          // "completo" → relatório físico + aviso
+          this.moneyActive = false;
+          this.moneyNotice = `${MONEY_NO_HOURLY_TEXT} Exibindo ${this.domainConfig.unit}.`;
+          this.renderMoneyNotice();
+        }
+      }
+      if (!this.moneyActive) {
         // Use injected fetcher (real API or mock for testing)
         const apiResponse = await this.energyFetcher({
           baseUrl: this.params.api.dataApiBaseUrl || 'https://api.data.apps.myio-bas.com',
