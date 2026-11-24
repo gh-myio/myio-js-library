@@ -99,7 +99,7 @@ const fmtKw = (n: number) =>
   `${n.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kW`;
 
 function timelineHTML(history: WellPumpInfo['history'], now: number, kind: 'pump' | 'valve'): string {
-  const segs = timelineSegments(history, now, DAY_MS)
+  const segs = timelineSegments(history || [], now, DAY_MS)
     .map((s) => {
       const title = `${kind === 'valve' ? 'aberta ' : ''}${formatClock(s.start)} – ${s.end ? formatClock(s.end) : 'agora'}`;
       return `<span class="myio-wp-seg ${kind === 'valve' ? 'valve' : ''} ${s.live ? 'live' : ''}" style="left:${s.leftPct.toFixed(3)}%;width:${s.widthPct.toFixed(3)}%" title="${title}"></span>`;
