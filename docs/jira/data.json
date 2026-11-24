@@ -11,44 +11,43 @@
       "end": "2026-09-21",
       "state": "future"
     },
-    "generatedAt": "2026-11-23",
+    "generatedAt": "2026-11-24",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian",
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 43,
-    "backlogOpen": 582,
-    "total": 625
+    "sprintOpen": 40,
+    "backlogOpen": 567,
+    "total": 607
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
-        "PENDENTE": 9,
-        "EM REVISÃO": 4,
-        "Itens Novos": 24,
-        "Em Andamento": 6
+        "PENDENTE": 8,
+        "EM REVISÃO": 5,
+        "Itens Novos": 22,
+        "Em Andamento": 5
       },
       "byType": {
-        "Bug": 8,
-        "Tarefa": 35
+        "Bug": 6,
+        "Tarefa": 34
       },
       "byPriority": {
-        "Medium": 25,
-        "Highest": 8,
+        "Medium": 21,
+        "Highest": 11,
         "Low": 1,
-        "High": 9
+        "High": 7
       },
       "byAssignee": {
-        "Rodrigo Lago": 26,
+        "Rodrigo Lago": 24,
         "Letícia Camargo": 7,
-        "Victor Hugo da Silva": 8,
+        "Victor Hugo da Silva": 7,
         "Luiz Guilherme Martinho Sampaio Ito": 1,
         "Leandro Gadioli Rodrigues": 1
       },
       "byGroup": {
-        "Outros": 1,
         "GCDR / Plataforma": 12,
-        "Relatórios / Dashboard": 14,
+        "Relatórios / Dashboard": 12,
         "Souza Aguiar": 2,
         "Shopping da Ilha / SDI": 2,
         "Campinas": 2,
@@ -61,39 +60,39 @@
     },
     "backlog": {
       "byStatus": {
-        "Itens Novos": 177,
+        "Itens Novos": 165,
         "EM REVISÃO": 9,
-        "PENDENTE": 394,
+        "PENDENTE": 391,
         "Em Andamento": 2
       },
       "byType": {
-        "Tarefa": 437,
-        "Subtarefa": 94,
-        "Bug": 51
+        "Tarefa": 441,
+        "Subtarefa": 87,
+        "Bug": 39
       },
       "byPriority": {
-        "High": 21,
-        "Medium": 553,
-        "Low": 5,
+        "High": 22,
+        "Medium": 527,
+        "Low": 11,
         "Highest": 2,
-        "Lowest": 1
+        "Lowest": 5
       },
       "byAssignee": {
-        "Rodrigo Lago": 117,
+        "Rodrigo Lago": 103,
         "Letícia Camargo": 29,
         "Luiz Guilherme Martinho Sampaio Ito": 385,
         "Leticia Saraiva": 5,
-        "Victor Hugo da Silva": 45,
+        "Victor Hugo da Silva": 44,
         "Leandro Gadioli Rodrigues": 1
       },
       "byGroup": {
         "Souza Aguiar": 3,
-        "Relatórios / Dashboard": 8,
-        "GCDR / Plataforma": 115,
+        "Relatórios / Dashboard": 7,
+        "GCDR / Plataforma": 109,
         "Raiz Educação": 2,
-        "Central / Firmware / HW": 393,
-        "Contagem": 3,
-        "Outros": 21,
+        "Central / Firmware / HW": 389,
+        "Contagem": 2,
+        "Outros": 18,
         "Sá Cavalcante": 6,
         "Mestre Álvaro": 2,
         "Rio Poty": 1,
@@ -110,19 +109,6 @@
     }
   },
   "sprint": [
-    {
-      "key": "ED-983",
-      "summary": "[BUG] [RFC-0207] Gestão de Perfil de Dispositivos não atualiza estado após salvar edição (Requer F5).",
-      "type": "Bug",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-29",
-      "group": "Outros",
-      "kind": "other"
-    },
     {
       "key": "ED-1271",
       "summary": "QA: Validar branch feat/interpolation-agent em Staging (Sprint 20)",
@@ -384,28 +370,15 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1342",
-      "summary": "[BUG] [THINGSBOARD] Aba Temperatura: botões \"Carregar\" e \"Limpar\" do filtro de data ficam desabilitados",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-13",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
       "key": "ED-1343",
       "summary": "[BUG] [THINGSBOARD] Pop-up de confirmação de “Selecionar todos” aparece atrás do modal do relatório",
       "type": "Bug",
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Highest",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-10-13",
+      "updated": "2026-11-24",
       "group": "Relatórios / Dashboard",
       "kind": "theme"
     },
@@ -416,9 +389,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Highest",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-10-13",
+      "updated": "2026-11-24",
       "group": "Relatórios / Dashboard",
       "kind": "theme"
     },
@@ -546,9 +519,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "High",
+      "priority": "Highest",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-11-03",
+      "updated": "2026-11-24",
       "group": "Relatórios / Dashboard",
       "kind": "theme"
     },
@@ -570,11 +543,11 @@
       "summary": "Moxuara - Ressincronização e redistribuição do consumo",
       "type": "Tarefa",
       "sub": false,
-      "status": "Em Andamento",
+      "status": "EM REVISÃO",
       "cat": "indeterminate",
       "priority": "Highest",
       "assignee": "Leandro Gadioli Rodrigues",
-      "updated": "2026-11-18",
+      "updated": "2026-11-23",
       "group": "Moxuara",
       "kind": "unit"
     },
@@ -618,25 +591,12 @@
       "kind": "unit"
     },
     {
-      "key": "ED-1388",
-      "summary": "[Shopping v5.2.0] TELEMETRY_INFO deve respeitar a taxonomia GCDR do customer (card \"Esc. Rolantes\" aparece sem a categoria existir)",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-11-23",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
       "key": "ED-1389",
       "summary": "[Shopping v5.2.0] Modo R$ — TELEMETRY_INFO todo em reais + remover label \"Custo estimado\" dos cards",
       "type": "Tarefa",
       "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
+      "status": "Em Andamento",
+      "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Victor Hugo da Silva",
       "updated": "2026-11-23",
@@ -5670,9 +5630,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Low",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-06-05",
+      "updated": "2026-11-24",
       "group": "Sá Cavalcante",
       "kind": "unit"
     },
@@ -5683,9 +5643,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Low",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-06-02",
+      "updated": "2026-11-24",
       "group": "Sá Cavalcante",
       "kind": "unit"
     },
@@ -5709,9 +5669,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Lowest",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-06-02",
+      "updated": "2026-11-24",
       "group": "Sá Cavalcante",
       "kind": "unit"
     },
@@ -5722,9 +5682,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Lowest",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-05-29",
+      "updated": "2026-11-24",
       "group": "Outros",
       "kind": "other"
     },
@@ -5787,9 +5747,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "High",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-07-29",
+      "updated": "2026-11-24",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -5813,9 +5773,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Low",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-06-08",
+      "updated": "2026-11-24",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -5826,9 +5786,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Lowest",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-06-10",
+      "updated": "2026-11-24",
       "group": "Central / Firmware / HW",
       "kind": "theme"
     },
@@ -5839,24 +5799,11 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "High",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-06-18",
+      "updated": "2026-11-24",
       "group": "Mestre Álvaro",
       "kind": "unit"
-    },
-    {
-      "key": "ED-972",
-      "summary": "[MELHORIA] [GDCR] Incluir um campo de pesquisa no campo 'Todos os Clientes' na aba Dispositivos",
-      "type": "Tarefa",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-05",
-      "group": "Outros",
-      "kind": "other"
     },
     {
       "key": "ED-973",
@@ -5865,48 +5812,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "High",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-976",
-      "summary": "[BUG] [GCDR] [OS] Na página principal de Ordens de Serviço (OS) os filtros não estão sendo apresentados corretamente",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-06-22",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-977",
-      "summary": "[BUG] [GCDR] [OS] Informações da OS são exibidas desalinhadas na aba de detalhes do GCDR",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-06-22",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-978",
-      "summary": "[BUG [GCDR] [OS] Ao clicar no Cliente exibido na OS sistema retorna de rota",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-06-22",
+      "updated": "2026-11-24",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -5917,9 +5825,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Low",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-06-22",
+      "updated": "2026-11-24",
       "group": "Outros",
       "kind": "other"
     },
@@ -5943,9 +5851,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "High",
+      "priority": "Lowest",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-07-07",
+      "updated": "2026-11-24",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -5958,7 +5866,7 @@
       "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-07-29",
+      "updated": "2026-11-24",
       "group": "Relatórios / Dashboard",
       "kind": "theme"
     },
@@ -5971,20 +5879,20 @@
       "cat": "indeterminate",
       "priority": "Medium",
       "assignee": "Letícia Camargo",
-      "updated": "2026-09-21",
+      "updated": "2026-11-24",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
     {
       "key": "ED-1049",
       "summary": "[BUG] [GCDR] Sistema demora a carregar a quantidade de dispositivos na tabela de detalhes do cliente",
-      "type": "Bug",
+      "type": "Tarefa",
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
       "priority": "Low",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-07-29",
+      "updated": "2026-11-24",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -7022,23 +6930,10 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Low",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
+      "updated": "2026-11-24",
       "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-943",
-      "summary": "[BUG] [PRÉ-SETUP] [THINGSBOARD] Alterações de \"Padronizar nomes\" não carregam no preview do Diff e não sincronizam com o ThingsBoard",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Victor Hugo da Silva",
-      "updated": "2026-09-22",
-      "group": "Central / Firmware / HW",
       "kind": "theme"
     },
     {
@@ -7048,9 +6943,9 @@
       "sub": false,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Low",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
+      "updated": "2026-11-24",
       "group": "GCDR / Plataforma",
       "kind": "theme"
     },
@@ -7081,58 +6976,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-956",
-      "summary": "[BUG] [PRÉ-SETUP] Ao criar novo cliente com estrutura sugerida, código do cliente não é gerado",
-      "type": "Bug",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
-      "group": "Central / Firmware / HW",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-958",
-      "summary": "[BUG] [PRÉ-SETUP] [INGESTION] Alteração de Device no Asset o Diff não valida nem sincroniza as informações atualizadas",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-959",
-      "summary": "[BUG] [PRÉ-SETUP] [THINGBOARD] Alteração de Device no Asset o Diff não valida nem sincroniza as informações atualizadas",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
-      "group": "Central / Firmware / HW",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-963",
-      "summary": "[BUG] [PRÉ-SETUP] Ao importar um cliente o FastFix indica padronização pendente mas apenas duplica os nomes dos assets",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
-      "group": "Central / Firmware / HW",
-      "kind": "theme"
-    },
-    {
       "key": "ED-999",
       "summary": "Testar RFC-0051 — Grupo de OS (hierarquia pai/filhas de Work Orders no GCDR)",
       "type": "Tarefa",
@@ -7144,19 +6987,6 @@
       "updated": "2026-09-22",
       "group": "GCDR / Plataforma",
       "kind": "theme"
-    },
-    {
-      "key": "ED-1002",
-      "summary": "[BUG] [GCDR] [OS] Card \"Total de OS\" na página inicial não atualiza a contagem após exclusão de OS Filha",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-09-22",
-      "group": "Contagem",
-      "kind": "unit"
     },
     {
       "key": "ED-1008",
@@ -7250,45 +7080,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1045",
-      "summary": "[BUG] [GCDR] Não é possível criar uma nova central pelo GCDR",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-07-29",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1046",
-      "summary": "[BUG] [GCDR] Coluna \"Devices conectados/total\" exibe 0/0 mesmo com dispositivos vinculados",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "High",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-07-29",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1056",
-      "summary": "[BUG] [THINGSBOARD] Configuração de medida não persiste após reload da página",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-08-23",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
       "key": "ED-1057",
       "summary": "RCP: handler OTA esp_ota sobre UART + rollback",
       "type": "Subtarefa",
@@ -7347,9 +7138,9 @@
       "sub": true,
       "status": "Itens Novos",
       "cat": "new",
-      "priority": "Medium",
+      "priority": "Low",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-07-30",
+      "updated": "2026-11-24",
       "group": "Outros",
       "kind": "other"
     },
@@ -7364,45 +7155,6 @@
       "assignee": "Victor Hugo da Silva",
       "updated": "2026-09-22",
       "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1099",
-      "summary": "[BUG] [THINGSBOARD] Botão que aciona paleta dark/light não funciona no shopping",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-08-23",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
-      "key": "ED-1100",
-      "summary": "[BUG] [THINGSBOARD] Footer com informações do card selecionado é exibido cortado/sobreposto",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-08-23",
-      "group": "Outros",
-      "kind": "other"
-    },
-    {
-      "key": "ED-1116",
-      "summary": "[BUG] [THINGSBOARD] Valores divergentes Metas Shopping v5.2.0 x Realizado do Dashboard/HO",
-      "type": "Subtarefa",
-      "sub": true,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-08-10",
-      "group": "Relatórios / Dashboard",
       "kind": "theme"
     },
     {
@@ -7668,13 +7420,13 @@
     {
       "key": "ED-1296",
       "summary": "[BUG] [DASHBOARD] [MESTRE ALVARO DESENV] Ao adicionar Funções/Papéis em gestão de usuários o select de Funções não apresenta informações",
-      "type": "Subtarefa",
-      "sub": true,
+      "type": "Tarefa",
+      "sub": false,
       "status": "Itens Novos",
       "cat": "new",
       "priority": "Medium",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-09-28",
+      "updated": "2026-11-24",
       "group": "Mestre Álvaro",
       "kind": "unit"
     },
@@ -7789,9 +7541,9 @@
       "sub": false,
       "status": "PENDENTE",
       "cat": "indeterminate",
-      "priority": "Medium",
+      "priority": "High",
       "assignee": "Rodrigo Lago",
-      "updated": "2026-10-05",
+      "updated": "2026-11-24",
       "group": "Souza Aguiar",
       "kind": "unit"
     },
@@ -8030,32 +7782,6 @@
       "kind": "theme"
     },
     {
-      "key": "ED-1313",
-      "summary": "[BUG] [INGESTION STATING] \"Expandir tudo\" precisa de 2 cliques após clicar em \"Recolher tudo\"",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Low",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-01",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
-      "key": "ED-1312",
-      "summary": "[BUG] [INGESTION STATING] Número total de incidentes diverge entre abas (contagem inconsistente com a lista de logs)",
-      "type": "Bug",
-      "sub": false,
-      "status": "PENDENTE",
-      "cat": "indeterminate",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-10-19",
-      "group": "GCDR / Plataforma",
-      "kind": "theme"
-    },
-    {
       "key": "ED-1339",
       "summary": "RFC-0076: People Orchestrator — worker de produtividade (GitHub/Jira/Freshdesk/GCDR/OS), alertas de inatividade e cadastro de pessoas",
       "type": "Tarefa",
@@ -8173,19 +7899,6 @@
       "kind": "unit"
     },
     {
-      "key": "ED-1373",
-      "summary": "[BUG] [THINGSBOARD] Botão “Regras de Alarmes” aparece indevidamente próximo à paginação de listagens",
-      "type": "Bug",
-      "sub": false,
-      "status": "Itens Novos",
-      "cat": "new",
-      "priority": "Medium",
-      "assignee": "Rodrigo Lago",
-      "updated": "2026-11-03",
-      "group": "Relatórios / Dashboard",
-      "kind": "theme"
-    },
-    {
       "key": "ED-1376",
       "summary": "[MELHORIA] [TABOÃO] Reduzir o tempo de carregamento da aba Equipamentos do poço",
       "type": "Tarefa",
@@ -8236,6 +7949,58 @@
       "updated": "2026-11-13",
       "group": "Praia da Costa",
       "kind": "unit"
+    },
+    {
+      "key": "ED-1394",
+      "summary": "[BUG] [GCDR] Botão \"Desativar\" e \"Ativar\" central (detalhes) envia PUT com status: INACTIVE, a API responde 200, mas a central continua ATIVA",
+      "type": "Bug",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "High",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-24",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1397",
+      "summary": "[MELHORIA] [THINGSBOARD] Na aba Temperatura, desabilitar a seleção de data e manter habilitado apenas o botão de atualizar",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-24",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1396",
+      "summary": "[MELHORIA] [GCDR] Registrar na linha do tempo da OS grupo a exclusão de uma OS filha e tratar o link do vínculo",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-24",
+      "group": "GCDR / Plataforma",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1395",
+      "summary": "[MELHORIA] [THINGSBOARD] Recarregar a tela automaticamente ao salvar a configuração de Perfil de Dispositivos",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Rodrigo Lago",
+      "updated": "2026-11-24",
+      "group": "Outros",
+      "kind": "other"
     }
   ]
 }

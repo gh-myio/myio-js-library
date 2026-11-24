@@ -4,8 +4,8 @@
     "projectName": "Engineer Dashboard",
     "board": 166,
     "jiraBase": "https://myio.atlassian.net",
-    "generatedAt": "2026-11-23",
-    "today": "2026-11-23",
+    "generatedAt": "2026-11-24",
+    "today": "2026-11-24",
     "source": "Jira Cloud (myio.atlassian.net) via MCP Atlassian"
   },
   "rules": {
@@ -695,7 +695,7 @@
       "complete": "",
       "state": "future",
       "scope": 80,
-      "done": 37,
+      "done": 40,
       "burndown": [
         {
           "date": "2026-09-14",
@@ -785,6 +785,11 @@
         {
           "date": "2026-11-23",
           "remaining": 43,
+          "ideal": 0
+        },
+        {
+          "date": "2026-11-24",
+          "remaining": 40,
           "ideal": 0
         }
       ],
@@ -3774,6 +3779,182 @@
       "assignee": "Luiz Guilherme Martinho Sampaio Ito",
       "type": "Bug",
       "priority": "Highest",
+      "date": "2026-11-23"
+    },
+    {
+      "key": "ED-943",
+      "summary": "[BUG] [PRÉ-SETUP] [THINGSBOARD] Alterações de \"Padronizar nomes\" não carregam no preview do Diff e não sincronizam com o ThingsBoard",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-956",
+      "summary": "[BUG] [PRÉ-SETUP] Ao criar novo cliente com estrutura sugerida, código do cliente não é gerado",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-958",
+      "summary": "[BUG] [PRÉ-SETUP] [INGESTION] Alteração de Device no Asset o Diff não valida nem sincroniza as informações atualizadas",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-959",
+      "summary": "[BUG] [PRÉ-SETUP] [THINGBOARD] Alteração de Device no Asset o Diff não valida nem sincroniza as informações atualizadas",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-963",
+      "summary": "[BUG] [PRÉ-SETUP] Ao importar um cliente o FastFix indica padronização pendente mas apenas duplica os nomes dos assets",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-972",
+      "summary": "[MELHORIA] [GDCR] Incluir um campo de pesquisa no campo 'Todos os Clientes' na aba Dispositivos",
+      "assignee": "Rodrigo Lago",
+      "type": "Tarefa",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-976",
+      "summary": "[BUG] [GCDR] [OS] Na página principal de Ordens de Serviço (OS) os filtros não estão sendo apresentados corretamente",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-977",
+      "summary": "[BUG] [GCDR] [OS] Informações da OS são exibidas desalinhadas na aba de detalhes do GCDR",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-978",
+      "summary": "[BUG [GCDR] [OS] Ao clicar no Cliente exibido na OS sistema retorna de rota",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1116",
+      "summary": "[BUG] [THINGSBOARD] Valores divergentes Metas Shopping v5.2.0 x Realizado do Dashboard/HO",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1312",
+      "summary": "[BUG] [INGESTION STATING] Número total de incidentes diverge entre abas (contagem inconsistente com a lista de logs)",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1342",
+      "summary": "[BUG] [THINGSBOARD] Aba Temperatura: botões \"Carregar\" e \"Limpar\" do filtro de data ficam desabilitados",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "High",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1002",
+      "summary": "[BUG] [GCDR] [OS] Card \"Total de OS\" na página inicial não atualiza a contagem após exclusão de OS Filha",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-983",
+      "summary": "[BUG] [RFC-0207] Gestão de Perfil de Dispositivos não atualiza estado após salvar edição (Requer F5).",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1045",
+      "summary": "[BUG] [GCDR] Não é possível criar uma nova central pelo GCDR",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "High",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1046",
+      "summary": "[BUG] [GCDR] Coluna \"Devices conectados/total\" exibe 0/0 mesmo com dispositivos vinculados",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "High",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1056",
+      "summary": "[BUG] [THINGSBOARD] Configuração de medida não persiste após reload da página",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1099",
+      "summary": "[BUG] [THINGSBOARD] Botão que aciona paleta dark/light não funciona no shopping",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1100",
+      "summary": "[BUG] [THINGSBOARD] Footer com informações do card selecionado é exibido cortado/sobreposto",
+      "assignee": "Rodrigo Lago",
+      "type": "Subtarefa",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1313",
+      "summary": "[BUG] [INGESTION STATING] \"Expandir tudo\" precisa de 2 cliques após clicar em \"Recolher tudo\"",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Low",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1373",
+      "summary": "[BUG] [THINGSBOARD] Botão “Regras de Alarmes” aparece indevidamente próximo à paginação de listagens",
+      "assignee": "Rodrigo Lago",
+      "type": "Bug",
+      "priority": "Medium",
+      "date": "2026-11-24"
+    },
+    {
+      "key": "ED-1388",
+      "summary": "[Shopping v5.2.0] TELEMETRY_INFO deve respeitar a taxonomia GCDR do customer (card \"Esc. Rolantes\" aparece sem a categoria existir)",
+      "assignee": "Victor Hugo da Silva",
+      "type": "Tarefa",
+      "priority": "Medium",
       "date": "2026-11-23"
     }
   ]
