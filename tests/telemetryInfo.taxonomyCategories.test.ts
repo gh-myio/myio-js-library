@@ -19,6 +19,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { extractTelemetryInfoMoneyBlock } from './thingsboard/helpers/extractControllerFunction';
 import {
   DEFAULT_DEVICE_CLASSIFICATION_PROFILE,
   parseGcdrEntityForest,
@@ -133,6 +134,9 @@ function makeApi(myioUtils: Record<string, unknown>, cons = consumidores(), doma
     ]
       .map((n) => extractFn(src, n))
       .join('\n') +
+    // ED-1389: helpers de apresentação do modo R$ (modo físico ⇒ formatadores de sempre)
+    '\n' +
+    extractTelemetryInfoMoneyBlock(src) +
     '\nreturn { isEnergyCategoryVisible, _energyChartSlices, buildAreaComumContentEnergy };';
   const win = { MyIOUtils: { formatEnergy: (v: number) => `${v} kWh`, ...myioUtils } };
   const state = { entrada: { total: 100 }, consumidores: cons };
@@ -170,6 +174,8 @@ function renderAll(opts: { domain: string; myioUtils: Record<string, unknown>; i
     ]
       .map((n) => extractFn(src, n))
       .join('\n') +
+    '\n' +
+    extractTelemetryInfoMoneyBlock(src) +
     '\nrenderPieChart();\nrenderModalChart();';
 
   const charts: Record<string, { labels: string[]; data: number[]; colors: string[] }> = {};

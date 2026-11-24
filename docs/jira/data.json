@@ -16,43 +16,43 @@
     "scope": "Tickets em aberto (status != Concluído). Inclui Tarefa, Subtarefa e Bug. Exclui Épicos e História/Story."
   },
   "summary": {
-    "sprintOpen": 40,
+    "sprintOpen": 43,
     "backlogOpen": 582,
-    "total": 622
+    "total": 625
   },
   "aggregates": {
     "sprint": {
       "byStatus": {
         "PENDENTE": 9,
         "EM REVISÃO": 4,
-        "Itens Novos": 21,
+        "Itens Novos": 24,
         "Em Andamento": 6
       },
       "byType": {
-        "Bug": 9,
-        "Tarefa": 31
+        "Bug": 8,
+        "Tarefa": 35
       },
       "byPriority": {
-        "Medium": 21,
-        "Highest": 9,
+        "Medium": 25,
+        "Highest": 8,
         "Low": 1,
         "High": 9
       },
       "byAssignee": {
         "Rodrigo Lago": 26,
         "Letícia Camargo": 7,
-        "Victor Hugo da Silva": 4,
-        "Luiz Guilherme Martinho Sampaio Ito": 2,
+        "Victor Hugo da Silva": 8,
+        "Luiz Guilherme Martinho Sampaio Ito": 1,
         "Leandro Gadioli Rodrigues": 1
       },
       "byGroup": {
         "Outros": 1,
         "GCDR / Plataforma": 12,
-        "Relatórios / Dashboard": 10,
+        "Relatórios / Dashboard": 14,
         "Souza Aguiar": 2,
         "Shopping da Ilha / SDI": 2,
         "Campinas": 2,
-        "Central / Firmware / HW": 4,
+        "Central / Firmware / HW": 3,
         "Taboão": 4,
         "Ilha Plaza": 1,
         "Moxuara": 1,
@@ -592,19 +592,6 @@
       "kind": "unit"
     },
     {
-      "key": "ED-1385",
-      "summary": "Add, Replace de produtos",
-      "type": "Bug",
-      "sub": false,
-      "status": "Em Andamento",
-      "cat": "indeterminate",
-      "priority": "Highest",
-      "assignee": "Luiz Guilherme Martinho Sampaio Ito",
-      "updated": "2026-11-18",
-      "group": "Central / Firmware / HW",
-      "kind": "theme"
-    },
-    {
       "key": "ED-1386",
       "summary": "Dashboard - Modal de confirmação de exclusão de tarifa",
       "type": "Tarefa",
@@ -629,6 +616,58 @@
       "updated": "2026-11-23",
       "group": "Souza Aguiar",
       "kind": "unit"
+    },
+    {
+      "key": "ED-1388",
+      "summary": "[Shopping v5.2.0] TELEMETRY_INFO deve respeitar a taxonomia GCDR do customer (card \"Esc. Rolantes\" aparece sem a categoria existir)",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Em Andamento",
+      "cat": "indeterminate",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-11-23",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1389",
+      "summary": "[Shopping v5.2.0] Modo R$ — TELEMETRY_INFO todo em reais + remover label \"Custo estimado\" dos cards",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-11-23",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1390",
+      "summary": "[Shopping v5.2.0] Modo R$ — Report Device todo em reais, sem tarifa = \"-\"",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-11-23",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
+    },
+    {
+      "key": "ED-1391",
+      "summary": "[Shopping v5.2.0] Modo R$ — All Report (MENU → Relatórios) todo em reais, sem tarifa = \"-\"",
+      "type": "Tarefa",
+      "sub": false,
+      "status": "Itens Novos",
+      "cat": "new",
+      "priority": "Medium",
+      "assignee": "Victor Hugo da Silva",
+      "updated": "2026-11-23",
+      "group": "Relatórios / Dashboard",
+      "kind": "theme"
     }
   ],
   "backlog": [

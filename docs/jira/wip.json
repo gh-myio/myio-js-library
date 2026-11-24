@@ -89,10 +89,10 @@
     },
     {
       "name": "Luiz Guilherme Martinho Sampaio Ito",
-      "count": 6,
+      "count": 5,
       "over": true,
       "byStatus": {
-        "Em Andamento": 3,
+        "Em Andamento": 2,
         "EM REVISÃO": 3
       },
       "tickets": [
@@ -109,13 +109,6 @@
           "status": "Em Andamento",
           "summary": "[CENTRAL] Detecção preditiva de falha do medidor 3F (anomalia antes da parada total)",
           "updated": "2026-10-29"
-        },
-        {
-          "key": "ED-1385",
-          "type": "Bug",
-          "status": "Em Andamento",
-          "summary": "Add, Replace de produtos",
-          "updated": "2026-11-18"
         },
         {
           "key": "ED-1200",
@@ -142,10 +135,10 @@
     },
     {
       "name": "Victor Hugo da Silva",
-      "count": 4,
+      "count": 5,
       "over": true,
       "byStatus": {
-        "Em Andamento": 3,
+        "Em Andamento": 4,
         "EM REVISÃO": 1
       },
       "tickets": [
@@ -176,6 +169,13 @@
           "status": "EM REVISÃO",
           "summary": "RFC-0229: Migrar Customer Server Scope (TB) → GCDR customer-config, atributo por atributo + settings do widget MAIN_VIEW",
           "updated": "2026-09-30"
+        },
+        {
+          "key": "ED-1388",
+          "type": "Tarefa",
+          "status": "Em Andamento",
+          "summary": "[Shopping v5.2.0] TELEMETRY_INFO deve respeitar a taxonomia GCDR do customer (card \"Esc. Rolantes\" aparece sem a categoria existir)",
+          "updated": "2026-11-23"
         }
       ]
     },

@@ -57,20 +57,20 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Shopping da Ilha                                                                                          | `201:3447:911:5955:4018:3960:6838:ee12`     | `cb318f02-1020-4f99-857f-d44d001d939b`     | —               | —          |
 | Central Shopping da Ilha - ENTRADA - 2026-10-06                                                           | `200:f095:bb4:4e43:62ca:fbae:b36e:a2aa`     | `e89e15f2-4dac-4fdb-b62f-a7e49a7a8127`     | `54.17.161.225` | `83`       |
 | ~~Moxuara~~ ⚠️ **INATIVADA 2026-07-13** — substituída pela Moxuara 2.0 (banco restaurado do backup desta) | ~~`202:1567:faee:79ef:486:6d44:d391:fb18`~~ | ~~`e982edf9-edb1-4aa6-8a14-4782465ae5a3`~~ | —               | —          |
-| Central Moxuara 2.0 - 2026-07-13                                                                          | `201:bc00:2a0e:6e36:a50f:9ef6:9b23:d097`    | `6e88d9be-e351-4a8a-aa02-2a2222fcb22b`     | —               | —          |
+| Central Moxuara 2.0 - 2026-07-13                                                                          | `201:bc00:2a0e:6e36:a50f:9ef6:9b23:d097`    | `6e88d9be-e351-4a8a-aa02-2a2222fcb22b`     | `137.177.27.19` | `121`      |
 | Central Moxuara 2.0 - ENTRADA - TRAFO - 2026-07-13                                                        | `200:b2d6:a485:7a30:364b:424c:cafa:141c`    | `6d7cd66a-c6dd-40df-b40b-e1bad295e424`     | —               | —          |
 | Montserrat                                                                                                | `200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc`     | `186bbdcb-95bc-4290-bf33-1ce89e48ffb4`     | —               | —          |
 | Shopping Ananindeua                                                                                       | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315`    | `7ac0ac44-e631-4b64-ac1d-e9e93fe61e0a`     | —               | —          |
 
 #### Holding: SOUZA AGUIAR
 
-| Central                         | IPv6                                     | Gateway ID                             | Central ID | Frequência |
-| ------------------------------- | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
-| Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` | —                                      | —          | —          |
-| Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` | —                                      | —          | —          |
-| Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` | —                                      | —          | —          |
-| Souza Aguiar — T&D              | `202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7`  | —                                      | —          | —          |
-| Souza Aguiar — Gerador          | `200:dd4c:53b0:28d5:33dc:fbef:2c98:b23`  | `bb8193d9-a132-44b5-8605-e50c0521ceb9` | —          | —          |
+| Central                         | IPv6                                     | Gateway ID                             | Central ID        | Frequência |
+| ------------------------------- | ---------------------------------------- | -------------------------------------- | ----------------- | ---------- |
+| Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` | `295628b1-75c6-4854-8031-107cd9a2ab91` | `253.160.245.214` | `2`        |
+| Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` | `b93e4ee6-e002-43ce-83c6-58928d1fd319` | `13.217.144.134`  | `10`       |
+| Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` | `cea3473b-6e46-4a2f-85b8-f228d2a8347a` | `179.178.218.52`  | `5`        |
+| Souza Aguiar — T&D              | `202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7`  | `df3f846e-b69c-45ce-9475-bd90570b24d0` | `57.10.40.82`     | `117`      |
+| Souza Aguiar — Gerador          | `200:dd4c:53b0:28d5:33dc:fbef:2c98:b23`  | `bb8193d9-a132-44b5-8605-e50c0521ceb9` | `57.163.25.99`    | `94`       |
 
 #### Holding: SOUL MALLS
 
