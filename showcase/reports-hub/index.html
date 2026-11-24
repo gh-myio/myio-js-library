@@ -58,6 +58,7 @@
           </select>
         </label>
         <label><input type="checkbox" id="noPeriod" /> Sem período no dashboard</label>
+        <label title="ED-1391: stub de MyIOOrchestrator.getReportMoney — All Report todo em R$"><input type="checkbox" id="moneyMode" /> Modo R$ (HEADER)</label>
       </div>
       <div class="row">
         <label><input type="checkbox" id="dark" /> Dashboard escuro</label>
@@ -153,6 +154,36 @@
     const isDomainSettled = (d) => !!d && d.state === 'ready' && !!d.items?.length;
     const groupsOf = (domain) => (DATA[domain]?.state === 'ready' ? GROUPS[domain] : {});
 
+    // ------------------------------------------------------------ ED-1391: modo R$ (stub do MAIN)
+    // Mesmo pipeline da MAIN (valuateDomainMoney → buildReportMoneyConfig) com tarifas fixas:
+    // lojas 0,85 R$/kWh, área comum 0,65 R$/kWh, Loja Riachuelo sem tarifa, entrada e
+    // transformadores fora da valoração (Q8). Água: lojas 12,50 R$/m³, área comum sem tarifa.
+    // (Os kWh/m³ do relatório vêm do fetch mock aleatório; os R$ vêm deste stub.)
+    const MONEY_PERIOD = { startISO: '2026-10-01T00:00:00-03:00', endISO: '2026-10-13T23:59:59-03:00' };
+    const MONEY = {};
+    (async () => {
+      const prices = { energy: { SPECIFIC: '0.85', COMMON_AREA: '0.65' }, water: { SPECIFIC: '12.5' } };
+      for (const domain of ['energy', 'water']) {
+        const devices = Object.entries(GROUPS[domain]).flatMap(([group, list]) =>
+          list.map((d) => ({ key: d.ingestionId, group, category: d.label === 'Loja Riachuelo' ? 'GENERIC' : null }))
+        );
+        const result = await L.valuateDomainMoney({
+          domain,
+          startTs: Date.parse(MONEY_PERIOD.startISO),
+          endTs: Date.parse(MONEY_PERIOD.endISO),
+          devices,
+          rule: L.parseMoneyCategoryRule({ SPECIFIC: ['lojas'], COMMON_AREA: ['areacomum', 'banheiros'] }),
+          loadTree: async ({ category, year }) => {
+            const price = prices[domain][category];
+            return price ? { customerId: 'g', domain: domain.toUpperCase(), category, year, version: 1, tree: { annual: { price } } } : null;
+          },
+          periodTotals: Object.fromEntries(devices.map((d, i) => [d.key, 500 + i * 137.5])),
+        });
+        MONEY[domain] = L.buildReportMoneyConfig(result, { period: MONEY_PERIOD });
+      }
+      log('modo R$ (stub) pronto — marque "Modo R$ (HEADER)" e abra Energia → Todos', 'info');
+    })().catch((e) => log(`stub R$ falhou: ${e.message}`, 'err'));
+
     function makeOrchestrator() {
       const mode = $('orch').value;
       if (mode === 'stub') return { isReady: false };
@@ -178,6 +209,7 @@
         o.getTemperatureGroups = () => groupsOf('temperature');
       }
       o.getWaterGroups = () => groupsOf('water');
+      if ($('moneyMode').checked) o.getReportMoney = (domain) => MONEY[domain] || null;
       if ($('gcdr').checked) Object.assign(o, { gcdrCustomerId: '7a1e0000-0000-4000-8000-000000000999', gcdrApiBaseUrl: 'https://gcdr.mock.local', gcdrApiKey: 'mock-key', gcdrTenantId: '' });
       return o;
     }

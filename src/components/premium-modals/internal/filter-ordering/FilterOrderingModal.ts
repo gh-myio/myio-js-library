@@ -36,6 +36,15 @@ export interface FilterModalProps {
   i18n?: Partial<I18nDict>;
   /** Unidade exibida junto ao consumo de cada item (ex.: 'kWh', 'm³'). */
   unit?: string;
+  /**
+   * ED-1391 — formatador do valor de cada item (ex.: R$ no modo R$ do All Report).
+   * Ausente → pt-BR 2 casas + `unit` (comportamento original).
+   */
+  formatValue?: (value: number) => string;
+  /** ED-1391 — texto quando o item não tem valor (ex.: '-'). Ausente → nada é exibido. */
+  emptyValueText?: string;
+  /** ED-1391 — oculta o % de participação de cada item (ex.: base parcial em R$). */
+  hideShare?: boolean;
   /** Tema opcional (paleta do dashboard). Se ausente, usa window.MyIOUtils?.theme. */
   theme?: FilterModalTheme;
 }
@@ -1090,12 +1099,15 @@ export class FilterOrderingModal {
     const total = this.totalConsumption();
     const fmt = (v: number) =>
       v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const { formatValue, emptyValueText, hideShare } = this.props;
     const metrics = value !== null
       ? `<span class="metrics">
-           <span class="metrics-value">${fmt(value)}${this.props.unit ? ` ${this.props.unit}` : ''}</span>
-           <span class="metrics-perc">${total > 0 ? fmt((value / total) * 100) : '0,00'}%</span>
+           <span class="metrics-value">${formatValue ? formatValue(value) : `${fmt(value)}${this.props.unit ? ` ${this.props.unit}` : ''}`}</span>
+           ${hideShare ? '' : `<span class="metrics-perc">${total > 0 ? fmt((value / total) * 100) : '0,00'}%</span>`}
          </span>`
-      : '';
+      : emptyValueText
+        ? `<span class="metrics"><span class="metrics-value">${emptyValueText}</span></span>`
+        : '';
 
     return `
       <button role="option" aria-selected="${isSelected}"

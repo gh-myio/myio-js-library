@@ -149,6 +149,25 @@ describe('RFC-0239 openReportsHub — selection protocol', () => {
     expect(p.itemsList).toEqual([{ id: 'w-1', identifier: 'Hidro', label: 'Hidro', excludeGroupsTotals: null }]);
   });
 
+  it('ED-1391: money from getReportMoney is forwarded to the All Report (energy/water only)', async () => {
+    const money = { overlay: { state: 'available' }, perDevice: { 'ing-1': '10.00' } } as never;
+    const getReportMoney = vi.fn((d: string) => (d === 'energy' ? money : null));
+    open({ context: makeContext({ getReportMoney }), enabledItems: { energy_todos: true } });
+    card('energy', 'todos')!.click();
+    await flush();
+    expect(getReportMoney).toHaveBeenCalledWith('energy');
+    expect(allReport.mock.calls[0][0].money).toBe(money);
+    // "todos" mistura grupos (Entrada + Lojas): cada item leva o groupLabel
+    expect(allReport.mock.calls[0][0].itemsList.map((i: any) => i.groupLabel)).toEqual(['Lojas', 'Entrada']);
+  });
+
+  it('no money (kWh/m³ mode) → no money param', async () => {
+    open({ context: makeContext({ getReportMoney: () => null }) });
+    card('water', 'lojas')!.click();
+    await flush();
+    expect('money' in allReport.mock.calls[0][0]).toBe(false);
+  });
+
   it('hub palette/name win over the base; temperature ranges and offset forwarded', async () => {
     const palette = { mode: 'dark', cssVars: () => ({ '--myio-brand-700': '#123456' }) } as never;
     open({

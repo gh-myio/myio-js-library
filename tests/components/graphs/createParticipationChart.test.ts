@@ -68,6 +68,27 @@ describe('createParticipationChart', () => {
     expect(widths[1]).toBeGreaterThan(widths[2]);
   });
 
+  it('ED-1391: displayValue replaces formatted value + unit in the bar label (slices stay physical)', () => {
+    const chart = make({
+      items: [
+        { id: 'a', label: 'Loja A', value: 60, displayValue: 'R$ 30,00' },
+        { id: 'b', label: 'Trafo', value: 40, displayValue: '-' },
+      ],
+      unit: 'kWh',
+      chartType: 'bars',
+    });
+    const texts = Array.from(chart.element.querySelectorAll('svg text')).map((t) => t.textContent);
+    expect(texts).toContain('R$ 30,00 · 60%');
+    expect(texts).toContain('- · 40%');
+    expect(texts.join(' ')).not.toContain('kWh');
+  });
+
+  it('without displayValue the bar label is formatValue + unit (unchanged)', () => {
+    const chart = make({ items: baseItems(), unit: 'kWh', chartType: 'bars' });
+    const texts = Array.from(chart.element.querySelectorAll('svg text')).map((t) => t.textContent);
+    expect(texts.some((t) => /^60(,00)? kWh · 60%$/.test(t || ''))).toBe(true);
+  });
+
   it('type selector pill switches between pie and bars', () => {
     const chart = make({ items: baseItems() });
     expect(chart.element.querySelector(`path.${P}__slice`)).toBeTruthy();

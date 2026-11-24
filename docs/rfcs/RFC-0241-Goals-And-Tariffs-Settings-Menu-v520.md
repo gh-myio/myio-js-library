@@ -7,8 +7,11 @@
   listed in [Phase 0 findings](#phase-0-findings-rev-2).
 - **Revision 3 (2026-11-23, ED-1389):** money mode in TELEMETRY_INFO is now complete and the device card loses the
   "Custo estimado" label — see [§5.6.1](#561-rev-3-ed-1389--telemetry_info-100-in-r-and-the-dash-rule).
+- **Revision 4 (2026-11-24, ED-1391):** in money mode the All Report (MENU → Relatórios and HEADER) is entirely in R$;
+  devices outside the valuation (Entrada / Transformadores) are "não valorado" and out of the R$ total — see
+  [§5.6.2](#562-rev-4-ed-1391--all-report-100-in-r).
 - **Branch:** `feat/rfc-0241-goals-tariffs-v520` (Phases 1–4, merged); Phase 5 in a worktree on top of `desenv` `e4e99ac7`
-- **Jira:** ED-1389 (rev. 3)
+- **Jira:** ED-1389 (rev. 3), ED-1391 (rev. 4)
 - **Related RFCs:** RFC-0222 (Pricing Panel), RFC-0228 (Financial Goals gap & rollout index, Track A), RFC-0225 / RFC-0227
   (Metas period KPI, compare modal, onboarding guide), RFC-0217 (CustomerGoalsCard), RFC-0215 (Settings hub in the
   library), RFC-0108 (measurement display settings + `myio:measurement-settings-updated`), RFC-0233 (`restrict_view`),
@@ -477,6 +480,33 @@ byte-identical. `Energy/WaterSummaryTooltip` gained optional `displayValue` / `t
 `totalLabel` (absent → byte-identical). Tests: `tests/telemetryInfo.moneyMode.test.ts`,
 `tests/thingsboard/v520SummaryMoneyKeys.test.ts`, `tests/utils/tooltips/summaryTooltipDisplayValue.test.ts`.
 
+#### 5.6.2 Rev. 4 (ED-1391) — All Report 100% in R$
+
+Rev. 2 only **added** a "Custo estimado (R$)" column next to kWh/m³. Owner decisions (ED-1391), which **supersede the
+Reports row of §5.7** in money mode. The report may mix devices: "todos" de energia brings Entrada, Transformadores,
+Lojas and Área Comum together, and Entrada/Transformadores are never valued (Q8).
+
+| Situation (money mode, `params.money` present) | Shown |
+|---|---|
+| Device with complete R$ | value in R$ (`1.234,56` in the grid/exports, header says R$); kWh/m³ only in the `title` |
+| Priceable device without tariff / partial / uncategorized | `-` + chip ("Sem tarifa" / "Tarifa parcial" / "Sem categoria") — exports: `-` + reason |
+| Device outside the valuation (Entrada / Transformadores; `money.itemMoney(id) === null`) | `-` + "Não valorado"; **out of the R$ total** — it does **not** count as missing coverage |
+| Total / group subtotal / KPI | `round(Σ raw)` of the priceable devices (`totalFor`) only when **all** are complete; else `-` + "Cobertura incompleta (n de m)" (n de m over priceable devices); plus "k não valorado(s) fora do total" when any |
+| KPIs | Dispositivos · Custo estimado total · Média por Dispositivo (total ÷ priceable) · Máximo / Mínimo (R$, among complete) · Sem Consumo (count) · Sem tarifa (count, when > 0) |
+| `%` column, participation chart | stay **physical** share (header "% consumo"); chart values (tooltip / bar label) show R$ or `-` |
+| Sort / filter modal | by cost, devices without R$ last; filter "Com custo / Sem custo (inclui sem tarifa)" |
+| Diário / Horário (row expansion, hourly CSV) | per-bucket R$ (`valuateBucket`), `-` when not complete; subtotal / hourly total only when all buckets complete |
+| Period | the picker opens on the dashboard period (`money.period`); loading another period → the report is **physical** with a notice "Valores em R$ disponíveis só para o período do dashboard (…)" |
+| CSV / PDF / XLS | value column "Custo estimado (R$)" (no kWh column), `-` for no R$, reason column/note, honest total; PDF header "Unidade: R$" |
+
+Implementation: `buildReportMoneyConfig` exposes `itemMoney(id)` (null = not valued); the pure presentation layer
+`premium-modals/report-all/allReportMoneyView.ts` (row view, total, KPIs, group summary) is the only place the rules
+live; `AllReportModal` gates on `moneyMode` (money present, not temperature, period matches). No `money` → physical
+path byte-identical. Shared components gained optional, absent-is-identical props: `ParticipationChartItem.displayValue`,
+`FilterOrderingModal` `formatValue` / `emptyValueText` / `hideShare`, `GridColumnsOptions.percLabel`. Tests:
+`tests/components/premium-modals/allReportMoneyMode.test.ts`, `allReportMoneyExport.test.ts`,
+`filterOrderingModalMoney.test.ts`.
+
 #### 5.7 Per-widget reaction (v-5.2.0)
 
 | Widget | Change |
@@ -489,7 +519,7 @@ byte-identical. `Energy/WaterSummaryTooltip` gained optional `displayValue` / `t
 | **HEADER** | Hosts the "kWh/m³ \| R$" segmented control (proposal — Unresolved Q5); hidden when the user is not eligible or `moneyDisplayAvailable` is false; disabled on temperature/alarm tabs; calls `MyIOUtils.setValueDisplayMode`. |
 | **MENU** | Only the hub item (Part A). No value rendering. |
 | **ALARM** | No change. |
-| **Reports** (Reports Hub → AllReportModal; HEADER "Relatório Consumo Geral") | **rev. 2.** Physical stays primary. In money mode MAIN passes `params.money = buildReportMoneyConfig(result, { period })` (via `MyIOOrchestrator.getReportMoney` → Reports Hub adapter, and `MyIOUtils.getReportMoney` in HEADER), enabling the RFC-0228 A6 column with header **"Custo estimado (R$)"** (the A6 default "Custo projetado (R$)" stays for RFC-0228 callers). **Exports** (previously screen-only): CSV (daily and hourly), PDF and XLS get the R$ column after the physical one; a non-complete row has an **empty** cell, the total is `round(Σ raw)` of exactly the rows shown (`totalFor(ids)`) and only when every row is complete, else "Cobertura incompleta (n de m)". **Consolidado** rows use MAIN's per-device period value; **Diário/Horário** rows (row expansion + hourly CSV) are valued per bucket with the pure valuator (`valuateBucket`) at the price effective at the row's timestamp — hourly bands are exact there (no extra fetch); the per-device subtotal is the sum of buckets only if all are complete. The report loading a different period than the dashboard → R$ withheld (`PERIOD_MISMATCH`). Physical-mode exports byte-identical (tested). |
+| **Reports** (Reports Hub → AllReportModal; HEADER "Relatório Consumo Geral") | **rev. 2.** Physical stays primary. In money mode MAIN passes `params.money = buildReportMoneyConfig(result, { period })` (via `MyIOOrchestrator.getReportMoney` → Reports Hub adapter, and `MyIOUtils.getReportMoney` in HEADER), enabling the RFC-0228 A6 column with header **"Custo estimado (R$)"** (the A6 default "Custo projetado (R$)" stays for RFC-0228 callers). **Exports** (previously screen-only): CSV (daily and hourly), PDF and XLS get the R$ column after the physical one; a non-complete row has an **empty** cell, the total is `round(Σ raw)` of exactly the rows shown (`totalFor(ids)`) and only when every row is complete, else "Cobertura incompleta (n de m)". **Consolidado** rows use MAIN's per-device period value; **Diário/Horário** rows (row expansion + hourly CSV) are valued per bucket with the pure valuator (`valuateBucket`) at the price effective at the row's timestamp — hourly bands are exact there (no extra fetch); the per-device subtotal is the sum of buckets only if all are complete. The report loading a different period than the dashboard → R$ withheld (`PERIOD_MISMATCH`). Physical-mode exports byte-identical (tested). **Rev. 4 (ED-1391):** in money mode the report is entirely in R$ (no physical column) and non-valued devices stay out of the total — see §5.6.2. |
 | **DeviceReportModal / charts / energy modal / GoalsModal** | Unchanged in v1 (physical). Money in the single-device report and money charts are **follow-ups**. |
 
 ### 6. Security and permissions

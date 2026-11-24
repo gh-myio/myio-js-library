@@ -56,6 +56,13 @@ export interface AllReportMoneyConfig {
     endTs: number,
     qty: number
   ) => { state: string; amount?: string } | null;
+  /**
+   * ED-1391 — the device's `item.money` (state + reason), or `null` when the device is
+   * **outside the valuation scope** (Entrada / Transformadores — RFC-0241 Q8). Lets the
+   * report tell "não valorado" (out of the R$ total) apart from "sem tarifa" (incomplete
+   * coverage). Absent → the report treats `id in perDevice` as in scope.
+   */
+  itemMoney?: (deviceId: string) => { state: string; amount?: string; reason?: string } | null;
 }
 
 export interface DateRange { 

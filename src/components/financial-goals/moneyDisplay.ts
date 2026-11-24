@@ -44,6 +44,8 @@ export type MoneyDomain = 'energy' | 'water';
 export const MONEY_ESTIMATE_LABEL = 'Custo estimado';
 export const MONEY_REPORT_HEADER = 'Custo estimado (R$)';
 export const MONEY_INCOMPLETE_LABEL = 'Cobertura incompleta';
+/** Value shown in money mode when there is no R$ (no tariff, partial, not valued) — ED-1389/ED-1391. */
+export const MONEY_NO_VALUE = '-';
 
 // ---------------------------------------------------------------------------
 // Persistence (per user × shopping × browser)
@@ -302,6 +304,7 @@ export function buildReportMoneyConfig(
   opts: { period?: { startISO?: string | null; endISO?: string | null }; deviceKeys?: string[] } = {}
 ): AllReportMoneyConfig {
   const keys = opts.deviceKeys && opts.deviceKeys.length ? opts.deviceKeys : Array.from(result.byKey.keys());
+  const keySet = new Set(keys);
   const perDevice: Record<string, string | null> = {};
   const listed: ItemMoney[] = [];
   for (const k of keys) {
@@ -335,6 +338,9 @@ export function buildReportMoneyConfig(
       if (cat === undefined) return null; // not a convertible device
       return toItemMoney(result.valuator.valuate({ deviceKey, category: cat, buckets: [{ startTs, endTs, qty }] }));
     },
+    // ED-1391: null = fora da valoração (Entrada/Transformadores, Q8) — "não valorado",
+    // fora do total em R$; senão o item.money (estado + motivo para chip/title).
+    itemMoney: (deviceKey: string) => (keySet.has(deviceKey) ? result.byKey.get(deviceKey) ?? null : null),
   };
 }
 

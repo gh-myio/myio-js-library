@@ -174,6 +174,11 @@ export function createParticipationChart(
   container.appendChild(root);
 
   const keyOf = (item: ParticipationChartItem): string => String(item.id ?? item.label);
+  // ED-1391: `displayValue` (ex.: R$ / "-") substitui o valor formatado + unidade
+  const valueText = (item: ParticipationChartItem): string =>
+    typeof item.displayValue === 'string'
+      ? item.displayValue
+      : `${settings.formatValue(item.value)}${settings.unit ? ` ${settings.unit}` : ''}`;
 
   const isDark = (): boolean => settings.themeMode === 'dark';
 
@@ -319,7 +324,7 @@ export function createParticipationChart(
       content: `
         <div class="myio-info-tooltip__section" style="min-width:180px;">
           <div style="font-size:12px;line-height:1.6;">
-            <div><strong>Valor:</strong> ${escapeHtml(settings.formatValue(item.value))}${settings.unit ? ` ${escapeHtml(settings.unit)}` : ''}</div>
+            <div><strong>Valor:</strong> ${escapeHtml(valueText(item))}</div>
             <div><strong>Participação:</strong> ${fmtPct(pct)}</div>
           </div>
         </div>
@@ -477,7 +482,7 @@ export function createParticipationChart(
       value.setAttribute('fill', mutedColor);
       value.setAttribute('font-size', '10.5');
       value.setAttribute('font-family', "'Nunito', system-ui, sans-serif");
-      value.textContent = `${settings.formatValue(item.value)}${settings.unit ? ` ${settings.unit}` : ''} · ${fmtPct(pct)}`;
+      value.textContent = `${valueText(item)} · ${fmtPct(pct)}`;
       svg.appendChild(value);
     });
 

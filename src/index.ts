@@ -1386,6 +1386,7 @@ export {
   MONEY_ESTIMATE_LABEL,
   MONEY_REPORT_HEADER,
   MONEY_INCOMPLETE_LABEL,
+  MONEY_NO_VALUE,
   VALUE_DISPLAY_MODE_STORAGE_PREFIX,
 } from './components/financial-goals';
 export type {
