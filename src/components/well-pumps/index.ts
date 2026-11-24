@@ -16,6 +16,7 @@ export {
   valveHistoryFromTelemetry,
   latestPowerKw,
   PUMP_POWER_KEY,
+  PUMP_ON_MIN_THRESHOLD_W,
   VALVE_STATE_KEYS,
   isActive as isEquipmentActive,
   stateSince as equipmentStateSince,

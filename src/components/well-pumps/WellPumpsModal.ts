@@ -94,7 +94,9 @@ function ensureStyles(): void {
   document.head.appendChild(style);
 }
 
-const fmtKw = (n: number) => `${n.toFixed(1).replace('.', ',')} kW`;
+// Potência com 3 casas (pt-BR): mostra o standby abaixo de 150 W (ex.: 0,040 kW) e evita "0,0 kW" ambíguo
+const fmtKw = (n: number) =>
+  `${n.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kW`;
 
 function timelineHTML(history: WellPumpInfo['history'], now: number, kind: 'pump' | 'valve'): string {
   const segs = timelineSegments(history, now, DAY_MS)
@@ -128,7 +130,12 @@ function pumpCardHTML(p: WellPumpInfo, now: number, images: { pump: string }, fo
   const stateClass = !known ? 'is-unknown' : on ? 'is-on' : 'is-off';
   const since = stateSince(p.history);
   const { activeMs, starts } = dayStats(p.history || [], now);
-  const power = !known ? '—' : on ? (typeof p.powerKw === 'number' ? fmtKw(p.powerKw) : '—') : fmtKw(0).replace(',0', '');
+  // desligada: mostra a leitura real (standby ≤ 150 W) quando houver; senão 0,000 kW
+  const power = !known
+    ? '—'
+    : on
+      ? typeof p.powerKw === 'number' ? fmtKw(p.powerKw) : '—'
+      : fmtKw(typeof p.powerKw === 'number' ? p.powerKw : 0);
   const hasLevel = typeof p.wellLevelMca === 'number';
   const hasPerc = typeof p.wellPercentage === 'number';
   const pct = hasPerc ? Math.round(Math.max(0, Math.min(1, p.wellPercentage as number)) * 100) : null;
@@ -214,7 +221,7 @@ export function renderWellPumpsBodyHTML(
         ? fmtKw(knownPower.reduce((s, p) => s + (p.powerKw as number), 0))
         : onPumps.length
           ? '—'
-          : '0 kW';
+          : fmtKw(0);
   const openValves = valves.filter((v) => isActive(v.history));
   const unknownValveCount = valves.filter((v) => !Array.isArray(v.history)).length;
   // 1 solenoide → estado + desde quando; M solenoides → "X de M abertas"

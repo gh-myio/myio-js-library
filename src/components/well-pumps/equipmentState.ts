@@ -86,10 +86,19 @@ function parseNumericTelemetry(value: unknown): number | null {
 export const PUMP_POWER_KEY = 'consumption';
 export const VALVE_STATE_KEYS = ['state', 'status'];
 
-/** Histórico ligada/desligada da bomba; null indica ausência de amostras numéricas utilizáveis. */
+/**
+ * Potência mínima (W) para a bomba contar como LIGADA: abaixo disso é ruído/standby do
+ * medidor (ex.: 0,0 kW) → DESLIGADA.
+ */
+export const PUMP_ON_MIN_THRESHOLD_W = 150;
+
+/**
+ * Histórico ligada/desligada da bomba (ligada = `consumption` > limiar W); null indica
+ * ausência de amostras numéricas utilizáveis. Default do limiar: 150 W.
+ */
 export function pumpHistoryFromConsumption(
   points: Array<{ ts: number; value: unknown }> | null | undefined,
-  thresholdW = 0
+  thresholdW = PUMP_ON_MIN_THRESHOLD_W
 ): StateInterval[] | null {
   if (!hasUsableTelemetryPoint(points, parseNumericTelemetry)) return null;
   return intervalsFromTelemetry(points, { threshold: thresholdW });
