@@ -16,6 +16,36 @@ import {
 } from '../../well-pumps/equipmentIndicators';
 import type { EquipmentIndicator } from '../../well-pumps/types';
 import { deviceIcons } from '../../../utils/devices/deviceIcons';
+import { tankHeadCmToMca, formatPtBrFixed, formatTankLevelPercent } from '../../../utils/format/water';
+
+// ED-1375: water_level keys plotted in "Nível (m.c.a)" mode — telemetry arrives in cm.
+const WATER_LEVEL_KEYS = ['water_level', 'waterLevel', 'nivel', 'level'];
+
+/**
+ * ED-1375: series plotted by the chart for the given display mode.
+ * - water_percentage: 0-1 → 0-100 (values > 1.5 are assumed already in %), no clamp
+ * - water_level: cm → m.c.a (÷100), same rule as the device card badge
+ */
+export function buildWaterTankChartPoints(
+  telemetry: Array<{ ts: number; value: number; key?: string }>,
+  mode: 'water_level' | 'water_percentage'
+): Array<{ ts: number; value: number; key?: string }> {
+  if (mode === 'water_percentage') {
+    return telemetry
+      .filter(p => p.key === 'water_percentage')
+      .map(p => ({ ...p, value: p.value <= 1.5 ? p.value * 100 : p.value }));
+  }
+  return telemetry
+    .filter(p => WATER_LEVEL_KEYS.includes(p.key || ''))
+    .map(p => ({ ...p, value: tankHeadCmToMca(p.value) }));
+}
+
+/** ED-1375: value + unit as shown in the modal KPIs (pt-BR, 2 decimals). */
+export function formatWaterTankValue(value: number, mode: 'water_level' | 'water_percentage'): string {
+  return mode === 'water_percentage'
+    ? formatTankLevelPercent(value)
+    : `${formatPtBrFixed(value, 2)} m.c.a`;
+}
 
 // Verbose logs are OPT-IN: silent unless the host dashboard sets
 // window.MyIOUtils.debugModals = true (MAIN_BAS wires it to enableDebugMode).
@@ -480,7 +510,8 @@ export class WaterTankModalView {
 
     const levelStatus = this.getLevelStatus(Math.min(percentage, 100));
     const tankImageUrl = this.getTankImageUrl(Math.min(percentage, 100));
-    const displayPercentage = percentage.toFixed(1);
+    // ED-1375: real value as the card shows it (e.g. "121,00%") — only the image/status are clamped
+    const displayPercentage = formatTankLevelPercent(percentage);
 
     return `
       <div class="myio-water-tank-tank-panel" style="
@@ -507,7 +538,7 @@ export class WaterTankModalView {
           font-weight: 700;
           color: ${levelStatus.color};
           line-height: 1;
-        ">${displayPercentage}%</div>
+        ">${displayPercentage}</div>
         <div style="
           background: ${levelStatus.color};
           color: white;
@@ -649,10 +680,8 @@ export class WaterTankModalView {
       return '<div id="myio-water-tank-kpis"></div>';
     }
 
-    const isPct = this.chartDisplayMode === 'water_percentage';
-    const unit = isPct ? '%' : 'm.c.a';
-    const dec = isPct ? 1 : 2;
-    const fmtVal = (v: number) => `${v.toFixed(dec)}${isPct ? '' : ' '}${unit}`;
+    // ED-1375: pt-BR, 2 decimals, no clamp (same as the device card)
+    const fmtVal = (v: number) => formatWaterTankValue(v, this.chartDisplayMode);
     const pad = (n: number) => String(n).padStart(2, '0');
     const fmtTs = (ts: number) => {
       const d = new Date(ts);
@@ -791,8 +820,8 @@ export class WaterTankModalView {
       }
     }
 
-    const levelStatus = this.getLevelStatus(percentage);
-    const tankImageUrl = this.getTankImageUrl(percentage);
+    const levelStatus = this.getLevelStatus(Math.min(percentage, 100));
+    const tankImageUrl = this.getTankImageUrl(Math.min(percentage, 100));
 
     return `
       <div style="
@@ -839,7 +868,7 @@ export class WaterTankModalView {
             font-weight: 700;
             color: ${levelStatus.color};
             line-height: 1;
-          ">${percentage.toFixed(1)}%</div>
+          ">${formatTankLevelPercent(percentage)}</div>
           <div style="
             font-size: 14px;
             color: #7f8c8d;
@@ -948,22 +977,8 @@ export class WaterTankModalView {
    * RFC-0107: Get chart data points based on current display mode
    */
   private getChartDataPoints(): Array<{ ts: number; value: number; key?: string }> {
-    const { data } = this.config;
-
-    if (this.chartDisplayMode === 'water_percentage') {
-      // Filter for water_percentage points
-      const percentagePoints = data.telemetry.filter(p => p.key === 'water_percentage');
-      // Convert from 0-1 to 0-100 if needed
-      return percentagePoints.map(p => ({
-        ...p,
-        value: p.value <= 1.5 ? p.value * 100 : p.value
-      }));
-    } else {
-      // Filter for water_level points
-      return data.telemetry.filter(p =>
-        p.key === 'water_level' || p.key === 'waterLevel' || p.key === 'nivel' || p.key === 'level'
-      );
-    }
+    // ED-1375: water_level (cm) is converted to m.c.a here, so series, Y axis and KPIs agree
+    return buildWaterTankChartPoints(this.config.data.telemetry, this.chartDisplayMode);
   }
 
   /**
@@ -1316,8 +1331,8 @@ export class WaterTankModalView {
       ctx.lineTo(width - padding.right, y);
       ctx.stroke();
 
-      // Y-axis label (m.c.a)
-      ctx.fillText(`${value.toFixed(2)}`, padding.left - 8, y + 4);
+      // Y-axis label (m.c.a already converted from cm, or %) — ED-1375: pt-BR comma
+      ctx.fillText(formatPtBrFixed(value, 2), padding.left - 8, y + 4);
     }
 
     // Y-axis title - RFC-0107: Show correct unit based on display mode

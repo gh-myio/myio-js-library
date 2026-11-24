@@ -32,8 +32,8 @@ export interface OpenDashboardPopupWaterTankOptions {
   // ========================================
   deviceType?: string;                 // Device type (TANK, CAIXA_DAGUA, etc.)
   label?: string;                      // Display label for the device
-  currentLevel?: number;               // Current water level (0-100%)
-  currentLevelClamped?: number;        // RFC-0107: Clamped level for visual display (0-100)
+  currentLevel?: number;               // Current water level in % (real value, may exceed 100 — ED-1375)
+  currentLevelClamped?: number;        // RFC-0107: Clamped level (0-100); fallback only — the view clamps the tank image itself
   waterLevel?: number | null;          // RFC-0107: Raw water_level value from ThingsBoard
   waterPercentage?: number | null;     // RFC-0107: Raw water_percentage (0-1 range)
 

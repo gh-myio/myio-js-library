@@ -28,6 +28,37 @@ export function formatWaterVolumeM3(value: number, locale: string = 'pt-BR'): st
 }
 
 /**
+ * ED-1375: single source of truth for the tank `water_level` unit rule.
+ * The telemetry key arrives in centimeters; M.C.A (metros de coluna d'água) = cm / 100.
+ * Used by the device card badge (via formatTankHeadFromCm) and the water tank chart modal.
+ * @param valueCm - Tank head in centimeters
+ * @returns Tank head in meters of water column (NaN when not numeric)
+ */
+export function tankHeadCmToMca(valueCm: number): number {
+  return Number(valueCm) / 100;
+}
+
+/**
+ * ED-1375: pt-BR fixed-decimal number (same rule as the device card: toFixed + comma).
+ * @example formatPtBrFixed(7.098) → "7,10"
+ */
+export function formatPtBrFixed(value: number, decimals: number = 2): string {
+  const num = Number(value);
+  if (value === null || value === undefined || isNaN(num)) return '-';
+  return num.toFixed(decimals).replace('.', ',');
+}
+
+/**
+ * ED-1375: tank level percentage exactly as the device card shows it —
+ * no clamp at 100, 2 decimals, pt-BR comma (e.g. 121 → "121,00%").
+ * @param percent - Percentage already in 0-100+ range (water_percentage * 100)
+ */
+export function formatTankLevelPercent(percent: number, decimals: number = 2): string {
+  const txt = formatPtBrFixed(percent, decimals);
+  return txt === '-' ? '-' : `${txt}%`;
+}
+
+/**
  * Formats tank head from centimeters to meters of water column (M.C.A)
  * @param valueCm - The tank head value in centimeters
  * @param locale - The locale to use for formatting (defaults to 'pt-BR')
@@ -37,8 +68,8 @@ export function formatTankHeadFromCm(valueCm: number, locale: string = 'pt-BR'):
   if (valueCm === null || valueCm === undefined || isNaN(valueCm)) {
     return '-';
   }
-  
-  const valueMeters = valueCm / 100;
+
+  const valueMeters = tankHeadCmToMca(valueCm);
   const formattedValue = valueMeters.toLocaleString(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
