@@ -595,6 +595,137 @@ self.onInit = function () {
     _applySettingsButtonVisibility();
   });
 
+  // ===================== ED-1400: deep link no hash (#<domain>[&settings&<tbId>])
+  // Parser/escrita moram na MAIN_VIEW (MyIOUtils.getDeepLink / setDeepLinkHash).
+  function writeDomainDeepLinkHash(domain) {
+    try {
+      if (typeof window.MyIOUtils?.setDeepLinkHash === 'function') {
+        window.MyIOUtils.setDeepLinkHash({ domain });
+        return;
+      }
+      // fallback (MAIN sem o helper): troca só o hash, sem reload
+      const frag = `#${domain}`;
+      if (window.location.hash === frag) return;
+      window.history.replaceState(window.history.state, '', String(window.location.href).split('#')[0] + frag);
+    } catch (err) {
+      LogHelper.warn('[MENU] ED-1400: falha ao gravar hash:', err);
+    }
+  }
+
+  // Relatórios / Metas abrem modais (interceptados em changeDashboardState) — nunca são aba
+  function isInterceptedMenuLink(link) {
+    const content = (link && link.content) || '';
+    return /relat/i.test(content) || /metas/i.test(content);
+  }
+
+  /** Índice (em links já filtrados por restrict_view) da aba do deep link, ou -1 */
+  function findDeepLinkMenuIndex(links, deepLink) {
+    if (!deepLink || !deepLink.domain || !Array.isArray(links)) return -1;
+    return links.findIndex(
+      (link) => link && !isInterceptedMenuLink(link) && DOMAIN_BY_STATE[link.stateId] === deepLink.domain
+    );
+  }
+
+  // Domínio aplicado pelo deep link no carregamento (até o primeiro clique do usuário)
+  let _deepLinkAppliedDomain = null;
+
+  const DEEP_LINK_TAB_LABELS = {
+    energy: 'Energia',
+    water: 'Água',
+    temperature: 'Temperatura',
+    alarm: 'Alarmes',
+    manual: 'Disp. Manuais',
+  };
+
+  /** Nome da aba como aparece no MENU (links originais, antes do restrict_view) */
+  function deepLinkTabName(domain) {
+    const link = _originalMenuLinks.find(
+      (l) => l && !isInterceptedMenuLink(l) && DOMAIN_BY_STATE[l.stateId] === domain
+    );
+    const text = String((link && link.content) || '')
+      .replace(/<[^>]*>/g, '')
+      .trim();
+    return text || DEEP_LINK_TAB_LABELS[domain] || domain;
+  }
+
+  /** URL do dashboard sem trilha ('#…' removido), sem reload */
+  function clearDeepLinkHashFromMenu() {
+    try {
+      if (typeof window.MyIOUtils?.clearDeepLinkHash === 'function') {
+        window.MyIOUtils.clearDeepLinkHash();
+        return;
+      }
+      const href = String(window.location.href);
+      if (href.includes('#')) window.history.replaceState(window.history.state, '', href.split('#')[0]);
+    } catch (err) {
+      LogHelper.warn('[MENU] ED-1400: falha ao limpar hash:', err);
+    }
+  }
+
+  /** Seleciona a aba padrão (1ª visível com domínio) sem gravar trilha no hash */
+  function selectDefaultMenuTab() {
+    const idx = (scope.links || []).findIndex(
+      (link) => link && !isInterceptedMenuLink(link) && DOMAIN_BY_STATE[link.stateId]
+    );
+    if (idx < 0) return false;
+    scope.changeDashboardState(
+      { preventDefault() {}, __deepLink: true, __deepLinkNoHash: true },
+      scope.links[idx].stateId,
+      idx
+    );
+    self.ctx.detectChanges?.();
+    return true;
+  }
+
+  /**
+   * Deep link para aba que o usuário NÃO pode ver (restrict_view): cancela a pendência de
+   * Configurações, limpa o hash, volta para a aba padrão (MENU + conteúdo + dashboard-state →
+   * orquestrador/HEADER) e avisa no diálogo premium. Retorna se a aba padrão foi selecionada.
+   */
+  function denyDeepLinkTab(domain) {
+    LogHelper.warn(`[MENU] ED-1400: deep link para aba restrita (${domain}) — redirecionando para a aba padrão`);
+    window.__myioDeepLinkPending = null;
+    _deepLinkAppliedDomain = null;
+    clearDeepLinkHashFromMenu();
+    const selected = selectDefaultMenuTab();
+
+    const title = 'Acesso não permitido';
+    const message = `Você não tem permissão para acessar a aba ${deepLinkTabName(
+      domain
+    )} deste painel. Você será redirecionado para a página inicial do painel.`;
+    const openMessageDialog = window.MyIOUtils?.openMessageDialog;
+    if (typeof openMessageDialog === 'function') {
+      try {
+        Promise.resolve(openMessageDialog({ title, message, severity: 'error', buttonLabel: 'OK' })).catch((err) =>
+          LogHelper.warn('[MENU] ED-1400: diálogo de permissão falhou:', err)
+        );
+      } catch (err) {
+        LogHelper.warn('[MENU] ED-1400: diálogo de permissão falhou:', err);
+      }
+    } else {
+      LogHelper.warn(`[MENU] ED-1400: ${title} — ${message}`);
+    }
+    return selected;
+  }
+
+  // restrict_view chegou depois e escondeu a aba do deep link → mesmo tratamento de aba restrita
+  function _onDeepLinkFeatureVisibility() {
+    const applied = _deepLinkAppliedDomain;
+    if (!applied) return;
+    _deepLinkAppliedDomain = null;
+    if (findDeepLinkMenuIndex(scope.links, { domain: applied }) >= 0) return;
+    denyDeepLinkTab(applied);
+  }
+  // registrado DEPOIS do applyMenuFeatureVisibility acima (roda com scope.links já filtrado)
+  window.addEventListener('myio:feature-visibility-ready', _onDeepLinkFeatureVisibility);
+  (function wireDeepLinkTeardown() {
+    const oldDestroyDeepLink = self.onDestroy;
+    self.onDestroy = function () {
+      if (typeof oldDestroyDeepLink === 'function') oldDestroyDeepLink();
+      window.removeEventListener('myio:feature-visibility-ready', _onDeepLinkFeatureVisibility);
+    };
+  })();
+
   // RFC-0241: ⚙️ para SuperAdmin sem isUserAdmin (addSettingsMenuButton é idempotente).
   function _ensureSettingsButtonForSuperAdmin() {
     if (!_settingsUser || window.MyIOUtils?.SuperAdmin !== true) return;
@@ -646,6 +777,11 @@ self.onInit = function () {
         detail: { tab: domain },
       })
     );
+
+    // ED-1400: trilha no hash (#energy, #water, …) — só abas com domínio. Seleção vinda de um
+    // deep link de Configurações mantém o '&settings&<tbId>' (o TELEMETRY ainda vai abrir o modal).
+    if (!e || !e.__deepLink) _deepLinkAppliedDomain = null; // clique do usuário: fallback não se aplica
+    if (domain && !(e && (e.__deepLinkSettings || e.__deepLinkNoHash))) writeDomainDeepLinkHash(domain);
 
     // RFC-0053: Navegação via Estados do ThingsBoard (preferido)
     try {
@@ -2969,7 +3105,35 @@ function openGoalsModal() {
   // RFC-0056 FIX: Emit initial dashboard-state to prevent race condition
   // The first link is usually the default (energy/telemetry)
   // This ensures HEADER and other widgets know the initial domain immediately
-  setTimeout(() => {
+  function emitInitialDashboardState() {
+    // ED-1400: deep link (#water, #alarm&…) para uma aba visível (scope.links já respeita
+    // restrict_view) → seleciona ESSA aba pelo mesmo caminho do clique (dispatch + troca de
+    // conteúdo). Aba restrita/desconhecida → padrão abaixo (1ª aba), como sempre.
+    const deepLink = window.MyIOUtils?.getDeepLink?.() || null;
+    const dlIndex = findDeepLinkMenuIndex(scope.links, deepLink);
+    if (dlIndex >= 0) {
+      LogHelper.log(`[MENU] ED-1400: deep link → aba inicial ${deepLink.domain}`);
+      scope.changeDashboardState(
+        { preventDefault() {}, __deepLink: true, __deepLinkSettings: deepLink.action === 'settings' },
+        scope.links[dlIndex].stateId,
+        dlIndex
+      );
+      _deepLinkAppliedDomain = deepLink.domain;
+      self.ctx.detectChanges?.();
+      return;
+    }
+    if (deepLink) {
+      if (findDeepLinkMenuIndex(_originalMenuLinks, deepLink) >= 0) {
+        // a aba existe no MENU mas o restrict_view a escondeu → modal + redirect
+        if (denyDeepLinkTab(deepLink.domain)) return;
+      } else {
+        // domínio sem aba neste painel → desconhecido: só limpa o hash e segue o padrão
+        LogHelper.warn(`[MENU] ED-1400: deep link sem aba no MENU (${deepLink.domain}) — hash removido`);
+        window.__myioDeepLinkPending = null;
+        clearDeepLinkHashFromMenu();
+      }
+    }
+
     const firstLink = scope.links && scope.links[0];
     if (firstLink && firstLink.enableLink !== false) {
       const firstStateId = firstLink.stateId || 'telemetry_content';
@@ -2992,7 +3156,8 @@ function openGoalsModal() {
         })
       );
     }
-  }, 100); //Small delay to ensure HEADER is ready to listen
+  }
+  setTimeout(emitInitialDashboardState, 100); //Small delay to ensure HEADER is ready to listen
 
   // === Atalho global para abrir o modal (Ctrl+K / ⌘K) ===
   (function attachGlobalHotkey() {

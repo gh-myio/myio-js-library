@@ -102,6 +102,185 @@ if (window.__myioMainViewEvaluations === 2) {
   );
 }
 
+// ===================== ED-1400 deep link (#<domain> / #<domain>&settings&<tbId>) — begin
+// Trilha compartilhável/recarregável no hash da URL:
+//   - aba do MENU          → #energy | #water | #temperature | #alarm | #manual
+//   - modal Configurações  → #<domain>&settings&<tbId>   (tbId = UUID do device no ThingsBoard)
+// Aceita também os stateIds do TB como alias (telemetry_content → energy, …). Qualquer coisa
+// inválida é ignorada (sem hash válido = comportamento de sempre). O tbId só pode SELECIONAR um
+// card já carregado (o TELEMETRY procura entre os próprios itens) — nenhum fetch/ação deriva dele.
+// Registrado no escopo do módulo (antes de qualquer await do onInit): o MENU lê o deep link no
+// próprio onInit e os eventos abaixo podem disparar durante os awaits da MAIN.
+const DEEP_LINK_DOMAINS = ['energy', 'water', 'temperature', 'alarm', 'manual'];
+const DEEP_LINK_ALIASES = {
+  telemetry_content: 'energy',
+  water_content: 'water',
+  temperature_content: 'temperature',
+  alarm_content: 'alarm',
+  devices_manuals: 'manual',
+};
+// Abas que têm cards (TELEMETRY) — alarm não tem modal de Configurações de device
+const DEEP_LINK_SETTINGS_DOMAINS = ['energy', 'water', 'temperature', 'manual'];
+const DEEP_LINK_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DEEP_LINK_SETTINGS_MAX_ATTEMPTS = 10;
+const DEEP_LINK_SETTINGS_TTL_MS = 120000;
+
+function normalizeDeepLinkDomain(raw) {
+  const d = String(raw == null ? '' : raw)
+    .trim()
+    .toLowerCase();
+  if (DEEP_LINK_DOMAINS.includes(d)) return d;
+  return DEEP_LINK_ALIASES[d] || null;
+}
+
+/** '#water&settings&<uuid>' → { domain, action: 'settings'|null, tbId|null } | null (inválido) */
+function parseDeepLinkHash(hash) {
+  if (typeof hash !== 'string') return null;
+  let raw = hash.trim();
+  if (raw.startsWith('#')) raw = raw.slice(1);
+  try {
+    raw = decodeURIComponent(raw);
+  } catch {
+    return null;
+  }
+  if (!raw || raw.length > 200) return null;
+  const parts = raw.split('&').map((s) => s.trim());
+  const domain = normalizeDeepLinkDomain(parts[0]);
+  if (!domain) return null;
+  if (parts.length === 1) return { domain, action: null, tbId: null };
+  // 2º segmento só pode ser a trilha do modal: settings + UUID válido (segmentos depois são ignorados)
+  if (
+    parts.length >= 3 &&
+    parts[1].toLowerCase() === 'settings' &&
+    DEEP_LINK_SETTINGS_DOMAINS.includes(domain) &&
+    DEEP_LINK_UUID_RE.test(parts[2])
+  ) {
+    return { domain, action: 'settings', tbId: parts[2].toLowerCase() };
+  }
+  return null; // trilha malformada (UUID inválido, ação desconhecida, alarm&settings…) → inválido
+}
+
+/** { domain, action?, tbId? } → '#energy' | '#energy&settings&<uuid>' | '' (inválido) */
+function buildDeepLinkHash(link) {
+  const domain = normalizeDeepLinkDomain(link && link.domain);
+  if (!domain) return '';
+  const tbId = String((link && link.tbId) || '').trim();
+  if (link.action === 'settings' && DEEP_LINK_SETTINGS_DOMAINS.includes(domain) && DEEP_LINK_UUID_RE.test(tbId)) {
+    return `#${domain}&settings&${tbId.toLowerCase()}`;
+  }
+  return `#${domain}`;
+}
+
+/** Troca SÓ o hash (path/query intactos), sem reload nem entrada nova no histórico. */
+function setDeepLinkHash(link) {
+  try {
+    const frag = buildDeepLinkHash(link);
+    if (!frag) return false;
+    const loc = window.location;
+    if (loc.hash === frag) return true;
+    const base = String(loc.href).split('#')[0];
+    window.history.replaceState(window.history.state, '', base + frag);
+    return true;
+  } catch (e) {
+    LogHelper.warn('[MAIN_VIEW] ED-1400: setDeepLinkHash falhou:', e);
+    return false;
+  }
+}
+
+/** Remove a trilha (URL do dashboard sem '#…'), sem reload nem entrada nova no histórico. */
+function clearDeepLinkHash() {
+  try {
+    const href = String(window.location.href);
+    if (!href.includes('#')) return true;
+    window.history.replaceState(window.history.state, '', href.split('#')[0]);
+    return true;
+  } catch (e) {
+    LogHelper.warn('[MAIN_VIEW] ED-1400: clearDeepLinkHash falhou:', e);
+    return false;
+  }
+}
+
+const _deepLinkInitial = parseDeepLinkHash((window.location && window.location.hash) || '');
+// Hash presente mas inválido/desconhecido → só limpa (sem modal) e segue o padrão
+if (!_deepLinkInitial && window.location && window.location.hash) {
+  LogHelper.warn('[MAIN_VIEW] ED-1400: hash inválido ignorado e removido:', window.location.hash);
+  clearDeepLinkHash();
+}
+// Última aba anunciada (myio:dashboard-state) — o MENU aplica a aba do deep link
+let _deepLinkLastTab = null;
+// restrict_view resolvido (myio:feature-visibility-ready ou falha do detectSuperAdmin): o modal de
+// Configurações só abre depois, para o MENU poder negar antes uma aba restrita.
+let _deepLinkVisibilityReady = false;
+
+// Pendência do modal de Configurações: compartilhada entre avaliações do controller (one-shot)
+if (window.__myioDeepLinkPending === undefined) {
+  window.__myioDeepLinkPending =
+    _deepLinkInitial && _deepLinkInitial.action === 'settings'
+      ? {
+          domain: _deepLinkInitial.domain,
+          tbId: _deepLinkInitial.tbId,
+          attempts: 0,
+          matched: false,
+          expiresAt: Date.now() + DEEP_LINK_SETTINGS_TTL_MS,
+        }
+      : null;
+}
+
+// Pede ao TELEMETRY (via myio:open-device-settings) que abra o modal do card — só quando a aba
+// do deep link é a visível. A instância que tem o tbId marca detail.handled (síncrono).
+function tryDispatchDeepLinkSettings() {
+  const p = window.__myioDeepLinkPending;
+  if (!p) return;
+  if (Date.now() > p.expiresAt || p.attempts >= DEEP_LINK_SETTINGS_MAX_ATTEMPTS) {
+    LogHelper.warn('[MAIN_VIEW] ED-1400: deep link de Configurações expirou sem card correspondente', p.tbId);
+    window.__myioDeepLinkPending = null;
+    return;
+  }
+  if (!_deepLinkVisibilityReady || _deepLinkLastTab !== p.domain) return;
+  p.matched = true;
+  p.attempts++;
+  const detail = { domain: p.domain, tbId: p.tbId, handled: false };
+  window.dispatchEvent(new CustomEvent('myio:open-device-settings', { detail }));
+  if (detail.handled) {
+    LogHelper.log('[MAIN_VIEW] ED-1400: Configurações abertas pelo deep link', p.tbId);
+    window.__myioDeepLinkPending = null;
+  }
+}
+
+function _scheduleDeepLinkSettings() {
+  // setTimeout(0): roda depois dos handlers síncronos (TELEMETRY renderiza no provide-data)
+  if (window.__myioDeepLinkPending) setTimeout(tryDispatchDeepLinkSettings, 0);
+}
+
+window.addEventListener('myio:dashboard-state', (ev) => {
+  _deepLinkLastTab = (ev && ev.detail && ev.detail.tab) || null;
+  const p = window.__myioDeepLinkPending;
+  // Usuário saiu da aba do deep link depois de chegar nela → desiste (não abre "do nada" depois)
+  if (p && p.matched && _deepLinkLastTab !== p.domain) window.__myioDeepLinkPending = null;
+  _scheduleDeepLinkSettings();
+});
+window.addEventListener('myio:telemetry:provide-data', _scheduleDeepLinkSettings);
+
+function markDeepLinkVisibilityReady() {
+  _deepLinkVisibilityReady = true;
+  _scheduleDeepLinkSettings();
+}
+// registrado antes do MENU: o setTimeout(0) roda depois do MENU negar (e limpar a pendência)
+window.addEventListener('myio:feature-visibility-ready', markDeepLinkVisibilityReady);
+
+Object.assign(window.MyIOUtils, {
+  parseDeepLinkHash,
+  buildDeepLinkHash,
+  setDeepLinkHash,
+  clearDeepLinkHash,
+  markDeepLinkVisibilityReady,
+  /** Deep link lido no carregamento da página (cópia) ou null */
+  getDeepLink: () => (_deepLinkInitial ? { ..._deepLinkInitial } : null),
+  /** Última aba anunciada em myio:dashboard-state (null até o primeiro anúncio) */
+  getDeepLinkActiveTab: () => _deepLinkLastTab,
+});
+// ===================== ED-1400 deep link — end
+
 // ── Token ThingsBoard sempre válido ─────────────────────────────────────────────
 // Os widgets fazem fetch() direto com localStorage.jwt_token. O TB só renova esse
 // token quando o PRÓPRIO Angular faz uma requisição — com o dashboard parado além da
@@ -250,6 +429,7 @@ window.MyIOUtils.isFeatureVisible = function isFeatureVisible(path) {
     'BAKED_PROFILE_VERSION',
     'BAKED_PROFILE_KEYS',
     // modals / popups
+    'openMessageDialog', // RFC-0205 diálogo premium — ED-1400: "Acesso não permitido" do deep link (MENU)
     'openDashboardPopupEnergy',
     'openDashboardPopupWaterTank',
     // ED-1354 — Automação dos poços (bombas BOMBA_POCO + solenoide)
@@ -4249,7 +4429,9 @@ Object.assign(window.MyIOUtils, {
     setupResizeObserver();
 
     // RFC-XXXX: Detect SuperAdmin early (async, non-blocking)
-    detectSuperAdmin();
+    // ED-1400: em qualquer saída (inclusive sem JWT / erro, que não disparam
+    // myio:feature-visibility-ready) libera o deep link de Configurações.
+    detectSuperAdmin().finally(() => window.MyIOUtils.markDeepLinkVisibilityReady?.());
 
     // Determine the initial tab to dispatch — use the first enabled domain so that
     // water-only / temperature-only dashboards don't trigger an energy retry-loop.
@@ -4262,6 +4444,13 @@ Object.assign(window.MyIOUtils, {
             ? 'temperature'
             : 'energy';
     LogHelper.log('[MAIN_VIEW] Initial tab derived from domainsEnabled:', _initialTab);
+    // ED-1400: com deep link no hash, o MENU pode já ter anunciado a aba do link antes deste
+    // dispatch atrasado (que acontece depois do await do token) — reanunciar _initialTab
+    // sobrescreveria a aba do link no orquestrador/HEADER. Sem deep link: _initialTab de sempre.
+    const _initialTabForDispatch = () => {
+      const _menuTab = window.MyIOUtils?.getDeepLink?.() ? window.MyIOUtils?.getDeepLinkActiveTab?.() : null;
+      return _menuTab || _initialTab;
+    };
 
     // RFC-0152c: Align the state-div visibility with domainsEnabled. The template
     // ships with telemetry_content (energy) as display:block — the right default
@@ -4302,7 +4491,17 @@ Object.assign(window.MyIOUtils, {
             '[MAIN_VIEW] applyDomainStateVisibility: no domain allowed (domainsEnabled + restrict_view) — leaving all state divs hidden.'
           );
         }
-        const _activeStateId = _activeDomain ? STATE_BY_DOMAIN[_activeDomain] : null;
+        let _activeStateId = _activeDomain ? STATE_BY_DOMAIN[_activeDomain] : null;
+        // ED-1400: com deep link no hash, a aba que o MENU já selecionou (se permitida)
+        // prevalece sobre o "primeiro domínio permitido" — senão o reapply do
+        // myio:feature-visibility-ready voltava o conteúdo para energia.
+        const _dlMenuTab = window.MyIOUtils?.getDeepLink?.() ? window.MyIOUtils?.getDeepLinkActiveTab?.() : null;
+        const _dlMenuKey = _dlMenuTab === 'alarm' ? 'alarms' : _dlMenuTab;
+        if (_dlMenuKey === 'manual') {
+          _activeStateId = 'devices_manuals'; // divs de domínio ficam ocultos; o MENU mostrou o de manuais
+        } else if (_dlMenuKey && STATE_BY_DOMAIN[_dlMenuKey] && _domainAllowed(_dlMenuKey)) {
+          _activeStateId = STATE_BY_DOMAIN[_dlMenuKey];
+        }
         const _stateDivs = self.ctx.$container[0].querySelectorAll('[data-content-state]');
         _stateDivs.forEach((div) => {
           const stId = div.getAttribute('data-content-state');
@@ -4636,7 +4835,7 @@ Object.assign(window.MyIOUtils, {
             );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
-                detail: { tab: _initialTab },
+                detail: { tab: _initialTabForDispatch() },
               })
             );
           }, 100);
@@ -4684,7 +4883,7 @@ Object.assign(window.MyIOUtils, {
             );
             window.dispatchEvent(
               new CustomEvent('myio:dashboard-state', {
-                detail: { tab: _initialTab },
+                detail: { tab: _initialTabForDispatch() },
               })
             );
           }, 100);
@@ -4703,7 +4902,7 @@ Object.assign(window.MyIOUtils, {
           );
           window.dispatchEvent(
             new CustomEvent('myio:dashboard-state', {
-              detail: { tab: _initialTab },
+              detail: { tab: _initialTabForDispatch() },
             })
           );
         }, 100);
@@ -4722,7 +4921,7 @@ Object.assign(window.MyIOUtils, {
         );
         window.dispatchEvent(
           new CustomEvent('myio:dashboard-state', {
-            detail: { tab: _initialTab },
+            detail: { tab: _initialTabForDispatch() },
           })
         );
       }, 100);

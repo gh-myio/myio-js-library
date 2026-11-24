@@ -7,7 +7,9 @@ import { resolve } from 'node:path';
 
 const WIDGET_DIR = resolve(process.cwd(), 'src/thingsboard/main-dashboard-shopping/v-5.2.0/WIDGET');
 
-export function readControllerSource(widget: 'MAIN_VIEW' | 'HEADER' | 'TELEMETRY_INFO'): string {
+export function readControllerSource(
+  widget: 'MAIN_VIEW' | 'HEADER' | 'TELEMETRY_INFO' | 'MENU' | 'TELEMETRY'
+): string {
   return readFileSync(resolve(WIDGET_DIR, `${widget}/controller.js`), 'utf8');
 }
 

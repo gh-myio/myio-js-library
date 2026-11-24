@@ -2005,6 +2005,41 @@ let WIDGET_DOMAIN = 'energy'; // Will be set in onInit
 // Pattern: _deviceDataExport_{domain}_{group} (e.g. _deviceDataExport_energy_lojas)
 let _exportKey = '_deviceDataExport';
 
+// ===================== ED-1400: deep link do modal Configurações (#<domain>&settings&<tbId>)
+// tbId (minúsculo) → handleActionSettings do card renderizado (mesmo caminho do clique).
+// Repovoado a cada renderList: só cards JÁ carregados podem ser abertos pelo deep link.
+const _settingsOpenerByTbId = new Map();
+
+/** Aba do MENU em que este widget aparece (hash usa o domínio da aba, não o do widget) */
+function _deepLinkTabDomain() {
+  if (_isManualWidget()) return 'manual';
+  if (WIDGET_DOMAIN === 'tank') return 'water';
+  return WIDGET_DOMAIN;
+}
+
+function _writeDeepLinkHash(link) {
+  try {
+    window.MyIOUtils?.setDeepLinkHash?.(link);
+  } catch (e) {
+    LogHelper.warn('[TELEMETRY] ED-1400: falha ao gravar hash:', e);
+  }
+}
+
+/** myio:open-device-settings { domain, tbId } (MAIN_VIEW, deep link) → abre o card se for deste widget */
+function _onOpenDeviceSettings(ev) {
+  const detail = ev && ev.detail;
+  if (!detail || detail.handled || !detail.tbId) return;
+  if (detail.domain !== _deepLinkTabDomain()) return;
+  const open = _settingsOpenerByTbId.get(String(detail.tbId).toLowerCase());
+  if (typeof open !== 'function') return; // tbId desconhecido neste widget → nada
+  detail.handled = true; // síncrono: a MAIN encerra a pendência e as outras instâncias ignoram
+  LogHelper.log('[TELEMETRY] ED-1400: abrindo Configurações pelo deep link', detail.tbId);
+  Promise.resolve()
+    .then(() => open())
+    .catch((err) => LogHelper.warn('[TELEMETRY] ED-1400: deep link de Configurações falhou:', err));
+}
+window.addEventListener('myio:open-device-settings', _onOpenDeviceSettings);
+
 // RFC-0063: Classification mode configuration
 let USE_IDENTIFIER_CLASSIFICATION = false; // Flag to enable identifier-based classification
 let USE_HYBRID_CLASSIFICATION = false; // Flag to enable hybrid mode (identifier + labels)
@@ -3147,6 +3182,8 @@ function renderList(visible) {
   });
   // RFC-0152: Reset per-render device data export buffer
   window[_exportKey] = [];
+  // ED-1400: openers de Configurações do render atual
+  _settingsOpenerByTbId.clear();
 
   // Calculate average temperature for all temperature devices (for TempComparisonTooltip)
   // Only count active sensors, exclude offline devices
@@ -3288,6 +3325,7 @@ function renderList(visible) {
       LogHelper.warn('[TELEMETRY] MyIOAuth not initialized yet, skipping token cache');
     }
 
+    let _openSettingsForCard = null; // ED-1400: capturado do handleActionSettings abaixo
     const $card = MyIO.renderCardComponentV5({
       entityObject,
       useNewComponents: true, // Habilitar novos componentes
@@ -3939,7 +3977,7 @@ function renderList(visible) {
         }
       },
 
-      handleActionSettings: async () => {
+      handleActionSettings: (_openSettingsForCard = async () => {
         showBusy(null, 3000); // mensagem fixa
         // resolve TB id “fresh”
         let tbId = it.tbId;
@@ -3968,6 +4006,11 @@ function renderList(visible) {
         }
 
         const jwt = await getTbToken();
+
+        // ED-1400: modal aberto → #<aba>&settings&<tbId>; fechado/salvo → #<aba>
+        const _dlTab = _deepLinkTabDomain();
+        const _restoreTabHash = () => _writeDeepLinkHash({ domain: _dlTab });
+        _writeDeepLinkHash({ domain: _dlTab, action: 'settings', tbId });
 
         try {
           // RFC-0080 + RFC-0091: Get customerId from MAIN widget via window.MyIOUtils
@@ -4041,19 +4084,23 @@ function renderList(visible) {
             masterAdminPassword: masterAdminPassword || null,
             onSaved: (payload) => {
               LogHelper.log('[Settings Saved]', payload);
+              // salvar fecha o modal sem chamar onClose (SettingsController.handleSave)
+              _restoreTabHash();
               //hideBusy();
               // Mostra modal global de sucesso com contador e reload
               // showGlobalSuccessModal(6);
             },
             onClose: () => {
               $('.myio-device-settings-overlay').remove();
+              _restoreTabHash();
               hideBusy();
             },
           });
         } catch (e) {
+          _restoreTabHash();
           hideBusy();
         }
-      },
+      }),
 
       handleClickCard: () => {
         //LogHelper.log("Card clicado:", entityObject);
@@ -4066,6 +4113,9 @@ function renderList(visible) {
         LogHelper.log('[TELEMETRY] handleSelect called (no-op):', entityObj.labelOrName);
       },
     });
+
+    // ED-1400: deep link de Configurações só alcança cards renderizados
+    if (_openSettingsForCard && it.tbId) _settingsOpenerByTbId.set(String(it.tbId).toLowerCase(), _openSettingsForCard);
 
     // Append the returned element to wrapper
     if ($card && $card[0] && entityObject.log_annotations) {
@@ -6682,6 +6732,8 @@ function _syncWidgetContainerHeight() {
 }
 
 self.onInit = async function () {
+  // ED-1400: idempotente (mesma referência) — cobre um onInit após onDestroy sem reavaliar o módulo
+  window.addEventListener('myio:open-device-settings', _onOpenDeviceSettings);
   TLMDBG('onInit START', {
     labelWidget: self.ctx?.settings?.labelWidget,
     DOMAIN: self.ctx?.settings?.DOMAIN,
@@ -7883,6 +7935,9 @@ self.onDestroy = function () {
   window.removeEventListener('myio:alarms-updated', refreshAlarmBadges);
   window.removeEventListener('myio:incidents-updated', refreshIncidentBadges);
   window.removeEventListener('myio:group-filter-changed', _groupFilterChangedHandler);
+  // ED-1400
+  window.removeEventListener('myio:open-device-settings', _onOpenDeviceSettings);
+  _settingsOpenerByTbId.clear();
 
   // Cleanup TempSensorSummaryTooltip if attached
   if (_tempTooltipCleanup) {
