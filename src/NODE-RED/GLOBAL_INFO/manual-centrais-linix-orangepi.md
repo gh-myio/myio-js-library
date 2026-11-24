@@ -64,13 +64,13 @@ ssh -i id_rsa root@<ipv6-da-central>
 
 #### Holding: SOUZA AGUIAR
 
-| Central                         | IPv6                                     | Gateway ID                             | Central ID | Frequência |
-| ------------------------------- | ---------------------------------------- | -------------------------------------- | ---------- | ---------- |
-| Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` | —                                      | —          | —          |
-| Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` | —                                      | —          | —          |
-| Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` | —                                      | —          | —          |
-| Souza Aguiar — T&D              | `202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7`  | —                                      | —          | —          |
-| Souza Aguiar — Gerador          | `200:dd4c:53b0:28d5:33dc:fbef:2c98:b23`  | `bb8193d9-a132-44b5-8605-e50c0521ceb9` | —          | —          |
+| Central                         | IPv6                                     | Gateway ID                             | Central ID        | Frequência |
+| ------------------------------- | ---------------------------------------- | -------------------------------------- | ----------------- | ---------- |
+| Souza Aguiar — CO2              | `201:3941:4753:9232:901b:19fa:4978:51aa` | `295628b1-75c6-4854-8031-107cd9a2ab91` | `253.160.245.214` | `2`        |
+| Souza Aguiar — Ar Comprimido    | `200:4dbc:14be:a704:6904:81cd:b62a:ab22` | `b93e4ee6-e002-43ce-83c6-58928d1fd319` | `13.217.144.134`  | `10`       |
+| Souza Aguiar — Maternidade Nova | `201:ce30:f047:7f02:a27c:cbac:ffb7:2b67` | `cea3473b-6e46-4a2f-85b8-f228d2a8347a` | `179.178.218.52`  | `5`        |
+| Souza Aguiar — T&D              | `202:1d97:2112:f9b9:cfcb:e237:5dc:a3f7`  | `df3f846e-b69c-45ce-9475-bd90570b24d0` | `57.10.40.82`     | `117`      |
+| Souza Aguiar — Gerador          | `200:dd4c:53b0:28d5:33dc:fbef:2c98:b23`  | `bb8193d9-a132-44b5-8605-e50c0521ceb9` | `57.163.25.99`    | `94`       |
 
 #### Holding: SOUL MALLS
 
