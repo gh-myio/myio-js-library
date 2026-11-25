@@ -4904,6 +4904,7 @@ function _fmtDeviceValue(value) {
 // Reorders the checklist .check-item nodes by STATE.sortMode.
 // Sorts by the raw numeric value (data-value) — never the formatted kWh/MWh string —
 // so mixed display units don't break the order. Moving existing nodes keeps checkboxes.
+// ED-1405: data-value is the modal's effective value (kWh/m³, or R$ when R$ mode has full coverage).
 function _sortChecklistDom($m) {
   const $cl = $m.find('#deviceChecklist');
   if (!$cl.length) return;
@@ -4952,19 +4953,26 @@ function _isTempOffline(it) {
 }
 
 // Builds the ColumnSummaryTooltip payload from the current STATE.itemsBase.
+// Chamado a cada hover (ColumnSummaryTooltip.attach) → segue o modo kWh/m³ ↔ R$ atual.
+// ED-1406: modo R$ com cobertura completa → valores, total e média em R$ ("Custo médio/total");
+// incompleta → físico + "Cobertura incompleta (n de m)" (moneyCoverage). Mesma base do ED-1405.
 function _buildColumnSummaryData() {
   const isTemp = WIDGET_DOMAIN === 'temperature';
-  const devices = (STATE.itemsBase || []).map((it) => ({
+  const list = STATE.itemsBase || [];
+  const base = isTemp ? null : _filterValueBase(list);
+  const devices = list.map((it) => ({
     name: it.label || it.identifier || it.id || 'Sem nome',
-    value: Number(it.value) || 0,
+    value: base ? base.valueOf(it) : Number(it.value) || 0,
     ...(isTemp ? { offline: _isTempOffline(it) } : {}),
   }));
   return {
     title: (self.ctx && self.ctx.settings && self.ctx.settings.labelWidget) || '',
     periodLabel: _buildPeriodLabel(),
-    unit: _getExportUnit(),
+    unit: base && base.money ? '' : _getExportUnit(),
     devices: devices,
-    formatValue: _fmtDeviceValue,
+    formatValue: base && base.money ? base.fmt : _fmtDeviceValue,
+    ...(base && base.money ? { measureLabel: 'Custo' } : {}),
+    ...(base && base.coverage ? { moneyCoverage: base.coverage } : {}),
     // Temperatura: "Temperatura média" + mín/máx dos online; sem total, pizza ou %
     ...(isTemp ? { mode: 'average', measureLabel: 'Temperatura' } : {}),
   };
@@ -4995,9 +5003,61 @@ function _fmtPct(value, total) {
   return p.toFixed(2).replace('.', ',') + '%';
 }
 
+// ED-1405: base ('money' | 'physical') da última abertura da modal de filtro — a Faixa
+// digitada numa base (kWh/m³) não pode ser aplicada na outra (R$).
+let _filterRangeBase = null;
+
+// ED-1405 (RFC-0241 Part B): base de valor da modal de filtro — lista (data-value, %,
+// ordenação, Faixa) e Resumo — e, desde o ED-1406, do tooltip (i) "Resumo — <coluna>".
+// R$ só com cobertura COMPLETA (mesma regra do total do grupo, renderHeader); incompleta →
+// físico + "Cobertura incompleta (n de m)"; valoração pendente ou modo físico → físico sem
+// marcador. Nunca uma média/participação em R$ parcial.
+function _filterValueBase(list) {
+  const moneyTotal = _isMoneyMode() ? window.MyIOUtils.formatMoneyTotal?.(list || [], WIDGET_DOMAIN) : null;
+  const fmtBRL = window.MyIOLibrary?.formatMoneyBRL;
+  const money = !!moneyTotal?.complete && typeof fmtBRL === 'function';
+  const valueOf = money
+    ? (it) => Number(window.MyIOUtils.getItemMoney(it, WIDGET_DOMAIN)?.amount) || 0
+    : (it) => Number(it.value) || 0;
+  return {
+    money,
+    marker: !money && moneyTotal ? moneyTotal.markerHTML || '' : '',
+    // ED-1406: o mesmo "n de m" para o tooltip (a lib monta o marcador)
+    coverage: !money && moneyTotal ? { covered: moneyTotal.covered, total: moneyTotal.total } : null,
+    valueOf,
+    total: money ? Number(moneyTotal.amount) || 0 : (list || []).reduce((s, it) => s + valueOf(it), 0),
+    // formatMoneyBRL recebe string decimal (arredonda half-up na exibição). 9 casas preservam o
+    // meio centavo exato (ex.: 12.345) e só divergem do amount exato (card / total do grupo,
+    // 12 casas) quando o valor está a ~1e-9 de uma fronteira de meio centavo.
+    fmt: money ? (n) => fmtBRL(Number(n).toFixed(9)) : _fmtDeviceValue,
+  };
+}
+
+// ED-1405: textos da modal de filtro que dependem da base (Faixa + opções de ordenação).
+function _filterValueLabels(base) {
+  if (WIDGET_DOMAIN === 'temperature') {
+    return {
+      unit: `(${_getExportUnit()})`,
+      rangeLabel: 'Faixa de Temperatura ',
+      sortDesc: 'Temperatura ↓',
+      sortAsc: 'Temperatura ↑',
+    };
+  }
+  if (base && base.money) {
+    return { unit: '(R$)', rangeLabel: 'Faixa de Custo ', sortDesc: 'Custo ↓', sortAsc: 'Custo ↑' };
+  }
+  return {
+    unit: `(${_getExportUnit()})`,
+    rangeLabel: 'Faixa de Consumo ',
+    sortDesc: 'Consumo ↓',
+    sortAsc: 'Consumo ↑',
+  };
+}
+
 // Renders the consumption summary card (3rd column): average, 3 highest,
 // 3 lowest and the 3 devices closest to the average.
-function _renderFilterStats($m, list) {
+// ED-1405: no modo R$ com cobertura completa tudo sai em R$ ("Resumo de Custo estimado").
+function _renderFilterStats($m, list, base) {
   const $card = $m.find('#filterStatsCard');
   if (!$card.length) return;
   if (!list || !list.length) {
@@ -5011,11 +5071,13 @@ function _renderFilterStats($m, list) {
     return;
   }
 
+  base = base || _filterValueBase(list);
   const items = list.map((it) => ({
     name: it.label || it.identifier || it.id || 'Sem nome',
-    v: Number(it.value) || 0,
+    v: base.valueOf(it),
+    it,
   }));
-  const total = items.reduce((s, x) => s + x.v, 0);
+  const total = base.total;
   const avg = items.length ? total / items.length : 0;
 
   const desc = [...items].sort((a, b) => b.v - a.v);
@@ -5025,20 +5087,24 @@ function _renderFilterStats($m, list) {
     .sort((a, b) => Math.abs(a.v - avg) - Math.abs(b.v - avg))
     .slice(0, 3);
 
+  // Em R$ o texto da linha é o mesmo da lista (formatItemValue → R$ do device)
+  const fmtRow = (x) =>
+    base.money ? window.MyIOUtils.formatItemValue(x.it, WIDGET_DOMAIN) : _fmtDeviceValue(x.v);
   const row = (x) => {
     const color = x.v > 0 ? '#16a34a' : '#94a3b8';
     return `<div class="filter-stats-row">
       <span class="filter-stats-name" title="${escapeHtml(x.name)}">${escapeHtml(x.name)}</span>
-      <span class="filter-stats-val" style="color:${color};">${escapeHtml(_fmtDeviceValue(x.v))}</span>
+      <span class="filter-stats-val" style="color:${color};">${escapeHtml(fmtRow(x))}</span>
       <span class="filter-stats-pct">${_fmtPct(x.v, total)}</span>
     </div>`;
   };
+  const head = base.money ? 'Resumo de Custo estimado' : 'Resumo de Consumo';
 
   $card.html(`
-    <div class="filter-stats-head">📊 Resumo de Consumo</div>
+    <div class="filter-stats-head">📊 ${head}${base.marker}</div>
     <div class="filter-stats-avg">
       <span class="filter-stats-avg-label">Média (${items.length})</span>
-      <span class="filter-stats-avg-val">${escapeHtml(_fmtDeviceValue(avg))}</span>
+      <span class="filter-stats-avg-val">${escapeHtml(base.fmt(avg))}</span>
     </div>
     <div class="filter-stats-group">
       <span class="filter-stats-group-label">▲ 3 maiores</span>
@@ -5136,8 +5202,12 @@ function openFilterModal() {
 
   const selected = STATE.selectedIds;
   const frag = document.createDocumentFragment();
-  // Group total — used for each device's "% of total" (mirrors line ~2111)
-  const _totalValue = list.reduce((s, it) => s + (Number(it.value) || 0), 0);
+  // ED-1405: base de valor (kWh/m³, ou R$ com cobertura completa) — data-value, %, ordenação,
+  // Faixa e Resumo usam a mesma. _base.total = total do grupo para o "% of total".
+  const _base = _filterValueBase(list);
+  const _baseKey = _base.money ? 'money' : 'physical';
+  if (_filterRangeBase && _filterRangeBase !== _baseKey) $m.find('#consMin, #consMax').val('');
+  _filterRangeBase = _baseKey;
 
   for (const it of list) {
     const safeId =
@@ -5152,7 +5222,7 @@ function openFilterModal() {
     // Quick filters: tag the row with its quick-filter ids for sidebar filtering
     it._qfTags = _quickFilterTags(it);
     label.setAttribute('data-filter-tags', it._qfTags.join(' '));
-    const _v = Number(it.value) || 0;
+    const _v = _base.valueOf(it); // ED-1405: R$ no modo R$ completo, senão Number(it.value) || 0
     // Temperatura: sem "%" (participação não se aplica a média °C) e "sem leitura" ≠ 0 °C
     const _isTemp = WIDGET_DOMAIN === 'temperature';
     const _noRead = _isTemp && _isTempOffline(it);
@@ -5166,7 +5236,7 @@ function openFilterModal() {
       <span class="check-item-value" style="color:${_vColor};">${
         _noRead ? 'sem leitura' : escapeHtml(_isMoneyMode() ? window.MyIOUtils.formatItemValue(it, WIDGET_DOMAIN) : _fmtDeviceValue(_v))
       }</span>
-      ${_isTemp ? '' : `<span class="check-item-pct">${_fmtPct(_v, _totalValue)}</span>`}
+      ${_isTemp ? '' : `<span class="check-item-pct">${_fmtPct(_v, _base.total)}</span>`}
     `;
     frag.appendChild(label);
   }
@@ -5176,17 +5246,17 @@ function openFilterModal() {
   // Quick filters: build the quick-filter sidebar and apply current filter visibility
   _renderQuickFilterTabs($m, list);
   _applyChecklistVisibility($m);
-  _renderFilterStats($m, list);
+  _renderFilterStats($m, list, _base);
   $m.find('#sortModeSelect').val(STATE.sortMode || 'cons_desc');
   $m.find('#alarmFilterSelect').val(STATE.alarmFilter || 'ativado');
-  $m.find('#consRangeUnit').text(`(${_getExportUnit()})`);
-  // Temperatura: textos de "Consumo" viram "Temperatura"
-  const _isTempModal = WIDGET_DOMAIN === 'temperature';
-  $m.find('#sortModeSelect option[value="cons_desc"]').text(_isTempModal ? 'Temperatura ↓' : 'Consumo ↓');
-  $m.find('#sortModeSelect option[value="cons_asc"]').text(_isTempModal ? 'Temperatura ↑' : 'Consumo ↑');
+  // Temperatura: textos de "Consumo" viram "Temperatura"; ED-1405: modo R$ completo → "Custo" (R$)
+  const _lbl = _filterValueLabels(_base);
+  $m.find('#consRangeUnit').text(_lbl.unit);
+  $m.find('#sortModeSelect option[value="cons_desc"]').text(_lbl.sortDesc);
+  $m.find('#sortModeSelect option[value="cons_asc"]').text(_lbl.sortAsc);
   const $rangeLbl = $m.find('#consRangeUnit').parent();
   if ($rangeLbl.length && $rangeLbl[0].firstChild && $rangeLbl[0].firstChild.nodeType === 3) {
-    $rangeLbl[0].firstChild.nodeValue = _isTempModal ? 'Faixa de Temperatura ' : 'Faixa de Consumo ';
+    $rangeLbl[0].firstChild.nodeValue = _lbl.rangeLabel;
   }
 
   const $footer = $m.find('.shops-modal-footer');

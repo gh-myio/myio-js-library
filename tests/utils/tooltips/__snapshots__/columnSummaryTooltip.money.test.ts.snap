@@ -1,0 +1,260 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ColumnSummaryTooltip — modo consumption sem os campos novos (byte-idêntico) > formatValue próprio 1`] = `
+"<div class="myio-col-summary"><div class="myio-col-summary__kpis">
+      
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">Dispositivos</span>
+        <span class="myio-col-summary__kpi-value">6</span>
+      </div>
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">Consumo médio</span>
+        <span class="myio-col-summary__kpi-value myio-col-summary__kpi-value--accent">358.333 kWh</span>
+      </div>
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">Consumo total</span>
+        <span class="myio-col-summary__kpi-value">2150.000 kWh</span>
+      </div>
+    </div>
+    <div class="myio-col-summary__body">
+      <div class="myio-col-summary__chart">
+        <div class="myio-col-summary__chart-title">Distribuição — 6 dispositivos</div>
+        <p class="myio-col-summary__chart-hint">Passe o mouse para destacar · clique na lista para remover da pizza</p>
+        <svg class="myio-col-summary__pie" viewBox="0 0 220 220"><path class="myio-col-summary__slice" data-idx="0" d="M110,110 L110.00,10.00 A100,100 0 1 1 15.36,142.29 Z" fill="#3e1a7d"><title>C&amp;A — 1500.000 kWh (69,77%)</title></path><path class="myio-col-summary__slice" data-idx="1" d="M110,110 L15.36,142.29 A100,100 0 0 1 13.25,84.71 Z" fill="#9333ea"><title>Loja L1 — 200.000 kWh (9,30%)</title></path><path class="myio-col-summary__slice" data-idx="2" d="M110,110 L13.25,84.71 A100,100 0 0 1 24.64,57.91 Z" fill="#0891b2"><title>Loja L2 — 100.000 kWh (4,65%)</title></path><path class="myio-col-summary__slice" data-idx="3" d="M110,110 L24.64,57.91 A100,100 0 0 1 33.14,46.03 Z" fill="#16a34a"><title>Loja L3 — 50.000 kWh (2,33%)</title></path><path class="myio-col-summary__slice" data-idx="5" d="M110,110 L33.14,46.03 A100,100 0 0 1 110.00,10.00 Z" fill="#db2777"><title>Loja L6 — 300.000 kWh (13,95%)</title></path></svg>
+      </div>
+      <div class="myio-col-summary__legend"><div class="myio-col-summary__legend-row" data-idx="0" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#3e1a7d;"></span>
+        <span class="myio-col-summary__legend-name">C&amp;A</span>
+        <span class="myio-col-summary__legend-val">1500.000 kWh</span>
+        <span class="myio-col-summary__legend-pct">69,77%</span>
+      </div><div class="myio-col-summary__legend-row" data-idx="5" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#db2777;"></span>
+        <span class="myio-col-summary__legend-name">Loja L6</span>
+        <span class="myio-col-summary__legend-val">300.000 kWh</span>
+        <span class="myio-col-summary__legend-pct">13,95%</span>
+      </div><div class="myio-col-summary__legend-row" data-idx="1" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#9333ea;"></span>
+        <span class="myio-col-summary__legend-name">Loja L1</span>
+        <span class="myio-col-summary__legend-val">200.000 kWh</span>
+        <span class="myio-col-summary__legend-pct">9,30%</span>
+      </div><div class="myio-col-summary__legend-row" data-idx="2" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#0891b2;"></span>
+        <span class="myio-col-summary__legend-name">Loja L2</span>
+        <span class="myio-col-summary__legend-val">100.000 kWh</span>
+        <span class="myio-col-summary__legend-pct">4,65%</span>
+      </div><div class="myio-col-summary__legend-row" data-idx="3" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#16a34a;"></span>
+        <span class="myio-col-summary__legend-name">Loja L3</span>
+        <span class="myio-col-summary__legend-val">50.000 kWh</span>
+        <span class="myio-col-summary__legend-pct">2,33%</span>
+      </div><div class="myio-col-summary__legend-row" data-idx="4" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#f59e0b;"></span>
+        <span class="myio-col-summary__legend-name">Loja L5</span>
+        <span class="myio-col-summary__legend-val">0.000 kWh</span>
+        <span class="myio-col-summary__legend-pct">0,00%</span>
+      </div></div>
+      <div class="myio-col-summary__lists">
+        <div class="myio-col-summary__group">
+           <span class="myio-col-summary__group-label">▲ 3 maiores</span>
+           
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="C&amp;A">C&amp;A</span>
+      <span class="myio-col-summary__val">1500.000 kWh</span>
+      <span class="myio-col-summary__pct">69,77%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L6">Loja L6</span>
+      <span class="myio-col-summary__val">300.000 kWh</span>
+      <span class="myio-col-summary__pct">13,95%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L1">Loja L1</span>
+      <span class="myio-col-summary__val">200.000 kWh</span>
+      <span class="myio-col-summary__pct">9,30%</span>
+    </div>
+         </div>
+        <div class="myio-col-summary__group">
+           <span class="myio-col-summary__group-label">▼ 3 menores</span>
+           
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L5">Loja L5</span>
+      <span class="myio-col-summary__val">0.000 kWh</span>
+      <span class="myio-col-summary__pct">0,00%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L3">Loja L3</span>
+      <span class="myio-col-summary__val">50.000 kWh</span>
+      <span class="myio-col-summary__pct">2,33%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L2">Loja L2</span>
+      <span class="myio-col-summary__val">100.000 kWh</span>
+      <span class="myio-col-summary__pct">4,65%</span>
+    </div>
+         </div>
+        <div class="myio-col-summary__group">
+           <span class="myio-col-summary__group-label">● 3 na média</span>
+           
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L6">Loja L6</span>
+      <span class="myio-col-summary__val">300.000 kWh</span>
+      <span class="myio-col-summary__pct">13,95%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L1">Loja L1</span>
+      <span class="myio-col-summary__val">200.000 kWh</span>
+      <span class="myio-col-summary__pct">9,30%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L2">Loja L2</span>
+      <span class="myio-col-summary__val">100.000 kWh</span>
+      <span class="myio-col-summary__pct">4,65%</span>
+    </div>
+         </div>
+      </div>
+    </div>
+    <div class="myio-col-summary__footer">
+      <span class="myio-col-summary__footer-label">Consumo Total · 6 dispositivos</span>
+      <span class="myio-col-summary__footer-value">2150.000 kWh</span>
+    </div></div>"
+`;
+
+exports[`ColumnSummaryTooltip — modo consumption sem os campos novos (byte-idêntico) > formatador padrão (unit) 1`] = `
+"<div class="myio-col-summary"><div class="myio-col-summary__kpis">
+      <div class="myio-col-summary__kpi">
+         <span class="myio-col-summary__kpi-label">Período</span>
+         <span class="myio-col-summary__kpi-value">01/11/2026 — 25/11/2026</span>
+       </div>
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">Dispositivos</span>
+        <span class="myio-col-summary__kpi-value">6</span>
+      </div>
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">Consumo médio</span>
+        <span class="myio-col-summary__kpi-value myio-col-summary__kpi-value--accent">358,33 kWh</span>
+      </div>
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">Consumo total</span>
+        <span class="myio-col-summary__kpi-value">2.150 kWh</span>
+      </div>
+    </div>
+    <div class="myio-col-summary__body">
+      <div class="myio-col-summary__chart">
+        <div class="myio-col-summary__chart-title">Distribuição — 6 dispositivos</div>
+        <p class="myio-col-summary__chart-hint">Passe o mouse para destacar · clique na lista para remover da pizza</p>
+        <svg class="myio-col-summary__pie" viewBox="0 0 220 220"><path class="myio-col-summary__slice" data-idx="0" d="M110,110 L110.00,10.00 A100,100 0 1 1 15.36,142.29 Z" fill="#3e1a7d"><title>C&amp;A — 1.500 kWh (69,77%)</title></path><path class="myio-col-summary__slice" data-idx="1" d="M110,110 L15.36,142.29 A100,100 0 0 1 13.25,84.71 Z" fill="#9333ea"><title>Loja L1 — 200 kWh (9,30%)</title></path><path class="myio-col-summary__slice" data-idx="2" d="M110,110 L13.25,84.71 A100,100 0 0 1 24.64,57.91 Z" fill="#0891b2"><title>Loja L2 — 100 kWh (4,65%)</title></path><path class="myio-col-summary__slice" data-idx="3" d="M110,110 L24.64,57.91 A100,100 0 0 1 33.14,46.03 Z" fill="#16a34a"><title>Loja L3 — 50 kWh (2,33%)</title></path><path class="myio-col-summary__slice" data-idx="5" d="M110,110 L33.14,46.03 A100,100 0 0 1 110.00,10.00 Z" fill="#db2777"><title>Loja L6 — 300 kWh (13,95%)</title></path></svg>
+      </div>
+      <div class="myio-col-summary__legend"><div class="myio-col-summary__legend-row" data-idx="0" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#3e1a7d;"></span>
+        <span class="myio-col-summary__legend-name">C&amp;A</span>
+        <span class="myio-col-summary__legend-val">1.500 kWh</span>
+        <span class="myio-col-summary__legend-pct">69,77%</span>
+      </div><div class="myio-col-summary__legend-row" data-idx="5" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#db2777;"></span>
+        <span class="myio-col-summary__legend-name">Loja L6</span>
+        <span class="myio-col-summary__legend-val">300 kWh</span>
+        <span class="myio-col-summary__legend-pct">13,95%</span>
+      </div><div class="myio-col-summary__legend-row" data-idx="1" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#9333ea;"></span>
+        <span class="myio-col-summary__legend-name">Loja L1</span>
+        <span class="myio-col-summary__legend-val">200 kWh</span>
+        <span class="myio-col-summary__legend-pct">9,30%</span>
+      </div><div class="myio-col-summary__legend-row" data-idx="2" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#0891b2;"></span>
+        <span class="myio-col-summary__legend-name">Loja L2</span>
+        <span class="myio-col-summary__legend-val">100 kWh</span>
+        <span class="myio-col-summary__legend-pct">4,65%</span>
+      </div><div class="myio-col-summary__legend-row" data-idx="3" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#16a34a;"></span>
+        <span class="myio-col-summary__legend-name">Loja L3</span>
+        <span class="myio-col-summary__legend-val">50 kWh</span>
+        <span class="myio-col-summary__legend-pct">2,33%</span>
+      </div><div class="myio-col-summary__legend-row" data-idx="4" title="Clique para remover da pizza">
+        <span class="myio-col-summary__legend-dot" style="background:#f59e0b;"></span>
+        <span class="myio-col-summary__legend-name">Loja L5</span>
+        <span class="myio-col-summary__legend-val">0 kWh</span>
+        <span class="myio-col-summary__legend-pct">0,00%</span>
+      </div></div>
+      <div class="myio-col-summary__lists">
+        <div class="myio-col-summary__group">
+           <span class="myio-col-summary__group-label">▲ 3 maiores</span>
+           
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="C&amp;A">C&amp;A</span>
+      <span class="myio-col-summary__val">1.500 kWh</span>
+      <span class="myio-col-summary__pct">69,77%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L6">Loja L6</span>
+      <span class="myio-col-summary__val">300 kWh</span>
+      <span class="myio-col-summary__pct">13,95%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L1">Loja L1</span>
+      <span class="myio-col-summary__val">200 kWh</span>
+      <span class="myio-col-summary__pct">9,30%</span>
+    </div>
+         </div>
+        <div class="myio-col-summary__group">
+           <span class="myio-col-summary__group-label">▼ 3 menores</span>
+           
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L5">Loja L5</span>
+      <span class="myio-col-summary__val">0 kWh</span>
+      <span class="myio-col-summary__pct">0,00%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L3">Loja L3</span>
+      <span class="myio-col-summary__val">50 kWh</span>
+      <span class="myio-col-summary__pct">2,33%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L2">Loja L2</span>
+      <span class="myio-col-summary__val">100 kWh</span>
+      <span class="myio-col-summary__pct">4,65%</span>
+    </div>
+         </div>
+        <div class="myio-col-summary__group">
+           <span class="myio-col-summary__group-label">● 3 na média</span>
+           
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L6">Loja L6</span>
+      <span class="myio-col-summary__val">300 kWh</span>
+      <span class="myio-col-summary__pct">13,95%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L1">Loja L1</span>
+      <span class="myio-col-summary__val">200 kWh</span>
+      <span class="myio-col-summary__pct">9,30%</span>
+    </div>
+    <div class="myio-col-summary__row">
+      <span class="myio-col-summary__name" title="Loja L2">Loja L2</span>
+      <span class="myio-col-summary__val">100 kWh</span>
+      <span class="myio-col-summary__pct">4,65%</span>
+    </div>
+         </div>
+      </div>
+    </div>
+    <div class="myio-col-summary__footer">
+      <span class="myio-col-summary__footer-label">Consumo Total · 6 dispositivos</span>
+      <span class="myio-col-summary__footer-value">2.150 kWh</span>
+    </div></div>"
+`;
+
+exports[`ColumnSummaryTooltip — modo consumption sem os campos novos (byte-idêntico) > sem dispositivos 1`] = `
+"<div class="myio-col-summary"><div class="myio-col-summary__kpis">
+      
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">Dispositivos</span>
+        <span class="myio-col-summary__kpi-value">0</span>
+      </div>
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">Consumo médio</span>
+        <span class="myio-col-summary__kpi-value myio-col-summary__kpi-value--accent">0 kWh</span>
+      </div>
+      <div class="myio-col-summary__kpi">
+        <span class="myio-col-summary__kpi-label">Consumo total</span>
+        <span class="myio-col-summary__kpi-value">0 kWh</span>
+      </div>
+    </div><div class="myio-col-summary__empty">Nenhum dispositivo.</div></div>"
+`;
