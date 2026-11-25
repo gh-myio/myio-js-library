@@ -1,0 +1,219 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ED-1405 — modo físico byte-idêntico > energia, modo R$ com a valoração pendente → físico, sem chip 1`] = `
+"
+    <div class="filter-stats-head">📊 Resumo de Consumo</div>
+    <div class="filter-stats-avg">
+      <span class="filter-stats-avg-label">Média (6)</span>
+      <span class="filter-stats-avg-val">358,333 kWh</span>
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">▲ 3 maiores</span>
+      <div class="filter-stats-row">
+      <span class="filter-stats-name" title="C&amp;A">C&amp;A</span>
+      <span class="filter-stats-val" style="color:#16a34a;">1,500 MWh</span>
+      <span class="filter-stats-pct">69,77%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L6">Loja L6</span>
+      <span class="filter-stats-val" style="color:#16a34a;">300,000 kWh</span>
+      <span class="filter-stats-pct">13,95%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L1">Loja L1</span>
+      <span class="filter-stats-val" style="color:#16a34a;">200,000 kWh</span>
+      <span class="filter-stats-pct">9,30%</span>
+    </div>
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">▼ 3 menores</span>
+      <div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L5">Loja L5</span>
+      <span class="filter-stats-val" style="color:#94a3b8;">0,000 kWh</span>
+      <span class="filter-stats-pct">0,00%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L3">Loja L3</span>
+      <span class="filter-stats-val" style="color:#16a34a;">50,000 kWh</span>
+      <span class="filter-stats-pct">2,33%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L2">Loja L2</span>
+      <span class="filter-stats-val" style="color:#16a34a;">100,000 kWh</span>
+      <span class="filter-stats-pct">4,65%</span>
+    </div>
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">● 3 na média</span>
+      <div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L6">Loja L6</span>
+      <span class="filter-stats-val" style="color:#16a34a;">300,000 kWh</span>
+      <span class="filter-stats-pct">13,95%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L1">Loja L1</span>
+      <span class="filter-stats-val" style="color:#16a34a;">200,000 kWh</span>
+      <span class="filter-stats-pct">9,30%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L2">Loja L2</span>
+      <span class="filter-stats-val" style="color:#16a34a;">100,000 kWh</span>
+      <span class="filter-stats-pct">4,65%</span>
+    </div>
+    </div>
+  "
+`;
+
+exports[`ED-1405 — modo físico byte-idêntico > energia, modo físico 1`] = `
+"
+    <div class="filter-stats-head">📊 Resumo de Consumo</div>
+    <div class="filter-stats-avg">
+      <span class="filter-stats-avg-label">Média (6)</span>
+      <span class="filter-stats-avg-val">358,333 kWh</span>
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">▲ 3 maiores</span>
+      <div class="filter-stats-row">
+      <span class="filter-stats-name" title="C&amp;A">C&amp;A</span>
+      <span class="filter-stats-val" style="color:#16a34a;">1,500 MWh</span>
+      <span class="filter-stats-pct">69,77%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L6">Loja L6</span>
+      <span class="filter-stats-val" style="color:#16a34a;">300,000 kWh</span>
+      <span class="filter-stats-pct">13,95%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L1">Loja L1</span>
+      <span class="filter-stats-val" style="color:#16a34a;">200,000 kWh</span>
+      <span class="filter-stats-pct">9,30%</span>
+    </div>
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">▼ 3 menores</span>
+      <div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L5">Loja L5</span>
+      <span class="filter-stats-val" style="color:#94a3b8;">0,000 kWh</span>
+      <span class="filter-stats-pct">0,00%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L3">Loja L3</span>
+      <span class="filter-stats-val" style="color:#16a34a;">50,000 kWh</span>
+      <span class="filter-stats-pct">2,33%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L2">Loja L2</span>
+      <span class="filter-stats-val" style="color:#16a34a;">100,000 kWh</span>
+      <span class="filter-stats-pct">4,65%</span>
+    </div>
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">● 3 na média</span>
+      <div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L6">Loja L6</span>
+      <span class="filter-stats-val" style="color:#16a34a;">300,000 kWh</span>
+      <span class="filter-stats-pct">13,95%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L1">Loja L1</span>
+      <span class="filter-stats-val" style="color:#16a34a;">200,000 kWh</span>
+      <span class="filter-stats-pct">9,30%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja L2">Loja L2</span>
+      <span class="filter-stats-val" style="color:#16a34a;">100,000 kWh</span>
+      <span class="filter-stats-pct">4,65%</span>
+    </div>
+    </div>
+  "
+`;
+
+exports[`ED-1405 — modo físico byte-idêntico > temperatura, modo físico 1`] = `
+"
+    <div class="filter-stats-head">🌡️ Resumo de Temperatura</div>
+    <div class="filter-stats-avg">
+      <span class="filter-stats-avg-label" title="Média, mínima e máxima consideram apenas dispositivos online (com leitura).">Média (3 online · 1 offline) ⓘ</span>
+      <span class="filter-stats-avg-val">23,2 °C</span>
+    </div>
+    <div class="filter-stats-group"><span class="filter-stats-group-label">▲ 3 maiores</span><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja T2">Loja T2</span>
+      <span class="filter-stats-val" style="color:#16a34a;">24,1 °C</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja T4">Loja T4</span>
+      <span class="filter-stats-val" style="color:#16a34a;">23,0 °C</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja T1">Loja T1</span>
+      <span class="filter-stats-val" style="color:#16a34a;">22,5 °C</span>
+    </div></div>
+    <div class="filter-stats-group"><span class="filter-stats-group-label">▼ 3 menores</span><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja T1">Loja T1</span>
+      <span class="filter-stats-val" style="color:#16a34a;">22,5 °C</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja T4">Loja T4</span>
+      <span class="filter-stats-val" style="color:#16a34a;">23,0 °C</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja T2">Loja T2</span>
+      <span class="filter-stats-val" style="color:#16a34a;">24,1 °C</span>
+    </div></div>
+    <div class="filter-stats-group"><span class="filter-stats-group-label">● 3 na média</span><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja T4">Loja T4</span>
+      <span class="filter-stats-val" style="color:#16a34a;">23,0 °C</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja T1">Loja T1</span>
+      <span class="filter-stats-val" style="color:#16a34a;">22,5 °C</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja T2">Loja T2</span>
+      <span class="filter-stats-val" style="color:#16a34a;">24,1 °C</span>
+    </div></div>
+    <div class="filter-stats-group"><span class="filter-stats-group-label">⚪ Offline / sem leitura (1)</span><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja T3">Loja T3</span>
+      <span class="filter-stats-val" style="color:#94a3b8;">sem leitura</span>
+    </div></div>
+  "
+`;
+
+exports[`ED-1405 — modo físico byte-idêntico > água, modo físico 1`] = `
+"
+    <div class="filter-stats-head">📊 Resumo de Consumo</div>
+    <div class="filter-stats-avg">
+      <span class="filter-stats-avg-label">Média (3)</span>
+      <span class="filter-stats-avg-val">11,67 m³</span>
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">▲ 3 maiores</span>
+      <div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja W2">Loja W2</span>
+      <span class="filter-stats-val" style="color:#16a34a;">20,00 m³</span>
+      <span class="filter-stats-pct">57,14%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja W1">Loja W1</span>
+      <span class="filter-stats-val" style="color:#16a34a;">10,00 m³</span>
+      <span class="filter-stats-pct">28,57%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja W3">Loja W3</span>
+      <span class="filter-stats-val" style="color:#16a34a;">5,00 m³</span>
+      <span class="filter-stats-pct">14,29%</span>
+    </div>
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">▼ 3 menores</span>
+      <div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja W3">Loja W3</span>
+      <span class="filter-stats-val" style="color:#16a34a;">5,00 m³</span>
+      <span class="filter-stats-pct">14,29%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja W1">Loja W1</span>
+      <span class="filter-stats-val" style="color:#16a34a;">10,00 m³</span>
+      <span class="filter-stats-pct">28,57%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja W2">Loja W2</span>
+      <span class="filter-stats-val" style="color:#16a34a;">20,00 m³</span>
+      <span class="filter-stats-pct">57,14%</span>
+    </div>
+    </div>
+    <div class="filter-stats-group">
+      <span class="filter-stats-group-label">● 3 na média</span>
+      <div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja W1">Loja W1</span>
+      <span class="filter-stats-val" style="color:#16a34a;">10,00 m³</span>
+      <span class="filter-stats-pct">28,57%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja W3">Loja W3</span>
+      <span class="filter-stats-val" style="color:#16a34a;">5,00 m³</span>
+      <span class="filter-stats-pct">14,29%</span>
+    </div><div class="filter-stats-row">
+      <span class="filter-stats-name" title="Loja W2">Loja W2</span>
+      <span class="filter-stats-val" style="color:#16a34a;">20,00 m³</span>
+      <span class="filter-stats-pct">57,14%</span>
+    </div>
+    </div>
+  "
+`;
