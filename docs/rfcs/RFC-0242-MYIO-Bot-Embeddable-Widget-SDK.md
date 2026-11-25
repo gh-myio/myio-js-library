@@ -2,7 +2,7 @@
 
 - **Feature name:** `myio-bot` (`createMyIOBotClient`, `createMyIOBotWidget`, `openMyIOBotPanel`; UMD side bundle `myio-bot-widget.umd.min.js`, global `window.MyIOBotWidget`)
 - **Start date:** 2026-11-23
-- **Status:** **Phase 0+1 implemented (branch feat/rfc-0242-myio-bot-sdk)** — 2026-11-24, uncommitted: contract + OpenAPI snapshot test, client (SSE/JSON fallback), widget (Shadow DOM, states, proposals, D-20 action card), second UMD bundle `myio-bot-widget.umd.min.js` + `MyIOLibrary.loadBotWidget()`, showcases `showcase/myio-bot/` and `showcase/main-view-shopping/`. Phase 2+ not started. Draft rev. 1 (2026-11-23) was written the day the bot went live in production (`gcdr-web.a.myio-bas.com/bot`, gcdr#250/#251/#253/#255, gcdr-frontend#168/#169).
+- **Status:** **Phase 0+1 implemented (branch feat/rfc-0242-myio-bot-sdk)** — 2026-11-24, uncommitted: contract + OpenAPI snapshot test, client (SSE/JSON fallback), widget (Shadow DOM, states, proposals, D-20 action card), second UMD bundle `myio-bot-widget.umd.min.js` + `MyIOLibrary.loadBotWidget()`, showcases `showcase/myio-bot/` and `showcase/main-view-shopping/`. Phase 2+ not started. **Addendum 2026-11-25 — §GCDR integration (RFC-0092): company entitlement, user scope, MYIO treated as a company, visibility states, deep link; specified, not built (phase 1b).** Draft rev. 1 (2026-11-23) was written the day the bot went live in production (`gcdr-web.a.myio-bas.com/bot`, gcdr#250/#251/#253/#255, gcdr-frontend#168/#169).
 - **Branch:** `feat/rfc-0242-myio-bot-sdk` (from `desenv`)
 - **Jira:** none yet
 - **Related RFCs (this repo):** `RFC-sdk-auth-and-tb-customer-credentials.md` (auth client + TB customer credentials provider: the credential model this RFC reuses), RFC-0218 (`GcdrAnnotationsClient`: the `AuthStrategy` pattern — exactly one of API key / bearer — and the envelope unwrapping this RFC copies), RFC-0215 (Settings hub: the `open*Modal(options) → handle` component convention), RFC-0205 (`openConfirmDialog`: the confirmation primitive reused for bot actions), RFC-0241 §Phase 0 (GCDR envelope `{ success, data, meta }` / `{ success: false, error: { message, code } }`, API-key scopes enforced by GCDR).
@@ -196,6 +196,119 @@ Mirrors gcdr `docs/openapi.yaml` paths `/bot/status`, `/bot/conversations`, `/bo
 5. Phase 2 (RFC-0087 D-20): `POST /bot/actions/{id}/confirm|cancel` and `pendingAction` on the turn.
 6. `ALLOWED_ORIGINS` of the production API must list every host that embeds the widget (ThingsBoard origin, presetup); the widget documents the CORS failure explicitly ("Sem conexão com o GCDR — origem não autorizada").
 
+## GCDR integration — who sees the bot, for which company, with which scope (RFC-0092; addendum 2026-11-25)
+
+GCDR **RFC-0092 phase 1** (gcdr#273, in production since 2026-11-25, migration 0140) put a per-company entitlement and a two-key rule in front of every `/bot/*` chat route. The widget of 0.1.598 was written before it: it reads `enabled` / `permissions` from `GET /bot/status` and does not know the `access` object nor the new error codes, so a user whose company has no bot sees the pill, types, and only then gets a `403`. This section is the contract the library follows from phase 1b on. Source of truth in gcdr.git: `src/services/bot/entitlement/{BotAccessGate.ts, gate.ts, errors.ts}`, `src/middleware/requireBotAccess.ts`, `docs/rfcs/RFC-0092-MYIO-Bot-Customer-Entitlement-ThingsBoard.md`.
+
+### 1. The switches, in the order GCDR evaluates them
+
+The first "no" decides; `GET /bot/status` evaluates the same rows without consuming anything (no session, no rate token).
+
+| # | Switch | Where it lives in GCDR | Who manages it | Refusal (HTTP / `error.code`) |
+|---|---|---|---|---|
+| 1 | **Platform** | `bot_control` scope `MASTER` | gcdr-web `/bot#operation` (`bot.control.operate`) | 503 `BOT_PLATFORM_OFF` |
+| 2 | **Principal** | GCDR JWT (a person) or customer API key | login / API keys | 401 |
+| 3 | **Company of the request** | resolution order of §2 below | — | 404 `BOT_CUSTOMER_NOT_FOUND` |
+| 4 | **Company profile** (entitlement) | `customer_bot_entitlements`: status `INACTIVE` / `TRIAL` / `ACTIVE` / `SUSPENDED` (+ reason), plan (`bot_plans`), `capabilities` (`channels` WEB / API / THINGSBOARD, `tiers`, `allowWrite`, `tools`, `memory`), trial end, contract window; a holding covers its children only with `applies_to_descendants` | gcdr-web customer page → tab **Bot**; API `PUT /customers/:id/bot`, `POST /customers/:id/bot/status`, `GET /bot/plans` | 403 `BOT_CUSTOMER_DISABLED` · `BOT_CUSTOMER_SUSPENDED` · `BOT_CHANNEL_NOT_ALLOWED` |
+| 5 | **User profile** (scope) | permission `bot.chat.use` (read) and `bot.actions.execute` (write — also needs the company's `allowWrite`); roles **`role:bot-reader`** / **`role:bot-writer`** assigned with scope `customer:<id>` (or the tenant); customer API keys: scope `bot:use` = `bot:read`, `bot:write` reserved | gcdr-web user → Acessos; delegated RBAC by customer API key (`rbac:write`, gcdr#266) | 403 `BOT_PERMISSION_MISSING` · `BOT_WRITE_NOT_ALLOWED` |
+| 6 | **Limits** | plan ⊕ overrides: sessions (concurrent / per day / idle / max), messages per minute, input size, monthly quota (`included` + charged overage, `hardCap` default 2× included) | tab Bot of the customer | 429 `BOT_LIMIT_REACHED` (`details.limit`, `details.resetAt`) · 400 `BOT_MESSAGE_TOO_LONG` · 401 `BOT_SESSION_ENDED` |
+
+**The two keys:** the company must have the bot (row 4) **and** the user must hold the scope (row 5). Either one missing means no bot — a user with `role:bot-reader` in a company that is off sees nothing, and an enabled company does not open the bot to users without the role.
+
+### 2. Which company a request is about (row 3)
+
+- **Customer API key** → its own customer (a `TENANT` key → the home customer).
+- **A person** → (a) an explicit `customerId` the person reaches — `GET /bot/status?customerId=`, `POST /bot/conversations` body, `POST /bot/ask` body; one outside the reach is refused, never silently replaced; (b) the conversation's customer (`bot_conversations.scope_customer_id`); (c) `users.customer_id`; (d) the single customer the person reaches; (e) the home customer `BOT_HOME_CUSTOMER_ID` (default MYIO `56614a70-326f-11ef-ad2c-53aeabe7d3fa`).
+- **Library rule:** when the host sets `context.customerId`, the client sends it as `customerId` on `status()` and `conversations.create()` (and `resolve()`). Never on `POST …/messages`: `PostMessageSchema` is strict and the conversation already carries its company.
+- **Thread key:** a conversation belongs to one company, so the default key becomes `${host.app}:${customerId ?? '-'}:${userKey}`; switching the company of the page (`setContext` with another `customerId`) re-evaluates `status()` and resolves another thread.
+
+### 3. MYIO is a company too (owner decision, 2026-11-25)
+
+> *"mesmo sendo admin myio, seria bom tratar como uma empresa, ou seja, até mesmo o user da myio teria que ter scope de acesso e habilitado para myio"* — owner.
+
+**Today (gcdr#273):** the master key and **platform admins bypass rows 4 and 6** (`isBypass()` in `BotAccessGate.ts`; they are still metered against the request customer), and a person's `bot.chat.use` comes from RBAC (`permissionGranted` over the effective permissions), which a broad admin policy also satisfies.
+
+**Decision:**
+
+1. **No person bypasses the company switch.** A MYIO admin is a user of the company MYIO (`56614a70-…`), resolved by the same row 3 (`users.customer_id` = MYIO, or the home customer), and passes rows 4–6 like any customer: MYIO's entitlement must be `ACTIVE` (0140 seeds it `ACTIVE`, plan `INTERNAL`) with the channel in use (`WEB` today, `THINGSBOARD` when the widget runs on dashboards).
+2. **The scope is explicit.** A MYIO user chats only with `role:bot-reader` (writes: `role:bot-writer`) assigned with scope `customer:<MYIO>` or the tenant — never implied by the admin role or by a wildcard policy. For `bot.*`, only grants that name the bot count.
+3. **Managing the bot is not using it.** The admin keeps every management power — the platform switch, plans, enabling / suspending companies, assigning the bot roles, `bot.control.operate`, `bot.memory.curate*` — independent of row 5.
+4. **Suspending MYIO turns the bot off for MYIO users too:** a per-company kill switch below `MASTER`, the same for MYIO as for any customer.
+5. **MYIO usage is metered as a company** (plan `INTERNAL`), so usage reports and quota warnings tell the truth about internal use.
+6. **The master key** is a technical credential (smoke tests, ops scripts), not a person: it keeps its current behaviour until O-11 decides.
+
+**GCDR changes this requires (gcdr.git, RFC-0092 amendment, phase 1b):** (a) `isBypass()` → the master key only (platform admins pass rows 4 and 6); (b) the bot permissions ignore wildcard grants (`*`, `bot.*` from an admin policy) and require `role:bot-reader` / `role:bot-writer` or a policy that names `bot.chat.use` / `bot.actions.execute`; (c) before deploying, assign `role:bot-reader` (`customer:<MYIO>`) to the MYIO users who used the bot in the last 30 days (`bot_usage_daily` / `bot_conversations`), so nobody loses access by surprise; (d) `/bot/status` reports the real `reason` for admins too.
+
+### 4. What `GET /bot/status` tells the widget
+
+```json
+{
+  "enabled": true, "master": true, "kind": "USER",
+  "permissions": { "use": true, "execute": false, "curate": false, "curateAll": false, "operate": false },
+  "access": {
+    "available": false,
+    "reason": "BOT_CUSTOMER_DISABLED",
+    "customer": { "id": "84e0370e-…", "name": "Moxuara", "status": "INACTIVE", "statusReason": null },
+    "permissions": { "read": true, "write": false },
+    "quota": {
+      "tokens":   { "included": 2000000, "hardCap": 4000000, "used": 1650000, "overage": 0, "percent": 82.5 },
+      "usd":      { "included": null, "hardCap": null, "used": 3.1, "overage": 0, "percent": null },
+      "messages": { "included": 3000, "hardCap": 6000, "used": 2410, "overage": 0, "percent": 80.3 }
+    }
+  }
+}
+```
+
+- `access.available` is the one switch the widget obeys; `access.reason` is the first refusing row (`null` when available); `access.customer` names the company the request resolved to; `access.permissions.write` decides whether the action card (D-20) can ever render; `access.quota` is the month (UTC) of the company, `null` without an entitlement row.
+- The status answers **200** in every case above (only an unauthenticated call is 401), so the widget calls it **at mount**, not on the first open: visibility is decided before the pill is drawn.
+- **Tolerance:** a server without `access` (before RFC-0092) → the 0.1.598 behaviour (`enabled` / `permissions.use`).
+
+### 5. Visibility and states in the widget
+
+New options: `visibility?: 'auto' | 'always'` (default `'auto'`: the pill is not drawn when the user cannot use the bot; `'always'` for support / admin pages: a muted pill that explains why), an `'access'` event (`handle.on('access', cb)`, payload = `access`) so the host can react, `statusRefreshMs` (default 300 000) and a re-check of `status()` after any 403 / 429 of a turn.
+
+| `access.reason` | Pill (`auto`) | Pill (`always`) | Panel |
+|---|---|---|---|
+| `null` (available) | visible | visible | chat; header "MYIO Bot · `customer.name`"; banner when a quota reaches 80 % / 100 % of `included` |
+| `BOT_PLATFORM_OFF` | muted | muted | "O MYIO Bot está desligado no momento"; no composer |
+| `BOT_CUSTOMER_NOT_FOUND` | hidden | muted | "Não foi possível identificar o cliente" |
+| `BOT_CUSTOMER_DISABLED` | hidden | muted | "O MYIO Bot não está habilitado para `customer.name`" + `statusReason` |
+| `BOT_CUSTOMER_SUSPENDED` | muted | muted | "suspenso para `customer.name`" + `statusReason`; **no history, no thread list** (RFC-0092 O-4) |
+| `BOT_CHANNEL_NOT_ALLOWED` | hidden | muted | "não liberado neste canal para `customer.name`" |
+| `BOT_PERMISSION_MISSING` | hidden | muted | "Você não tem permissão para usar o MYIO Bot. Peça acesso ao administrador." |
+| `BOT_LIMIT_REACHED` | visible | visible | history readable; composer disabled with `details.resetAt` ("volta em 01/12") |
+
+Per turn: `BOT_WRITE_NOT_ALLOWED` → no action card; `BOT_MESSAGE_TOO_LONG` → inline error, the text stays in the composer; `BOT_SESSION_ENDED` → one silent re-resolve of the thread (new session), then the message. The widget shows the server's `error.message` (already pt-BR) and uses `error.code` for the title and icon, `error.details` (`customerId`, `status`, `reason`, `limit`, `resetAt`) for the line under it — never a client-side guess.
+
+### 6. Deep link and client identification
+
+- **"Abrir no GCDR"** → `${gcdrWebUrl}/bot?c=<id>#chat` (canonical, as gcdr-web's `botPageHref`). 0.1.598 generates `/bot#chat?c=<id>`; gcdr-web accepts both since `feat/bot-widget-library-sdk`, but the library moves to the canonical form.
+- **Client header:** GCDR already reads **`X-Bot-Client`** (`^[A-Za-z0-9._:-]{1,64}$`, already in the CORS `allowedHeaders`) and keys the session by it (`bot_sessions.client_key`). The library sends `X-Bot-Client: <host.app>` always; `X-MyIO-Bot-Client` / `X-MyIO-Bot-Protocol` stay behind `sendClientHeaders` until GCDR lists them (§GCDR side, item 2).
+
+### 7. ThingsBoard (RFC-0092 phase 2 — blocked on its O-8, the allowed ThingsBoard hosts)
+
+- The company needs `THINGSBOARD` in `capabilities.channels`; the user needs the same scope of row 5.
+- New auth strategy `auth: { thingsboard: { tbBaseUrl, tbToken: () => string | Promise<string> } }`: the client exchanges the ThingsBoard JWT at `POST /bot/auth/thingsboard` for a GCDR token (`aud gcdr-bot`, 15 min) and renews it before it expires. Person chat on a dashboard never uses an API key in the browser.
+- The ThingsBoard customer maps to `customers.external_id`; the ThingsBoard user must exist in GCDR (active e-mail within the company's reach), else 403 `BOT_USER_NOT_PROVISIONED` (no auto-provisioning, RFC-0092 O-1).
+
+### 8. Changes by repository
+
+| Repository | Change |
+|---|---|
+| **myio-js-library** (next release) | `status()` at mount; `access` handling, `visibility`, `'access'` event, states of §5, quota banner; new codes in i18n; `customerId` on `status()` / `create()` / `resolve()`; thread key with the company; `X-Bot-Client`; deep link `/bot?c=<id>#chat`; tests |
+| **gcdr** | MYIO as a company (§3 a–d); later, phase 2 token exchange |
+| **gcdr-web** | phase 4 (already in progress): mounts the library widget; passes `context.customerId` on pages about one company (customer detail, OS of a customer); `visibility: 'auto'` |
+
+### 9. Tests (library)
+
+One fixture per `access.reason` (pill hidden / muted, panel text, no composer where the table says so); a server without `access`; quota at 79 / 80 / 100 % of `included`; suspended company → no history request is made; a 403 in the middle of a conversation re-evaluates `status()` and updates the pill; `customerId` reaches `status()` and `create()` but never `POST …/messages`; `X-Bot-Client` on every call; deep link format.
+
+### 10. Open points
+
+- **O-11 — Master key.** Keep its bypass of rows 4 and 6, or no chat at all with it (status and operation only)? Default: unchanged until decided.
+- **O-12 — Visibility per host.** Default `'auto'` everywhere; `'always'` only on support / admin pages.
+- **O-13 — Who sees the quota banner.** Default: every user sees 100 %; 80 % only for users who can manage the company's bot.
+
 ## Security
 
 - **Principal is the host's, never the library's.** The widget holds whatever credential the host gives it, exactly like `GcdrAnnotationsClient` and `initMyIOAuthContext` do today. A customer API key carries the key's customer reach and no `USER` memory scope (RFC-0087 D-13): on a shared dashboard the bot cannot propose personal memories and sees only that customer. A GCDR JWT carries the person's permissions; `status().permissions` drives which controls the widget renders, and the server enforces them anyway.
@@ -218,6 +331,7 @@ Mirrors gcdr `docs/openapi.yaml` paths `/bot/status`, `/bot/conversations`, `/bo
 |---|---|---|---|
 | **0 — Contract** | `contract.ts`, snapshot test, `authStrategies`, `errors`; GCDR asks 1–3 filed as a gcdr PR | snapshot test green against production OpenAPI | 1 day |
 | **1 — Client + widget** | `client.ts`, `sse.ts`, widget (launcher, panel, thread, composer, states, proposals), second UMD bundle, `loadBotWidget()`, size limits, tests; export from `src/index.ts`; npm release `0.1.x` | an inline HTML page with the UMD and a customer API key chats with production; gcdr-web parity on states and footer | 4–5 days |
+| **1b — GCDR access (RFC-0092)** | §GCDR integration: status at mount, `access` states and visibility, quota banner, codes, `customerId` on status/create, thread key with the company, `X-Bot-Client`, deep link `/bot?c=<id>#chat`; GCDR side: MYIO as a company (no admin bypass, explicit scope) | a fixture per `access.reason` green; gcdr-web (first consumer, phase 4) hides the pill for a user without scope and for a company without the bot | 2–3 days (library) + GCDR change |
 | **2 — First host** | `main-dashboard-shopping v-5.2.0`: MENU gets the pill, MAIN_VIEW passes credentials and `context` (customer, page); presetup pages the same | operators use it for one week; conversations show `client = tb-main-dashboard-shopping` in Operação | 2 days + 1 week |
 | **3 — Actions** | `actionCard` wired to RFC-0087 phase 2 pending actions (D-20); "inativar os elevadores do Moxuara" confirmed from a dashboard | T-12 of RFC-0087 passes through the widget; audit row shows the host | after gcdr phase 2 |
 | **4 — gcdr-web converges** | gcdr-frontend mounts the library widget (vanilla inside a React ref) and deletes its own `BotWidget`, keeping the full `/bot` page; alarms-frontend uses the client | one chat implementation across MYIO | 2 days |
