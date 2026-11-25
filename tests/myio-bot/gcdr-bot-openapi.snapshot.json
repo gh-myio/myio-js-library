@@ -1,0 +1,359 @@
+{
+  "source": "gcdr.git/docs/openapi.yaml",
+  "generatedBy": "scripts/snapshot-gcdr-bot-openapi.mjs",
+  "info": {
+    "title": "GCDR API",
+    "version": "1.0.0"
+  },
+  "components": {
+    "BotAskRequest": {
+      "properties": [
+        "attachments",
+        "channel",
+        "clientThreadKey",
+        "conversationId",
+        "message"
+      ],
+      "required": [
+        "message"
+      ]
+    },
+    "BotConversation": {
+      "properties": [
+        "channel",
+        "clientThreadKey",
+        "createdAt",
+        "hasExternalParticipants",
+        "id",
+        "isOwner",
+        "lastProvider",
+        "lastTier",
+        "messageCount",
+        "ownerId",
+        "shared",
+        "status",
+        "title",
+        "updatedAt"
+      ],
+      "required": []
+    },
+    "BotImagePart": {
+      "properties": [
+        "data",
+        "mediaType",
+        "type",
+        "url"
+      ],
+      "required": [
+        "mediaType",
+        "type"
+      ]
+    },
+    "BotMemory": {
+      "properties": [
+        "confidence",
+        "content",
+        "conversationId",
+        "createdAt",
+        "createdBy",
+        "customerId",
+        "id",
+        "kind",
+        "lastRetrievedAt",
+        "retrievalCount",
+        "scopeType",
+        "source",
+        "status",
+        "summary",
+        "supersededBy",
+        "tags",
+        "teamKey",
+        "tenantId",
+        "updatedAt",
+        "updatedBy",
+        "userId",
+        "validFrom",
+        "validTo"
+      ],
+      "required": []
+    },
+    "BotMemoryKind": {
+      "enum": [
+        "FACT",
+        "PREFERENCE",
+        "PROCEDURE",
+        "DECISION",
+        "GLOSSARY",
+        "REFERENCE"
+      ]
+    },
+    "BotMemoryProposal": {
+      "properties": [
+        "confidence",
+        "content",
+        "kind",
+        "scope",
+        "source",
+        "summary",
+        "tags",
+        "validTo"
+      ],
+      "required": [
+        "content",
+        "kind",
+        "scope",
+        "summary"
+      ]
+    },
+    "BotMemoryScope": {
+      "properties": [
+        "conversationId",
+        "customerId",
+        "scopeType",
+        "teamKey",
+        "userId"
+      ],
+      "required": [
+        "scopeType"
+      ]
+    },
+    "BotMemorySource": {
+      "properties": [
+        "document",
+        "excerpt",
+        "url",
+        "version"
+      ],
+      "required": []
+    },
+    "BotMemoryStatus": {
+      "enum": [
+        "DRAFT",
+        "ACTIVE",
+        "ARCHIVED",
+        "REJECTED"
+      ]
+    },
+    "BotPermissions": {
+      "properties": [
+        "curate",
+        "curateAll",
+        "operate",
+        "use"
+      ],
+      "required": []
+    },
+    "BotPrice": {
+      "properties": [
+        "model",
+        "priceCachedPerMtok",
+        "priceInPerMtok",
+        "priceOutPerMtok",
+        "provider",
+        "setBy",
+        "validFrom"
+      ],
+      "required": []
+    },
+    "BotProviderHealth": {
+      "properties": [
+        "adapter",
+        "breaker",
+        "capabilities",
+        "configured",
+        "costTier",
+        "disabledReason",
+        "enabled",
+        "health",
+        "latency",
+        "model",
+        "name",
+        "policyAgeDays",
+        "policyOk",
+        "residency",
+        "today",
+        "usable",
+        "verified"
+      ],
+      "required": []
+    },
+    "BotScopeType": {
+      "enum": [
+        "COMPANY",
+        "TEAM",
+        "CUSTOMER",
+        "USER",
+        "CONVERSATION"
+      ]
+    },
+    "BotTier": {
+      "enum": [
+        "T0",
+        "T1",
+        "T2"
+      ]
+    },
+    "BotTurnResult": {
+      "properties": [
+        "answer",
+        "cappedFrom",
+        "conversationId",
+        "costEstimatedUsd",
+        "degradedFrom",
+        "memoryIds",
+        "messageId",
+        "model",
+        "notice",
+        "priced",
+        "proposals",
+        "provider",
+        "redactions",
+        "stopReason",
+        "tier",
+        "tierReason",
+        "toolCalls",
+        "usage"
+      ],
+      "required": []
+    }
+  },
+  "inline": {
+    "GET /bot/status": [
+      "enabled",
+      "kind",
+      "master",
+      "permissions",
+      "providers"
+    ]
+  },
+  "paths": {
+    "/bot/ask": [
+      "post"
+    ],
+    "/bot/control": [
+      "get"
+    ],
+    "/bot/control/{scope}": [
+      "put"
+    ],
+    "/bot/conversations": [
+      "get",
+      "post"
+    ],
+    "/bot/conversations/{id}": [
+      "get",
+      "patch"
+    ],
+    "/bot/conversations/{id}/messages": [
+      "post"
+    ],
+    "/bot/costs": [
+      "get"
+    ],
+    "/bot/memories": [
+      "get",
+      "post"
+    ],
+    "/bot/memories/export": [
+      "get"
+    ],
+    "/bot/memories/reindex": [
+      "post"
+    ],
+    "/bot/memories/search": [
+      "get"
+    ],
+    "/bot/memories/{id}": [
+      "get",
+      "patch",
+      "delete"
+    ],
+    "/bot/memories/{id}/events": [
+      "get"
+    ],
+    "/bot/prices": [
+      "get",
+      "put"
+    ],
+    "/bot/providers/health": [
+      "get"
+    ],
+    "/bot/providers/{name}/probe": [
+      "post"
+    ],
+    "/bot/status": [
+      "get"
+    ]
+  },
+  "requestBodies": {
+    "PUT /bot/control/{scope}": [
+      "config",
+      "enabled"
+    ],
+    "GET /bot/conversations ?query": [
+      "limit",
+      "scope"
+    ],
+    "POST /bot/conversations": [
+      "clientThreadKey",
+      "shared",
+      "title"
+    ],
+    "PATCH /bot/conversations/{id}": [
+      "shared",
+      "status",
+      "title"
+    ],
+    "POST /bot/conversations/{id}/messages": [
+      "attachments",
+      "message"
+    ],
+    "GET /bot/costs ?query": [
+      "from",
+      "to"
+    ],
+    "GET /bot/memories ?query": [
+      "customerId",
+      "kind",
+      "limit",
+      "offset",
+      "q",
+      "scope",
+      "scopes",
+      "status",
+      "user"
+    ],
+    "GET /bot/memories/search ?query": [
+      "limit",
+      "q",
+      "scopes"
+    ],
+    "PATCH /bot/memories/{id}": [
+      "action",
+      "confidence",
+      "content",
+      "reason",
+      "source",
+      "summary",
+      "tags",
+      "validTo"
+    ],
+    "DELETE /bot/memories/{id}": [
+      "reason"
+    ],
+    "GET /bot/prices ?query": [
+      "history"
+    ],
+    "PUT /bot/prices": [
+      "model",
+      "priceCachedPerMtok",
+      "priceInPerMtok",
+      "priceOutPerMtok",
+      "provider",
+      "validFrom"
+    ],
+    "POST /bot/providers/{name}/probe": [
+      "model"
+    ]
+  }
+}

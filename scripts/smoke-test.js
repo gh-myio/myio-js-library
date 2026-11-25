@@ -127,6 +127,24 @@ function testUMDBuild() {
   }
 }
 
+// RFC-0242: the MYIO Bot widget ships as its own UMD bundle and the core must not carry its UI
+function testBotWidgetBuild() {
+  try {
+    const widget = readFileSync(join('dist', 'myio-bot-widget.umd.min.js'), 'utf8');
+    const core = readFileSync(join('dist', 'myio-js-library.umd.js'), 'utf8');
+    const widgetOk = widget.includes('MyIOBotWidget') && widget.includes('createMyIOBotWidget');
+    const coreHasLoader = core.includes('loadBotWidget') && core.includes('myio-bot-widget.umd.min.js');
+    const coreHasUi = core.includes('@keyframes mbpulse');
+    if (widgetOk && coreHasLoader && !coreHasUi) {
+      logResult('MYIO Bot widget bundle', true);
+    } else {
+      logResult('MYIO Bot widget bundle', false, `widgetOk=${widgetOk} coreHasLoader=${coreHasLoader} coreHasUi=${coreHasUi}`);
+    }
+  } catch (error) {
+    logResult('MYIO Bot widget bundle', false, error.message);
+  }
+}
+
 // Test TypeScript definitions
 function testTypeScriptDefinitions() {
   try {
@@ -185,6 +203,7 @@ async function runSmokeTests() {
   testPackageExports();
   testTypeScriptDefinitions();
   testUMDBuild();
+  testBotWidgetBuild();
   testESMImport();
   testCJSRequire();
   

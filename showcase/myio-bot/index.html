@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MYIO Bot — RFC-0242 showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <style>
+    :root { --accent: #7C3AED; --bg: #f4f2fb; --fg: #1f2937; --muted: #6b7280; --card: #fff; --line: #e5e7eb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Nunito, system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+    header { padding: 20px 24px 8px; }
+    header h1 { margin: 0; font-size: 22px; }
+    header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 900px; }
+    main { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 16px; padding: 16px 24px 120px; }
+    @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+    section h2 { margin: 0 0 10px; font-size: 14px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+    select, input { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+    .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    button { font: inherit; font-size: 12px; font-weight: 600; border: 0; border-radius: 8px; padding: 7px 11px; background: var(--accent); color: #fff; cursor: pointer; }
+    button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .chk { display: flex; gap: 6px; align-items: center; font-size: 12px; margin-top: 8px; }
+    .chk input { width: auto; }
+    #log { font-family: ui-monospace, Consolas, monospace; font-size: 11px; max-height: 460px; overflow: auto; background: #111827; color: #d1d5db; border-radius: 8px; padding: 8px; }
+    #log div { white-space: pre-wrap; border-bottom: 1px solid #1f2937; padding: 2px 0; }
+    #log .ev { color: #a7f3d0; } #log .req { color: #93c5fd; } #log .err { color: #fca5a5; }
+    code { background: #ede9fe; padding: 1px 4px; border-radius: 4px; font-size: 12px; }
+    .warn { font-size: 12px; color: #92400e; background: #fffbeb; border-radius: 8px; padding: 6px 8px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MYIO Bot — embeddable widget (RFC-0242)</h1>
+    <p>Carrega o <b>core UMD</b> (<code>dist/myio-js-library.umd.js</code>) e o widget sob demanda com
+      <code>MyIOLibrary.loadBotWidget()</code> — o cenário ThingsBoard. O backend é um stub em memória
+      (<code>mock-bot-api.js</code>, SSE <code>delta</code>/<code>done</code>) passado em <code>fetch</code>: nada sai do navegador.
+      Com <code>?bot=live</code> o widget fala com um GCDR real usando a API key digitada (não é salva).</p>
+  </header>
+  <main>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <section>
+        <h2>Configuração</h2>
+        <div id="live-box" hidden>
+          <label for="f-base">gcdrApiBaseUrl</label>
+          <input id="f-base" value="https://gcdr-api.a.myio-bas.com/api/v1" />
+          <label for="f-key">API key (escopo bot:use) — digitada em runtime, nunca salva</label>
+          <input id="f-key" type="password" autocomplete="off" />
+          <div class="warn">Modo live: a origem desta página precisa estar em <code>ALLOWED_ORIGINS</code> do GCDR, senão o widget mostra “Sem conexão com o GCDR”.</div>
+        </div>
+        <div id="mock-box">
+          <label for="f-scenario">Cenário do stub</label>
+          <select id="f-scenario">
+            <option value="ok">ok — chat com streaming</option>
+            <option value="403">403 — acesso restrito</option>
+            <option value="404">404 — bot não disponível (BOT_ENABLED off)</option>
+            <option value="503">503 — sem provedor elegível</option>
+            <option value="master-off">MASTER off — bot desligado</option>
+            <option value="offline">offline / CORS — fetch rejeita</option>
+          </select>
+          <div class="chk"><input type="checkbox" id="f-curator" checked /><label for="f-curator" style="margin:0">principal pode curar memórias</label></div>
+        </div>
+        <label for="f-locale">locale</label>
+        <select id="f-locale"><option>pt-BR</option><option>en</option></select>
+        <label for="f-position">position</label>
+        <select id="f-position"><option>bottom-right</option><option>bottom-left</option></select>
+        <label for="f-accent">theme.accent</label>
+        <input id="f-accent" value="#7C3AED" />
+        <div class="chk"><input type="checkbox" id="f-dark" /><label for="f-dark" style="margin:0">theme.dark</label></div>
+        <div class="row">
+          <button id="b-mount">↻ (Re)montar widget</button>
+          <button id="b-destroy" class="ghost">destroy()</button>
+          <button id="b-pos" class="ghost">resetPosition()</button>
+        </div>
+      </section>
+      <section>
+        <h2>Handle</h2>
+        <div class="row">
+          <button id="b-open" class="ghost">open()</button>
+          <button id="b-close" class="ghost">close()</button>
+          <button id="b-ask">ask("status das centrais")</button>
+          <button id="b-ask-new" class="ghost">ask(…, { newThread })</button>
+          <button id="b-ctx" class="ghost">setContext(página alarmes)</button>
+          <button id="b-panel" class="ghost">openMyIOBotPanel()</button>
+        </div>
+        <p style="font-size:12px;color:var(--muted)">No chat do stub: “lembre que…” → cartão de memórias · “inativar elevadores” → cartão de ação (D-20) ·
+          “erro” → evento SSE <code>error</code> · “json” → resposta JSON (sem SSE) · <code>/think</code> → T1.
+          Arraste o painel pelo cabeçalho; duplo clique no cabeçalho volta ao canto.</p>
+      </section>
+    </div>
+    <section>
+      <h2>Eventos e requisições</h2>
+      <div id="log"></div>
+    </section>
+  </main>
+
+  <script src="../../dist/myio-js-library.umd.js"></script>
+  <script src="./mock-bot-api.js"></script>
+  <script>
+  'use strict';
+  const LIVE = new URLSearchParams(location.search).get('bot') === 'live';
+  const $ = (id) => document.getElementById(id);
+  const logEl = $('log');
+  function log(cls, msg) {
+    const d = document.createElement('div');
+    d.className = cls;
+    d.textContent = `[${new Date().toISOString().slice(11, 19)}] ${msg}`;
+    logEl.prepend(d);
+  }
+  $('live-box').hidden = !LIVE;
+  $('mock-box').hidden = LIVE;
+
+  const mockFetch = window.MyIOBotMock.createFetch({ onRequest: (r) => log('req', `${r.method} ${r.path}  (${r.accept}, ${r.auth})${r.body ? '  ' + JSON.stringify(r.body).slice(0, 160) : ''}`) });
+  let bot = null;
+  let lib = null;
+  let seq = 0;
+
+  function options(extra) {
+    const common = {
+      host: { app: 'showcase-myio-bot', version: (window.MyIOLibrary && MyIOLibrary.version) || 'dev', customerId: 'cust-showcase' },
+      context: { customerId: 'cust-showcase', customerName: 'Shopping Showcase', page: 'showcase' },
+      locale: $('f-locale').value,
+      position: $('f-position').value,
+      theme: { accent: $('f-accent').value || undefined, dark: $('f-dark').checked },
+      gcdrWebUrl: 'https://gcdr-web.a.myio-bas.com',
+    };
+    if (LIVE) {
+      const key = $('f-key').value.trim();
+      if (!key) throw new Error('digite a API key (modo live)');
+      return Object.assign(common, { gcdrApiBaseUrl: $('f-base').value.trim(), auth: { apiKey: key } }, extra);
+    }
+    mockFetch.setScenario($('f-scenario').value);
+    mockFetch.setCurator($('f-curator').checked);
+    return Object.assign(common, { gcdrApiBaseUrl: window.MyIOBotMock.MOCK_BASE_URL, auth: { apiKey: window.MyIOBotMock.FAKE_KEY }, fetch: mockFetch }, extra);
+  }
+
+  function wire(h) {
+    ['open', 'close', 'turn', 'error', 'action'].forEach((ev) => h.on(ev, (p) => {
+      const s = p && p.code ? `${p.code}: ${p.message}` : p && p.tier ? `${p.tier} · ${p.provider} · ${p.model}` : p ? JSON.stringify(p).slice(0, 160) : '';
+      log(ev === 'error' ? 'err' : 'ev', `on('${ev}') ${s}`);
+    }));
+    return h;
+  }
+
+  async function mount() {
+    try {
+      const mine = ++seq;
+      if (bot) { bot.destroy(); bot = null; }
+      if (!LIVE) mockFetch.reset();
+      lib = lib || await MyIOLibrary.loadBotWidget();
+      if (mine !== seq) return;
+      if (bot) { bot.destroy(); bot = null; }
+      log('ev', 'loadBotWidget() → window.MyIOBotWidget pronto');
+      bot = wire(lib.createMyIOBotWidget(options()));
+      log('ev', 'createMyIOBotWidget() montado');
+    } catch (e) { log('err', `${e.code || 'ERRO'}: ${e.message}`); }
+  }
+
+  $('b-mount').onclick = mount;
+  $('b-pos').onclick = () => { if (bot) { bot.resetPosition(); log('ev', 'resetPosition()'); } };
+  $('b-destroy').onclick = () => { if (bot) { bot.destroy(); bot = null; log('ev', 'destroy()'); } };
+  $('b-open').onclick = () => bot && bot.open();
+  $('b-close').onclick = () => bot && bot.close();
+  $('b-ask').onclick = () => bot && bot.ask('status das centrais').catch((e) => log('err', `ask rejeitou: ${e.code}`));
+  $('b-ask-new').onclick = () => bot && bot.ask('lembre que o cliente tem 2 centrais', { newThread: true }).catch((e) => log('err', `ask rejeitou: ${e.code}`));
+  $('b-ctx').onclick = () => { if (bot) { bot.setContext({ customerId: 'cust-showcase', customerName: 'Shopping Showcase', page: 'alarmes' }); log('ev', 'setContext(page: alarmes)'); } };
+  $('b-panel').onclick = async () => {
+    try { lib = lib || await MyIOLibrary.loadBotWidget(); wire(lib.openMyIOBotPanel(options({ position: 'bottom-left' }))); } catch (e) { log('err', e.message); }
+  };
+
+  if (typeof MyIOLibrary === 'undefined') log('err', 'MyIOLibrary não carregou — rode npm run build');
+  else if (!LIVE) mount();
+  else log('ev', 'modo live: digite a API key e clique em (Re)montar');
+  </script>
+</body>
+</html>
