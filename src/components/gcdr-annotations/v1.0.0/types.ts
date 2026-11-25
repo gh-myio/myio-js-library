@@ -8,8 +8,14 @@
  * field.
  */
 
-/** GCDR's annotation "kind" — distinct spelling from the legacy RFC-0104 set (see `adapters.ts`). */
-export type GcdrAnnotationType = 'observation' | 'pending' | 'maintenance' | 'activity';
+/** Kinds a client may create — distinct spelling from the legacy RFC-0104 set (see `adapters.ts`). */
+export type GcdrUserAnnotationType = 'observation' | 'pending' | 'maintenance' | 'activity';
+
+/**
+ * GCDR's annotation "kind". `system` (GCDR G-1 / ED-1412) is created only by
+ * the server and is read-only for clients — never accepted by `create()`.
+ */
+export type GcdrAnnotationType = GcdrUserAnnotationType | 'system';
 
 export type GcdrAnnotationImportance = 1 | 2 | 3 | 4 | 5;
 
@@ -71,6 +77,8 @@ export interface GcdrAnnotation {
   createdAt: string;
   createdBy: GcdrUserSnapshot;
   dueDate?: string | null;
+  /** Server payload — for `system` annotations, `from`/`to` describe the automatic change (ED-1412). */
+  meta?: Record<string, unknown> | null;
   /** Tolerant of fields this client doesn't model yet (API guide: "unknown fields ignored"). */
   [key: string]: unknown;
 }
@@ -111,7 +119,8 @@ export interface GcdrCreateAnnotationInput {
   entityId: string;
   customerId: string;
   text: string;
-  type: GcdrAnnotationType;
+  /** `system` is server-only (ED-1412), so it is not creatable/patchable. */
+  type: GcdrUserAnnotationType;
   importance: GcdrAnnotationImportance;
   dueDate?: string;
 }

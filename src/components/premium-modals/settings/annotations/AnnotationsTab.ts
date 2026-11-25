@@ -19,11 +19,15 @@ import type {
   AnnotationsTabConfig,
   AnnotationResponse,
   ResponseType,
+  UserAnnotationType,
 } from './types';
 
 import {
   ANNOTATION_TYPE_LABELS,
   ANNOTATION_TYPE_COLORS,
+  ANNOTATION_TYPE_ICONS,
+  USER_ANNOTATION_TYPES,
+  isSystemAnnotation,
   IMPORTANCE_LABELS,
   IMPORTANCE_COLORS,
   STATUS_LABELS,
@@ -37,6 +41,8 @@ import { canModifyAnnotation } from '../../../../utils/superAdminUtils';
 import { MyIOToast } from '../../../../components/MyIOToast';
 import { createDateRangePicker, type DateRangeControl } from '../../../../components/createDateRangePicker';
 import { ModalHeader } from '../../../../utils/ModalHeader';
+import { escapeHtml } from '../../../../utils/HTMLBuilder';
+import { createGcdrAnnotationsClient } from '../../../gcdr-annotations/v1.0.0/GcdrAnnotationsClient';
 import { version as LIB_VERSION } from '../../../../index';
 
 // ============================================
@@ -236,6 +242,7 @@ const ANNOTATIONS_STYLES = `
 .annotations-premium-filter__stat-dot--maintenance { background: #ffa94d; }
 .annotations-premium-filter__stat-dot--activity { background: #51cf66; }
 .annotations-premium-filter__stat-dot--observation { background: #339af0; }
+.annotations-premium-filter__stat-dot--system { background: #607D8B; }
 
 .annotations-premium-filter__stat-count {
   font-size: 14px;
@@ -1564,6 +1571,56 @@ const ANNOTATIONS_STYLES = `
 .annotation-card--overdue {
   border-color: #d63031;
   background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
+}
+
+/* ED-1412: server-created, read-only "Sistema" annotations */
+.annotation-card--system {
+  border-left: 4px solid #607D8B;
+  background: linear-gradient(135deg, #fff 0%, #f4f6f8 100%);
+}
+
+.annotation-card__type-icon {
+  margin-right: 2px;
+}
+
+.annotation-card__change {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background: #eceff1;
+  border: 1px solid #cfd8dc;
+  color: #37474f;
+  word-break: break-word;
+}
+
+.annotation-card__change-from {
+  color: #607d8b;
+}
+
+.annotation-card__change-arrow {
+  color: #607d8b;
+  font-weight: 700;
+}
+
+.annotation-card__change-to {
+  color: #263238;
+  font-weight: 700;
+}
+
+.annotation-card__readonly {
+  flex: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #607d8b;
 }
 
 .annotation-card__header {
@@ -3124,6 +3181,9 @@ export class AnnotationsTab {
 
   // RFC-0144: Controls whether onboarding tour is shown
   private enableAnnotationsOnboarding: boolean = false;
+  // ED-1413: GCDR access for read-only `system` annotations + ids that must not be persisted in TB
+  private gcdrSystem?: AnnotationsTabConfig['gcdrSystem'];
+  private gcdrReadOnlyIds: Set<string> = new Set();
 
   // Onboarding Tour State (RFC-0144)
   private tourCurrentStep: number = 0;
@@ -3146,6 +3206,12 @@ export class AnnotationsTab {
     this.permissions = config.permissions;
     this.onAnnotationChange = config.onAnnotationChange;
     this.enableAnnotationsOnboarding = config.enableAnnotationsOnboarding ?? false; // RFC-0144
+    this.gcdrSystem = config.gcdrSystem; // ED-1413
+  }
+
+  /** Non-archived annotations currently listed (TB + GCDR `system`) — used for the tab badge. */
+  public getActiveCount(): number {
+    return this.annotations.filter((a) => a.status !== 'archived').length;
   }
 
   // ============================================
@@ -3154,8 +3220,11 @@ export class AnnotationsTab {
 
   public async init(): Promise<void> {
     this.injectStyles();
-    await this.loadAnnotations();
+    await this.loadTbAnnotations();
     this.render();
+    // ED-1413: GCDR `system` annotations join after the TB list is on screen,
+    // so a slow/unavailable GCDR (the client retries 5xx) never delays the tab.
+    if (await this.mergeGcdrSystemAnnotations()) this.render();
     // RFC-0144: Onboarding is triggered via onTabActivated() when user switches to this tab
   }
 
@@ -3726,7 +3795,54 @@ export class AnnotationsTab {
   // DATA METHODS
   // ============================================
 
-  private async loadAnnotations(): Promise<void> {
+  /**
+   * ED-1413: appends the device's GCDR `system` annotations (read-only) to the
+   * TB list. Their ids go to `gcdrReadOnlyIds` so `saveAnnotations` never
+   * writes them into `log_annotations`. Failures keep the TB list as is.
+   * Resolves `true` when something was added (caller re-renders).
+   */
+  private async mergeGcdrSystemAnnotations(): Promise<boolean> {
+    this.gcdrReadOnlyIds = new Set();
+    const cfg = this.gcdrSystem;
+    if (!cfg?.gcdrDeviceId || !cfg.domainPath || !cfg.apiKey) return false;
+
+    try {
+      const baseFetch: typeof fetch = cfg.fetchImpl ?? globalThis.fetch.bind(globalThis);
+      // GcdrAnnotationsClient sends X-API-Key only; the other GCDR tabs also send X-Tenant-ID.
+      const tenantId = cfg.tenantId;
+      const fetchImpl: typeof fetch = tenantId
+        ? (input, init = {}) => {
+            const headers = new Headers(init.headers);
+            if (!headers.has('X-Tenant-ID')) headers.set('X-Tenant-ID', tenantId);
+            return baseFetch(input, { ...init, headers });
+          }
+        : baseFetch;
+
+      const client = createGcdrAnnotationsClient({
+        domainPath: cfg.domainPath,
+        auth: { apiKey: cfg.apiKey },
+        fetchImpl,
+      });
+      const list = await client.listByEntity('device', cfg.gcdrDeviceId, {
+        type: 'system',
+        includeArchived: false,
+      });
+
+      const known = new Set(this.annotations.map((a) => a.id));
+      const system = client
+        .toLegacyAnnotations(list)
+        .filter((a) => isSystemAnnotation(a) && !known.has(a.id));
+      if (system.length === 0) return false;
+      system.forEach((a) => this.gcdrReadOnlyIds.add(a.id));
+      this.annotations = [...this.annotations, ...system];
+      return true;
+    } catch (error) {
+      console.warn('[AnnotationsTab] ED-1413: failed to load GCDR system annotations:', error);
+      return false;
+    }
+  }
+
+  private async loadTbAnnotations(): Promise<void> {
     try {
       const response = await fetch(
         `${this.tbBaseUrl}/api/plugins/telemetry/DEVICE/${this.deviceId}/values/attributes/SERVER_SCOPE?keys=log_annotations`,
@@ -3905,7 +4021,8 @@ export class AnnotationsTab {
         deviceId: this.deviceId,
         lastModified: new Date().toISOString(),
         lastModifiedBy: this.currentUser,
-        annotations: this.annotations,
+        // ED-1413: GCDR `system` annotations are display-only — never persisted in TB
+        annotations: this.annotations.filter((a) => !this.gcdrReadOnlyIds.has(a.id)),
       };
 
       const response = await fetch(
@@ -4133,6 +4250,8 @@ export class AnnotationsTab {
 
     const annotation = this.annotations.find(a => a.id === annotationId);
     if (!annotation) return;
+    // ED-1412: `system` annotations are read-only (no archive/approve/reject/comment)
+    if (isSystemAnnotation(annotation)) return;
 
     const isApprove = type === 'approved';
     const isReject = type === 'rejected';
@@ -5095,6 +5214,7 @@ export class AnnotationsTab {
       maintenance: this.annotations.filter(a => a.type === 'maintenance' && a.status !== 'archived').length,
       activity: this.annotations.filter(a => a.type === 'activity' && a.status !== 'archived').length,
       observation: this.annotations.filter(a => a.type === 'observation' && a.status !== 'archived').length,
+      system: this.annotations.filter(a => a.type === 'system' && a.status !== 'archived').length,
       archived: this.annotations.filter(a => a.status === 'archived').length,
     };
 
@@ -5139,6 +5259,11 @@ export class AnnotationsTab {
               <span class="annotations-premium-filter__stat-dot annotations-premium-filter__stat-dot--observation"></span>
               <span class="annotations-premium-filter__stat-count">${stats.observation}</span>
               <span class="annotations-premium-filter__stat-label">Observação(ões)</span>
+            </div>
+            <div class="annotations-premium-filter__stat ${this.isTypeFilterActive('system') ? 'active' : ''}" data-filter-type="system" style="color: #607D8B;">
+              <span class="annotations-premium-filter__stat-dot annotations-premium-filter__stat-dot--system"></span>
+              <span class="annotations-premium-filter__stat-count">${stats.system}</span>
+              <span class="annotations-premium-filter__stat-label">Sistema</span>
             </div>
             <div class="annotations-premium-filter__stat ${this.isTypeFilterActive('archived') ? 'active' : ''}" data-filter-type="archived" style="color: #868e96;">
               <span class="annotations-premium-filter__stat-dot" style="background: #868e96;"></span>
@@ -5585,7 +5710,7 @@ export class AnnotationsTab {
         const selectedImportance = this.container.querySelector('.importance-option.selected') as HTMLElement;
         const dueDateInput = this.container.querySelector('#annotation-due-date') as HTMLInputElement;
 
-        const type = (selectedType?.dataset.type || 'pending') as AnnotationType;
+        const type = (selectedType?.dataset.type || 'pending') as UserAnnotationType;
         const importance = parseInt(selectedImportance?.dataset.importance || '3') as ImportanceLevel;
         const dueDate = dueDateInput?.value || undefined;
 
@@ -5897,12 +6022,48 @@ export class AnnotationsTab {
     }
   }
 
+  /**
+   * ED-1412: formats a `meta.from` / `meta.to` value for display. Values come
+   * from the server, so the result is always HTML-escaped.
+   */
+  private formatMetaValue(value: unknown): string {
+    if (value === null || value === undefined || value === '') return '—';
+    if (typeof value === 'object') {
+      try {
+        return escapeHtml(JSON.stringify(value));
+      } catch {
+        return '—';
+      }
+    }
+    return escapeHtml(String(value));
+  }
+
+  /**
+   * ED-1412: "de → para" highlight for `system` annotations, read from
+   * `meta.from` / `meta.to`. Empty when the annotation carries neither.
+   */
+  private renderSystemChange(annotation: Annotation): string {
+    if (!isSystemAnnotation(annotation)) return '';
+    const meta = annotation.meta;
+    if (!meta || (meta.from == null && meta.to == null)) return '';
+    return `
+      <div class="annotation-card__change" title="Alteração registrada pelo sistema">
+        <span class="annotation-card__change-from">${this.formatMetaValue(meta.from)}</span>
+        <span class="annotation-card__change-arrow" aria-hidden="true">→</span>
+        <span class="annotation-card__change-to">${this.formatMetaValue(meta.to)}</span>
+      </div>
+    `;
+  }
+
   private renderCard(annotation: Annotation): string {
+    // ED-1412: server-created `system` annotations are read-only
+    const isSystem = isSystemAnnotation(annotation);
     const canModify = canModifyAnnotation(annotation, this.permissions);
     const typeColor = ANNOTATION_TYPE_COLORS[annotation.type];
     const importanceColor = IMPORTANCE_COLORS[annotation.importance];
     const overdue = this.isOverdue(annotation);
-    const authorInitial = annotation.createdBy.name.charAt(0).toUpperCase();
+    const authorName = annotation.createdBy?.name || (isSystem ? ANNOTATION_TYPE_LABELS.system : '');
+    const authorInitial = authorName.charAt(0).toUpperCase();
     // RFC-0104: Hide approve/reject buttons if annotation already has a response
     const hasResponse = annotation.responses && annotation.responses.length > 0;
     const lastResponse = hasResponse ? annotation.responses[annotation.responses.length - 1] : null;
@@ -5910,6 +6071,7 @@ export class AnnotationsTab {
 
     const cardClasses = [
       'annotation-card',
+      isSystem ? 'annotation-card--system' : '',
       annotation.status === 'archived' ? 'annotation-card--archived' : '',
       overdue ? 'annotation-card--overdue' : '',
     ].filter(Boolean).join(' ');
@@ -5928,11 +6090,22 @@ export class AnnotationsTab {
     // Count for history badge (history events + responses)
     const historyCount = (annotation.history?.length || 0) + (annotation.responses?.length || 0);
 
+    // ED-1412: `system` cards render no write actions at all (not just disabled)
+    const writeActionsHtml = isSystem
+      ? `<span class="annotation-card__readonly" title="Anotação gerada pelo sistema — somente leitura">🔒 Somente leitura</span>`
+      : `
+          <button class="annotation-card__btn annotation-card__btn--edit" data-action="edit" title="Editar anotação" ${cannotModify ? 'disabled' : ''}>✏️</button>
+          <button class="annotation-card__btn annotation-card__btn--archive" data-action="archive" title="Arquivar anotação" ${cannotArchive ? 'disabled' : ''}>⬇️</button>
+          <button class="annotation-card__btn annotation-card__btn--approve" data-action="approve" title="Aprovar anotação" ${cannotRespond ? 'disabled' : ''}>✓</button>
+          <button class="annotation-card__btn annotation-card__btn--reject" data-action="reject" title="Rejeitar anotação" ${cannotRespond ? 'disabled' : ''}>✗</button>
+          <button class="annotation-card__btn annotation-card__btn--comment" data-action="comment" title="Adicionar comentário" ${cannotComment ? 'disabled' : ''}>💬</button>
+        `;
+
     return `
-      <div class="${cardClasses}" data-id="${annotation.id}">
+      <div class="${cardClasses}" data-id="${annotation.id}" data-type="${annotation.type}">
         <div class="annotation-card__header">
           <div class="annotation-card__type" style="background: ${typeColor}20; color: ${typeColor}; border: 1px solid ${typeColor}40;">
-            ${ANNOTATION_TYPE_LABELS[annotation.type]}
+            ${isSystem ? `<span class="annotation-card__type-icon" aria-hidden="true">${ANNOTATION_TYPE_ICONS.system}</span>` : ''}${ANNOTATION_TYPE_LABELS[annotation.type]}
           </div>
           <div class="annotation-card__importance" style="background: ${importanceColor}">
             ${IMPORTANCE_LABELS[annotation.importance]}
@@ -5943,11 +6116,12 @@ export class AnnotationsTab {
         </div>
 
         <div class="annotation-card__text">${annotation.text}</div>
+        ${this.renderSystemChange(annotation)}
 
         <div class="annotation-card__meta">
           <div class="annotation-card__author">
             <span class="annotation-card__avatar">${authorInitial}</span>
-            <span>${annotation.createdBy.name}</span>
+            <span>${authorName}</span>
           </div>
           <div class="annotation-card__date">${this.formatDate(annotation.createdAt)}</div>
         </div>
@@ -5959,11 +6133,7 @@ export class AnnotationsTab {
         ` : ''}
 
         <div class="annotation-card__actions">
-          <button class="annotation-card__btn annotation-card__btn--edit" data-action="edit" title="Editar anotação" ${cannotModify ? 'disabled' : ''}>✏️</button>
-          <button class="annotation-card__btn annotation-card__btn--archive" data-action="archive" title="Arquivar anotação" ${cannotArchive ? 'disabled' : ''}>⬇️</button>
-          <button class="annotation-card__btn annotation-card__btn--approve" data-action="approve" title="Aprovar anotação" ${cannotRespond ? 'disabled' : ''}>✓</button>
-          <button class="annotation-card__btn annotation-card__btn--reject" data-action="reject" title="Rejeitar anotação" ${cannotRespond ? 'disabled' : ''}>✗</button>
-          <button class="annotation-card__btn annotation-card__btn--comment" data-action="comment" title="Adicionar comentário" ${cannotComment ? 'disabled' : ''}>💬</button>
+          ${writeActionsHtml}
           <button class="annotation-card__btn annotation-card__btn--history" data-action="details" title="Ver histórico (${historyCount})">
             📜
             ${historyCount > 0 ? `<span class="annotation-card__btn-badge">${historyCount}</span>` : ''}
@@ -6483,7 +6653,10 @@ export class AnnotationsTab {
     // Submit handler
     submitBtn?.addEventListener('click', async () => {
       const selectedType = overlay.querySelector('.type-option.selected') as HTMLElement;
-      const type = (selectedType?.dataset.type || 'observation') as AnnotationType;
+      // ED-1412: only user-selectable types can be created ('system' is server-only)
+      const rawType = selectedType?.dataset.type as UserAnnotationType | undefined;
+      const type: UserAnnotationType =
+        rawType && USER_ANNOTATION_TYPES.includes(rawType) ? rawType : 'observation';
 
       const selectedImportance = overlay.querySelector('.importance-option.selected') as HTMLElement;
       const importance = parseInt(selectedImportance?.dataset.importance || '3') as ImportanceLevel;
@@ -6711,6 +6884,8 @@ export class AnnotationsTab {
 
     const annotation = this.annotations.find((a) => a.id === id);
     if (!annotation) return;
+    // ED-1412: `system` annotations are read-only
+    if (isSystemAnnotation(annotation)) return;
 
     const newText = await this.showInputModal(
       'Editar Anotação',
@@ -6736,7 +6911,12 @@ export class AnnotationsTab {
     if (!annotation) return;
 
     const modalId = `annotation-detail-${Date.now()}`;
+    // ED-1412: `system` annotations are read-only (archive hidden below)
+    const isSystem = isSystemAnnotation(annotation);
     const canModify = canModifyAnnotation(annotation, this.permissions);
+    const systemChangeHtml = this.renderSystemChange(annotation);
+    const creatorName = annotation.createdBy?.name || (isSystem ? ANNOTATION_TYPE_LABELS.system : '');
+    const creatorEmail = annotation.createdBy?.email || '';
     const hasResponse = annotation.responses && annotation.responses.length > 0;
     const lastResponse = hasResponse ? annotation.responses[annotation.responses.length - 1] : null;
     const responseStatus = lastResponse?.type as ResponseType | null;
@@ -6768,7 +6948,7 @@ export class AnnotationsTab {
             <div class="annotation-detail__badge-group">
               <span class="annotation-detail__badge-label">Tipo</span>
               <span class="annotation-detail__badge" style="background: ${typeColor}20; color: ${typeColor}; border: 1px solid ${typeColor}40;">
-                ${ANNOTATION_TYPE_LABELS[annotation.type]}
+                ${isSystem ? `<span class="annotation-card__type-icon" aria-hidden="true">${ANNOTATION_TYPE_ICONS.system}</span>` : ''}${ANNOTATION_TYPE_LABELS[annotation.type]}
               </span>
             </div>
             <div class="annotation-detail__badge-group">
@@ -6787,7 +6967,7 @@ export class AnnotationsTab {
 
           <div class="annotation-detail__field">
             <div class="annotation-detail__label">Criado por</div>
-            <div class="annotation-detail__value">${annotation.createdBy.name} (${annotation.createdBy.email})</div>
+            <div class="annotation-detail__value">${creatorName}${creatorEmail ? ` (${creatorEmail})` : ''}</div>
           </div>
           <div class="annotation-detail__field">
             <div class="annotation-detail__label">Data de Criação</div>
@@ -6803,6 +6983,12 @@ export class AnnotationsTab {
             <div class="annotation-detail__label">Descrição</div>
             <div class="annotation-detail__description">${annotation.text}</div>
           </div>
+          ${systemChangeHtml ? `
+            <div class="annotation-detail__field">
+              <div class="annotation-detail__label">Alteração</div>
+              ${systemChangeHtml}
+            </div>
+          ` : ''}
           ${responseStatus === 'approved' ? `
             <div class="annotation-detail__field annotation-detail__response-box" style="background: #d4edda;">
               <div class="annotation-detail__label" style="color: #155724;">✓ Aprovado por</div>
@@ -6853,7 +7039,7 @@ export class AnnotationsTab {
           </div>
         </div>
         <div class="annotation-detail__footer">
-          ${canModify && annotation.status !== 'archived' ? `
+          ${canModify && !isSystem && annotation.status !== 'archived' ? `
             <button class="annotation-detail__btn annotation-detail__btn--danger" data-action="archive">
               ⬇️ Arquivar
             </button>

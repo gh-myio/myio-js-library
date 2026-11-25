@@ -7,11 +7,26 @@
 // ANNOTATION TYPES
 // ============================================
 
-export type AnnotationType = 'observation' | 'pending' | 'maintenance' | 'activity';
+/** Types a user can pick when creating an annotation. */
+export type UserAnnotationType = 'observation' | 'pending' | 'maintenance' | 'activity';
+/**
+ * ED-1412 (épico ED-1409 / GCDR G-1): `system` is created only by the server
+ * (e.g. an automatic change, with `meta.from` → `meta.to`) and is read-only
+ * in the UI — never offered in the creation form, no write actions.
+ */
+export type AnnotationType = UserAnnotationType | 'system';
 export type ImportanceLevel = 1 | 2 | 3 | 4 | 5;
 export type AnnotationStatus = 'created' | 'modified' | 'archived';
 export type AuditAction = 'created' | 'modified' | 'archived' | 'approved' | 'rejected' | 'commented' | 'acknowledged';
 export type ResponseType = 'approved' | 'rejected' | 'comment' | 'archived';
+
+/** User-selectable types, in the order the creation form lists them. */
+export const USER_ANNOTATION_TYPES: readonly UserAnnotationType[] = ['pending', 'maintenance', 'activity', 'observation'];
+
+/** ED-1412: true for server-created, read-only `system` annotations. */
+export function isSystemAnnotation(annotation?: { type?: string } | null): boolean {
+  return annotation?.type === 'system';
+}
 
 // ============================================
 // USER INFO
@@ -51,6 +66,20 @@ export interface AnnotationResponse {
 }
 
 // ============================================
+// ANNOTATION META (ED-1412)
+// ============================================
+
+/**
+ * Free-form server payload. For `system` annotations, `from`/`to` describe
+ * the automatic change (rendered as "de → para"). Unknown keys are kept.
+ */
+export interface AnnotationMeta {
+  from?: unknown;
+  to?: unknown;
+  [key: string]: unknown;
+}
+
+// ============================================
 // ANNOTATION
 // ============================================
 
@@ -81,6 +110,9 @@ export interface Annotation {
 
   // Audit Trail
   history: AuditEntry[];
+
+  // ED-1412: server payload (e.g. `system` annotations' from/to)
+  meta?: AnnotationMeta;
 }
 
 // ============================================
@@ -145,7 +177,7 @@ export interface PermissionSet {
 
 export interface NewAnnotationData {
   text: string;
-  type: AnnotationType;
+  type: UserAnnotationType;
   importance: ImportanceLevel;
   dueDate?: string;
 }
@@ -167,6 +199,20 @@ export interface AnnotationsTabConfig {
   };
   /** RFC-0144: If false, onboarding tour is never shown. Default: false */
   enableAnnotationsOnboarding?: boolean;
+  /**
+   * ED-1413: also list the device's read-only `system` annotations from GCDR
+   * (e.g. label changes registered via G-2). Display-only — they are never
+   * written back to the TB `log_annotations` attribute.
+   */
+  gcdrSystem?: {
+    gcdrDeviceId: string;
+    /** GCDR base URL WITH version, e.g. "https://gcdr-api.a.myio-bas.com/api/v1". */
+    domainPath: string;
+    apiKey: string;
+    tenantId?: string;
+    /** Injectable for tests; default `globalThis.fetch`. */
+    fetchImpl?: typeof fetch;
+  };
 }
 
 export interface AnnotationFormConfig {
@@ -224,6 +270,7 @@ export const ANNOTATION_TYPE_LABELS: Record<AnnotationType, string> = {
   pending: 'Pendência',
   maintenance: 'Manutenção',
   activity: 'Atividade',
+  system: 'Sistema',
 };
 
 export const ANNOTATION_TYPE_LABELS_EN: Record<AnnotationType, string> = {
@@ -231,6 +278,7 @@ export const ANNOTATION_TYPE_LABELS_EN: Record<AnnotationType, string> = {
   pending: 'Pending',
   maintenance: 'Maintenance',
   activity: 'Activity',
+  system: 'System',
 };
 
 export const IMPORTANCE_LABELS: Record<ImportanceLevel, string> = {
@@ -270,6 +318,15 @@ export const ANNOTATION_TYPE_COLORS: Record<AnnotationType, string> = {
   pending: '#F44336', // Red
   maintenance: '#FF9800', // Yellow/Orange
   activity: '#4CAF50', // Green
+  system: '#607D8B', // Blue Grey (ED-1412)
+};
+
+export const ANNOTATION_TYPE_ICONS: Record<AnnotationType, string> = {
+  observation: '📝',
+  pending: '⚠️',
+  maintenance: '🔧',
+  activity: '✓',
+  system: '⚙️',
 };
 
 export const IMPORTANCE_COLORS: Record<ImportanceLevel, string> = {

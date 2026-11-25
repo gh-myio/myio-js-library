@@ -13,7 +13,7 @@
 // Types
 // =====================================================================
 
-export type AnnotationType = 'observation' | 'pending' | 'maintenance' | 'activity';
+export type AnnotationType = 'observation' | 'pending' | 'maintenance' | 'activity' | 'system';
 export type ImportanceLevel = 1 | 2 | 3 | 4 | 5;
 
 export interface TooltipAnnotation {
@@ -240,6 +240,7 @@ const TYPE_LABELS: Record<AnnotationType, string> = {
   pending: 'Pendência',
   maintenance: 'Manutenção',
   activity: 'Atividade',
+  system: 'Sistema', // ED-1412
 };
 
 const TYPE_COLORS: Record<AnnotationType, string> = {
@@ -247,6 +248,7 @@ const TYPE_COLORS: Record<AnnotationType, string> = {
   pending: '#ff6b6b',
   maintenance: '#ffa94d',
   activity: '#51cf66',
+  system: '#607D8B', // ED-1412
 };
 
 const IMPORTANCE_COLORS: Record<ImportanceLevel, string> = {

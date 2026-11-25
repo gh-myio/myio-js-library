@@ -1,4 +1,4 @@
-import { ModalConfig, InterpolatedSlot } from './types';
+import { ModalConfig, InterpolatedSlot, LabelChange, ChangeAuthor } from './types';
 import { mapDeviceStatusToCardStatus } from '../../../utils/devices/deviceStatus';
 import { deviceIcons, DEFAULT_DEVICE_ICON } from '../../../utils/devices/deviceIcons';
 import { ModalHeader } from '../../../utils/ModalHeader';
@@ -9,11 +9,12 @@ import { DeviceProfileTab } from './device-profile/DeviceProfileTab';
 import { WellEquipmentTab } from './well-equipment/WellEquipmentTab';
 import { RetrolavagemTab, RETROLAVAGEM_PROFILE } from './retrolavagem/RetrolavagemTab';
 import { createTicketsTab } from './tickets/TicketsTab';
-import { renderDeviceIncidentsTab, renderDeviceWorkOrdersTab } from './myio-ops/DeviceOpsTabs';
+import { renderDeviceIncidentsTab, renderDeviceWorkOrdersTab, resolveApi } from './myio-ops/DeviceOpsTabs';
+import { openConfirmDialog } from '../dialog';
 import { getAnnotationPermissions } from '../../../utils/superAdminUtils';
 import { loadStoreSegmentCatalog, activitiesForSegment } from './commercialCatalog';
 import { isCommercialProfile } from './commercialTwin';
-import type { UserInfo, PermissionSet } from './annotations/types';
+import type { UserInfo, PermissionSet, AnnotationsTabConfig } from './annotations/types';
 import {
   createInputDateRangePickerInsideDIV,
   type DateRangeInputController,
@@ -43,6 +44,10 @@ export class SettingsModalView {
   private currentTab: 'general' | 'annotations' | 'alarms' | 'chamados' | 'exclusion-groups' | 'device-profile' | 'well-equipment' | 'retrolavagem' | 'incidents' | 'device-os' | 'device-incidents' = 'general';
   private currentUser: UserInfo | null = null;
   private permissions: PermissionSet | null = null;
+  // ED-1413: label as loaded (normalized by labelCase) — a save with a different
+  // label asks for confirmation and is registered in GCDR.
+  private loadedLabel = '';
+  private saveConfirmPending = false;
   // RFC-0190: Exclude Groups Totals
   private excludeGroupsEnabled = false;
   private excludedGroups: string[] = [];
@@ -288,15 +293,42 @@ export class SettingsModalView {
         currentUser: this.currentUser,
         permissions: this.permissions,
         enableAnnotationsOnboarding: this.config.enableAnnotationsOnboarding ?? false, // RFC-0144
+        gcdrSystem: this.resolveAnnotationsGcdrSystem(), // ED-1413
       });
 
       await this.annotationsTab.init();
+      // ED-1413: the tab also lists GCDR `system` annotations — refresh the badge with them.
+      this.updateTabBadge('annotations', this.annotationsTab.getActiveCount());
       console.log('[SettingsModalView] RFC-0104: Annotations tab initialized');
     } catch (error) {
       console.error('[SettingsModalView] Failed to initialize annotations tab:', error);
       annotationsContainer.innerHTML =
         '<p style="color: #dc3545; padding: 20px; text-align: center;">Erro ao carregar anotações</p>';
     }
+  }
+
+  /**
+   * ED-1413: GCDR access for the Annotations tab to list the device's read-only
+   * `system` annotations (e.g. label changes registered via G-2). Same
+   * credentials as the other GCDR tabs; undefined when not configured.
+   */
+  private resolveAnnotationsGcdrSystem(): AnnotationsTabConfig['gcdrSystem'] {
+    const gcdrDeviceId = this.config.gcdrDeviceId;
+    if (!gcdrDeviceId) return undefined;
+    const api = resolveApi({
+      gcdrDeviceId,
+      gcdrApiBaseUrl: this.config.gcdrApiBaseUrl,
+      gcdrApiKey: this.config.gcdrApiKey,
+      gcdrTenantId: this.config.gcdrTenantId,
+    });
+    const apiKey = api.headers['X-API-Key'];
+    if (!apiKey) return undefined;
+    return {
+      gcdrDeviceId,
+      domainPath: `${api.gcdrRoot}/api/v1`,
+      apiKey,
+      tenantId: api.headers['X-Tenant-ID'] || undefined,
+    };
   }
 
   // RFC-0180: Initialize the Alarms Tab
@@ -4429,6 +4461,68 @@ export class SettingsModalView {
         input.value = key === 'label' ? this.labelCase(value) : String(value);
       }
     }
+    // ED-1413: baseline for label-change detection (same normalization as getFormData)
+    this.loadedLabel = this.labelCase(data.label ?? '').trim();
+  }
+
+  /** ED-1413: the controller calls this once ThingsBoard saved the new label. */
+  setLoadedLabel(label: string): void {
+    this.loadedLabel = this.labelCase(label ?? '').trim();
+  }
+
+  /** ED-1413: label changed vs. the loaded value? Centrals (host-owned save) are out of scope. */
+  private detectLabelChange(formData: Record<string, any>): LabelChange | null {
+    if (this.config.isGateway) return null;
+    const to = typeof formData.label === 'string' ? formData.label : '';
+    if (!to || to === this.loadedLabel) return null;
+    return { from: this.loadedLabel, to };
+  }
+
+  /** ED-1413: who changed it — the customer GCDR API key carries no user. */
+  private resolveChangeAuthor(): ChangeAuthor | undefined {
+    const u = this.currentUser;
+    if (u?.email) return { id: u.id || '', email: u.email, name: u.name || '' };
+    const email = String(this.config.userEmail || '').trim();
+    return email ? { id: '', email, name: '' } : undefined;
+  }
+
+  /**
+   * Both save paths (form submit + "Salvar" button) land here. ED-1413: a
+   * changed label must be confirmed first — cancelling saves nothing and keeps
+   * the modal open with the edited value.
+   */
+  private async requestSave(): Promise<void> {
+    if (this.saveConfirmPending) return;
+    this.hideError();
+    const formData = this.getFormData();
+    const labelChange = this.detectLabelChange(formData);
+
+    if (!labelChange) {
+      this.config.onSave(formData);
+      return;
+    }
+
+    this.saveConfirmPending = true;
+    let choice: string | null = null;
+    try {
+      choice = await openConfirmDialog({
+        title: 'Trocar etiqueta',
+        message: `Trocar a etiqueta de "${labelChange.from || '(sem etiqueta)'}" para "${labelChange.to}"?\nEssa alteração fica registrada no histórico do dispositivo.`,
+        buttons: [
+          { label: 'Cancelar', variant: 'secondary', value: 'cancel' },
+          { label: 'Confirmar', variant: 'primary', value: 'confirm', autoFocus: true },
+        ],
+        theme: this.modal.classList.contains('theme-dark') ? 'dark' : 'light',
+        // The Settings overlay sits at z-index 9999999; mounting inside it keeps
+        // the dialog above the modal (document.body would render it behind).
+        container: this.container,
+      });
+    } finally {
+      this.saveConfirmPending = false;
+    }
+
+    if (choice !== 'confirm') return;
+    this.config.onSave(formData, { labelChange, changedBy: this.resolveChangeAuthor() });
   }
 
   private setupAccessibility(): void {
@@ -4594,10 +4688,7 @@ export class SettingsModalView {
     // Handle form submission
     this.form.addEventListener('submit', (event) => {
       event.preventDefault();
-      this.hideError();
-
-      const formData = this.getFormData();
-      this.config.onSave(formData);
+      void this.requestSave();
     });
 
     // RFC-0121: ModalHeader controller handles maximize/close/theme
@@ -4627,10 +4718,7 @@ export class SettingsModalView {
       saveBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        this.hideError();
-
-        const formData = this.getFormData();
-        this.config.onSave(formData);
+        void this.requestSave();
       });
     }
 

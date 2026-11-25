@@ -34,6 +34,7 @@ function makeAnnotation(over: Partial<Annotation> = {}): Annotation {
     acknowledged: over.acknowledged ?? false,
     responses: over.responses ?? [],
     history: over.history ?? [],
+    ...(over.meta ? { meta: over.meta } : {}),
   } as Annotation;
 }
 
@@ -312,6 +313,42 @@ describe('buildAnnotationServiceOrchestrator', () => {
                 makeAnnotation({ id: 'a1', status: 'created' }),
                 makeAnnotation({ id: 'a2', status: 'archived' }),
                 makeAnnotation({ id: 'a3', status: 'modified' }),
+              ],
+            },
+          ]),
+      };
+    });
+
+    const orch = await buildAnnotationServiceOrchestrator({
+      customerId: 'c',
+      tbHost: 'https://tb',
+      jwt: 'j',
+      logger: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} } as any,
+    });
+
+    expect(orch.getTotalCount()).toBe(2);
+  });
+
+  it('counts non-archived `system` annotations in getTotalCount like any other type (ED-1412)', async () => {
+    installFetch(async (url: string) => {
+      if (url.includes('/deviceInfos')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [makeDeviceInfo({ id: 'd1' })], hasNext: false }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () =>
+          makeAttrs([
+            {
+              key: 'log_annotations',
+              value: [
+                makeAnnotation({ id: 's1', type: 'system', meta: { from: 1, to: 2 } }),
+                makeAnnotation({ id: 's2', type: 'system', status: 'archived' }),
+                makeAnnotation({ id: 'p1', type: 'pending' }),
               ],
             },
           ]),

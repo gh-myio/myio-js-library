@@ -67,6 +67,61 @@
           }
         }
       ]
+    },
+    {
+      "id": "0f3c2b1a-9d8e-4f7a-b6c5-d4e3f2a1b0c9",
+      "version": 1,
+      "text": "Limite de consumo atualizado automaticamente pelo sistema.",
+      "type": "system",
+      "importance": 2,
+      "status": "created",
+      "createdAt": "2026-03-02T10:00:00.000Z",
+      "createdBy": {
+        "id": "system",
+        "email": "system@gcdr.local",
+        "name": "Sistema"
+      },
+      "acknowledged": false,
+      "meta": {
+        "field": "consumptionLimit",
+        "from": 1200,
+        "to": 1500
+      },
+      "history": [
+        {
+          "timestamp": "2026-03-02T10:00:00.000Z",
+          "userId": "system",
+          "userName": "Sistema",
+          "userEmail": "system@gcdr.local",
+          "action": "created"
+        }
+      ],
+      "responses": []
+    },
+    {
+      "id": "7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d",
+      "version": 1,
+      "text": "Dispositivo sincronizado automaticamente com o cadastro central.",
+      "type": "system",
+      "importance": 1,
+      "status": "created",
+      "createdAt": "2026-03-03T08:30:00.000Z",
+      "createdBy": {
+        "id": "system",
+        "email": "system@gcdr.local",
+        "name": "Sistema"
+      },
+      "acknowledged": false,
+      "history": [
+        {
+          "timestamp": "2026-03-03T08:30:00.000Z",
+          "userId": "system",
+          "userName": "Sistema",
+          "userEmail": "system@gcdr.local",
+          "action": "created"
+        }
+      ],
+      "responses": []
     }
   ]
 }

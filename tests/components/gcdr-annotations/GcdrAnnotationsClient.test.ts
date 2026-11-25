@@ -341,6 +341,22 @@ describe('adapters — GCDR ⇄ legacy Annotation', () => {
     const list = adaptGcdrListToLegacyAnnotations([base, { ...base, id: 'a2' }]);
     expect(list.map((a) => a.id)).toEqual(['a1', 'a2']);
   });
+
+  // ED-1412 (GCDR G-1): server-created, read-only `system` type
+  it('keeps type "system" (no fallback to observation) and preserves meta.from/meta.to', () => {
+    const legacy = adaptGcdrToLegacyAnnotation({
+      ...base,
+      type: 'system',
+      meta: { field: 'consumptionLimit', from: 1200, to: 1500 },
+    });
+    expect(legacy.type).toBe('system');
+    expect(legacy.meta).toEqual({ field: 'consumptionLimit', from: 1200, to: 1500 });
+  });
+
+  it('omits meta when the GCDR annotation has none', () => {
+    expect('meta' in adaptGcdrToLegacyAnnotation(base)).toBe(false);
+    expect('meta' in adaptGcdrToLegacyAnnotation({ ...base, meta: null })).toBe(false);
+  });
 });
 
 describe('GcdrAnnotationsClient — toLegacyAnnotations bridge', () => {

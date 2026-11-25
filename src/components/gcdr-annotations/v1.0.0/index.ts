@@ -12,6 +12,7 @@ export {
   type GcdrAnnotationEvent,
   type GcdrAnnotationAttachment,
   type GcdrAnnotationType,
+  type GcdrUserAnnotationType,
   type GcdrAnnotationImportance,
   type GcdrFinalizedReason,
   type GcdrResponseType,
