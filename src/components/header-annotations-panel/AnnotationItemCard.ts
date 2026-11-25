@@ -24,6 +24,7 @@ const TYPE_ICONS: Record<Annotation['type'], string> = {
   pending: '⚠️',
   maintenance: '🔧',
   activity: '✓',
+  system: '⚙️', // ED-1412
 };
 
 // RFC-0203 follow-up — importance labels + colors mirror canonical RFC-0104

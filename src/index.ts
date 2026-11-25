@@ -402,6 +402,8 @@ export {
 // Annotation Types (RFC-0104)
 export type {
   AnnotationType,
+  UserAnnotationType,
+  AnnotationMeta,
   ImportanceLevel,
   AnnotationStatus,
   AuditAction,
@@ -423,6 +425,9 @@ export {
   STATUS_LABELS,
   STATUS_LABELS_EN,
   ANNOTATION_TYPE_COLORS,
+  ANNOTATION_TYPE_ICONS,
+  USER_ANNOTATION_TYPES,
+  isSystemAnnotation,
   IMPORTANCE_COLORS,
   STATUS_COLORS,
 } from './components/premium-modals/settings/annotations/types';
@@ -457,6 +462,7 @@ export {
   type GcdrAnnotationEvent,
   type GcdrAnnotationAttachment,
   type GcdrAnnotationType,
+  type GcdrUserAnnotationType,
   type GcdrAnnotationImportance,
   type GcdrFinalizedReason,
   type GcdrResponseType,

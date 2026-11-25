@@ -7,6 +7,8 @@ export { AnnotationsTab } from './AnnotationsTab';
 export type {
   Annotation,
   AnnotationType,
+  UserAnnotationType,
+  AnnotationMeta,
   ImportanceLevel,
   AnnotationStatus,
   AuditAction,
@@ -32,6 +34,9 @@ export {
   STATUS_LABELS,
   STATUS_LABELS_EN,
   ANNOTATION_TYPE_COLORS,
+  ANNOTATION_TYPE_ICONS,
+  USER_ANNOTATION_TYPES,
+  isSystemAnnotation,
   IMPORTANCE_COLORS,
   STATUS_COLORS,
 } from './types';

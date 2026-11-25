@@ -6,12 +6,14 @@
  */
 import type {
   Annotation,
+  AnnotationMeta,
   AnnotationResponse,
   AnnotationStatus,
   AnnotationType,
   AuditAction,
   AuditEntry,
   ResponseType,
+  UserAnnotationType,
   UserInfo,
 } from '../../premium-modals/settings/annotations/types';
 import type {
@@ -21,6 +23,7 @@ import type {
   GcdrAnnotationResponse,
   GcdrAnnotationType,
   GcdrCreateAnnotationInput,
+  GcdrUserAnnotationType,
   GcdrUserSnapshot,
 } from './types';
 
@@ -34,9 +37,12 @@ const GCDR_TO_LEGACY_TYPE: Record<GcdrAnnotationType, AnnotationType> = {
   pending: 'pending',
   maintenance: 'maintenance',
   activity: 'activity',
+  // ED-1412: server-only, read-only in the UI
+  system: 'system',
 };
 
-const LEGACY_TO_GCDR_TYPE: Record<AnnotationType, GcdrAnnotationType> = {
+/** `system` is server-only (ED-1412) — the legacy form never produces it. */
+const LEGACY_TO_GCDR_TYPE: Record<UserAnnotationType, GcdrUserAnnotationType> = {
   observation: 'observation',
   pending: 'pending',
   maintenance: 'maintenance',
@@ -119,6 +125,8 @@ export function adaptGcdrToLegacyAnnotation(g: GcdrAnnotation | GcdrAnnotationDe
     acknowledgedAt: approvedOrRejected?.createdAt,
     responses,
     history,
+    // ED-1412: keep the server payload (e.g. `system` annotations' from/to)
+    ...(g.meta && typeof g.meta === 'object' ? { meta: g.meta as AnnotationMeta } : {}),
   };
 }
 
@@ -132,7 +140,7 @@ export function adaptGcdrListToLegacyAnnotations(list: GcdrAnnotation[]): Annota
  * implicit in the TB device SERVER_SCOPE attribute path).
  */
 export function adaptLegacyToGcdrInput(
-  data: { text: string; type: AnnotationType; importance: number; dueDate?: string },
+  data: { text: string; type: UserAnnotationType; importance: number; dueDate?: string },
   entity: { entityType: string; entityId: string; customerId: string }
 ): GcdrCreateAnnotationInput {
   return {
