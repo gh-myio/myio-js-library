@@ -1,0 +1,12 @@
+{
+  "_meta": {
+    "central": "Goiabeiras Shopping (Soul Malls)",
+    "table": "channels",
+    "rowCount": 1,
+    "capturedAt": "2026-11-25 18:06 UTC",
+    "source": "dump-cadastro.py → ssh root@200:658:d18d:2fc2:26ce:e013:29ac:5831 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "plug", "channel": 0, "name": "MQTT Sync - 9a99a1e2-b6de-47b7-962e-8675c8e81721", "channel_id": null, "slave_id": 2, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2026-11-13T19:05:35.496615+00:00", "updated_at": "2026-11-13T19:05:35.496615+00:00"}
+  ]
+}

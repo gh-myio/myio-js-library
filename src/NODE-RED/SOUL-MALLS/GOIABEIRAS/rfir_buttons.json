@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "central": "Goiabeiras Shopping (Soul Malls)",
+    "table": "rfir_buttons",
+    "rowCount": 0,
+    "capturedAt": "2026-11-25 18:06 UTC",
+    "source": "dump-cadastro.py → ssh root@200:658:d18d:2fc2:26ce:e013:29ac:5831 · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+  ]
+}

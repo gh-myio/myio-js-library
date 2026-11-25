@@ -166,5 +166,6 @@ python -I -c "import json,collections;p=r'src\NODE-RED\RAIZ-EDUCACAO\\';L=lambda
 | 2026-11-16 | Central Shopping Taboão - 2026-10-19 | `src/NODE-RED/SHOPPING-TABOAO/CENTRAL-TABOAO/` | 324 slaves · 211 channels · 202 ambients · 324 rel · 0 devices_rel · rfir 0/0/0/0 |
 | 2026-11-22 | Central Deodoro - 2026-10-22 (backup antes da realocação p/ Mogi Shopping) | `src/NODE-RED/SUPERVIA/DEODORO/BKP-CADASTRO-2026-11-22/` | 56 slaves · 0 channels · 13 ambients · 53 rel · 0 devices_rel · rfir 7/7/40/34 |
 | 2026-11-24 | Central Ananindeua Entrada de Energia - 2026-11-16 (Sá Cavalcante) | `src/NODE-RED/SA-CAVALCANTE/ANANINDEUA-ENTRADA/` | 2 slaves · 1 channel · 3 ambients · 2 rel · 0 devices_rel · rfir 0/0/0/0 |
+| 2026-11-25 | Goiabeiras Shopping (Soul Malls) | `src/NODE-RED/SOUL-MALLS/GOIABEIRAS/` | 173 slaves · 1 channel · 173 ambients · 173 rel · 0 devices_rel · rfir 0/0/0/0 (1ª tentativa: timeout SSH, latência 0,2–1,5 s; 2ª ok) |
 
 > rfir = rfir_devices/remotes/commands/buttons.
