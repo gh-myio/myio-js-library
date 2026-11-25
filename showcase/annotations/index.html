@@ -412,6 +412,29 @@
               },
             ],
           },
+          // ED-1412: server-created, read-only "Sistema" annotation (GCDR G-1)
+          {
+            id: 'annot-004',
+            version: 1,
+            text: 'Limite de consumo atualizado automaticamente pelo sistema.',
+            type: 'system',
+            importance: 2,
+            status: 'created',
+            createdAt: new Date(Date.now() - 7200000).toISOString(),
+            createdBy: { id: 'system', email: 'system@gcdr.local', name: 'Sistema' },
+            acknowledged: false,
+            meta: { field: 'consumptionLimit', from: '1.200 kWh', to: '1.500 kWh' },
+            responses: [],
+            history: [
+              {
+                timestamp: new Date(Date.now() - 7200000).toISOString(),
+                userId: 'system',
+                userName: 'Sistema',
+                userEmail: 'system@gcdr.local',
+                action: 'created',
+              },
+            ],
+          },
         ];
       }
 

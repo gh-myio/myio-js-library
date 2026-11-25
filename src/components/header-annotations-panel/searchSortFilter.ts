@@ -153,6 +153,7 @@ export const FILTER_TYPE_OPTIONS: { id: AnnotationType; label: string; icon: str
   { id: 'pending', label: 'Pendência', icon: '⚠️' },
   { id: 'maintenance', label: 'Manutenção', icon: '🔧' },
   { id: 'activity', label: 'Atividade', icon: '✓' },
+  { id: 'system', label: 'Sistema', icon: '⚙️' }, // ED-1412: server-only, read-only
 ];
 
 export const FILTER_STATUS_OPTIONS: { id: AnnotationStatus; label: string }[] = [

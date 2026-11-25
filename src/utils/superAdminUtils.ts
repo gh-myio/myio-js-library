@@ -314,13 +314,17 @@ export async function getAnnotationPermissions(
  * @returns boolean - true if user can edit/archive the annotation
  */
 export function canModifyAnnotation(
-  annotation: { createdBy: UserInfo },
+  annotation: { createdBy: UserInfo; type?: string },
   permissions: {
     currentUser: UserInfo | null;
     isSuperAdminMyio: boolean;
     isSuperAdminHolding: boolean;
   }
 ): boolean {
+  // ED-1412: server-created `system` annotations are read-only for everyone,
+  // SuperAdmins included.
+  if (annotation.type === 'system') return false;
+
   // SuperAdmin MYIO can modify anything
   if (permissions.isSuperAdminMyio) return true;
 
