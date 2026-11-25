@@ -4953,19 +4953,26 @@ function _isTempOffline(it) {
 }
 
 // Builds the ColumnSummaryTooltip payload from the current STATE.itemsBase.
+// Chamado a cada hover (ColumnSummaryTooltip.attach) → segue o modo kWh/m³ ↔ R$ atual.
+// ED-1406: modo R$ com cobertura completa → valores, total e média em R$ ("Custo médio/total");
+// incompleta → físico + "Cobertura incompleta (n de m)" (moneyCoverage). Mesma base do ED-1405.
 function _buildColumnSummaryData() {
   const isTemp = WIDGET_DOMAIN === 'temperature';
-  const devices = (STATE.itemsBase || []).map((it) => ({
+  const list = STATE.itemsBase || [];
+  const base = isTemp ? null : _filterValueBase(list);
+  const devices = list.map((it) => ({
     name: it.label || it.identifier || it.id || 'Sem nome',
-    value: Number(it.value) || 0,
+    value: base ? base.valueOf(it) : Number(it.value) || 0,
     ...(isTemp ? { offline: _isTempOffline(it) } : {}),
   }));
   return {
     title: (self.ctx && self.ctx.settings && self.ctx.settings.labelWidget) || '',
     periodLabel: _buildPeriodLabel(),
-    unit: _getExportUnit(),
+    unit: base && base.money ? '' : _getExportUnit(),
     devices: devices,
-    formatValue: _fmtDeviceValue,
+    formatValue: base && base.money ? base.fmt : _fmtDeviceValue,
+    ...(base && base.money ? { measureLabel: 'Custo' } : {}),
+    ...(base && base.coverage ? { moneyCoverage: base.coverage } : {}),
     // Temperatura: "Temperatura média" + mín/máx dos online; sem total, pizza ou %
     ...(isTemp ? { mode: 'average', measureLabel: 'Temperatura' } : {}),
   };
@@ -5001,9 +5008,10 @@ function _fmtPct(value, total) {
 let _filterRangeBase = null;
 
 // ED-1405 (RFC-0241 Part B): base de valor da modal de filtro — lista (data-value, %,
-// ordenação, Faixa) e Resumo. R$ só com cobertura COMPLETA (mesma regra do total do grupo,
-// renderHeader); incompleta → físico + "Cobertura incompleta (n de m)"; valoração pendente
-// ou modo físico → físico sem marcador. Nunca uma média/participação em R$ parcial.
+// ordenação, Faixa) e Resumo — e, desde o ED-1406, do tooltip (i) "Resumo — <coluna>".
+// R$ só com cobertura COMPLETA (mesma regra do total do grupo, renderHeader); incompleta →
+// físico + "Cobertura incompleta (n de m)"; valoração pendente ou modo físico → físico sem
+// marcador. Nunca uma média/participação em R$ parcial.
 function _filterValueBase(list) {
   const moneyTotal = _isMoneyMode() ? window.MyIOUtils.formatMoneyTotal?.(list || [], WIDGET_DOMAIN) : null;
   const fmtBRL = window.MyIOLibrary?.formatMoneyBRL;
@@ -5014,10 +5022,14 @@ function _filterValueBase(list) {
   return {
     money,
     marker: !money && moneyTotal ? moneyTotal.markerHTML || '' : '',
+    // ED-1406: o mesmo "n de m" para o tooltip (a lib monta o marcador)
+    coverage: !money && moneyTotal ? { covered: moneyTotal.covered, total: moneyTotal.total } : null,
     valueOf,
     total: money ? Number(moneyTotal.amount) || 0 : (list || []).reduce((s, it) => s + valueOf(it), 0),
-    // formatMoneyBRL recebe string decimal (arredonda half-up na exibição)
-    fmtAvg: money ? (n) => fmtBRL(Number(n).toFixed(6)) : _fmtDeviceValue,
+    // formatMoneyBRL recebe string decimal (arredonda half-up na exibição). 9 casas preservam o
+    // meio centavo exato (ex.: 12.345) e só divergem do amount exato (card / total do grupo,
+    // 12 casas) quando o valor está a ~1e-9 de uma fronteira de meio centavo.
+    fmt: money ? (n) => fmtBRL(Number(n).toFixed(9)) : _fmtDeviceValue,
   };
 }
 
@@ -5092,7 +5104,7 @@ function _renderFilterStats($m, list, base) {
     <div class="filter-stats-head">📊 ${head}${base.marker}</div>
     <div class="filter-stats-avg">
       <span class="filter-stats-avg-label">Média (${items.length})</span>
-      <span class="filter-stats-avg-val">${escapeHtml(base.fmtAvg(avg))}</span>
+      <span class="filter-stats-avg-val">${escapeHtml(base.fmt(avg))}</span>
     </div>
     <div class="filter-stats-group">
       <span class="filter-stats-group-label">▲ 3 maiores</span>

@@ -1,11 +1,13 @@
 /**
  * ED-1405 — modal "Filtros & Ordenação" do TELEMETRY (v5.2.0) no modo R$.
+ * ED-1406 — tooltip (i) "Resumo — <coluna>" (header da coluna + modal) no modo R$.
  *
  * Executa as FUNÇÕES REAIS do controller num sandbox. A "MAIN" também é real:
  * getItemMoney / formatMoneyTotal / formatItemValue extraídos do MAIN_VIEW, com o estado
  * da valoração stubado e os helpers reais da lib (sumItemMoney, formatBRL, …).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import { ColumnSummaryTooltip } from '../../src/utils/tooltips/ColumnSummaryTooltip';
 import { extractFunction, readControllerSource } from './helpers/extractControllerFunction';
 import {
   buildMoneyCoverageMarkerHTML,
@@ -39,7 +41,17 @@ const TLM_FUNCTIONS = [
   '_filterValueLabels',
   '_renderFilterStats',
   '_renderTemperatureFilterStats',
+  '_buildPeriodLabel',
+  '_buildColumnSummaryData',
 ];
+
+// self.ctx do widget (título da coluna + período do dashboard)
+const SELF = {
+  ctx: {
+    settings: { labelWidget: 'Lojas' },
+    scope: { startDateISO: '2026-11-01T00:00:00-03:00', endDateISO: '2026-11-25T23:59:59-03:00' },
+  },
+};
 
 /** getItemMoney / formatMoneyTotal / formatItemValue REAIS da MAIN_VIEW. */
 function makeMainMoney(win: any, mode: string, byKey: Map<string, Money> | null) {
@@ -64,6 +76,8 @@ function makeTelemetry(opts: {
   money?: Record<string, Money>;
   /** valoração do período pronta (false = MAIN ainda calculando) */
   ready?: boolean;
+  /** STATE.itemsBase (tooltip da coluna) */
+  items?: unknown[];
 }) {
   const win: any = {
     MyIOLibrary: { sumItemMoney, formatMoneyBRL: formatBRL, buildMoneyCoverageMarkerHTML, formatItemMoney },
@@ -79,11 +93,15 @@ function makeTelemetry(opts: {
   const body =
     TLM_FUNCTIONS.map((n) => extractFunction(TLM_SRC, n)).join('\n') +
     `\nreturn { ${TLM_FUNCTIONS.join(', ')} };`;
+  const STATE = { itemsBase: opts.items || [] };
   // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-  return new Function('window', 'WIDGET_DOMAIN', 'MyIO', body)(win, opts.domain, undefined) as Record<
-    string,
-    (...a: any[]) => any
-  >;
+  return new Function('window', 'WIDGET_DOMAIN', 'MyIO', 'STATE', 'self', body)(
+    win,
+    opts.domain,
+    undefined,
+    STATE,
+    SELF
+  ) as Record<string, (...a: any[]) => any>;
 }
 
 /** $m falso: só o card do resumo. */
@@ -325,5 +343,151 @@ describe('ED-1405 — rótulos da Faixa / ordenação', () => {
       sortDesc: 'Temperatura ↓',
       sortAsc: 'Temperatura ↑',
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ED-1406 — tooltip (i) "Resumo — <coluna>"
+// ---------------------------------------------------------------------------
+/** Mostra o tooltip REAL da lib com o payload do controller e lê um KPI pelo rótulo. */
+function showTooltip(data: Parameters<typeof ColumnSummaryTooltip.show>[1]) {
+  const trigger = document.createElement('span');
+  document.body.appendChild(trigger);
+  ColumnSummaryTooltip.show(trigger, data);
+  const kpi = (label: string) =>
+    [...document.querySelectorAll('.myio-col-summary__kpi')]
+      .find((k) => k.querySelector('.myio-col-summary__kpi-label')?.textContent?.trim() === label)
+      ?.querySelector('.myio-col-summary__kpi-value')
+      ?.textContent?.trim();
+  const rows = (label: string) => {
+    const group = [...document.querySelectorAll('.myio-col-summary__group')].find((g) =>
+      g.querySelector('.myio-col-summary__group-label')?.textContent?.includes(label)
+    );
+    return [...(group?.querySelectorAll('.myio-col-summary__row') || [])].map((r) =>
+      [...r.querySelectorAll('span')].map((s) => s.textContent?.trim()).join(' | ')
+    );
+  };
+  return { kpi, rows, text: document.body.textContent || '' };
+}
+
+describe('ED-1406 — tooltip (i) da coluna', () => {
+  afterEach(() => {
+    ColumnSummaryTooltip.hide();
+    document.body.innerHTML = '';
+  });
+
+  it('modo físico: o mesmo payload de antes (kWh, _fmtDeviceValue, sem campos novos)', () => {
+    const sb = makeTelemetry({ domain: 'energy', mode: 'physical', money: STORES_MONEY, items: STORES });
+    const data = sb._buildColumnSummaryData();
+    expect(Object.keys(data)).toEqual(['title', 'periodLabel', 'unit', 'devices', 'formatValue']);
+    expect(data.title).toBe('Lojas');
+    expect(data.periodLabel).toBe('01/11/2026 — 25/11/2026');
+    expect(data.unit).toBe('kWh');
+    expect(data.formatValue).toBe(sb._fmtDeviceValue);
+    expect(data.devices.map((d: any) => d.value)).toEqual([200, 100, 50, 1500, 0, 300]);
+  });
+
+  it('modo R$ com a valoração pendente → igual ao físico', () => {
+    const sb = makeTelemetry({
+      domain: 'energy',
+      mode: 'money',
+      money: STORES_MONEY,
+      ready: false,
+      items: STORES,
+    });
+    const data = sb._buildColumnSummaryData();
+    expect(Object.keys(data)).toEqual(['title', 'periodLabel', 'unit', 'devices', 'formatValue']);
+    expect(data.formatValue).toBe(sb._fmtDeviceValue);
+    expect(data.devices.map((d: any) => d.value)).toEqual([200, 100, 50, 1500, 0, 300]);
+  });
+
+  it('modo R$ completo: payload em R$ ("Custo"), sem marcador de cobertura', () => {
+    const sb = makeTelemetry({ domain: 'energy', mode: 'money', money: STORES_MONEY, items: STORES });
+    const data = sb._buildColumnSummaryData();
+    expect(data.unit).toBe('');
+    expect(data.measureLabel).toBe('Custo');
+    expect(data.moneyCoverage).toBeUndefined();
+    expect(data.mode).toBeUndefined();
+    expect(data.devices.map((d: any) => d.value)).toEqual([100, 150, 10, 900, 0, 40]);
+    expect(data.formatValue(900)).toBe('R$ 900,00');
+  });
+
+  it('modo R$ completo: tooltip inteiro em R$ e "Custo total" = total do cabeçalho (formatMoneyTotal)', () => {
+    const sb = makeTelemetry({ domain: 'energy', mode: 'money', money: STORES_MONEY, items: STORES });
+    const t = showTooltip(sb._buildColumnSummaryData());
+    const headerTotal = formatBRL(sumItemMoney(Object.values(STORES_MONEY)).amount); // = renderHeader
+    expect(t.kpi('Custo total')).toBe(headerTotal);
+    expect(t.kpi('Custo total')).toBe('R$ 1.200,00');
+    expect(t.kpi('Custo médio')).toBe('R$ 200,00');
+    expect(t.rows('3 maiores')).toEqual([
+      'C&A | R$ 900,00 | 75,00%',
+      'Loja L2 | R$ 150,00 | 12,50%',
+      'Loja L1 | R$ 100,00 | 8,33%',
+    ]);
+    expect(t.text).toContain('Custo Total · 6 dispositivos');
+    expect(t.text).not.toMatch(/kWh|MWh|Consumo/);
+  });
+
+  // Limite conhecido (documentado em _filterValueBase): diverge só a ~1e-9 de uma fronteira de
+  // meio centavo (ex.: '0.004999999999' → R$ 0,01 no tooltip, R$ 0,00 no card).
+  it('valor de cada device igual ao do card/lista (amount exato, 12 casas), inclusive meio centavo exato', () => {
+    const money = {
+      ...STORES_MONEY,
+      'ING-L1': complete('12.345'), // meio centavo exato → R$ 12,35 (toFixed(6/9) não perde)
+      'ING-L2': complete('36208.744123456789'), // 12 casas, como sai da valoração
+      'ING-L3': complete('0.004871000000'),
+    };
+    const sb = makeTelemetry({ domain: 'energy', mode: 'money', money, items: STORES });
+    const data = sb._buildColumnSummaryData();
+    for (const [i, key] of [
+      [0, 'ING-L1'],
+      [1, 'ING-L2'],
+      [2, 'ING-L3'],
+    ] as const) {
+      expect(data.formatValue(data.devices[i].value)).toBe(formatItemMoney(money[key]));
+    }
+    expect(data.formatValue(data.devices[0].value)).toBe('R$ 12,35');
+    expect(data.formatValue(data.devices[1].value)).toBe('R$ 36.208,74');
+  });
+
+  it('modo R$ incompleto: físico + "Cobertura incompleta (n de m)", nenhum R$', () => {
+    const money = { ...STORES_MONEY, 'ING-L3': missing };
+    const sb = makeTelemetry({ domain: 'energy', mode: 'money', money, items: STORES });
+    const data = sb._buildColumnSummaryData();
+    expect(data.unit).toBe('kWh');
+    expect(data.formatValue).toBe(sb._fmtDeviceValue);
+    expect(data.measureLabel).toBeUndefined();
+    expect(data.moneyCoverage).toEqual({ covered: 5, total: 6 });
+    expect(data.devices.map((d: any) => d.value)).toEqual([200, 100, 50, 1500, 0, 300]);
+    const t = showTooltip(data);
+    expect(t.kpi('Consumo total')).toBe('2,150 MWhCobertura incompleta (5 de 6)');
+    expect(t.text).not.toContain('R$');
+  });
+
+  it('água (m³ → R$) completa: tooltip em R$', () => {
+    const sb = makeTelemetry({ domain: 'water', mode: 'money', money: WATER_MONEY, items: WATER });
+    const t = showTooltip(sb._buildColumnSummaryData());
+    expect(t.kpi('Custo total')).toBe('R$ 100,00');
+    expect(t.kpi('Custo médio')).toBe('R$ 33,33');
+    expect(t.text).not.toContain('m³');
+  });
+
+  it('temperatura com o modo R$ ligado → inalterado (modo average)', () => {
+    const sb = makeTelemetry({ domain: 'temperature', mode: 'money', items: TEMPS });
+    const data = sb._buildColumnSummaryData();
+    expect(Object.keys(data)).toEqual([
+      'title',
+      'periodLabel',
+      'unit',
+      'devices',
+      'formatValue',
+      'mode',
+      'measureLabel',
+    ]);
+    expect(data.unit).toBe('°C');
+    expect(data.mode).toBe('average');
+    expect(data.measureLabel).toBe('Temperatura');
+    expect(data.formatValue).toBe(sb._fmtDeviceValue);
+    expect(data.devices.map((d: any) => d.offline)).toEqual([false, false, true, false]);
   });
 });

@@ -15,6 +15,7 @@
 
 import { InfoTooltip } from './InfoTooltip';
 import { resolvePercentDecimals } from '../percentDecimals';
+import { buildMoneyCoverageMarkerHTML } from '../../components/financial-goals/moneyDisplay';
 
 // ============================================
 // Types
@@ -46,8 +47,16 @@ export interface ColumnSummaryData {
    * contagem "N online · M offline" e seção de offline/sem leitura.
    */
   mode?: 'consumption' | 'average';
-  /** Rótulo da grandeza no modo 'average' (default 'Temperatura'). */
+  /**
+   * Rótulo da grandeza: modo 'average' → "<rótulo> média" (default 'Temperatura');
+   * modo 'consumption' → "<rótulo> médio / total" (default 'Consumo'; ex.: 'Custo' no modo R$).
+   */
   measureLabel?: string;
+  /**
+   * Modo R$ com cobertura incompleta (RFC-0241 Part B): os valores seguem físicos e o total
+   * ganha o marcador "Cobertura incompleta (covered de total)". Ausente → sem marcador.
+   */
+  moneyCoverage?: { covered: number; total: number };
 }
 
 // Slice palette for the pie chart — 14 distinct hues, cycled.
@@ -449,6 +458,8 @@ function buildInner(): string {
   const count = visible.length;
   const total = visible.reduce((s, v) => s + (Number(v.d.value) || 0), 0);
   const avg = count ? total / count : 0;
+  const measure = data.measureLabel || 'Consumo';
+  const coverage = data.moneyCoverage ? buildMoneyCoverageMarkerHTML(data.moneyCoverage) : '';
 
   const periodRow = data.periodLabel
     ? `<div class="myio-col-summary__kpi">
@@ -464,14 +475,14 @@ function buildInner(): string {
         <span class="myio-col-summary__kpi-value">${count}</span>
       </div>
       <div class="myio-col-summary__kpi">
-        <span class="myio-col-summary__kpi-label">Consumo médio</span>
+        <span class="myio-col-summary__kpi-label">${esc(measure)} médio</span>
         <span class="myio-col-summary__kpi-value myio-col-summary__kpi-value--accent">${esc(
           fmt(avg)
         )}</span>
       </div>
       <div class="myio-col-summary__kpi">
-        <span class="myio-col-summary__kpi-label">Consumo total</span>
-        <span class="myio-col-summary__kpi-value">${esc(fmt(total))}</span>
+        <span class="myio-col-summary__kpi-label">${esc(measure)} total</span>
+        <span class="myio-col-summary__kpi-value">${esc(fmt(total))}${coverage}</span>
       </div>
     </div>`;
 
@@ -521,8 +532,8 @@ function buildInner(): string {
       </div>
     </div>
     <div class="myio-col-summary__footer">
-      <span class="myio-col-summary__footer-label">Consumo Total · ${count} dispositivos</span>
-      <span class="myio-col-summary__footer-value">${esc(fmt(total))}</span>
+      <span class="myio-col-summary__footer-label">${esc(measure)} Total · ${count} dispositivos</span>
+      <span class="myio-col-summary__footer-value">${esc(fmt(total))}${coverage}</span>
     </div>`;
 }
 
