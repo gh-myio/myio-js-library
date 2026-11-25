@@ -1,0 +1,12 @@
+{
+  "_meta": {
+    "central": "Central Ananindeua Entrada de Energia - 2026-11-16 (Sá Cavalcante)",
+    "table": "channels",
+    "rowCount": 1,
+    "capturedAt": "2026-11-24 23:18 UTC",
+    "source": "dump-cadastro.py → ssh root@202:87dc:a0a4:6ee2:89b2:b4e8:e2c3:270b · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "plug", "channel": 0, "name": "MQTT Sync - 6df15587-524a-474a-9076-54174840185b", "channel_id": null, "slave_id": 2, "scene_up_id": null, "scene_down_id": null, "config": {"confirm": false}, "created_at": "2026-11-24T23:15:23.716308+00:00", "updated_at": "2026-11-24T23:15:23.716308+00:00"}
+  ]
+}

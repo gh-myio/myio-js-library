@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "central": "Central Ananindeua Entrada de Energia - 2026-11-16 (Sá Cavalcante)",
+    "table": "slaves",
+    "rowCount": 2,
+    "capturedAt": "2026-11-24 23:18 UTC",
+    "source": "dump-cadastro.py → ssh root@202:87dc:a0a4:6ee2:89b2:b4e8:e2c3:270b · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"id": 1, "type": "three_phase_sensor", "addr_low": 248, "addr_high": 249, "channels": 3, "name": "3F ENTRADA SCMPAC-Entrada Geral x1390 x40.5A x36.25V", "color": null, "code": "002-002-002-015", "clamp_type": null, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": {"config_clamp": {"confirmed": true, "value": 0}}, "created_at": "2026-09-04T00:25:53.877958+00:00", "updated_at": "2026-11-14T14:56:18.639+00:00"},
+    {"id": 2, "type": "outlet", "addr_low": 200, "addr_high": 249, "channels": 1, "name": "MQTT Sync - 6df15587-524a-474a-9076-54174840185b", "color": null, "code": "002-002-002-012", "clamp_type": null, "aggregate": true, "version": "6.0.0", "temperature_correction": null, "config": {"virtual": true, "source": "mqttSyncStatus"}, "created_at": "2026-11-24T23:15:23.716308+00:00", "updated_at": "2026-11-24T23:15:23.716308+00:00"}
+  ]
+}
