@@ -63,6 +63,12 @@ export interface AllReportMoneyConfig {
    * coverage). Absent → the report treats `id in perDevice` as in scope.
    */
   itemMoney?: (deviceId: string) => { state: string; amount?: string; reason?: string } | null;
+  /**
+   * ED-1390 — years whose tariff trees were loaded for the valuation (the years spanned by
+   * the dashboard period). A report that prices its own buckets (Report Device) stays in R$
+   * for any period inside these years; outside them there is no tariff to price with.
+   */
+  tariffYears?: number[];
 }
 
 export interface DateRange { 
@@ -102,7 +108,10 @@ export type EnergyFetcher = (args: {
   ingestionId: string;
   startISO: string;
   endISO: string;
-  /** Granularidade selecionada na modal (fetchers customizados podem honrar 1h/1d). */
+  /**
+   * Granularidade pedida (fetchers customizados podem honrar 1h/1d). No modo R$ do Report
+   * Device é sempre '1h' e a série precisa voltar horária — senão o relatório sai físico.
+   */
   granularity?: '1d' | '1h';
 }) => Promise<any>;
 
@@ -116,7 +125,22 @@ export interface OpenDeviceReportParams {
   granularity?: '1d' | '1h'; // API data granularity (default: '1d')
   ui?: BaseUiCfg;
   api: BaseApiCfg;
-  fetcher?: EnergyFetcher; // Optional dependency injection for testing
+  /**
+   * Optional dependency injection (tests / non-Ingestion sources). With `money`, the R$ mode
+   * calls it with `granularity: '1h'` in chunks of up to 10 days and REQUIRES an hourly (or
+   * finer) series back: if the smallest gap between consecutive points is > 1 h (e.g. the
+   * fetcher ignores `granularity` and returns one point per day), the report falls back to
+   * physical + notice — never an R$ value marked complete from mis-bucketed data.
+   */
+  fetcher?: EnergyFetcher;
+  /**
+   * ED-1390 (RFC-0241 Part B) — R$ mode. Present (energy/water) → the whole report is in R$:
+   * each hour is priced with `valuateBucket` (exact under hourly bands), days are the sum of
+   * their hours. Falls back to the physical report + notice when: `itemMoney(ingestionId) ===
+   * null` (e.g. Entrada/Transformadores); the period is outside `tariffYears`; or the fetcher
+   * did not return an hourly series (see `fetcher`). Absent → physical (unchanged).
+   */
+  money?: AllReportMoneyConfig;
 }
 
 // Customer Totals fetcher type for dependency injection

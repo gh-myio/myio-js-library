@@ -10,8 +10,11 @@
 - **Revision 4 (2026-11-24, ED-1391):** in money mode the All Report (MENU → Relatórios and HEADER) is entirely in R$;
   devices outside the valuation (Entrada / Transformadores) are "não valorado" and out of the R$ total — see
   [§5.6.2](#562-rev-4-ed-1391--all-report-100-in-r).
+- **Revision 5 (2026-11-24, ED-1390):** in money mode the Report Device (card → Relatório) is entirely in R$; each hour
+  is priced at its own price and a day is the sum of its hours — see
+  [§5.6.3](#563-rev-5-ed-1390--report-device-100-in-r).
 - **Branch:** `feat/rfc-0241-goals-tariffs-v520` (Phases 1–4, merged); Phase 5 in a worktree on top of `desenv` `e4e99ac7`
-- **Jira:** ED-1389 (rev. 3), ED-1391 (rev. 4)
+- **Jira:** ED-1389 (rev. 3), ED-1391 (rev. 4), ED-1390 (rev. 5)
 - **Related RFCs:** RFC-0222 (Pricing Panel), RFC-0228 (Financial Goals gap & rollout index, Track A), RFC-0225 / RFC-0227
   (Metas period KPI, compare modal, onboarding guide), RFC-0217 (CustomerGoalsCard), RFC-0215 (Settings hub in the
   library), RFC-0108 (measurement display settings + `myio:measurement-settings-updated`), RFC-0233 (`restrict_view`),
@@ -507,6 +510,31 @@ path byte-identical. Shared components gained optional, absent-is-identical prop
 `tests/components/premium-modals/allReportMoneyMode.test.ts`, `allReportMoneyExport.test.ts`,
 `filterOrderingModalMoney.test.ts`.
 
+#### 5.6.3 Rev. 5 (ED-1390) — Report Device 100% in R$
+
+Before rev. 5 the single-device report (`DeviceReportModal`, opened from the TELEMETRY card) stayed physical. Owner
+decisions (ED-1390), which **supersede the DeviceReportModal row of §5.7** for energy/water in money mode. TELEMETRY
+(`:3917`) passes `money = MyIOUtils.getReportMoney(domain)` read at click time; it is null outside money mode or while MAIN
+is valuating (the report then opens physical).
+
+| Situation (money mode, `params.money` present) | Shown |
+|---|---|
+| Hour row (1h) | the hour priced at its own price (`valuateBucket`, hourly bands exact); kWh/m³ only in the `title` |
+| Day row (1d) | **sum of the day's hours** (the report fetches the hourly series in chunks of ≤ 10 days); complete only when every hour is complete — a single 24 h bucket would be `needs-hourly` under hourly bands |
+| Row without tariff / partial / uncategorized | `-` + chip ("Sem tarifa" / "Tarifa parcial" / "Sem categoria") — exports: `-` + reason |
+| Row without any reading | `-` + "Sem dados"; outside the coverage count (never `R$ 0`) |
+| Total / KPIs | Custo estimado total = `round(Σ raw)` of the rows with data only when all are complete, else `-` + "Cobertura incompleta (n de m)" · Média por Dia / por Hora · {Dia, Hora} com Maior / Menor Custo · Dias/Horas sem Consumo (count) · Dias/Horas sem tarifa (count, when > 0) |
+| Chart | "Custo por Dia": bars and % by **cost**; days without complete R$ are left out with a note |
+| CSV / PDF / XLS | value column "Custo estimado (R$)" (`-` when no R$, reason column/note); PDF/XLS "% do custo" only with complete coverage; "Unidade: R$" |
+| Period | the picker opens on the dashboard period (`money.period`); any other period stays in R$ while it is inside the years whose tariffs were loaded (`money.tariffYears`) |
+| Device outside the valuation (Entrada / Transformadores, `itemMoney(id) === null`) | physical report + notice "Entrada e transformadores não são valorados em R$" (same as the card) |
+| Period outside `tariffYears` | physical report + notice |
+
+Consequence accepted by the owner: under hourly bands the report total can be complete while the card shows "Tarifa
+parcial" (the card prices whole-period totals, which cannot resolve hourly bands). Implementation: pure layer
+`premium-modals/report-device/deviceReportMoneyView.ts`; `DeviceReportModal` gates on `moneyActive` per load; no `money`
+→ physical path byte-identical. Tests: `tests/components/premium-modals/deviceReportMoney.test.ts`.
+
 #### 5.7 Per-widget reaction (v-5.2.0)
 
 | Widget | Change |
@@ -520,7 +548,7 @@ path byte-identical. Shared components gained optional, absent-is-identical prop
 | **MENU** | Only the hub item (Part A). No value rendering. |
 | **ALARM** | No change. |
 | **Reports** (Reports Hub → AllReportModal; HEADER "Relatório Consumo Geral") | **rev. 2.** Physical stays primary. In money mode MAIN passes `params.money = buildReportMoneyConfig(result, { period })` (via `MyIOOrchestrator.getReportMoney` → Reports Hub adapter, and `MyIOUtils.getReportMoney` in HEADER), enabling the RFC-0228 A6 column with header **"Custo estimado (R$)"** (the A6 default "Custo projetado (R$)" stays for RFC-0228 callers). **Exports** (previously screen-only): CSV (daily and hourly), PDF and XLS get the R$ column after the physical one; a non-complete row has an **empty** cell, the total is `round(Σ raw)` of exactly the rows shown (`totalFor(ids)`) and only when every row is complete, else "Cobertura incompleta (n de m)". **Consolidado** rows use MAIN's per-device period value; **Diário/Horário** rows (row expansion + hourly CSV) are valued per bucket with the pure valuator (`valuateBucket`) at the price effective at the row's timestamp — hourly bands are exact there (no extra fetch); the per-device subtotal is the sum of buckets only if all are complete. The report loading a different period than the dashboard → R$ withheld (`PERIOD_MISMATCH`). Physical-mode exports byte-identical (tested). **Rev. 4 (ED-1391):** in money mode the report is entirely in R$ (no physical column) and non-valued devices stay out of the total — see §5.6.2. |
-| **DeviceReportModal / charts / energy modal / GoalsModal** | Unchanged in v1 (physical). Money in the single-device report and money charts are **follow-ups**. |
+| **DeviceReportModal / charts / energy modal / GoalsModal** | Unchanged in v1 (physical). **Rev. 5 (ED-1390):** the single-device report is entirely in R$ in money mode — see §5.6.3. Other money charts, the energy modal and GoalsModal remain **follow-ups**. |
 
 ### 6. Security and permissions
 
