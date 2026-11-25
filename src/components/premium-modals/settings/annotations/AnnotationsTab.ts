@@ -42,6 +42,7 @@ import { MyIOToast } from '../../../../components/MyIOToast';
 import { createDateRangePicker, type DateRangeControl } from '../../../../components/createDateRangePicker';
 import { ModalHeader } from '../../../../utils/ModalHeader';
 import { escapeHtml } from '../../../../utils/HTMLBuilder';
+import { createGcdrAnnotationsClient } from '../../../gcdr-annotations/v1.0.0/GcdrAnnotationsClient';
 import { version as LIB_VERSION } from '../../../../index';
 
 // ============================================
@@ -3180,6 +3181,9 @@ export class AnnotationsTab {
 
   // RFC-0144: Controls whether onboarding tour is shown
   private enableAnnotationsOnboarding: boolean = false;
+  // ED-1413: GCDR access for read-only `system` annotations + ids that must not be persisted in TB
+  private gcdrSystem?: AnnotationsTabConfig['gcdrSystem'];
+  private gcdrReadOnlyIds: Set<string> = new Set();
 
   // Onboarding Tour State (RFC-0144)
   private tourCurrentStep: number = 0;
@@ -3202,6 +3206,12 @@ export class AnnotationsTab {
     this.permissions = config.permissions;
     this.onAnnotationChange = config.onAnnotationChange;
     this.enableAnnotationsOnboarding = config.enableAnnotationsOnboarding ?? false; // RFC-0144
+    this.gcdrSystem = config.gcdrSystem; // ED-1413
+  }
+
+  /** Non-archived annotations currently listed (TB + GCDR `system`) — used for the tab badge. */
+  public getActiveCount(): number {
+    return this.annotations.filter((a) => a.status !== 'archived').length;
   }
 
   // ============================================
@@ -3210,8 +3220,11 @@ export class AnnotationsTab {
 
   public async init(): Promise<void> {
     this.injectStyles();
-    await this.loadAnnotations();
+    await this.loadTbAnnotations();
     this.render();
+    // ED-1413: GCDR `system` annotations join after the TB list is on screen,
+    // so a slow/unavailable GCDR (the client retries 5xx) never delays the tab.
+    if (await this.mergeGcdrSystemAnnotations()) this.render();
     // RFC-0144: Onboarding is triggered via onTabActivated() when user switches to this tab
   }
 
@@ -3782,7 +3795,54 @@ export class AnnotationsTab {
   // DATA METHODS
   // ============================================
 
-  private async loadAnnotations(): Promise<void> {
+  /**
+   * ED-1413: appends the device's GCDR `system` annotations (read-only) to the
+   * TB list. Their ids go to `gcdrReadOnlyIds` so `saveAnnotations` never
+   * writes them into `log_annotations`. Failures keep the TB list as is.
+   * Resolves `true` when something was added (caller re-renders).
+   */
+  private async mergeGcdrSystemAnnotations(): Promise<boolean> {
+    this.gcdrReadOnlyIds = new Set();
+    const cfg = this.gcdrSystem;
+    if (!cfg?.gcdrDeviceId || !cfg.domainPath || !cfg.apiKey) return false;
+
+    try {
+      const baseFetch: typeof fetch = cfg.fetchImpl ?? globalThis.fetch.bind(globalThis);
+      // GcdrAnnotationsClient sends X-API-Key only; the other GCDR tabs also send X-Tenant-ID.
+      const tenantId = cfg.tenantId;
+      const fetchImpl: typeof fetch = tenantId
+        ? (input, init = {}) => {
+            const headers = new Headers(init.headers);
+            if (!headers.has('X-Tenant-ID')) headers.set('X-Tenant-ID', tenantId);
+            return baseFetch(input, { ...init, headers });
+          }
+        : baseFetch;
+
+      const client = createGcdrAnnotationsClient({
+        domainPath: cfg.domainPath,
+        auth: { apiKey: cfg.apiKey },
+        fetchImpl,
+      });
+      const list = await client.listByEntity('device', cfg.gcdrDeviceId, {
+        type: 'system',
+        includeArchived: false,
+      });
+
+      const known = new Set(this.annotations.map((a) => a.id));
+      const system = client
+        .toLegacyAnnotations(list)
+        .filter((a) => isSystemAnnotation(a) && !known.has(a.id));
+      if (system.length === 0) return false;
+      system.forEach((a) => this.gcdrReadOnlyIds.add(a.id));
+      this.annotations = [...this.annotations, ...system];
+      return true;
+    } catch (error) {
+      console.warn('[AnnotationsTab] ED-1413: failed to load GCDR system annotations:', error);
+      return false;
+    }
+  }
+
+  private async loadTbAnnotations(): Promise<void> {
     try {
       const response = await fetch(
         `${this.tbBaseUrl}/api/plugins/telemetry/DEVICE/${this.deviceId}/values/attributes/SERVER_SCOPE?keys=log_annotations`,
@@ -3961,7 +4021,8 @@ export class AnnotationsTab {
         deviceId: this.deviceId,
         lastModified: new Date().toISOString(),
         lastModifiedBy: this.currentUser,
-        annotations: this.annotations,
+        // ED-1413: GCDR `system` annotations are display-only — never persisted in TB
+        annotations: this.annotations.filter((a) => !this.gcdrReadOnlyIds.has(a.id)),
       };
 
       const response = await fetch(

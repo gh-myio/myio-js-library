@@ -1,4 +1,4 @@
-import { OpenDashboardPopupSettingsParams, PersistResult, SettingsEvent } from './types';
+import { OpenDashboardPopupSettingsParams, PersistResult, SaveMeta, SettingsEvent } from './types';
 import { SettingsModalView } from './SettingsModalView';
 import { DefaultSettingsPersister } from './SettingsPersister';
 import { DefaultSettingsFetcher } from './SettingsFetcher';
@@ -9,6 +9,12 @@ import {
   mergeTwinCommercial,
   pickCommercial,
 } from './commercialTwin';
+import {
+  buildLabelChangeEntry,
+  flushPendingDeviceChanges,
+  recordDeviceChange,
+  type DeviceChangesDeps,
+} from './device-changes/deviceChangesQueue';
 
 export class SettingsController {
   /** Device(s) gêmeo(s) da loja (3F_MEDIDOR ↔ HIDROMETRO, mesmo identifier) — recebem os dados comerciais no save. */
@@ -17,6 +23,8 @@ export class SettingsController {
   private persister: DefaultSettingsPersister;
   private fetcher: DefaultSettingsFetcher;
   private params: OpenDashboardPopupSettingsParams;
+  /** ED-1413: GCDR device id — from params or, like the view, the SERVER_SCOPE attribute. */
+  private gcdrDeviceId: string | null = null;
 
   constructor(params: OpenDashboardPopupSettingsParams) {
     this.params = params;
@@ -75,6 +83,7 @@ export class SettingsController {
       gcdrCustomerId: params.gcdrCustomerId,
       gcdrTenantId: params.gcdrTenantId,
       gcdrApiBaseUrl: params.gcdrApiBaseUrl,
+      gcdrApiKey: params.gcdrApiKey,
       prefetchedBundle: params.prefetchedBundle,
       prefetchedAlarms: params.prefetchedAlarms,
       prefetchedRules: params.prefetchedRules,
@@ -145,7 +154,58 @@ export class SettingsController {
 
     initialData = await this.loadCommercialTwins(initialData);
 
+    this.gcdrDeviceId = this.params.gcdrDeviceId || initialData.gcdrDeviceId || null;
+
     this.view.render(initialData);
+
+    // ED-1413: re-send label changes whose GCDR registration is still pending
+    // (same changeId → idempotent). Background; never blocks the modal.
+    void flushPendingDeviceChanges(this.deviceChangesDeps()).catch((error) =>
+      console.warn('[SettingsModal] ED-1413: flush of pending device changes failed:', error)
+    );
+  }
+
+  /** ED-1413: same GCDR credentials as the modal's other GCDR tabs (params → MyIOOrchestrator). */
+  private deviceChangesDeps(): DeviceChangesDeps {
+    const orch = (window as any).MyIOOrchestrator || {};
+    return {
+      api: {
+        gcdrApiBaseUrl: this.params.gcdrApiBaseUrl,
+        gcdrApiKey: this.params.gcdrApiKey,
+        gcdrTenantId: this.params.gcdrTenantId,
+      },
+      scope: this.params.gcdrCustomerId || orch.gcdrCustomerId || this.params.gcdrTenantId || orch.gcdrTenantId || undefined,
+    };
+  }
+
+  /**
+   * ED-1413: registers a confirmed label change in GCDR (G-2). Called only
+   * after ThingsBoard saved the label; never undoes TB and never blocks the
+   * modal — failures are retried by the queue with the same changeId.
+   */
+  private recordLabelChange(meta: SaveMeta): void {
+    const change = meta.labelChange;
+    if (!change) return;
+    const gcdrDeviceId = this.gcdrDeviceId || this.params.gcdrDeviceId;
+    if (!gcdrDeviceId) {
+      console.warn(
+        '[SettingsModal] ED-1413: device sem gcdrDeviceId — troca de etiqueta salva só no ThingsBoard (sem registro no GCDR)',
+        { deviceId: this.params.deviceId, from: change.from, to: change.to }
+      );
+      return;
+    }
+    const deps = this.deviceChangesDeps();
+    const entry = buildLabelChangeEntry({
+      gcdrDeviceId,
+      tbDeviceId: this.params.deviceId,
+      from: change.from,
+      to: change.to,
+      changedBy: meta.changedBy,
+      scope: deps.scope,
+    });
+    void recordDeviceChange(entry, deps).catch((error) =>
+      console.error('[SettingsModal] ED-1413: failed to record label change in GCDR:', error)
+    );
   }
 
   /**
@@ -246,7 +306,7 @@ export class SettingsController {
     }
   }
 
-  private async handleSave(formData: Record<string, any>): Promise<void> {
+  private async handleSave(formData: Record<string, any>, meta?: SaveMeta): Promise<void> {
     console.info('[SettingsModal] Save initiated', { deviceId: this.params.deviceId, formData });
 
     this.emitEvent('save_started', { formData });
@@ -254,6 +314,14 @@ export class SettingsController {
 
     try {
       const result = await this.saveSettings(formData);
+
+      // ED-1413: the label reached ThingsBoard → register the confirmed change
+      // in GCDR (even if another part of the save failed) and stop treating it
+      // as pending in the view, so a retry of the rest doesn't re-ask/re-record.
+      if (meta?.labelChange && result.entity?.ok) {
+        this.view.setLoadedLabel(meta.labelChange.to);
+        this.recordLabelChange(meta);
+      }
 
       if (result.ok) {
         console.info('[SettingsModal] Settings saved successfully', result);

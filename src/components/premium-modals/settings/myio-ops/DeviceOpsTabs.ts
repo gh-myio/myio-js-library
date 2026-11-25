@@ -24,7 +24,7 @@ export interface DeviceOpsApiConfig {
   gcdrTenantId?: string;
 }
 
-interface ResolvedApi {
+export interface ResolvedApi {
   gcdrDeviceId: string;
   identifier: string;
   gcdrRoot: string;
@@ -99,7 +99,11 @@ function fmtDate(value?: string | null): string {
   return Number.isNaN(d.getTime()) ? esc(value) : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-function resolveApi(config: DeviceOpsApiConfig): ResolvedApi {
+/**
+ * GCDR/alarms credentials + roots for the Settings modal (params → `window.MyIOOrchestrator`).
+ * Shared with the device-changes queue (ED-1413) so every Settings GCDR call authenticates the same way.
+ */
+export function resolveApi(config: DeviceOpsApiConfig): ResolvedApi {
   const orch = ((globalThis as any).window?.MyIOOrchestrator || {}) as Record<string, any>;
   const apiKey = config.gcdrApiKey ?? orch.gcdrApiKey ?? '';
   const tenantId = config.gcdrTenantId ?? orch.gcdrTenantId ?? '';

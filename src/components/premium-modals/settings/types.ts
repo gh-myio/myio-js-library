@@ -113,6 +113,8 @@ export interface OpenDashboardPopupSettingsParams {
   gcdrCustomerId?: string;
   gcdrTenantId?: string;
   gcdrApiBaseUrl?: string;
+  /** Customer GCDR API key (`gcdr_cust_*`). Default: `window.MyIOOrchestrator.gcdrApiKey`. */
+  gcdrApiKey?: string;
   /** Pre-fetched GCDR bundle from MAIN_VIEW orchestrator */
   prefetchedBundle?: GCDRCustomerBundle | null;
   /** Pre-fetched customer alarms from MAIN_VIEW orchestrator (raw GCDR API format).
@@ -249,6 +251,8 @@ export interface ModalConfig {
   gcdrCustomerId?: string;
   gcdrTenantId?: string;
   gcdrApiBaseUrl?: string;
+  /** Customer GCDR API key. Default: `window.MyIOOrchestrator.gcdrApiKey`. */
+  gcdrApiKey?: string;
   /** Pre-fetched GCDR bundle from MAIN_VIEW orchestrator */
   prefetchedBundle?: GCDRCustomerBundle | null;
   /** Pre-fetched customer alarms from MAIN_VIEW orchestrator (raw GCDR API format). */
@@ -280,8 +284,30 @@ export interface ModalConfig {
    */
   interpolatedSlots?: InterpolatedSlot[];
 
-  onSave: (formData: Record<string, any>) => Promise<void>;
+  /** `meta` is set only when the user confirmed a label change (ED-1413). */
+  onSave: (formData: Record<string, any>, meta?: SaveMeta) => Promise<void>;
   onClose: () => void;
+}
+
+/** ED-1413: device label change confirmed by the user in the Settings modal. */
+export interface LabelChange {
+  /** Label as loaded in the modal (already normalized by `labelCase`). */
+  from: string;
+  /** New label (normalized). */
+  to: string;
+}
+
+/** ED-1413: who made the change — sent to GCDR because the customer API key carries no user. */
+export interface ChangeAuthor {
+  id: string;
+  email: string;
+  name: string;
+}
+
+/** ED-1413: extra context the view hands the controller on save. */
+export interface SaveMeta {
+  labelChange?: LabelChange;
+  changedBy?: ChangeAuthor;
 }
 
 /**

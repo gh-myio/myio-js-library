@@ -199,6 +199,20 @@ export interface AnnotationsTabConfig {
   };
   /** RFC-0144: If false, onboarding tour is never shown. Default: false */
   enableAnnotationsOnboarding?: boolean;
+  /**
+   * ED-1413: also list the device's read-only `system` annotations from GCDR
+   * (e.g. label changes registered via G-2). Display-only — they are never
+   * written back to the TB `log_annotations` attribute.
+   */
+  gcdrSystem?: {
+    gcdrDeviceId: string;
+    /** GCDR base URL WITH version, e.g. "https://gcdr-api.a.myio-bas.com/api/v1". */
+    domainPath: string;
+    apiKey: string;
+    tenantId?: string;
+    /** Injectable for tests; default `globalThis.fetch`. */
+    fetchImpl?: typeof fetch;
+  };
 }
 
 export interface AnnotationFormConfig {

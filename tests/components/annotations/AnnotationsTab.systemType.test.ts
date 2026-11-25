@@ -236,3 +236,129 @@ describe('AnnotationsTab — type filter with "Sistema" (ED-1412)', () => {
     expect(cards.every((c) => c.classList.contains('annotation-card--system'))).toBe(true);
   });
 });
+
+describe('AnnotationsTab — anotações Sistema vindas do GCDR (ED-1413)', () => {
+  const GCDR_SYSTEM = {
+    id: 'g-sys-1',
+    version: 1,
+    customerId: 'cust-1',
+    entityType: 'device',
+    entityId: 'gcdr-dev-1',
+    text: 'Etiqueta do dispositivo alterada.',
+    type: 'system',
+    importance: 4,
+    finalized: false,
+    createdAt: '2026-11-25T10:00:00.000Z',
+    createdBy: { id: 'u-1', email: 'operador@example.com', name: 'Operador' },
+    meta: { field: 'label', from: 'OUTBACK', to: 'NOVA LOJA' },
+  };
+
+  async function mountWithGcdr(tbAnnotations: Annotation[], gcdr: () => Promise<Response>) {
+    installFetch(tbAnnotations);
+    const gcdrFetch = vi.fn(async () => gcdr());
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const tab = new AnnotationsTab({
+      container,
+      deviceId: 'dev-1',
+      jwtToken: 'jwt',
+      tbBaseUrl: '',
+      currentUser: ADMIN,
+      permissions: { isSuperAdminMyio: true, isSuperAdminHolding: false, currentUser: ADMIN },
+      gcdrSystem: {
+        gcdrDeviceId: 'gcdr-dev-1',
+        domainPath: 'https://gcdr.test/api/v1',
+        apiKey: 'gcdr_cust_KEY',
+        tenantId: 'tenant-1',
+        fetchImpl: gcdrFetch as unknown as typeof fetch,
+      },
+    });
+    await tab.init();
+    return { tab, container, gcdrFetch };
+  }
+
+  const okList = (items: unknown[]) => async () =>
+    new Response(JSON.stringify({ data: items, pagination: { page: 1, limit: 100, hasNext: false } }), { status: 200 });
+
+  it('lista as Sistema do device no GCDR com X-API-Key/X-Tenant-ID e as exibe com de→para, data e autor', async () => {
+    const { container, gcdrFetch, tab } = await mountWithGcdr([pending], okList([GCDR_SYSTEM]));
+
+    const [url, init] = gcdrFetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain('https://gcdr.test/api/v1/annotations?');
+    expect(url).toContain('entityType=device');
+    expect(url).toContain('entityId=gcdr-dev-1');
+    expect(url).toContain('type=system');
+    const headers = init.headers as Headers;
+    expect(headers.get('X-API-Key')).toBe('gcdr_cust_KEY');
+    expect(headers.get('X-Tenant-ID')).toBe('tenant-1');
+
+    const el = card(container, 'g-sys-1');
+    expect(el.classList.contains('annotation-card--system')).toBe(true);
+    expect(el.querySelector('.annotation-card__change-from')?.textContent).toBe('OUTBACK');
+    expect(el.querySelector('.annotation-card__change-to')?.textContent).toBe('NOVA LOJA');
+    expect(el.querySelector('.annotation-card__author')?.textContent).toContain('Operador');
+    expect(el.querySelector('.annotation-card__date')?.textContent).not.toBe('-');
+    for (const action of WRITE_ACTIONS) expect(el.querySelector(`[data-action="${action}"]`)).toBeNull();
+    expect(tab.getActiveCount()).toBe(2);
+  });
+
+  it('as Sistema do GCDR nunca são gravadas no log_annotations do TB', async () => {
+    const { tab } = await mountWithGcdr([pending], okList([GCDR_SYSTEM]));
+    const tbFetch = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+    tbFetch.mockClear();
+
+    await (tab as unknown as { addAnnotation: (d: unknown) => Promise<void> }).addAnnotation({
+      text: 'Nova pendência',
+      type: 'pending',
+      importance: 3,
+    });
+
+    const post = tbFetch.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === 'POST');
+    expect(post).toBeDefined();
+    const saved = JSON.parse((post![1] as RequestInit).body as string).log_annotations.annotations as Annotation[];
+    expect(saved.map((a) => a.id)).toContain('pend-1');
+    expect(saved.map((a) => a.id)).not.toContain('g-sys-1');
+    expect(saved).toHaveLength(2);
+  });
+
+  it('falha no GCDR mantém as anotações do TB e só avisa no console', async () => {
+    const { container } = await mountWithGcdr([pending], async () => new Response('{}', { status: 403 }));
+
+    expect(container.querySelector('.annotation-card[data-id="pend-1"]')).not.toBeNull();
+    expect(container.querySelectorAll('.annotation-card')).toHaveLength(1);
+    expect((console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls.some((c) => String(c[0]).includes('ED-1413'))).toBe(true);
+  });
+
+  it('a lista do TB aparece antes de o GCDR responder (GCDR lento não atrasa a aba)', async () => {
+    let release!: (r: Response) => void;
+    const gcdrPending = new Promise<Response>((r) => (release = r));
+    installFetch([pending]);
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const tab = new AnnotationsTab({
+      container,
+      deviceId: 'dev-1',
+      jwtToken: 'jwt',
+      currentUser: ADMIN,
+      permissions: { isSuperAdminMyio: true, isSuperAdminHolding: false, currentUser: ADMIN },
+      gcdrSystem: {
+        gcdrDeviceId: 'gcdr-dev-1',
+        domainPath: 'https://gcdr.test/api/v1',
+        apiKey: 'gcdr_cust_KEY',
+        fetchImpl: (() => gcdrPending) as unknown as typeof fetch,
+      },
+    });
+    const initDone = tab.init();
+    await vi.waitFor(() => expect(container.querySelector('.annotation-card[data-id="pend-1"]')).not.toBeNull());
+    expect(container.querySelector('.annotation-card[data-id="g-sys-1"]')).toBeNull();
+
+    release(new Response(JSON.stringify({ data: [GCDR_SYSTEM] }), { status: 200 }));
+    await initDone;
+    expect(container.querySelector('.annotation-card[data-id="g-sys-1"]')).not.toBeNull();
+  });
+
+  it('não duplica quando o mesmo id já veio do TB', async () => {
+    const { container } = await mountWithGcdr([{ ...systemWithMeta, id: 'g-sys-1' }], okList([GCDR_SYSTEM]));
+    expect(container.querySelectorAll('.annotation-card[data-id="g-sys-1"]')).toHaveLength(1);
+  });
+});
