@@ -2901,3 +2901,23 @@ export type {
   CentralConnectivityEvidence,
   DeriveConnectivityOptions,
 } from './utils/central/deriveConnectivity';
+
+// RFC-0242: MYIO Bot SDK — client (protocol) and floating widget (UI). The UMD core
+// does NOT bundle the widget (see src/umd-core.ts); use MyIOLibrary.loadBotWidget() there.
+export { createMyIOBotClient, MyIOBotError, isMyIOBotError, MYIO_BOT_PROTOCOL_VERSION } from './components/myio-bot';
+export { createMyIOBotWidget, openMyIOBotPanel, loadBotWidget } from './components/myio-bot/widget';
+export type {
+  MyIOBotClient,
+  MyIOBotClientOptions,
+  MyIOBotAuth,
+  MyIOBotWidgetOptions,
+  MyIOBotWidgetHandle,
+  MyIOBotTurn,
+  MyIOBotStreamEvent,
+  MyIOBotPendingAction,
+  MyIOBotConversation,
+  MyIOBotMessage,
+  MyIOBotStatus,
+  MyIOBotContext,
+} from './components/myio-bot';
+export type { LoadBotWidgetOptions } from './components/myio-bot/widget';

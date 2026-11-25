@@ -61,6 +61,9 @@ ssh -i id_rsa root@<ipv6-da-central>
 | Central Moxuara 2.0 - ENTRADA - TRAFO - 2026-07-13                                                        | `200:b2d6:a485:7a30:364b:424c:cafa:141c`    | `6d7cd66a-c6dd-40df-b40b-e1bad295e424`     | —               | —          |
 | Montserrat                                                                                                | `200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc`     | `186bbdcb-95bc-4290-bf33-1ce89e48ffb4`     | —               | —          |
 | Shopping Ananindeua                                                                                       | `201:ca6e:c33b:3a06:f4dd:d148:5d85:6315`    | `7ac0ac44-e631-4b64-ac1d-e9e93fe61e0a`     | —               | —          |
+| Central Ananindeua Entrada de Energia - 2026-11-16                                                        | `202:87dc:a0a4:6ee2:89b2:b4e8:e2c3:270b`    | `6df15587-524a-474a-9076-54174840185b`     | `225.52.22.135` | `60`       |
+
+> **Central Ananindeua Entrada de Energia** (2026-11-16) — `central_uuid` = `6df15587-524a-474a-9076-54174840185b`; central id `[225,52,22,135]` (`225.52.22.135`), frequência `60`. Scripts MQTT Sync em `src/NODE-RED/SA-CAVALCANTE/ANANINDEUA-ENTRADA/mqtt-sync/` (`00`–`04`, especializados a partir do Taboão).
 
 #### Holding: SOUZA AGUIAR
 
@@ -231,6 +234,9 @@ ssh -i id_rsa root@200:abb2:e99:ec3d:eaf8:2d90:7bd9:42cc
 
 # Shopping Ananindeua (Sá Cavalcante)
 ssh -i id_rsa root@201:ca6e:c33b:3a06:f4dd:d148:5d85:6315
+
+# Central Ananindeua Entrada de Energia - 2026-11-16 (Sá Cavalcante)
+ssh -i id_rsa root@202:87dc:a0a4:6ee2:89b2:b4e8:e2c3:270b
 
 # Souza Aguiar — CO2
 ssh -i id_rsa root@201:3941:4753:9232:901b:19fa:4978:51aa

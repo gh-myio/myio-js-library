@@ -1,6 +1,6 @@
 {
   "name": "myio-js-library",
-  "version": "0.1.596",
+  "version": "0.1.598",
   "description": "A clean, standalone JS SDK for MYIO projects",
   "license": "MIT",
   "repository": "github:gh-myio/myio-js-library",
@@ -42,10 +42,11 @@
     "LICENSE"
   ],
   "scripts": {
-    "clean": "rimraf dist",
+    "clean": "rimraf dist .build",
     "build:tsup": "tsup --entry.index=src/index.ts --entry.tooltips=src/utils/tooltips/tooltips.ts --format esm,cjs --clean --outDir dist --dts",
-    "build:umd": "rollup -c",
-    "minify:umd": "terser dist/myio-js-library.umd.js -o dist/myio-js-library.umd.min.js --comments=false",
+    "build:umd-entries": "tsup --entry.umd-core=src/umd-core.ts --entry.myio-bot-widget=src/components/myio-bot/widget/umd.ts --format esm --clean --outDir .build/umd",
+    "build:umd": "npm run build:umd-entries && rollup -c",
+    "minify:umd": "terser dist/myio-js-library.umd.js -o dist/myio-js-library.umd.min.js --comments=false && terser dist/myio-bot-widget.umd.js -o dist/myio-bot-widget.umd.min.js --compress --mangle --comments=false",
     "postbuild": "node scripts/verify-dts.js",
     "gen:baked-profile": "node scripts/gen-baked-profile.mjs",
     "prebuild": "node scripts/gen-baked-profile.mjs --check",

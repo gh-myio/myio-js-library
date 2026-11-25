@@ -81,6 +81,15 @@
           <div style="display:flex;gap:4px;margin-top:4px"><button type="button" data-sim-toggle="b1">B1</button><button type="button" data-sim-toggle="b2">B2</button><button type="button" data-sim-toggle="s">S</button></div>
           <div class="sc-checkbox" style="margin-top:5px"><input type="checkbox" id="sc-sim-s-no-telemetry" /><label for="sc-sim-s-no-telemetry" style="margin:0">Simular ausência de telemetria do S (indicador SEM LEITURA)</label></div>
         </div></fieldset>
+        <fieldset id="sc-bot-fs"><legend>🤖 RFC-0242 · MYIO Bot</legend><div class="sc-fs-body">
+          <div id="sc-bot-status" style="font-size:11px;opacity:.85">—</div>
+          <div id="sc-bot-live" hidden>
+            <label for="sc-bot-base">gcdrApiBaseUrl (live)</label><input id="sc-bot-base" type="text" />
+            <label for="sc-bot-key">API key bot:use — só em memória, nunca salva</label><input id="sc-bot-key" type="password" autocomplete="off" />
+          </div>
+          <div style="display:flex;gap:4px;margin-top:6px"><button type="button" id="sc-bot-mount">↻ Montar bot</button><button type="button" id="sc-bot-destroy" class="sc-ghost">destroy</button><button type="button" id="sc-bot-pos" class="sc-ghost" title="Volta o painel arrastado ao canto">⌖ posição</button></div>
+          <div style="font-size:10px;opacity:.7;margin-top:4px">Stub local por padrão (SSE delta/done); <code>?bot=live</code> fala com o GCDR real. Arraste o painel pelo cabeçalho (duplo clique volta ao canto).</div>
+        </div></fieldset>
         <fieldset id="sc-widgets-fs"><legend>Widgets montados</legend><div class="sc-fs-body" id="sc-widgets">—</div></fieldset>
         <div style="opacity:.6;margin-top:8px">
           Widgets, templates, CSS e schemas são lidos de <code>src/…/v-5.2.0/WIDGET/</code>; o layout vem de <code>v-5.2.0.layout.json</code>.
@@ -115,6 +124,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script>document.write('<script src="../../dist/myio-js-library.umd.js?v=' + Date.now() + '"><\/script>');</script>
+  <!-- RFC-0242: in-memory stub of GCDR /bot/* (passed to the widget as its fetch; the page fetch is untouched) -->
+  <script src="../myio-bot/mock-bot-api.js"></script>
 
   <script>
   'use strict';
@@ -708,6 +719,53 @@
     document.querySelectorAll('[data-sim-toggle]').forEach((b) => { b.onclick = () => SIM.toggle(b.dataset.simToggle); });
   }
 
+  /* ---------- RFC-0242: MYIO Bot, mounted the way a ThingsBoard dashboard would (UMD core → loadBotWidget) ---------- */
+  const BOT_LIVE = new URLSearchParams(location.search).get('bot') === 'live';
+  let BOT = null;
+  let BOT_SEQ = 0; // the latest mountBot() call wins (load-time mount + "Montar bot" must never leave two widgets)
+  const botStatus = (t) => { document.getElementById('sc-bot-status').textContent = t; };
+  function botContext(page) {
+    const main = readMainSettings();
+    const ctx = { customerId: main.customerTB_ID || undefined, customerName: (window.MyIOUtils && window.MyIOUtils.customerName) || ENV || undefined };
+    if (page) ctx.page = page;
+    return ctx;
+  }
+  async function mountBot() {
+    try {
+      const seq = ++BOT_SEQ;
+      if (BOT) { BOT.destroy(); BOT = null; }
+      if (typeof MyIOLibrary === 'undefined' || typeof MyIOLibrary.loadBotWidget !== 'function') { botStatus('MyIOLibrary sem loadBotWidget — rode npm run build'); return; }
+      const W = await MyIOLibrary.loadBotWidget(); // injects ../../dist/myio-bot-widget.umd.js (same dir/flavour as the core)
+      if (seq !== BOT_SEQ) return; // a newer mountBot() is running
+      if (BOT) { BOT.destroy(); BOT = null; }
+      const main = readMainSettings();
+      const common = { host: { app: 'showcase-main-view-shopping', version: MyIOLibrary.version || 'dev', customerId: main.customerTB_ID || undefined },
+        context: botContext('telemetry'), position: 'bottom-right', locale: 'pt-BR' };
+      let opts;
+      if (BOT_LIVE) {
+        const key = document.getElementById('sc-bot-key').value.trim();
+        const base = document.getElementById('sc-bot-base').value.trim();
+        if (!key || !base) { botStatus('live: informe gcdrApiBaseUrl e a API key'); return; }
+        opts = Object.assign(common, { gcdrApiBaseUrl: base, auth: { apiKey: key } });
+      } else {
+        const mockFetch = window.MyIOBotMock.createFetch({ onRequest: (r) => log('info', `bot stub ${r.method} ${r.path} (${r.auth})`) });
+        opts = Object.assign(common, { gcdrApiBaseUrl: window.MyIOBotMock.MOCK_BASE_URL, auth: { apiKey: window.MyIOBotMock.FAKE_KEY }, fetch: mockFetch });
+      }
+      BOT = W.createMyIOBotWidget(opts);
+      BOT.on('turn', (t) => log('info', `MYIO Bot turn ${t.tier} · ${t.provider} · ${t.model}`));
+      BOT.on('error', (e) => log('warn', `MYIO Bot ${e.code}: ${e.message}`));
+      BOT.on('action', (a) => log('info', `MYIO Bot action ${a.type}`));
+      botStatus(BOT_LIVE ? `live → ${opts.gcdrApiBaseUrl}` : 'stub local (sem rede) — clique no botão “MYIO Bot”');
+      log('info', `MYIO Bot montado (${BOT_LIVE ? 'live' : 'stub'})`);
+    } catch (e) { botStatus(`${e.code || 'erro'}: ${e.message}`); log('err', `MYIO Bot: ${e.message}`); }
+  }
+  // the host passes context; the widget never scrapes the page
+  window.addEventListener('myio:dashboard-state', (e) => { if (BOT && e.detail && e.detail.tab) BOT.setContext(botContext(e.detail.tab)); });
+  document.getElementById('sc-bot-live').hidden = !BOT_LIVE;
+  document.getElementById('sc-bot-mount').onclick = () => mountBot();
+  document.getElementById('sc-bot-pos').onclick = () => { if (BOT) { BOT.resetPosition(); log('info', 'MYIO Bot: posição do painel resetada'); } };
+  document.getElementById('sc-bot-destroy').onclick = () => { if (BOT) { BOT.destroy(); BOT = null; botStatus('destruído'); } };
+
   window.addEventListener('load', async () => {
     try { LAYOUT = await (await _fetch(`${LAYOUT_URL}?${bust()}`)).json(); } catch (e) { log('err', 'layout: ' + e.message); return; }
     await loadConfig();
@@ -717,6 +775,8 @@
     applyEnv(envs.includes(saved) ? saved : (CONFIG['v-5.2.0'] && CONFIG['v-5.2.0'].defaultEnv) || CONFIG.defaultEnv || envs[0] || '');
     updateAuth();
     log('info', typeof MyIOLibrary !== 'undefined' ? `MyIOLibrary ${MyIOLibrary.version || ''} carregada` : 'MyIOLibrary NÃO carregada — rode npm run build');
+    if (BOT_LIVE) { document.getElementById('sc-bot-base').value = readMainSettings().gcdrApiBaseUrl || ''; botStatus('live: informe a API key e clique em Montar bot'); }
+    else mountBot();
   });
   </script>
 </body>

@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "central": "Central Ananindeua Entrada de Energia - 2026-11-16 (Sá Cavalcante)",
+    "table": "ambients_rfir_slaves_rel",
+    "rowCount": 2,
+    "capturedAt": "2026-11-24 23:18 UTC",
+    "source": "dump-cadastro.py → ssh root@202:87dc:a0a4:6ee2:89b2:b4e8:e2c3:270b · psql -U hubot (SELECT json_agg, somente leitura)"
+  },
+  "rows": [
+    {"created_at": "2026-11-14T14:55:01.66+00:00", "updated_at": "2026-11-14T14:55:01.66+00:00", "slave_id": 1, "ambient_id": 2},
+    {"created_at": "2026-11-24T23:15:23.716308+00:00", "updated_at": "2026-11-24T23:15:23.716308+00:00", "slave_id": 2, "ambient_id": 3}
+  ]
+}

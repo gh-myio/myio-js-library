@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# RFC-0242: intermediate ESM inputs of the UMD bundles (tsup → rollup)
+.build/
 .DS_Store
 .env
 tb.env
