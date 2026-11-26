@@ -5042,6 +5042,12 @@ function _filterValueLabels(base) {
   };
 }
 
+// ED-1405: texto do valor de UM device na modal de filtro (lista e Resumo), sempre na base
+// da modal: R$ só com cobertura completa; senão o físico (nunca R$ misturado com kWh na lista).
+function _filterItemValueText(it, v, base) {
+  return base && base.money ? window.MyIOUtils.formatItemValue(it, WIDGET_DOMAIN) : _fmtDeviceValue(v);
+}
+
 // Renders the consumption summary card (3rd column): average, 3 highest,
 // 3 lowest and the 3 devices closest to the average.
 // ED-1405: no modo R$ com cobertura completa tudo sai em R$ ("Resumo de Custo estimado").
@@ -5075,9 +5081,8 @@ function _renderFilterStats($m, list, base) {
     .sort((a, b) => Math.abs(a.v - avg) - Math.abs(b.v - avg))
     .slice(0, 3);
 
-  // Em R$ o texto da linha é o mesmo da lista (formatItemValue → R$ do device)
-  const fmtRow = (x) =>
-    base.money ? window.MyIOUtils.formatItemValue(x.it, WIDGET_DOMAIN) : _fmtDeviceValue(x.v);
+  // Mesmo texto da lista (_filterItemValueText: R$ do device só com a base em R$)
+  const fmtRow = (x) => _filterItemValueText(x.it, x.v, base);
   const row = (x) => {
     const color = x.v > 0 ? '#16a34a' : '#94a3b8';
     return `<div class="filter-stats-row">
@@ -5216,14 +5221,14 @@ function openFilterModal() {
     const _noRead = _isTemp && _isTempOffline(it);
     const _vColor = _noRead ? '#94a3b8' : _isTemp || _v > 0 ? '#16a34a' : '#94a3b8';
     label.setAttribute('data-value', String(_v));
+    // ED-1405: texto do valor na base da modal (R$ incompleto → físico, como data-value/%/Faixa)
+    const _vText = _noRead ? 'sem leitura' : escapeHtml(_filterItemValueText(it, _v, _base));
     label.innerHTML = `
       <input type="checkbox" id="chk-${safeId}" data-entity="${escapeHtml(it.id)}" ${
         checked ? 'checked' : ''
       }>
       <span class="check-item-name">${escapeHtml(it.label || it.identifier || it.id)}</span>
-      <span class="check-item-value" style="color:${_vColor};">${
-        _noRead ? 'sem leitura' : escapeHtml(_isMoneyMode() ? window.MyIOUtils.formatItemValue(it, WIDGET_DOMAIN) : _fmtDeviceValue(_v))
-      }</span>
+      <span class="check-item-value" style="color:${_vColor};">${_vText}</span>
       ${_isTemp ? '' : `<span class="check-item-pct">${_fmtPct(_v, _base.total)}</span>`}
     `;
     frag.appendChild(label);

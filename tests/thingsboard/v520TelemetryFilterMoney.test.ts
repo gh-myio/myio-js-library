@@ -37,6 +37,7 @@ const TLM_FUNCTIONS = [
   '_isTempOffline',
   '_filterValueBase',
   '_filterValueLabels',
+  '_filterItemValueText',
   '_renderFilterStats',
   '_renderTemperatureFilterStats',
 ];
@@ -58,13 +59,16 @@ function makeMainMoney(win: any, mode: string, byKey: Map<string, Money> | null)
   );
 }
 
-function makeTelemetry(opts: {
+type TelemetryOpts = {
   domain: Domain;
   mode: 'money' | 'physical';
   money?: Record<string, Money>;
   /** valoração do período pronta (false = MAIN ainda calculando) */
   ready?: boolean;
-}) {
+};
+
+/** window do widget: lib real + MAIN real (valoração stubada em byKey). */
+function makeWin(opts: TelemetryOpts) {
   const win: any = {
     MyIOLibrary: { sumItemMoney, formatMoneyBRL: formatBRL, buildMoneyCoverageMarkerHTML, formatItemMoney },
     MyIOUtils: {
@@ -76,14 +80,82 @@ function makeTelemetry(opts: {
   };
   const byKey = opts.ready === false ? null : new Map(Object.entries(opts.money || {}));
   Object.assign(win.MyIOUtils, makeMainMoney(win, opts.mode, byKey));
+  return win;
+}
+
+/** Avalia funções reais do TELEMETRY; `params` resolve os globais do widget que elas usam. */
+function sandbox(
+  opts: TelemetryOpts,
+  names: string[],
+  params: Record<string, unknown> = {},
+  prelude = ''
+): Record<string, (...a: any[]) => any> {
   const body =
-    TLM_FUNCTIONS.map((n) => extractFunction(TLM_SRC, n)).join('\n') +
-    `\nreturn { ${TLM_FUNCTIONS.join(', ')} };`;
+    prelude + names.map((n) => extractFunction(TLM_SRC, n)).join('\n') + `\nreturn { ${names.join(', ')} };`;
   // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-  return new Function('window', 'WIDGET_DOMAIN', 'MyIO', body)(win, opts.domain, undefined) as Record<
-    string,
-    (...a: any[]) => any
-  >;
+  return new Function('window', 'WIDGET_DOMAIN', 'MyIO', ...Object.keys(params), body)(
+    makeWin(opts),
+    opts.domain,
+    undefined,
+    ...Object.values(params)
+  );
+}
+
+function makeTelemetry(opts: TelemetryOpts) {
+  return sandbox(opts, TLM_FUNCTIONS);
+}
+
+/**
+ * openFilterModal REAL. $m falso: a checklist é uma <div> do jsdom; o resto da modal (Resumo,
+ * selects, Faixa, rodapé) vira no-op — aqui só interessa a lista "Selecionar Lojas".
+ */
+function openFilterList(opts: TelemetryOpts, items: unknown[]): HTMLElement {
+  const checklist = document.createElement('div');
+  const $cl = {
+    length: 1,
+    0: checklist,
+    empty() {
+      checklist.innerHTML = '';
+      return this;
+    },
+    html(s: string) {
+      checklist.innerHTML = s;
+      return this;
+    },
+  };
+  const noop: any = { length: 0 };
+  for (const k of ['val', 'text', 'parent', 'show', 'find', 'html', 'empty']) noop[k] = () => noop;
+  const $m: any = { find: (sel: string) => (sel === '#deviceChecklist' ? $cl : noop), removeClass: () => $m };
+  const sb = sandbox(
+    opts,
+    [...TLM_FUNCTIONS, 'openFilterModal'],
+    {
+      $modal: () => $m,
+      STATE: { itemsBase: items, selectedIds: null, sortMode: 'cons_desc' },
+      _quickFilterTags: () => [],
+      _sortChecklistDom: () => {},
+      _renderQuickFilterTabs: () => {},
+      _applyChecklistVisibility: () => {},
+      syncChecklistSelectionVisual: () => {},
+    },
+    'let _filterRangeBase = null;\n'
+  );
+  sb.openFilterModal();
+  return checklist;
+}
+
+/** Linhas da checklist: nome → [valor exibido, %, data-value]. */
+function checklistRows(checklist: HTMLElement): Record<string, [string, string, string]> {
+  return Object.fromEntries(
+    [...checklist.querySelectorAll('.check-item')].map((row) => [
+      row.querySelector('.check-item-name')?.textContent?.trim() || '',
+      [
+        row.querySelector('.check-item-value')?.textContent?.trim() || '',
+        row.querySelector('.check-item-pct')?.textContent?.trim() || '',
+        row.getAttribute('data-value') || '',
+      ],
+    ])
+  );
 }
 
 /** $m falso: só o card do resumo. */
@@ -325,5 +397,46 @@ describe('ED-1405 — rótulos da Faixa / ordenação', () => {
       sortDesc: 'Temperatura ↓',
       sortAsc: 'Temperatura ↑',
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lista "Selecionar Lojas" (openFilterModal real): texto, % e data-value na MESMA base
+// ---------------------------------------------------------------------------
+describe('ED-1405 — lista "Selecionar Lojas" (openFilterModal)', () => {
+  it('R$ + cobertura incompleta → lista toda no físico (nenhum R$ misturado com a Faixa em kWh)', () => {
+    const rows = checklistRows(
+      openFilterList({ domain: 'energy', mode: 'money', money: { ...STORES_MONEY, 'ING-L3': missing } }, STORES)
+    );
+    expect(Object.keys(rows)).toHaveLength(6);
+    for (const [value] of Object.values(rows)) {
+      expect(value).toMatch(/kWh|MWh/);
+      expect(value).not.toContain('R$');
+    }
+    // L1 tem R$ completo (100,00), mas a base da modal é kWh → texto em kWh, como data-value e %
+    expect(rows['Loja L1']).toEqual(['200,000 kWh', '9,30%', '200']);
+    expect(rows['C&A']).toEqual(['1,500 MWh', '69,77%', '1500']); // 1500 / 2150
+  });
+
+  it('R$ + cobertura completa → texto, % e data-value em R$', () => {
+    const rows = checklistRows(openFilterList({ domain: 'energy', mode: 'money', money: STORES_MONEY }, STORES));
+    expect(rows['C&A']).toEqual(['R$ 900,00', '75,00%', '900']);
+    expect(rows['Loja L1']).toEqual(['R$ 100,00', '8,33%', '100']);
+    for (const [value] of Object.values(rows)) expect(value).not.toMatch(/kWh|MWh/);
+  });
+
+  it('modo físico e valoração pendente → mesma lista', () => {
+    const phys = openFilterList({ domain: 'energy', mode: 'physical' }, STORES);
+    const pending = openFilterList({ domain: 'energy', mode: 'money', money: STORES_MONEY, ready: false }, STORES);
+    expect(checklistRows(phys)['C&A']).toEqual(['1,500 MWh', '69,77%', '1500']);
+    expect(pending.innerHTML).toBe(phys.innerHTML);
+  });
+
+  it('água, R$ + cobertura incompleta → m³', () => {
+    const rows = checklistRows(
+      openFilterList({ domain: 'water', mode: 'money', money: { ...WATER_MONEY, 'ING-W3': missing } }, WATER)
+    );
+    expect(rows['Loja W1']).toEqual(['10,00 m³', '28,57%', '10']); // 10 / 35
+    for (const [value] of Object.values(rows)) expect(value).not.toContain('R$');
   });
 });
